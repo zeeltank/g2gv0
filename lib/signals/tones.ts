@@ -33,12 +33,21 @@ export const PRODUCT_CHIP_TONE = CHIP_TONE.info
 /** A result message in the drawer or under a button. */
 export const BANNER_TONE: Record<'success' | 'error', string> = { success: NOTICE_TONE.success, error: NOTICE_TONE.error }
 
+/** The outcome of an export or a run, where the person is looking: all four tones on a solid surface, only the border takes the status colour. */
+export const NOTICE_BANNER_TONE: Record<'success' | 'warning' | 'error' | 'info', string> = {
+  success: NOTICE_TONE.success,
+  warning: 'border-warning bg-card text-foreground',
+  error: NOTICE_TONE.error,
+  info: 'border-border bg-muted text-foreground',
+}
+
 /** Every text / surface class pair this file defines, for the contrast test. */
 export const TEXT_ON_SURFACE: ReadonlyArray<{ name: string; classes: string }> = [
   ...Object.entries(STATUS_TONE).map(([name, classes]) => ({ name: `status chip ${name}`, classes })),
   ...Object.entries(DATE_LOOK).map(([name, classes]) => ({ name: `date pill ${name}`, classes })),
   { name: 'product chip', classes: PRODUCT_CHIP_TONE },
   ...Object.entries(BANNER_TONE).map(([name, classes]) => ({ name: `banner ${name}`, classes })),
+  ...Object.entries(NOTICE_BANNER_TONE).map(([name, classes]) => ({ name: `notice banner ${name}`, classes })),
   { name: 'secondary text on a card', classes: 'bg-card text-muted-foreground' },
   { name: 'secondary text on the muted surface', classes: 'bg-muted text-muted-foreground' },
 ]

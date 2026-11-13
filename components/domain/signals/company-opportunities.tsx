@@ -23,6 +23,7 @@ import { commitPending, emptyDraft, type RegionDraft, type RegionSelection } fro
 import { DEFAULT_REGIONS, loadSavedRegions, persistSavedRegions } from '@/lib/location-repository'
 import { readRemembered, rememberProduct, useProducts } from '@/components/domain/signals/product-selector'
 import { ResearchProgress } from '@/components/domain/signals/research-progress'
+import { RunHealthButton } from '@/components/domain/signals/run-health-button'
 import { SignalList, type SignalListControls } from '@/components/domain/signals/signal-list'
 import { useGenerateSignals } from '@/components/domain/signals/use-generate-signals'
 import { regionSignature, showsRunProgress } from '@/lib/signal-run-view'
@@ -31,6 +32,9 @@ import { ManualOpportunityDialog } from '@/components/domain/signals/manual-oppo
 import { opportunitiesService, type ManualOpportunityResponse, type ResearchRun, type RunDatesResponse } from '@/services/signals/opportunities'
 
 type RunDate = RunDatesResponse['data']['dates'][number]
+
+/** Said beside Generate Signals when a run can start: pressing it spends search and AI quota. */
+const RUN_COST_NOTE = 'A run uses search and AI quota, so start one only when you need new signals.'
 
 /**
  * Company Opportunities: pick a product, press Generate Signals (its progress shows right below), then read what that product's research saved
@@ -41,9 +45,13 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  * size, are kept in the address under the Review's own names (`q`, `status`, `freshness`, `fit`, `sort`, `page`, `product`, plus `per`), so a link made for
  * the Review opens the same view here. A link that only searches or filters (`?status=all&q=…`) opens on All products, because the signal it points at may
  * belong to any product. All products has no run to start: Generate Signals, the sub-product, the ICP type and the places belong to one product.
+ *
+ * Also from the Signal Review (P1-A2): "Run health & cost" (the organisation's runs, in every scope), "Export CSV" beside the page size (see SignalList), and
+ * the checks of its Generate dialog on the Generate Signals button: the line beside it (what a run costs, or why it is off), the products that would not load
+ * with a Retry, and every refusal of a start said in plain words (see useGenerateSignals).
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
-  const { products, loading } = useProducts(context)
+  const { products, loading, error: productsError, reload: reloadProducts } = useProducts(context)
   const list = useListQuery(OPPORTUNITIES_QUERY)
   const { query } = list
   const searchParams = useSearchParams()
@@ -176,6 +184,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const ready = offerId
     ? (currentModelStatus ? currentModelStatus.ready : icpType === 'b2b' && selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_ready === true)
     : isModelReady
+  // The line beside Generate. The Signal Review's dialog said both things: what a run costs, before Start, and what a product still lacks. Here they are words
+  // next to the button, where they were a tooltip and a screen-reader line only.
+  const generateHint = selected
+    ? (ready ? RUN_COST_NOTE : `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}`)
+    : (everyProduct ? 'Choose one product to generate signals for it.' : '')
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -211,6 +224,14 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   return (
     <div className="space-y-5">
       <section aria-label="Product and actions" className="premium-card rounded-2xl border border-border/60 bg-card p-5 shadow-sm @xl:p-6">
+        {/* The products did not load: the box below stays off until they do, so the screen says why and offers Retry (the Signal Review's dialog did too). */}
+        {productsError && !products && (
+          <div className="mb-4">
+            <Notice tone="error" action={<Button type="button" size="sm" variant="outline" onClick={reloadProducts}>Retry</Button>}>
+              <span className="font-medium">The products could not be loaded.</span> {productsError}
+            </Notice>
+          </div>
+        )}
         {/* Choose a master product, acquisition profile, and region. */}
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
           {/* Dropdown 1: Main Product */}
@@ -281,10 +302,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
 
         </div>
 
-        <div className="mt-4 flex items-center justify-end border-t border-border/60 pt-4">
-          <span className="sr-only" aria-live="polite">
-            {!ready && selected ? `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}` : (everyProduct ? 'Choose one product to generate signals for it.' : '')}
-          </span>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
+          {/* In words, beside the buttons (it was a tooltip and a screen-reader line): why Generate is off, or what a run costs. */}
+          <p aria-live="polite" className="min-w-0 flex-1 basis-56 text-xs text-muted-foreground">{generateHint}</p>
+          {/* Run health and cost belong to the organisation's runs, not to the product on screen: the button is here in every scope. */}
+          <RunHealthButton className="h-11 w-full rounded-xl sm:w-auto" />
           <Button
             type="button"
             size="lg"

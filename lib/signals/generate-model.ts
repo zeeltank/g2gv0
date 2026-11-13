@@ -1,5 +1,6 @@
 import type { ProductInfo } from '@/services/portfolio/types'
 import type { CustomerModel, RunSnapshot, StartRunRequest } from '@/services/signal-review/signal-run-service'
+import { modelWord } from './run-failure'
 
 /**
  * The rules of the "Generate signals" dialog, kept apart from the screen so they can be tested: what the form asks, what each refusal of the run endpoint
@@ -95,8 +96,7 @@ export interface GenerateForm {
 
 export const EMPTY_FORM: GenerateForm = { product: '', model: 'b2b', offer: '' }
 
-/** The model's word as the server prints it: "B2B". */
-export const modelWord = (model: CustomerModel) => model.toUpperCase()
+export { modelWord } from './run-failure'
 
 type Offer = ProductInfo['offers'][number]
 
@@ -152,94 +152,7 @@ export function toRequest(form: GenerateForm): StartRunRequest {
 
 // ── Refusals ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type FailureKind = 'not_ready' | 'not_configured' | 'running' | 'wait' | 'forbidden' | 'session' | 'rejected' | 'network' | 'server'
-
-export interface StartFailure {
-  kind: FailureKind
-  title: string
-  message: string
-  /** What the product still lacks (the server's list), shown as bullets. */
-  missing: string[]
-  /** True when a run is already going, so the dialog can offer to follow it. */
-  canWatch: boolean
-}
-
-/** What the form had chosen, to name it in a refusal. */
-export interface FailureContext {
-  productLabel: string
-  subName: string | null
-  model: CustomerModel
-}
-
-export function failureContext(form: GenerateForm, products: readonly ProductInfo[]): FailureContext {
-  const product = products.find((p) => p.key === form.product)
-  const sub = form.offer === '' ? null : (product?.offers.find((o) => o.offer_id === form.offer)?.name ?? form.offer)
-  return { productLabel: product?.label ?? form.product, subName: sub, model: form.model }
-}
-
-interface RefusalShape {
-  status?: unknown
-  code?: unknown
-  missing?: unknown
-  retryAfterSeconds?: unknown
-  message?: unknown
-}
-
-const failure = (kind: FailureKind, title: string, message: string, extra: Partial<Pick<StartFailure, 'missing' | 'canWatch'>> = {}): StartFailure =>
-  ({ kind, title, message, missing: [], canWatch: false, ...extra })
-
-function waitText(seconds: unknown): string {
-  const minutes = typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds / 60) : null
-  return minutes === null
-    ? 'Research ran a moment ago. Please wait a little before running it again.'
-    : `Research ran a moment ago. Please wait about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} before running it again.`
-}
-
-/**
- * A failed start in plain words. The server's refusals carry a `code`; each one gets its own explanation, and a list of what is missing is passed through
- * as the server sent it. A request that never got an answer (no connection) is not a refusal and is told apart: the person can simply try again.
- */
-export function describeStartFailure(error: unknown, context: FailureContext): StartFailure {
-  const refusal: RefusalShape | null = error instanceof Error && typeof (error as RefusalShape).status === 'number' ? (error as RefusalShape) : null
-  if (!refusal) {
-    return error instanceof TypeError || !(error instanceof Error)
-      ? failure('network', 'The run could not be started', 'The server could not be reached. Check your connection and try again.')
-      : failure('server', 'The run could not be started', error.message || 'Something went wrong. Try again in a moment.')
-  }
-
-  const status = refusal.status as number
-  const code = typeof refusal.code === 'string' ? refusal.code : null
-  const missing = Array.isArray(refusal.missing) ? refusal.missing.filter((m): m is string => typeof m === 'string') : []
-  const message = typeof refusal.message === 'string' && refusal.message.trim() !== '' ? refusal.message : null
-  const subject = context.subName ?? 'That sub-product'
-
-  if (status === 403) return failure('forbidden', 'Not allowed', 'You are not allowed to start research.')
-  if (status === 401) return failure('session', 'Signed out', 'Your session has ended. Please sign in again.')
-  if (status === 409) {
-    return failure('running', 'Research is already running', 'Research is already running for your organisation. Watch it here instead of starting another.', { canWatch: true })
-  }
-  if (status === 429) return failure('wait', 'Please wait', code === 'cooldown' ? waitText(refusal.retryAfterSeconds) : 'Too many tries in a short time. Wait a moment and try again.')
-
-  if (status === 422) {
-    if (code === 'product_not_configured') {
-      return failure('not_ready', 'Not ready for research', message ?? `${context.productLabel} (${modelWord(context.model)} ICP) is not ready for discovery.`, { missing })
-    }
-    if (code === 'sub_product_not_ready') {
-      return failure('not_ready', 'Not ready for research', `${subject} (${modelWord(context.model)} ICP) is not ready for discovery.`, { missing })
-    }
-    if (code === 'research_not_configured') {
-      return failure('not_configured', 'Research is not set up', 'No web search provider is configured, so research cannot run. Ask an administrator to set one up.')
-    }
-    if (code === 'ai_not_configured') {
-      return failure('not_configured', 'Research is not set up', 'No AI provider is configured for your organisation, so research cannot run. Ask an administrator to set one up.')
-    }
-    return failure('rejected', 'The run was not accepted', message ?? 'The server did not accept this request.')
-  }
-
-  return failure('server', 'The run could not be started', status >= 500 ? 'The server had a problem starting the run. Try again in a moment.' : (message ?? 'The run could not be started.'))
-}
-
-/** The run a person asked to watch ended before the dialog found it. The screen refreshes its list, so what the run found is already there. */
-export function runGoneFailure(): StartFailure {
-  return failure('rejected', 'No run to watch', 'That run has just finished, and the list has been refreshed. You can start a new run if you need one.')
-}
+// The words for a refusal of the run endpoint moved to lib/signals/run-failure.ts when the Generate Signals button on Company Opportunities began to explain
+// refusals in the same words (docs/agentic-crm/slices/S15-product-portfolio-merge.md, P1-A2). They are re-exported here so the Review's dialog keeps its
+// imports until step 1.7 removes this file with that screen.
+export { describeStartFailure, failureContext, runGoneFailure, type FailureContext, type FailureKind, type StartFailure } from './run-failure'

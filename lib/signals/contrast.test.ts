@@ -34,7 +34,8 @@ describe('the Signal Review components keep to those looks (a scan, because the 
   // ... and the parts Company Opportunities shares with it or added for it, which live with the Signals screen now (the chips, the fit tab, the lead action,
   // the decision dialog, the history list, the card's actions and the list with its counts and filters). Each name is listed, so a rename cannot drop one.
   const signalsDir = path.resolve('components/domain/signals')
-  const SHARED = ['signal-parts', 'signal-fit', 'signal-lead', 'signal-decision-dialog', 'signal-history-list', 'signal-card-actions', 'signal-list']
+  // P1-A2 added the Runs panel (run health and cost, moved here from the Review), its button, and the export button with its notice.
+  const SHARED = ['signal-parts', 'signal-fit', 'signal-lead', 'signal-decision-dialog', 'signal-history-list', 'signal-card-actions', 'signal-list', 'signal-runs-panel', 'run-health-button', 'signal-export-button']
   const sharedFiles = SHARED.map((name) => path.join(signalsDir, `${name}.tsx`))
   const files = [...reviewFiles, ...sharedFiles]
 

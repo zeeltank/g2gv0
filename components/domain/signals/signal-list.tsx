@@ -22,9 +22,11 @@ import {
   opportunitiesService,
   type Opportunity,
   type OpportunityListResponse,
+  type OpportunityQuery,
 } from '@/services/signals/opportunities'
 import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
 import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
+import { ExportCsvButton, ScreenNoticeBanner, type ScreenNotice } from '@/components/domain/signals/signal-export-button'
 import { wantsFallback } from '@/lib/signal-fallback'
 import { rangeText } from '@/lib/signal-dates'
 import { createLatestOnly, listErrorMode } from '@/lib/signal-run-view'
@@ -116,6 +118,8 @@ export function SignalList({
   const [data, setData] = useState<OpportunityListResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // What the last export said (saved, cut short, nothing to export, cancelled, failed), until it is put away.
+  const [exportNotice, setExportNotice] = useState<ScreenNotice | null>(null)
   const latest = useRef(createLatestOnly())
   const everyProduct = productKey === 'all'
 
@@ -131,6 +135,24 @@ export function SignalList({
     if (page > 1) setPage(1)
   }, [scope, page, setPage])
 
+  // What the list asks the server for: the screen's scope (product, day, sub-product, ICP type, places, source tab) and the address's search, facets, order,
+  // page and page size. The CSV export reads every page of this SAME request (the button below), so the file is the list without the paging.
+  const request = useMemo((): OpportunityQuery => ({
+    product: productKey,
+    productMasterId: productMasterId ?? undefined,
+    offerId: allSignals ? undefined : (offerId ?? undefined),
+    customerModel: allSignals ? undefined : customerModel,
+    regions: allSignals ? undefined : regions,
+    runDate: allDates || dateFrom ? undefined : (runDate ?? undefined),
+    from: dateFrom ?? undefined,
+    to: dateTo ?? undefined,
+    runId: runId ?? undefined,
+    ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit, per } }),
+    expired: 'include',
+    allSignals: Boolean(allSignals),
+    source: sourceTab,
+  }), [productKey, productMasterId, allSignals, offerId, customerModel, regions, allDates, dateFrom, runDate, dateTo, runId, q, sort, page, status, freshness, fit, per, sourceTab])
+
   const load = useCallback(async () => {
     if (!allDates && !runDate && !dateFrom) {
       latest.current.invalidate()
@@ -141,21 +163,7 @@ export function SignalList({
     const ticket = latest.current.next()
     setLoading(true)
     try {
-      const res = await opportunitiesService.list(context, {
-        product: productKey,
-        productMasterId: productMasterId ?? undefined,
-        offerId: allSignals ? undefined : (offerId ?? undefined),
-        customerModel: allSignals ? undefined : customerModel,
-        regions: allSignals ? undefined : regions,
-        runDate: allDates || dateFrom ? undefined : (runDate ?? undefined),
-        from: dateFrom ?? undefined,
-        to: dateTo ?? undefined,
-        runId: runId ?? undefined,
-        ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit, per } }),
-        expired: 'include',
-        allSignals: Boolean(allSignals),
-        source: sourceTab,
-      })
+      const res = await opportunitiesService.list(context, request)
       if (!latest.current.isLatest(ticket)) return
       setData(res)
       setError(null)
@@ -166,7 +174,7 @@ export function SignalList({
     } finally {
       if (latest.current.isLatest(ticket)) setLoading(false)
     }
-  }, [context, productKey, runDate, allDates, dateFrom, dateTo, q, sort, page, status, freshness, fit, per, onTotal, offerId, customerModel, regions, runId, allSignals, sourceTab, productMasterId])
+  }, [context, request, allDates, runDate, dateFrom, onTotal])
 
   useEffect(() => {
     let live = true
@@ -312,7 +320,10 @@ export function SignalList({
           <Facet label="Fit" value={fit} choices={fitChoices(data?.filters?.business_fits, data?.filters?.products, fit)} onChange={(v) => controls.setFilter('fit', v)} />
           <Facet label="Sort" value={sort} choices={OPPORTUNITY_SORT_CHOICES} onChange={controls.setSort} />
           <Facet label="Page size" value={per} choices={PER_PAGE_LABELS} onChange={(v) => controls.setFilter('per', v)} />
+          {/* Every page of what the list asks for (the filters above are in it), up to the file's cap; works in every scope. */}
+          <ExportCsvButton label="Export CSV" read={(exportPage, size) => opportunitiesService.list(context, { ...request, page: exportPage, perPage: size })} onNotice={setExportNotice} />
         </div>
+        {exportNotice && <ScreenNoticeBanner notice={exportNotice} onDismiss={() => setExportNotice(null)} />}
       </div>
 
       {errorMode === 'beside' && (

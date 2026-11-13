@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/services/core'
+import { postRefusing } from '@/services/signals/run-refusal'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { dataConnectorMockApi, isDataConnectorMockModeEnabled } from '@/lib/signals/data-connectors-mock'
 import type { ProductFilterOption } from '@/services/signal-review/signal-types'
@@ -804,8 +805,10 @@ export const opportunitiesService = {
   getRunSources: (c: LaravelContext, runId: number) =>
     apiClient.get<RunSourcesResponse>(`/signals/research/runs/${runId}/sources`, base(c)),
 
+  // Not apiClient.post: its error keeps only message/errors/detail, and a refusal's `code`, its `missing` list and how long to wait (a 429) would be thrown away.
+  // A refusal is thrown as a RunRefusalError (services/signals/run-refusal.ts); the address, the token and the JSON are the shared client's.
   runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') =>
-    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
+    postRefusing<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
 
   /** Adds an opportunity by hand. The server stamps when it was saved; the source post's own date can be sent separately. No research is run. */
   createManual: (c: LaravelContext, body: Record<string, unknown>) =>

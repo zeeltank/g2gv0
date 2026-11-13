@@ -17,7 +17,7 @@ function run(over: Partial<SignalRun> = {}): SignalRun {
 
 async function setupView(props: Record<string, unknown> = {}) {
   const k = await kit()
-  const { SignalRunsView } = await import('../../components/domain/crm/signal-runs-panel')
+  const { SignalRunsView } = await import('../../components/domain/signals/signal-runs-panel')
   const retries = { count: 0 }
   await k.render(k.h(SignalRunsView, { runs: [run()], loading: false, error: null, onRetry: () => { retries.count += 1 }, now: NOW, ...props }))
   /** The cells of the row for run `id`, by column name. */
@@ -327,7 +327,7 @@ describe('SignalRunsPanel', () => {
   }
   const mount = async () => {
     const k = await kit()
-    const { SignalRunsPanel } = await import('../../components/domain/crm/signal-runs-panel')
+    const { SignalRunsPanel } = await import('../../components/domain/signals/signal-runs-panel')
     await k.render(k.h(SignalRunsPanel))
     for (let i = 0; i < 4; i += 1) await k.tick(5)
     return k

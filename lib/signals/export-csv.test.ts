@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { SignalListParams, SignalListResponse, SignalRow } from '../../services/signal-review/signal-types'
+import type { Opportunity } from '../../services/signals/opportunities'
 import {
-  buildCsv, collectSignals, csvField, csvFileName, CSV_HEADERS, EXPORT_CAP, EXPORT_PAGE_SIZE, ExportCancelled, neutraliseFormula, reasonLabel, signalCsvCells,
+  buildCsv, collectPages, collectSignals, csvField, csvFileName, CSV_HEADERS, EXPORT_CAP, EXPORT_PAGE_SIZE, ExportCancelled, neutraliseFormula, reasonLabel, signalCsvCells,
+  type ExportPage,
 } from './export-csv'
+import { opportunity, opportunityList } from './opportunity-fixtures'
 import { listResponse, mockupRows, signalRow } from './signal-fixtures'
 
 const BOM = '\uFEFF'
@@ -250,5 +253,70 @@ describe('reading every page', () => {
 
   it('passes a failure of the server on', async () => {
     await assert.rejects(collectSignals({ fetchPage: async () => { throw new Error('The server is busy.') }, params: {} }), /The server is busy\./)
+  })
+})
+
+// ── Reading pages through a screen's own request (Company Opportunities, P1-A2) ─────────────────────────────────────────────────────────
+
+describe('reading pages through a request the screen builds', () => {
+  /** A server with `total` Company Opportunities rows that answers by page, and remembers (page, size) as it was asked. */
+  function pagedRequest(total: number) {
+    const asked: Array<[number, number]> = []
+    const all = Array.from({ length: total }, (_, i) => opportunity({ id: total - i, title: `Signal ${total - i}` }))
+    const readPage = async (page: number, size: number): Promise<ExportPage<Opportunity>> => {
+      asked.push([page, size])
+      return opportunityList(all.slice((page - 1) * size, page * size), { meta: { page, per_page: size, total, last_page: Math.max(1, Math.ceil(total / size)) } })
+    }
+    return { asked, readPage }
+  }
+
+  it('asks for page 1, 2, 3 at the server\'s largest size and stops at the last page', async () => {
+    const server = pagedRequest(120)
+    const progress: Array<{ loaded: number; total: number }> = []
+    const result = await collectPages({ readPage: server.readPage, onProgress: (p) => progress.push(p) })
+    assert.deepEqual(server.asked, [[1, EXPORT_PAGE_SIZE], [2, EXPORT_PAGE_SIZE], [3, EXPORT_PAGE_SIZE]])
+    assert.equal(result.rows.length, 120)
+    assert.deepEqual([result.total, result.capped], [120, false])
+    assert.deepEqual(progress, [{ loaded: 50, total: 120 }, { loaded: 100, total: 120 }, { loaded: 120, total: 120 }])
+  })
+
+  it('stops at the cap and says the list was cut short; reads no page past it', async () => {
+    const server = pagedRequest(2300)
+    const result = await collectPages({ readPage: server.readPage })
+    assert.equal(result.rows.length, EXPORT_CAP)
+    assert.deepEqual([result.total, result.capped], [2300, true])
+    assert.equal(server.asked.length, 40)
+  })
+
+  it('keeps exactly the cap even when the cap falls inside a page, and reads no page after it (the real cap, 2000, is a whole number of pages, so only this shows the row limit)', async () => {
+    const server = pagedRequest(120)
+    const result = await collectPages({ readPage: server.readPage, cap: 75 })
+    assert.equal(result.rows.length, 75)
+    assert.deepEqual([result.total, result.capped], [120, true])
+    assert.deepEqual(result.rows.map((row) => row.id).slice(-2), [47, 46], 'the first 75 of 120, in the list\'s order')
+    assert.equal(server.asked.length, 2, 'the second page already holds the 75th signal')
+  })
+
+  it('stops with ExportCancelled when cancelled while a page is on its way, and asks for nothing after', async () => {
+    const during = new AbortController()
+    const server = pagedRequest(120)
+    await assert.rejects(
+      collectPages({ readPage: async (page, size) => { const answer = await server.readPage(page, size); if (page === 2) during.abort(); return answer }, signal: during.signal }),
+      ExportCancelled,
+    )
+    assert.equal(server.asked.length, 2, 'the third page is never asked for')
+  })
+
+  it('writes the same line for a Company Opportunities row as for a Signal Review row of the same signal (one endpoint sends both)', () => {
+    const products = opportunityList().filters.products
+    const fromOpportunity = signalCsvCells(opportunity(), products)
+    const fromReview = signalCsvCells(signalRow(), products)
+    assert.deepEqual(fromOpportunity, fromReview)
+    assert.deepEqual(fromOpportunity.slice(0, 5), ['District office invites bids for a school management system', 'Example School District', 'Scholar', 'Event', '2026-10-12'])
+  })
+
+  it('writes an empty line of cells, not a crash, for a Company Opportunities row that carries no date, fit, product or link', () => {
+    const bare = opportunity({ date_info: undefined, business_fit: undefined, scores: undefined, product_master_name: undefined, source_url: undefined, primary_source: null, assessment: null })
+    assert.deepEqual(signalCsvCells(bare).slice(2, 9), ['', 'Unknown', '', '', 'Needs decision', '', ''])
   })
 })

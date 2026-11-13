@@ -1,8 +1,13 @@
-import { apiClient, buildApiUrl } from '@/services/core'
+import { apiClient } from '@/services/core'
 import { getLaravelContext } from '@/lib/laravel-context'
-import { readLaravelSession } from '@/lib/laravel-session'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type { ProductInfo } from '@/services/portfolio/types'
+import { postRefusing } from '@/services/signals/run-refusal'
+
+// The refusal of a run (its class and its reader) moved to services/signals/run-refusal.ts when the Generate Signals button on Company Opportunities began to
+// explain refusals in the same words (docs/agentic-crm/slices/S15-product-portfolio-merge.md, P1-A2). They are re-exported here so the Review's dialog and
+// its tests keep their imports until step 1.7 removes this file with that screen.
+export { RunRefusalError, refusalFrom } from '@/services/signals/run-refusal'
 
 /**
  * Starting a research run from the Signal Review screen and following it to its end (hp_erp `/api/signals/research/...`, the same endpoints the original
@@ -45,24 +50,6 @@ export interface SignalRunApi {
   findRunning(): Promise<RunSnapshot | null>
 }
 
-/**
- * The server refused to start a run. It is its own class, not an ApiError, because the shared client's error keeps only `message`, `errors` and `detail`:
- * the `code` ("product_not_configured", "already_running"…) and the `missing` list are the whole point of these refusals and would be thrown away.
- */
-export class RunRefusalError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code: string | null,
-    /** What the product or sub-product still lacks, in the server's words (empty for any other refusal). */
-    readonly missing: string[],
-    readonly retryAfterSeconds: number | null,
-  ) {
-    super(message)
-    this.name = 'RunRefusalError'
-  }
-}
-
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value : null)
 const count = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? value : null)
 
@@ -86,16 +73,6 @@ export function parseRunSnapshot(raw: unknown): RunSnapshot | null {
   }
 }
 
-/** The server's refusal as an error that keeps everything the screen needs to explain it. */
-export function refusalFrom(status: number, payload: unknown, retryAfterHeader: string | null = null): RunRefusalError {
-  const body = (payload && typeof payload === 'object' ? payload : {}) as { message?: unknown; code?: unknown; missing?: unknown; retry_after_seconds?: unknown }
-  const missing = Array.isArray(body.missing) ? body.missing.filter((item): item is string => typeof item === 'string' && item.trim() !== '') : []
-  const header = retryAfterHeader !== null && retryAfterHeader.trim() !== '' ? Number(retryAfterHeader) : null
-  const retry = count(body.retry_after_seconds) ?? (header !== null && Number.isFinite(header) ? header : null)
-
-  return new RunRefusalError(text(body.message) ?? `The run could not be started (${status}).`, status, text(body.code), missing, retry)
-}
-
 export const signalRunService: SignalRunApi = {
   async products() {
     const response = await portfolioService.getProducts(getLaravelContext())
@@ -104,14 +81,7 @@ export const signalRunService: SignalRunApi = {
 
   async start(request) {
     // Not apiClient.post: its error keeps only message/errors/detail, and a refusal's `code` and `missing` would be lost. Same URL, token and headers.
-    const token = readLaravelSession()?.token
-    const response = await fetch(buildApiUrl('/signals/research/run'), {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(request),
-    })
-    const payload: unknown = await response.json().catch(() => null)
-    if (!response.ok) throw refusalFrom(response.status, payload, response.headers.get('Retry-After'))
+    const payload = await postRefusing<unknown>('/signals/research/run', request)
 
     const data = (payload && typeof payload === 'object' ? (payload as { data?: { run_id?: unknown; run?: unknown } }).data : undefined) ?? {}
     const runId = count(data.run_id)
