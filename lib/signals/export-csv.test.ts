@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 import type { SignalListParams, SignalListResponse, SignalRow } from '../../services/signal-review/signal-types'
 import type { Opportunity } from '../../services/signals/opportunities'
 import {
-  buildCsv, collectPages, collectSignals, csvField, csvFileName, CSV_HEADERS, EXPORT_CAP, EXPORT_PAGE_SIZE, ExportCancelled, neutraliseFormula, reasonLabel, signalCsvCells,
+  buildCsv, collectPages, csvField, csvFileName, CSV_HEADERS, EXPORT_CAP, EXPORT_PAGE_SIZE, ExportCancelled, neutraliseFormula, reasonLabel, signalCsvCells,
   type ExportPage,
 } from './export-csv'
 import { opportunity, opportunityList } from './opportunity-fixtures'
@@ -169,11 +169,18 @@ function pagedServer(total: number) {
   return { asked, fetchPage }
 }
 
+/**
+ * The screen's own request for page `page`, `size` rows to a page, built from a server that takes list params (what every screen hands to `collectPages`; the
+ * Signal Review's wrapper `collectSignals`, which did this from a service and the screen's filters, went with that screen, and the screen-level proof that
+ * the filters reach the request is export-screen.test.tsx).
+ */
+const readFrom = (fetchPage: (params: SignalListParams) => Promise<SignalListResponse>) => (page: number, size: number) => fetchPage({ page, per_page: size })
+
 describe('reading every page', () => {
-  it('asks for pages of the server\'s largest size, keeps the screen\'s filters, and reads until the last page', async () => {
+  it('asks for pages of the server\'s largest size and reads until the last page', async () => {
     const server = pagedServer(120)
     const progress: Array<{ loaded: number; total: number }> = []
-    const result = await collectSignals({ fetchPage: server.fetchPage, params: { review_status: 'Follow-up', product_master_id: 4, sort: 'priority', page: 3, per_page: 20 }, onProgress: (p) => progress.push(p) })
+    const result = await collectPages<SignalRow>({ readPage: readFrom(server.fetchPage), onProgress: (p) => progress.push(p) })
 
     assert.equal(result.rows.length, 120)
     assert.equal(result.total, 120)
@@ -181,14 +188,13 @@ describe('reading every page', () => {
     assert.deepEqual(server.asked.map((p) => p.page), [1, 2, 3])
     for (const asked of server.asked) {
       assert.equal(asked.per_page, EXPORT_PAGE_SIZE)
-      assert.deepEqual({ ...asked, page: 0, per_page: 0 }, { review_status: 'Follow-up', product_master_id: 4, sort: 'priority', page: 0, per_page: 0 })
     }
     assert.deepEqual(progress, [{ loaded: 50, total: 120 }, { loaded: 100, total: 120 }, { loaded: 120, total: 120 }])
   })
 
   it('stops at the cap, keeps exactly that many rows and says the list was cut short', async () => {
     const server = pagedServer(2300)
-    const result = await collectSignals({ fetchPage: server.fetchPage, params: {} })
+    const result = await collectPages<SignalRow>({ readPage: readFrom(server.fetchPage) })
     assert.equal(EXPORT_CAP, 2000)
     assert.equal(result.rows.length, 2000)
     assert.equal(result.total, 2300)
@@ -197,37 +203,35 @@ describe('reading every page', () => {
   })
 
   it('does not call a list of exactly the cap "cut short"', async () => {
-    const result = await collectSignals({ fetchPage: pagedServer(2000).fetchPage, params: {} })
+    const result = await collectPages<SignalRow>({ readPage: readFrom(pagedServer(2000).fetchPage) })
     assert.equal(result.rows.length, 2000)
     assert.equal(result.capped, false)
   })
 
   it('keeps a signal once when it moves to another page while the pages are being read', async () => {
     const pages = [mockupRows().slice(0, 3), [mockupRows()[2], ...mockupRows().slice(3)]]
-    const result = await collectSignals({
-      fetchPage: async (params) => listResponse(pages[(params.page ?? 1) - 1], { meta: { page: params.page ?? 1, per_page: 50, total: 5, last_page: 2 } }),
-      params: {},
+    const result = await collectPages<SignalRow>({
+      readPage: readFrom(async (params) => listResponse(pages[(params.page ?? 1) - 1], { meta: { page: params.page ?? 1, per_page: 50, total: 5, last_page: 2 } })),
     })
     assert.deepEqual(result.rows.map((r) => r.id), [1, 2, 3, 4, 5])
   })
 
   it('cannot be held in a loop by a server that ignores the page number', async () => {
     let calls = 0
-    const result = await collectSignals({
-      fetchPage: async () => { calls += 1; return listResponse(mockupRows(), { meta: { page: 1, per_page: 50, total: 900, last_page: 18 } }) },
-      params: {},
+    const result = await collectPages<SignalRow>({
+      readPage: readFrom(async () => { calls += 1; return listResponse(mockupRows(), { meta: { page: 1, per_page: 50, total: 900, last_page: 18 } }) }),
     })
     assert.equal(calls, 2)
     assert.equal(result.rows.length, 5)
   })
 
   it('reads one empty page for no matches', async () => {
-    const result = await collectSignals({ fetchPage: pagedServer(0).fetchPage, params: {} })
+    const result = await collectPages<SignalRow>({ readPage: readFrom(pagedServer(0).fetchPage) })
     assert.deepEqual([result.rows.length, result.total, result.capped], [0, 0, false])
   })
 
   it('takes the product names for the fit column from the first page', async () => {
-    const result = await collectSignals({ fetchPage: pagedServer(3).fetchPage, params: {} })
+    const result = await collectPages<SignalRow>({ readPage: readFrom(pagedServer(3).fetchPage) })
     assert.deepEqual(result.products.map((p) => p.business_fit), ['scholar', 'g2g'])
   })
 
@@ -235,15 +239,14 @@ describe('reading every page', () => {
     const before = new AbortController()
     before.abort()
     const server = pagedServer(120)
-    await assert.rejects(collectSignals({ fetchPage: server.fetchPage, params: {}, signal: before.signal }), ExportCancelled)
+    await assert.rejects(collectPages<SignalRow>({ readPage: readFrom(server.fetchPage), signal: before.signal }), ExportCancelled)
     assert.equal(server.asked.length, 0)
 
     const during = new AbortController()
     const second = pagedServer(120)
     await assert.rejects(
-      collectSignals({
-        fetchPage: async (params) => { const answer = await second.fetchPage(params); if (params.page === 2) during.abort(); return answer },
-        params: {},
+      collectPages<SignalRow>({
+        readPage: readFrom(async (params) => { const answer = await second.fetchPage(params); if (params.page === 2) during.abort(); return answer }),
         signal: during.signal,
       }),
       ExportCancelled,
@@ -252,7 +255,7 @@ describe('reading every page', () => {
   })
 
   it('passes a failure of the server on', async () => {
-    await assert.rejects(collectSignals({ fetchPage: async () => { throw new Error('The server is busy.') }, params: {} }), /The server is busy\./)
+    await assert.rejects(collectPages<SignalRow>({ readPage: readFrom(async () => { throw new Error('The server is busy.') }) }), /The server is busy\./)
   })
 })
 

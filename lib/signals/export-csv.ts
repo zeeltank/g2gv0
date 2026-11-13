@@ -1,4 +1,4 @@
-import type { ProductFilterOption, SignalListParams, SignalListResponse, SignalRow } from '@/services/signal-review/signal-types'
+import type { ProductFilterOption, SignalRow } from '@/services/signal-review/signal-types'
 import { fitSummary } from './list-model'
 import { dateBadge, sourceLink, statusChip, type DateBadgeKind } from './signal-display'
 
@@ -7,11 +7,11 @@ import { dateBadge, sourceLink, statusChip, type DateBadgeKind } from './signal-
  * page at a time. Pure, so the two things that can hurt a person (a spreadsheet running text from the file as a formula, and a file that silently stops
  * short) are proved by tests.
  *
- * Two screens use it: the Signal Review (rows are `SignalRow`s, read by `collectSignals`) and Company Opportunities (rows are `Opportunity`s, read by
- * `collectPages` with the list's own request). Both come from the same endpoint, so a line of the file reads only the fields they share (`ExportSignal`).
+ * Company Opportunities uses it (rows are `Opportunity`s, read by `collectPages` with the list's own request). A line of the file reads only the fields that a
+ * signal row and an opportunity share (`ExportSignal`), because both come from the same endpoint. (The Signal Review screen used it too until 13 Nov 2026.)
  */
 
-/** What one line of the file reads of a signal. A Signal Review row has all of it, and so does a Company Opportunities row. */
+/** What one line of the file reads of a signal. A Company Opportunities row has all of it. */
 export type ExportSignal =
   Pick<SignalRow, 'title' | 'company_name' | 'review_status'>
   & Partial<Pick<SignalRow, 'product_master_name' | 'date_info' | 'business_fit' | 'scores' | 'source_url' | 'source_title' | 'primary_source' | 'assessment'>>
@@ -152,23 +152,4 @@ export async function collectPages<Row extends { id: number }>(input: {
   }
 
   return { rows, total, capped: total > cap, products }
-}
-
-/**
- * The Signal Review screen's way in: the same reading, from its list service. `params` are the screen's own filters; `page` and `per_page` in them are
- * replaced. (Goes with the Review screen at step 1.7; Company Opportunities calls `collectPages` with its own request.)
- */
-export function collectSignals(input: {
-  fetchPage: (params: SignalListParams) => Promise<SignalListResponse>
-  params: SignalListParams
-  signal?: AbortSignal
-  cap?: number
-  onProgress?: (progress: { loaded: number; total: number }) => void
-}): Promise<Collected<SignalRow>> {
-  return collectPages<SignalRow>({
-    readPage: (page, size) => input.fetchPage({ ...input.params, page, per_page: size }),
-    signal: input.signal,
-    cap: input.cap,
-    onProgress: input.onProgress,
-  })
 }

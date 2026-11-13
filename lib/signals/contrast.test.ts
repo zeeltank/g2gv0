@@ -28,20 +28,25 @@ describe('contrast of the Signal Review screens', () => {
 })
 
 describe('the Signal Review components keep to those looks (a scan, because the bug was a class string)', () => {
-  // The Signal Review screen's own files (still in the CRM folder until step 1.7 removes that screen) ...
-  const reviewDir = path.resolve('components/domain/crm')
-  const reviewFiles = readdirSync(reviewDir).filter((name) => name.startsWith('signal-review-') && name.endsWith('.tsx')).map((name) => path.join(reviewDir, name))
-  // ... and the parts Company Opportunities shares with it or added for it, which live with the Signals screen now (the chips, the fit tab, the lead action,
-  // the decision dialog, the history list, the card's actions and the list with its counts and filters). Each name is listed, so a rename cannot drop one.
+  // Until 13 Nov 2026 (P1-C) this scan also read the Signal Review screen's own files (`signal-review-*.tsx` in the CRM folder). That screen is removed. What it held
+  // lives in the parts below, which Company Opportunities shares or added for it, in the Signals folder: the chips, the fit part, the lead action, the decision
+  // dialog, the history list, the card's actions, the list with its counts and filters, the Runs panel with its button, and the export button with its notice. Each
+  // name is listed, so a rename cannot drop one; and the retired screen's files are looked for (below), so a second screen cannot come back unscanned.
   const signalsDir = path.resolve('components/domain/signals')
   // P1-A2 added the Runs panel (run health and cost, moved here from the Review), its button, and the export button with its notice.
   const SHARED = ['signal-parts', 'signal-fit', 'signal-lead', 'signal-decision-dialog', 'signal-history-list', 'signal-card-actions', 'signal-list', 'signal-runs-panel', 'run-health-button', 'signal-export-button']
   const sharedFiles = SHARED.map((name) => path.join(signalsDir, `${name}.tsx`))
-  const files = [...reviewFiles, ...sharedFiles]
+  const files = sharedFiles
 
   it('finds the components it scans', () => {
-    assert.ok(reviewFiles.length >= 4, `found ${reviewFiles.length} Signal Review files`)
+    assert.equal(sharedFiles.length, 10, 'ten components are scanned')
     for (const file of sharedFiles) assert.ok(existsSync(file), `${file} exists`)
+  })
+
+  it('finds no component of the retired Signal Review screen, so none is left to scan or to import', () => {
+    // The seven files that were in the CRM folder: the screen's four (named signal-review-*) and the three that only the screen used or re-exported.
+    const retired = readdirSync(path.resolve('components/domain/crm')).filter((name) => /^signal-review-.*\.tsx$/.test(name) || ['signal-generate-dialog.tsx', 'signal-runs-panel.tsx', 'signal-export-button.tsx'].includes(name))
+    assert.deepEqual(retired, [], 'the Signal Review screen is one screen now, Company Opportunities; a file of the old one must not come back')
   })
 
   it('uses no status colour as TEXT (an icon, which is aria-hidden, may be coloured)', () => {

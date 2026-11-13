@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 import { buildCsv, collectPages, csvFileName, EXPORT_CAP, ExportCancelled, type ExportPage, type ExportSignal } from '@/lib/signals/export-csv'
 import { NOTICE_BANNER_TONE } from '@/lib/signals/tones'
 import { cn } from '@/lib/utils'
-import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
-import type { SignalListParams, SignalRow } from '@/services/signal-review/signal-types'
 
 export interface ScreenNotice {
   tone: 'success' | 'warning' | 'error' | 'info'
@@ -121,20 +119,4 @@ export function ScreenNoticeBanner({ notice, onDismiss }: { notice: ScreenNotice
       <Button type="button" size="sm" variant="ghost" onClick={onDismiss} aria-label="Dismiss this message">Dismiss</Button>
     </div>
   )
-}
-
-/**
- * The Signal Review screen's button: its filters as a list request, read through its own service. (Goes with the Review screen at step 1.7; Company
- * Opportunities uses ExportCsvButton with its own list request.)
- */
-export function SignalExportButton({ params, service, onNotice, save, now }: {
-  /** The screen's filters as a list request. */
-  params: SignalListParams
-  service: Pick<SignalReviewApi, 'list'>
-  onNotice: (notice: ScreenNotice) => void
-  /** Where the file goes. Tests replace it; the default is a download. */
-  save?: (name: string, text: string) => void
-  now?: () => Date
-}) {
-  return <ExportCsvButton<SignalRow> read={(page, size) => service.list({ ...params, page, per_page: size })} onNotice={onNotice} save={save} now={now} />
 }

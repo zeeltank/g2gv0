@@ -12,7 +12,7 @@ import {
   classifyCreateFailure, classifyLoadFailure, classifySaveFailure, FORBIDDEN_PAGE_TEXT, linkFailureText, NETWORK_TEXT, NO_CREATE_RIGHT_TEXT, NO_LINK_RIGHT_TEXT, NOT_SET_UP_TEXT,
 } from './failure'
 import { meta, orgItem, org360, org360CrmOnly, org360WithCrm, placeConflictSuggestion, sameSourceSuggestion, suggestion, summary } from './fixtures'
-import { ACCESS_LINKS, buildLinks, DEFAULT_LINKS, recordHref, signalReviewHref } from './links'
+import { ACCESS_LINKS, buildLinks, DEFAULT_LINKS, recordHref, signalHref } from './links'
 import { confidenceText, classificationText, consentText, openDealLines, relationshipText } from './old-sections'
 import {
   clearFiltersPatch, DISCOVERED_QUERY, discoveredParams, discoveredState, isNarrowed, rangeText, SCOPE_IDS, scopeCounts, scopeTabs,
@@ -242,17 +242,17 @@ describe('where the links go', () => {
   })
 
   it('opens one signal in Company Opportunities with every status and the title in the search, and nothing without the Signals screen', () => {
-    assert.equal(signalReviewHref(DEFAULT_LINKS, 'Tender & bids'), '/signals?status=all&q=Tender%20%26%20bids')
-    assert.equal(signalReviewHref({ signals: null }, 'x'), null)
-    assert.equal(signalReviewHref(buildLinks(menu(['/signals'])), 'Tender'), '/signals?status=all&q=Tender', 'it follows the Signals link the person has')
-    assert.equal(signalReviewHref(buildLinks(menu([])), 'Tender'), null, 'and draws nothing when that link is not there')
+    assert.equal(signalHref(DEFAULT_LINKS, 'Tender & bids'), '/signals?status=all&q=Tender%20%26%20bids')
+    assert.equal(signalHref({ signals: null }, 'x'), null)
+    assert.equal(signalHref(buildLinks(menu(['/signals'])), 'Tender'), '/signals?status=all&q=Tender', 'it follows the Signals link the person has')
+    assert.equal(signalHref(buildLinks(menu([])), 'Tender'), null, 'and draws nothing when that link is not there')
     assert.equal(recordHref('/module/crm/sales/opportunities', 72), '/module/crm/sales/opportunities/72')
     assert.equal(recordHref(null, 72), null)
   })
 
   it('keeps a title whole in the search: spaces, ampersands, a question mark, a hash, a plus and non-Latin letters survive a round trip', () => {
     for (const title of ['A & B plan', 'Why? #1 pick', '50% off + free', 'विद्यालय का नया परिसर', "O'Neil (Pvt) Ltd*"]) {
-      const href = signalReviewHref(DEFAULT_LINKS, title)!
+      const href = signalHref(DEFAULT_LINKS, title)!
       const url = new URL(href, 'http://test.local')
       assert.equal(url.pathname, '/signals')
       assert.equal(url.searchParams.get('status'), 'all')

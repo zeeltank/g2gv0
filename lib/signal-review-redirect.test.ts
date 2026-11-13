@@ -7,7 +7,7 @@ import SignalReviewRedirect from '../app/signal-review/page'
 import { CRM_CONTENT } from '../hooks/content-map-crm'
 import { safeInternalPath } from './agent/model'
 import { safeLink } from './ask/model'
-import { DEFAULT_LINKS, signalReviewHref } from './org-accounts/links'
+import { DEFAULT_LINKS, signalHref } from './org-accounts/links'
 import { signalsRedirectTarget, SIGNALS_ADDRESS, type RawSearchParams } from './signal-review-redirect'
 
 /**
@@ -51,7 +51,7 @@ for (const [address, page] of PAGES) {
     })
 
     it('keeps the query of an old link exactly, including an encoded title: it is the address the link makers write today', async () => {
-      const made = signalReviewHref(DEFAULT_LINKS, 'A & B plan')!
+      const made = signalHref(DEFAULT_LINKS, 'A & B plan')!
       assert.equal(made, '/signals?status=all&q=A%20%26%20B%20plan')
       const old = '/signal-review?status=all&q=A%20%26%20B%20plan'
       assert.equal((await visit(page, asNext(old.split('?')[1]))).url, made, 'the old link lands on the very address a new link would have')

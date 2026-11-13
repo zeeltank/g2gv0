@@ -4,7 +4,7 @@ import { useId, useMemo } from 'react'
 import Link from 'next/link'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { quoteCaption, signalEvidence, type SignalEvidence } from '@/lib/leads/model'
-import { buildLinks, signalReviewHref } from '@/lib/org-accounts/links'
+import { buildLinks, signalHref } from '@/lib/org-accounts/links'
 import type { FactsApi } from '@/services/facts/api-types'
 import type { Fact } from '@/services/facts/types'
 import type { Lead } from '@/types/crm'
@@ -36,7 +36,7 @@ function SourceSignal({ evidence }: { evidence: SignalEvidence }) {
   const { resolveAccessLink } = useSidebarNavigation()
   const links = useMemo(() => buildLinks(resolveAccessLink), [resolveAccessLink])
   // Company Opportunities (/signals), narrowed to this signal's title; null when the Signals screen cannot be resolved (no link is drawn rather than a broken one).
-  const reviewHref = evidence.kind === 'signal' ? signalReviewHref(links, evidence.title) : null
+  const reviewHref = evidence.kind === 'signal' ? signalHref(links, evidence.title) : null
 
   return (
     <section aria-labelledby={titleId} className="rounded-lg border border-border bg-card" data-section="Source signal" data-signal-state={evidence.kind}>
@@ -99,7 +99,7 @@ function SourceSignal({ evidence }: { evidence: SignalEvidence }) {
 
             {reviewHref && (
               <p className="text-sm">
-                <Link href={reviewHref} className="text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-signal-review-link>
+                <Link href={reviewHref} className="text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-signal-link>
                   Open this signal in Company Opportunities
                 </Link>
               </p>

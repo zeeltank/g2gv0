@@ -305,6 +305,27 @@ describe('Generate: the REAL start, with fetch faked', () => {
   })
 })
 
+// What the Signal Review's Generate dialog test "runs, finishes, closes, says how many new signals, and reads the list again" pinned (P1-C, 13 Nov 2026): when a run
+// ends the list is read again. After a run that finished its work the screen also switches to that run's own results (a different request); after one that failed
+// the request is the same, so only the screen's `refreshKey` makes the list read again (what a failed run saved before it stopped).
+describe('Generate: when the run ends, the list is read again', () => {
+  afterEach(disposeAll)
+
+  for (const status of ['success', 'failed'] as const) {
+    it(`a run that ends as ${status} makes the list read again`, async () => {
+      const { k, listCalls } = await openScreen({
+        search: 'product=g2g',
+        getRun: async (id) => ({ status: 1, data: researchRun({ id, status, error_message: status === 'failed' ? 'The search provider refused the key.' : null, opportunities_qualified: 2, opportunities_new: 2, sources_found: 9 }) }),
+      })
+      await press(k)
+      assert.ok(k.one('[data-testid="research-progress"]'), 'the run was started and is followed')
+      const whileRunning = listCalls.length
+      await k.tick(4000)   // the first question is asked 2.5 s after the start; the rest of the time is only a margin for a slow machine
+      assert.ok(listCalls.length > whileRunning, `the list was read again when the run ended (${whileRunning} reads before, ${listCalls.length} after)`)
+    })
+  }
+})
+
 describe('Generate: accessibility', () => {
   afterEach(disposeAll)
 

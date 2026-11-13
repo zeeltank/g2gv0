@@ -1,15 +1,14 @@
-import type { ListQuery, ListQueryConfig, ListQueryPatch } from '@/components/shared/scaffolds/list-query'
+import type { ListQuery } from '@/components/shared/scaffolds/list-query'
 import type { PmOption } from '@/services/product-master/types'
-import type { ProductFilterOption, SignalListMeta, SignalListParams, SignalRow, SignalSummary } from '@/services/signal-review/signal-types'
+import type { ProductFilterOption, SignalRow, SignalSummary } from '@/services/signal-review/signal-types'
 import type { ReviewStatus } from '@/services/signal-review/types'
 import { scoreText, statusChip } from './signal-display'
 
 /**
- * The Signal Review list's filters, how they live in the address, and how they become a request. Pure, so a link such as
- * `?product=4&freshness=last_30_days` is proved to read back the way it was written, and so the rule that undated signals stay visible is tested.
+ * What the signal list is made of, apart from its address: the status and freshness choices, the five states a list can be in, the product, fit and score
+ * words, and the counts above the list. Pure. The address and the request of Company Opportunities are in opportunity-query.ts. (This file also held the Signal
+ * Review's own address, request, sort choices and range text until 13 Nov 2026, when that screen was removed.)
  */
-
-export const PER_PAGE = 20
 
 export interface Choice {
   value: string
@@ -37,57 +36,9 @@ export const FRESHNESS_CHOICES: Choice[] = [
   { value: 'undated', label: 'Date unknown' },
 ]
 
-export const SORT_CHOICES: Choice[] = [
-  { value: 'recent', label: 'Newest evidence' },
-  { value: 'priority', label: 'Priority' },
-]
-
-/**
- * Defined once, outside any component (useListQuery depends on it). The screen opens on signals that still need a decision, newest evidence first, and
- * the freshness filter is "All": a signal with no date is shown (with a "Date unknown" badge), never hidden by default. `product` and `fit` accept any
- * value because their choices come from the server.
- */
-export const SIGNAL_LIST_QUERY: ListQueryConfig = {
-  sort: 'recent',
-  sortKeys: SORT_CHOICES.map((c) => c.value),
-  dir: 'desc',
-  filters: {
-    product: { default: 'all' },
-    status: { default: 'new', allowed: STATUS_CHOICES.map((c) => c.value) },
-    freshness: { default: 'all', allowed: FRESHNESS_CHOICES.map((c) => c.value) },
-    fit: { default: 'all' },
-  },
-}
-
-/** The request for what the address describes. A facet left on "All" sends nothing, so the server applies no filter for it. */
-export function queryToParams(query: ListQuery, perPage: number = PER_PAGE): SignalListParams {
-  const params: SignalListParams = { page: query.page, per_page: perPage, sort: query.sort === 'priority' ? 'priority' : 'recent' }
-
-  if (query.q !== '') params.search = query.q
-
-  const product = query.filters.product
-  if (/^\d+$/.test(product ?? '') && Number(product) > 0) params.product_master_id = Number(product)
-
-  const status = STATUS_BY_URL[query.filters.status ?? 'all']
-  if (status) params.review_status = status
-
-  const freshness = query.filters.freshness
-  if (freshness && freshness !== 'all') params.freshness = freshness as SignalListParams['freshness']
-
-  const fit = query.filters.fit
-  if (fit && fit !== 'all') params.business_fit = fit
-
-  return params
-}
-
 /** True when the search or a facet other than Status narrows the list. Status is left out: it has a default of its own. */
 export function isNarrowed(query: ListQuery): boolean {
   return query.q !== '' || ['product', 'freshness', 'fit'].some((name) => (query.filters[name] ?? 'all') !== 'all')
-}
-
-/** "Clear filters" shows everything: Status goes to All too, because on a screen that opens on "Needs decision" the default would empty the list again. */
-export function clearFiltersPatch(): ListQueryPatch {
-  return { q: '', filters: { product: 'all', status: 'all', freshness: 'all', fit: 'all' } }
 }
 
 export type ListScreenState = 'loading' | 'error' | 'empty' | 'filtered-empty' | 'ready'
@@ -165,11 +116,4 @@ export function applyStatusChange(summary: SignalSummary, signal: Pick<SignalRow
     next.high_priority = Math.max(0, next.high_priority + (from === 'Dismissed' ? 1 : 0) - (to === 'Dismissed' ? 1 : 0))
   }
   return next
-}
-
-/** "Showing 21–40 of 73", or null when there is nothing to count. */
-export function rangeText(meta: SignalListMeta | null | undefined, rows: number): string | null {
-  if (!meta || meta.total <= 0 || rows <= 0) return null
-  const from = (meta.page - 1) * meta.per_page + 1
-  return `Showing ${from}–${from + rows - 1} of ${meta.total}`
 }

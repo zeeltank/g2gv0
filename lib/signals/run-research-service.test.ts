@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { opportunitiesService } from '../../services/signals/opportunities'
-import { RunRefusalError } from '../../services/signals/run-refusal'
+import { refusalFrom, RunRefusalError } from '../../services/signals/run-refusal'
 
 /**
  * The REAL request that starts a research run from Company Opportunities, and the refusals it turns into. The screen tests replace this service with a fake,
@@ -85,6 +85,17 @@ describe('starting a run: the refusals keep what the screen needs', () => {
     const fromHeader = await refusedWith(() => json(429, { status: 0, code: 'cooldown' }, { 'Retry-After': '75' }))
     assert.ok(fromHeader instanceof RunRefusalError, 'fromHeader instanceof RunRefusalError')
     assert.equal(fromHeader.retryAfterSeconds, 75)
+  })
+
+  it('a cool-down that names no wait anywhere keeps no wait time, not zero', async () => {
+    const error = await refusedWith(() => json(429, { status: 0, code: 'cooldown', message: 'Research ran a moment ago.' }))
+    assert.ok(error instanceof RunRefusalError, 'error instanceof RunRefusalError')
+    assert.equal(error.retryAfterSeconds, null, 'neither the body nor a header named a wait')
+    // The reader on its own: no header, a blank one, and one that is not a number are all "no wait", never 0.
+    assert.equal(refusalFrom(429, {}, null).retryAfterSeconds, null)
+    assert.equal(refusalFrom(429, {}, '  ').retryAfterSeconds, null, 'a blank header is no wait')
+    assert.equal(refusalFrom(429, {}, 'soon').retryAfterSeconds, null, 'a header that is not a number is no wait')
+    assert.equal(refusalFrom(429, {}, '75').retryAfterSeconds, 75, 'and a number is kept')
   })
 
   it('keeps the code and the list of what is missing of a 422', async () => {

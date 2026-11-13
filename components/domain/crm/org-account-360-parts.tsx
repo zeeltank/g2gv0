@@ -11,7 +11,7 @@ import {
 import {
   formatAmount, linkedRecords, MISSING_SOURCE_TEXT, NO_VALUE, NOT_CONFIRMABLE_TEXT, placeConflictText, scoreText, shownText, sourceTypeLabel, whyNowFacts,
 } from '@/lib/org-accounts/display'
-import { recordHref, signalReviewHref, type OrgLinks } from '@/lib/org-accounts/links'
+import { recordHref, signalHref, type OrgLinks } from '@/lib/org-accounts/links'
 import { CONFIRM_LABEL, REJECT_LABEL, type LinkAction } from '@/lib/org-accounts/suggestions'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
 import { formatDay, safeHttpUrl } from '@/lib/signals/signal-display'
@@ -205,7 +205,7 @@ export function SignalsSection({ org, links }: { org: Org360; links: OrgLinks })
       {latest.length === 0 ? <Empty>No signals have been found about this organisation yet.</Empty> : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {latest.map((line) => {
-            const review = signalReviewHref(links, line.title)
+            const review = signalHref(links, line.title)
             const evidence = safeHttpUrl(line.source_url)
             return (
               <li key={line.id} data-signal={line.id} className="flex flex-wrap items-start justify-between gap-2 p-3">

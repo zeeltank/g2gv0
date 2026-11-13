@@ -4,7 +4,7 @@ import { readLaravelSession } from '@/lib/laravel-session'
 /**
  * Starting a research run, and the server's refusals of it. The shared client's error (`ApiError`) keeps only `message`, `errors` and `detail`; the refusal
  * of a run carries more that the person needs: a `code` ("product_not_configured", "already_running", "cooldown"), the list of what a product still
- * `missing`, and how long to wait. This module keeps them. Both the Generate Signals button and the Signal Review's Generate dialog start runs through it.
+ * `missing`, and how long to wait. This module keeps them. The Generate Signals button starts runs through it.
  */
 
 /** The server refused to start a run. Its own class, not an ApiError, because the refusal's `code`, `missing` list and wait time are the whole point. */

@@ -6,7 +6,7 @@ import { describeStartFailure, failureContext, failureNotice, runGoneFailure, ty
 
 /**
  * Why a research run did not start, in plain words: what the server's refusals are called, and how the Generate Signals button on Company Opportunities
- * shows them. The first group moved here from generate-model.test.ts together with the code it tests (P1-A2); the Review's dialog still reads the same words.
+ * shows them. The first group moved here (P1-A2) from the test of the Signal Review's Generate dialog, which was removed on 13 Nov 2026 (P1-C).
  */
 
 const CONTEXT: FailureContext = { productLabel: 'Scholar', subName: null, model: 'b2b' }

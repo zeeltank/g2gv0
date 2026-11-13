@@ -2,8 +2,8 @@ import type { ProductInfo } from '@/services/portfolio/types'
 
 /**
  * Why a research run did not start, in plain words. The server's refusals carry a `code`; each one gets its own explanation, and the list of what a product
- * still lacks is passed through as the server sent it. Used by the Generate Signals button on Company Opportunities (and, until step 1.7 removes it, by the
- * Signal Review's Generate dialog, through lib/signals/generate-model.ts). Pure.
+ * still lacks is passed through as the server sent it. Used by the Generate Signals button on Company Opportunities (and, until 13 Nov 2026, by the Signal
+ * Review's Generate dialog, whose words these are). Pure.
  */
 
 export type CustomerModel = 'b2b' | 'b2c' | 'b2g'

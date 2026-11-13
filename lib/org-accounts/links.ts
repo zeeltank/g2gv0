@@ -6,7 +6,7 @@ export interface OrgLinks {
   crmOrganisations: string | null
   /** The GTM accounts screen. It has no page for one account, so a row opens the list (the same as the GTM & Signals tab did). */
   gtm: string | null
-  /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalReviewHref`). */
+  /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
   signals: string | null
   contacts: string | null
   opportunities: string | null
@@ -46,7 +46,7 @@ export const recordHref = (base: string | null, id: number): string | null => (b
  * signal's title, which the screen's search matches. The Signal Review screen was merged into Company Opportunities on 13 Nov 2026, so this follows the Signals
  * link and no longer looks for a menu row of its own (the function keeps its older name). Its query uses the names the screen reads: `status` and `q`.
  */
-export function signalReviewHref(links: Pick<OrgLinks, 'signals'>, title: string): string | null {
+export function signalHref(links: Pick<OrgLinks, 'signals'>, title: string): string | null {
   return links.signals ? `${links.signals}?status=all&q=${encodeURIComponent(title)}` : null
 }
 

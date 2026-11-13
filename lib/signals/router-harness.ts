@@ -6,7 +6,7 @@ import { h } from '../scaffolds/h'
  * is real state: `router.replace` changes it and the screen re-renders from it, exactly as in a browser, and every address that was written is recorded.
  * Import after dom-test-kit (it needs the fake DOM) and from inside the test, because it loads Next and React dynamically.
  */
-export async function routerHarness(initialSearch = '', pathname = '/signal-review') {
+export async function routerHarness(initialSearch = '', pathname = '/signals') {
   const React = await import('react')
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime')
   const { PathnameContext, SearchParamsContext } = await import('next/dist/shared/lib/hooks-client-context.shared-runtime')

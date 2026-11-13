@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
-import type { SignalReviewApi } from '../../services/signal-review/signal-review-service'
 import type { SignalListParams, SignalListResponse, SignalRow } from '../../services/signal-review/signal-types'
-import { csvFileName } from './export-csv'
-import { pressButton } from './generate-fixtures'
-import { historyEntry, listResponse, mockupRows, signalRow } from './signal-fixtures'
-import { routerHarness } from './router-harness'
+import { listResponse, signalRow } from './signal-fixtures'
+
+/**
+ * The Export button (the generic one that Company Opportunities uses, `ExportCsvButton`): what it reads, what it saves and says, and how it ends. The same rules
+ * are proved a second time at the screen, with the real list request, in export-screen.test.tsx.
+ */
 
 type Kit = Awaited<ReturnType<typeof kit>>
+
+/** Presses the button with this label. A missing button fails on the spot: clicking nothing inside act() would leave the test hanging instead. */
+async function pressButton(k: Kit, label: string): Promise<void> {
+  const button = k.withText(label)
+  assert.ok(button, `there is a "${label}" button`)
+  await k.click(button)
+}
 
 /** A server with `total` signals that answers by page. `hold` can keep one page back until the test lets it go. */
 function pagedList(total: number, hold?: (page: number) => Promise<void> | undefined) {
@@ -34,11 +42,18 @@ const NOW = new Date(2026, 10, 3, 9, 30)
 
 async function setup(list: (params: SignalListParams) => Promise<SignalListResponse>, params: SignalListParams = { review_status: 'New', sort: 'recent', page: 2, per_page: 20 }) {
   const k = await kit()
-  const { SignalExportButton } = await import('../../components/domain/crm/signal-export-button')
+  // The generic button that Company Opportunities uses. (The Signal Review's adapter around it, `SignalExportButton`, went with that screen: its only job was
+  // to build this `read` from a service and the screen's filters, and the screen-level proof of that is export-screen.test.tsx.)
+  const { ExportCsvButton } = await import('../../components/domain/signals/signal-export-button')
   const notices: Array<{ tone: string; text: string }> = []
   const saved: Array<{ name: string; text: string }> = []
-  const props = { params, service: { list }, onNotice: (n: { tone: string; text: string }) => { notices.push(n) }, save: (name: string, text: string) => { saved.push({ name, text }) }, now: () => NOW }
-  await k.render(k.h(SignalExportButton, props))
+  const props = {
+    read: (page: number, size: number) => list({ ...params, page, per_page: size }),
+    onNotice: (n: { tone: string; text: string }) => { notices.push(n) },
+    save: (name: string, text: string) => { saved.push({ name, text }) },
+    now: () => NOW,
+  }
+  await k.render(k.h(ExportCsvButton, props))
   await k.tick(5)
 
   const button = () => k.all('button').find((b) => /^Export/.test(b.textContent?.trim() ?? '')) as HTMLButtonElement
@@ -57,12 +72,10 @@ describe('the Export button', () => {
     assert.deepEqual(server.asked.map((p) => p.page), [1, 2, 3])
     for (const asked of server.asked) {
       assert.equal(asked.per_page, 50, 'pages of the server\'s largest size')
-      assert.equal(asked.review_status, 'New', 'the filters on screen are the ones asked for')
-      assert.equal(asked.sort, 'recent')
     }
     assert.equal(saved.length, 1)
     assert.equal(saved[0].name, 'signals-2026-11-03.csv')
-    assert.ok(saved[0].text.startsWith('\uFEFF"Title","Organisation"'))
+    assert.ok(saved[0].text.startsWith('\uFEFF"Title","Organisation"'), 'a byte-order mark, then the header')
     assert.equal(saved[0].text.trimEnd().split('\r\n').length, 121, 'a header and 120 signals')
     assert.deepEqual(notices, [{ tone: 'success', text: 'Saved signals-2026-11-03.csv with 120 signals.' }])
   })
@@ -124,8 +137,8 @@ describe('the Export button', () => {
     assert.equal(saved[0].text.trimEnd().split('\r\n').length, 2001, 'a header and 2000 signals')
     assert.equal(server.asked.length, 40, 'no page past the 2000th signal is read')
     assert.equal(notices[0].tone, 'warning')
-    assert.ok(notices[0].text.includes('first 2000 of 2300 signals'))
-    assert.ok(notices[0].text.includes('signals-2026-11-03.csv'))
+    assert.ok(notices[0].text.includes('first 2000 of 2300 signals'), 'the notice says the file holds the first 2000 of 2300')
+    assert.ok(notices[0].text.includes('signals-2026-11-03.csv'), 'and names the file')
   })
 
   it('reports a failure plainly, saves nothing and can be tried again', async () => {
@@ -143,7 +156,7 @@ describe('the Export button', () => {
     fail = false
     await press()
     assert.equal(saved.length, 1, 'the second try works')
-    assert.ok(k.withText('Cancel export') === null)
+    assert.ok(k.withText('Cancel export') === null, 'Cancel goes away when the export is over')
   })
 
   it('says so, and makes no file, when no signals match', async () => {
@@ -162,93 +175,5 @@ describe('the Export button', () => {
     await k.tick(10)
     assert.deepEqual(saved, [])
     assert.deepEqual(notices, [])
-  })
-})
-
-describe('Export on the Signal Review screen', () => {
-  afterEach(disposeAll)
-
-  /** The screen with a fake server, and a browser that records the download instead of starting it. */
-  async function screen(search = '', list?: SignalReviewApi['list']) {
-    const k = await kit()
-    const router = await routerHarness(search)
-    const { SignalReviewView } = await import('../../components/domain/crm/signal-review-view')
-    k.w.localStorage.setItem('userData', JSON.stringify({ token: 'test-token', sub_institute_id: 1, user_id: 2 }))
-    Object.defineProperty(globalThis, 'self', { value: k.w, configurable: true, writable: true })
-
-    const asked: SignalListParams[] = []
-    const service = {
-      list: list ?? (async (params: SignalListParams) => { asked.push(params); return listResponse(mockupRows(), { meta: { page: params.page ?? 1, per_page: params.per_page ?? 20, total: 5, last_page: 1 } }) }),
-      get: async (id: number) => ({ status: 1, data: signalRow({ id }) }),
-      history: async () => ({ status: 1, data: [historyEntry()] }),
-      decide: async () => { throw new Error('not used') },
-      promote: async () => { throw new Error('not used') },
-      productOptions: async () => ({ status: 1, data: [] }),
-    } as unknown as SignalReviewApi
-
-    const downloads: Array<{ name: string; blob: Blob }> = []
-    const realCreate = URL.createObjectURL
-    const realRevoke = URL.revokeObjectURL
-    const realClick = k.w.HTMLAnchorElement.prototype.click
-    let lastBlob: Blob | null = null
-    URL.createObjectURL = ((blob: Blob) => { lastBlob = blob; return 'blob:test' }) as typeof URL.createObjectURL
-    URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL
-    k.w.HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) { downloads.push({ name: this.download, blob: lastBlob! }) }
-    const restore = () => { URL.createObjectURL = realCreate; URL.revokeObjectURL = realRevoke; k.w.HTMLAnchorElement.prototype.click = realClick }
-
-    await k.render(router.wrap(k.h(SignalReviewView, { service })))
-    await k.tick(10)
-    return { k, asked, downloads, restore }
-  }
-
-  it('has Export in the page header, beside Generate signals, on the Signals tab only', async () => {
-    const s = await screen()
-    try {
-      const header = s.k.one('header')!
-      assert.ok(Array.from(header.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Export'))
-      assert.ok(Array.from(header.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Generate signals'))
-      await s.k.click(s.k.all('[role="tab"]')[1])
-      await s.k.tick(10)
-      assert.ok(s.k.withText('Export') === null, 'the Runs tab has no signals to export')
-      assert.ok(s.k.withText('Generate signals'))
-    } finally { s.restore() }
-  })
-
-  it('exports exactly what the filters in the address select, downloads it as a UTF-8 file and says what was saved', async () => {
-    const s = await screen('status=contacted&product=4&freshness=last_30_days&fit=g2g&q=school&sort=priority')
-    try {
-      s.asked.length = 0
-      await pressButton(s.k, 'Export')
-      await s.k.tick(20)
-
-      assert.deepEqual(s.asked, [{ page: 1, per_page: 50, sort: 'priority', search: 'school', product_master_id: 4, review_status: 'Follow-up', freshness: 'last_30_days', business_fit: 'g2g' }])
-      assert.equal(s.downloads.length, 1)
-      assert.equal(s.downloads[0].name, csvFileName(new Date()))
-
-      const bytes = new Uint8Array(await s.downloads[0].blob.arrayBuffer())
-      assert.deepEqual(Array.from(bytes.slice(0, 3)), [0xEF, 0xBB, 0xBF])
-      const text = new TextDecoder().decode(bytes)
-      assert.equal(text.trimEnd().split('\r\n').length, 6, 'a header and the five signals')
-      assert.ok(text.includes('"District office invites bids for a school management system"'))
-      assert.ok(s.k.all('[role="status"]').some((el) => el.textContent?.includes(`Saved ${csvFileName(new Date())} with 5 signals.`)))
-    } finally { s.restore() }
-  })
-
-  it('shows a failed export as a notice above the list, and the list stays', async () => {
-    let exporting = false
-    const s = await screen('', async (params) => {
-      if (exporting) throw new Error('The server is busy.')
-      return listResponse(mockupRows(), { meta: { page: params.page ?? 1, per_page: params.per_page ?? 20, total: 5, last_page: 1 } })
-    })
-    try {
-      exporting = true
-      await pressButton(s.k, 'Export')
-      await s.k.tick(20)
-      assert.ok(s.k.bodyText().includes('The export failed: The server is busy. No file was saved.'))
-      assert.equal(s.downloads.length, 0)
-      assert.equal(s.k.all('tbody tr').length, 5)
-      await pressButton(s.k, 'Dismiss')
-      assert.ok(!s.k.bodyText().includes('The export failed'))
-    } finally { s.restore() }
   })
 })

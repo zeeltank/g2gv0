@@ -10,8 +10,8 @@ import { describe, it } from 'node:test'
  * as the two redirect pages under app/ (an Ask answer or an agent run saved before the merge, and any bookmark, still carries them).
  *
  * This reads every source file of app, components, hooks, lib and services and fails on any mention of either address outside the allowances below. It matches the ADDRESS
- * as a path, not the substring: `@/services/signal-review/types`, `./signal-review-drawer` and `data-signal-review-link` are the Review screen's own files and names, which the
- * caller deletes or moves later, and are not links. An allowance names one file and, where it can, the one line that may carry the address, so a link written elsewhere in the
+ * as a path, not the substring: `@/services/signal-review/types` (a service folder that stays), a `signal-review-*` file name and an attribute named like one are names, not links.
+ * An allowance names one file and, where it can, the one line that may carry the address, so a link written elsewhere in the
  * same file is still caught. The detector is itself tested on lines that do and do not name the address, so a pass means something.
  */
 
@@ -35,7 +35,6 @@ interface Allowance {
 const ALLOWED: Allowance[] = [
   { file: 'lib/signals-nav.ts', line: /^\s*const SIGNAL_REVIEW_PATHS = \['\/signal-review', '\/module\/crm\/signal-review'\] as const\s*$/, why: 'the sidebar fold names the menu row it hides, and the paths whose visit highlights Market Signals' },
   { file: 'lib/leads/screen-kit.ts', line: /access_link: '\/signal-review'/, why: 'a fixture of the real menu, which still holds the retired row (506 keeps status 1)' },
-  { file: 'lib/signals/router-harness.ts', line: /pathname = '\/signal-review'/, why: 'a default pathname of a test router; it goes with the Review screens (step 1.7) and nothing links to it' },
   { file: 'lib/signal-review-redirect.test.ts', why: 'tests the redirect pages, so it names the old addresses on purpose' },
   { file: 'lib/signals-nav-review.test.ts', why: 'tests the sidebar fold, so it names the old addresses on purpose' },
   { file: 'lib/signal-review-address-gone.test.ts', why: 'this file: the detector and its examples' },

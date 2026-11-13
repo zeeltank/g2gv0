@@ -197,14 +197,14 @@ describe('a lead\'s page: the Evidence tab', () => {
   it('links to Company Opportunities for that signal, narrowed by its title, whether or not the person\'s menu still holds the retired Signal Review row', async () => {
     const withRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) })
     await withRow.openTab('Evidence')
-    const link = withRow.k.one('[data-signal-review-link]')!
+    const link = withRow.k.one('[data-signal-link]')!
     assert.equal(link.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan')
     assert.equal(link.textContent!.trim(), 'Open this signal in Company Opportunities')
     withRow.restore()
     await disposeAll()
     const withoutRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) }, { signalReview: false })
     await withoutRow.openTab('Evidence')
-    assert.equal(withoutRow.k.one('[data-signal-review-link]')!.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan', 'the link does not depend on a Signal Review menu row')
+    assert.equal(withoutRow.k.one('[data-signal-link]')!.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan', 'the link does not depend on a Signal Review menu row')
     assert.ok(withoutRow.k.one('[data-signal-title]'), 'the rest of the card is there')
     withoutRow.restore()
   })
