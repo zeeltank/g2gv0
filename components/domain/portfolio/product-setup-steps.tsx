@@ -14,12 +14,12 @@ export function setupSteps(product: ProductInfo): { key: string; title: string; 
 
   return [
     {
-      key: 'offers', title: 'Offers', state: product.offers.length > 0 ? 'done' : 'todo',
-      detail: product.offers.length > 0 ? `${product.offers.length} offer${product.offers.length === 1 ? '' : 's'} in the portfolio` : 'No offers stored for this product yet',
+      key: 'offers', title: 'Sub-products', state: product.offers.length > 0 ? 'done' : 'todo',
+      detail: product.offers.length > 0 ? `${product.offers.length} sub-product${product.offers.length === 1 ? '' : 's'} in the portfolio` : 'No sub-products stored for this product yet',
     },
     {
       key: 'icp', title: 'Sub-product ICPs', state: icpState,
-      detail: icps.key === 'all' ? 'Every sub-product has its own ICP' : icps.key === 'no_sub_products' ? 'Add a sub-product, then give it an ICP' : icps.key === 'none' ? 'ICP not configured for any sub-product: open the Offers tab and add one to each' : `${icps.configured} of ${icps.total} sub-products have an ICP: ${(product.sub_products_without_icp ?? []).slice(0, 3).map((m) => m.name).join(', ')} still need one`,
+      detail: icps.key === 'all' ? 'Every sub-product has its own ICP' : icps.key === 'no_sub_products' ? 'Add a sub-product, then give it an ICP' : icps.key === 'none' ? 'ICP not configured for any sub-product: open the Sub-products tab and add one to each' : `${icps.configured} of ${icps.total} sub-products have an ICP: ${(product.sub_products_without_icp ?? []).slice(0, 3).map((m) => m.name).join(', ')} still need one`,
     },
     {
       key: 'accounts', title: 'Target accounts', state: product.target_accounts > 0 ? 'done' : 'todo', optional: true,

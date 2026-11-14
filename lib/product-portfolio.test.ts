@@ -225,7 +225,10 @@ describe('Product Portfolio wiring', () => {
   it('a change to the portfolio refreshes the list and the products, on the portfolio and on the product page', () => {
     assert.match(view, /reloadProducts\(\)/)
     const detail = read('components/domain/portfolio/product-detail-view.tsx')
-    assert.match(detail, /onSaved=\{\(\) => \{ setCreateOpen\(false\); reload\(\) \}\}/)
+    // REWRITTEN ON PURPOSE (slice 15, P3-B, 14 Nov 2026): the Product page adds a Sub-product through the one form drawer (ProductFormDrawer), not the old dialog.
+    // Same strictness: a save must reload the products (the counts and the setup steps) AND the Sub-products list, in the same handler.
+    assert.match(detail, /<ProductFormDrawer[\s\S]*onSaved=\{async \(saved\) => \{[\s\S]*reload\(\)[\s\S]*void loadSubs\(1\)/)
+    assert.doesNotMatch(detail, /ProductFormDialog/, 'the old dialog is not used on the Product page any more')
   })
 
   it('the main-product ICP editor, its product picker and its comparison are gone: ICPs are set on sub-products', () => {
