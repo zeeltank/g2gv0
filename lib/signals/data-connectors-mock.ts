@@ -490,7 +490,7 @@ export class DataConnectorMockApi {
 
   private find(context: LaravelContext, id: number, allowCreate = true): DataConnectorInfo {
     const list = this.connectors(context)
-    let connector = list.find((item) => item.id === id)
+    const connector = list.find((item) => item.id === id)
     if (connector) return connector
 
     for (const tList of this.connectorsByTenant.values()) {

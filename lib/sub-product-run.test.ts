@@ -62,7 +62,7 @@ describe('Choosing one sub-product of a product', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
     assert.match(screen, /useSelectedProduct\(context, products, \{ allowAll: false, allowSub: true \}\)/)
     assert.match(screen, /selected\?\.offers\.map\(\(offer\)/)
-    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions\)/)
+    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions(?:, \w+)?\)/)
     assert.match(screen, /id="sub-product-select"/)
   })
 })

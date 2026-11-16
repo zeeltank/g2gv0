@@ -27,8 +27,8 @@ describe('Region selection', () => {
     assert.equal(regionShortLabel([l[2]]), 'Surat')
   })
 
-  it('refuses a city without a state, a missing country, unusable text and a sixth place', () => {
-    assert.ok(problemsWith({ country: 'India', city: 'Surat' }).some((p) => /needs its state/.test(p)))
+  it('refuses a missing country, unusable text and a sixth place; a city without a state is allowed (both are optional free text)', () => {
+    assert.deepEqual(problemsWith({ country: 'India', city: 'Surat' }), [])
     assert.ok(problemsWith({ country: '' }).length > 0)
     assert.ok(problemsWith({ country: 'India', state: '<b>x</b>' }).length > 0)
     let l: RegionSelection[] = []

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Globe,
   Check,
@@ -126,30 +126,50 @@ function stringifyRegions(regions: DataConnectorInfo['regions']): string {
   return regions.map((r) => [r.country, r.state, r.city].filter(Boolean).join(' | ')).join('; ')
 }
 
-export function ConnectorFormDialog({
+/**
+ * The Radix Dialog and its content stay mounted while `open` changes, so the close animation plays. The form lives
+ * INSIDE DialogContent, which Radix mounts when the dialog opens and unmounts only after the exit animation ends.
+ * Each open therefore starts from fresh state taken from the props, with no reset-state-in-an-effect (which React's
+ * lint rules reject).
+ */
+export function ConnectorFormDialog(props: ConnectorFormDialogProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={(val) => { if (!val) props.onClose() }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-2xl p-6">
+        <ConnectorFormBody {...props} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ConnectorFormBody({
   context,
-  open,
-  mode,
-  connector,
+  mode: modeProp,
+  connector: connectorProp,
   products,
   defaultProductKey,
   onClose,
   onSaved,
 }: ConnectorFormDialogProps) {
+  // Frozen at mount: the parent clears its selected connector the moment the dialog starts closing, and the
+  // fading-out form must not change title or fields while it animates away.
+  const [{ mode, connector }] = useState(() => ({ mode: modeProp, connector: connectorProp }))
   const isEdit = mode === 'edit'
 
-  const [type, setType] = useState<DataConnectorInfo['type']>('public_web_page')
-  const [name, setName] = useState('')
-  const [url, setUrl] = useState('')
-  const [accountId, setAccountId] = useState('')
-  const [productKey, setProductKey] = useState('')
-  const [offerId, setOfferId] = useState('')
-  const [customerModel, setCustomerModel] = useState<DataConnectorInfo['customer_model']>('b2b')
-  const [regionText, setRegionText] = useState('India')
-  const [syncEnabled, setSyncEnabled] = useState(true)
-  const [scheduleEnabled, setScheduleEnabled] = useState(true)
-  const [intervalMinutes, setIntervalMinutes] = useState(60)
-  const [timezone, setTimezone] = useState('Asia/Kolkata')
+  const editing = isEdit && connector ? connector : null
+  const initialProduct = editing?.product_key ?? (defaultProductKey || (products && products.length > 0 ? products[0].key : 'g2g'))
+  const [type, setType] = useState<DataConnectorInfo['type']>(editing?.type ?? 'public_web_page')
+  const [name, setName] = useState(editing?.name ?? '')
+  const [url, setUrl] = useState(editing?.url ?? '')
+  const [accountId, setAccountId] = useState(editing?.external_account_id ?? '')
+  const [productKey, setProductKey] = useState(initialProduct)
+  const [offerId, setOfferId] = useState(editing?.offer_id ?? '')
+  const [customerModel, setCustomerModel] = useState<DataConnectorInfo['customer_model']>(editing?.customer_model ?? 'b2b')
+  const [regionText, setRegionText] = useState(editing ? stringifyRegions(editing.regions) : 'India')
+  const [syncEnabled, setSyncEnabled] = useState(editing?.sync_enabled ?? true)
+  const [scheduleEnabled, setScheduleEnabled] = useState(editing?.schedule_enabled ?? true)
+  const [intervalMinutes, setIntervalMinutes] = useState(editing?.schedule_interval_minutes || 60)
+  const [timezone, setTimezone] = useState(editing?.schedule_timezone || 'Asia/Kolkata')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -165,39 +185,6 @@ export function ConnectorFormDialog({
   const activeProduct = useMemo(() => {
     return products?.find((p) => p.key === availableProductKey) ?? null
   }, [products, availableProductKey])
-
-  useEffect(() => {
-    if (!open) return
-    if (isEdit && connector) {
-      setType(connector.type)
-      setName(connector.name)
-      setUrl(connector.url ?? '')
-      setAccountId(connector.external_account_id ?? '')
-      setProductKey(connector.product_key)
-      setOfferId(connector.offer_id ?? '')
-      setCustomerModel(connector.customer_model)
-      setRegionText(stringifyRegions(connector.regions))
-      setSyncEnabled(connector.sync_enabled)
-      setScheduleEnabled(connector.schedule_enabled)
-      setIntervalMinutes(connector.schedule_interval_minutes || 60)
-      setTimezone(connector.schedule_timezone || 'Asia/Kolkata')
-    } else {
-      setType('public_web_page')
-      setName('')
-      setUrl('')
-      setAccountId('')
-      const defaultKey = defaultProductKey || (products && products.length > 0 ? products[0].key : 'g2g')
-      setProductKey(defaultKey)
-      setOfferId('')
-      setCustomerModel('b2b')
-      setRegionText('India')
-      setSyncEnabled(true)
-      setScheduleEnabled(true)
-      setIntervalMinutes(60)
-      setTimezone('Asia/Kolkata')
-    }
-    setError(null)
-  }, [open, isEdit, connector, products, defaultProductKey])
 
   const selectedPlatform = PLATFORMS.find((p) => p.type === type) || PLATFORMS[0]
 
@@ -293,8 +280,7 @@ export function ConnectorFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose() }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:rounded-2xl p-6">
+    <>
         <DialogHeader className="space-y-1.5 pb-2 border-b border-border">
           <div className="flex items-center gap-2">
             <div className={`p-2 rounded-xl ${selectedPlatform.bg} ${selectedPlatform.color}`}>
@@ -420,19 +406,9 @@ export function ConnectorFormDialog({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs font-medium text-foreground">
-                    Platform Channel / Page Address
-                  </label>
-                  <Input
-                    placeholder={selectedPlatform.urlPlaceholder}
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className="bg-background"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Enter the channel, profile, or page URL to monitor for regular updates.
-                  </p>
+                <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
+                  After you save, you will sign in with {selectedPlatform.name} and choose the account to monitor.
+                  No tokens, keys or developer credentials are needed.
                 </div>
               )}
             </div>
@@ -626,7 +602,6 @@ export function ConnectorFormDialog({
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </>
   )
 }

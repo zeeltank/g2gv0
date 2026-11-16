@@ -8,6 +8,13 @@ export interface RegionSelection {
   country: string
   state?: string
   city?: string
+  /**
+   * The location catalogue's own codes, present when the place was picked from the Country > State > City lists. The backend validates them and
+   * completes them for older places that have only names. A place without them (an older saved one) is still valid and is never changed to another.
+   */
+  country_code?: string
+  state_code?: string
+  city_id?: number
 }
 
 export const MAX_REGIONS = 5
@@ -44,8 +51,16 @@ export function countryOptions(locale = 'en'): { code: string; name: string }[] 
   return sorted
 }
 
-/** What the person has typed into the control but not added yet. */
-export interface RegionDraft { country: string; state: string; city: string }
+/** What the person has picked in the control but not added yet. The codes come from the lists; `countryHasStates` is false for a country the data has no states for. */
+export interface RegionDraft {
+  country: string
+  state: string
+  city: string
+  countryCode?: string
+  stateCode?: string
+  cityId?: number
+  countryHasStates?: boolean
+}
 
 export const emptyDraft = (): RegionDraft => ({ country: '', state: '', city: '' })
 
@@ -58,7 +73,7 @@ export const draftIsEmpty = (d: RegionDraft): boolean => d.country.trim() === ''
  */
 export function commitPending(list: RegionSelection[], draft: RegionDraft): { list: RegionSelection[]; problems: string[] } {
   if (draftIsEmpty(draft)) return { list, problems: [] }
-  const r = addSelection(list, { country: draft.country, state: draft.state, city: draft.city })
+  const r = addSelection(list, draftSelection(draft), { cityWithoutState: draft.countryHasStates === false })
   return r.problems.length > 0 ? { list, problems: r.problems.map((p) => `Region: ${p}`) } : r
 }
 
@@ -68,8 +83,22 @@ export const previewRegions = (list: RegionSelection[], draft: RegionDraft): Reg
   return c.problems.length > 0 ? list : c.list
 }
 
-/** What is wrong with a selection (empty when it can be added). Country, then state/province, then city: a city needs its state. */
-export function problemsWith(sel: RegionSelection): string[] {
+/** The selection a draft stands for: its names, and the codes only for the levels still chosen (a cleared level never keeps a stale code). */
+export function draftSelection(draft: RegionDraft): RegionSelection {
+  const state = draft.state.trim()
+  const city = draft.city.trim()
+  return {
+    country: draft.country,
+    state: draft.state,
+    city: draft.city,
+    ...(draft.countryCode ? { country_code: draft.countryCode } : {}),
+    ...(state && draft.stateCode ? { state_code: draft.stateCode } : {}),
+    ...(city && draft.cityId !== undefined ? { city_id: draft.cityId } : {}),
+  }
+}
+
+/** What is wrong with a selection (empty when it can be added). Country, then state/province, then city: a city needs its state, unless the country has none. */
+export function problemsWith(sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): string[] {
   const out: string[] = []
   const country = clean(sel.country)
   const state = clean(sel.state)
@@ -78,26 +107,34 @@ export function problemsWith(sel: RegionSelection): string[] {
   for (const [label, v] of [['Country', country], ['State / province', state], ['City', city]] as const) {
     if (v !== undefined && (v.length < 2 || v.length > 80 || !NAME.test(v))) out.push(`${label}: 2 to 80 characters; letters, digits, spaces and . , ' ( ) - only.`)
   }
-  if (city && !state) out.push('A city needs its state / province: choose the state first.')
+  // State and city are free text and both optional: a city may be given without a state.
   return out
 }
 
 const key = (s: RegionSelection) => [s.country, s.state ?? '', s.city ?? ''].map((x) => x.toLowerCase()).join('|')
 
-/** The selection with spaces tidied and empty levels removed. */
-export function normalise(sel: RegionSelection): RegionSelection {
+/** The selection with spaces tidied and empty levels removed. The codes stay with the levels that remain: a removed level takes its code with it. */
+export function normalise(sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): RegionSelection {
   const country = clean(sel.country) as string
   const state = clean(sel.state)
   const city = clean(sel.city)
-  return { country, ...(state ? { state } : {}), ...(state && city ? { city } : {}) }
+  const keepCity = Boolean(city)
+  return {
+    country,
+    ...(state ? { state } : {}),
+    ...(keepCity ? { city } : {}),
+    ...(sel.country_code ? { country_code: sel.country_code } : {}),
+    ...(state && sel.state_code ? { state_code: sel.state_code } : {}),
+    ...(keepCity && sel.city_id !== undefined ? { city_id: sel.city_id } : {}),
+  }
 }
 
 /** Adds one selection (unless it is unusable, already chosen, or the list is full). Returns the new list and why nothing was added. */
-export function addSelection(list: RegionSelection[], sel: RegionSelection): { list: RegionSelection[]; problems: string[] } {
-  const problems = problemsWith(sel)
+export function addSelection(list: RegionSelection[], sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): { list: RegionSelection[]; problems: string[] } {
+  const problems = problemsWith(sel, options)
   if (problems.length > 0) return { list, problems }
   if (list.length >= MAX_REGIONS) return { list, problems: [`Choose at most ${MAX_REGIONS} places.`] }
-  const next = normalise(sel)
+  const next = normalise(sel, options)
   if (list.some((x) => key(x) === key(next))) return { list, problems: [] }
   return { list: [...list, next], problems: [] }
 }
@@ -119,5 +156,5 @@ export function regionShortLabel(list: RegionSelection[]): string {
 
 /** The request body part: nothing at all for All Regions, so an unchanged request is byte-for-byte the one that was always sent. */
 export function regionsPayload(list: RegionSelection[]): { regions?: RegionSelection[] } {
-  return list.length === 0 ? {} : { regions: list.map(normalise) }
+  return list.length === 0 ? {} : { regions: list.map((s) => normalise(s, { cityWithoutState: true })) }   // the list was already checked when each place was added
 }
