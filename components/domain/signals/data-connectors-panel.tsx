@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
@@ -40,6 +40,16 @@ import {
   type DataConnectorInfo,
   type DataConnectorsResponse,
 } from '@/services/signals/opportunities'
+import {
+  connectorStatusInfo,
+  finishedSyncs,
+  latestStatuses,
+  oauthReturnMessage,
+  parseOAuthReturn,
+  syncButtonState,
+  syncRequestedMessage,
+  syncRunDisplay,
+} from '@/lib/signals/connector-diagnostics'
 import { ConnectorFormDialog } from './connector-form-dialog'
 import { ConnectorScheduleDialog } from './connector-schedule-dialog'
 
@@ -158,6 +168,8 @@ export function DataConnectorsPanel({
   // Test connection feedback per connector
   const [testResults, setTestResults] = useState<Record<number, { healthy: boolean; latency: number; message: string }>>({})
   const [testingId, setTestingId] = useState<number | null>(null)
+  // Account the user picked per connector (Facebook Page / Instagram account) before saving.
+  const [accountChoice, setAccountChoice] = useState<Record<number, string>>({})
 
   const load = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true)
@@ -179,6 +191,25 @@ export function DataConnectorsPanel({
     Promise.resolve().then(() => { void load() })
   }, [load])
 
+  // The OAuth callback sends the browser back here with ?connector_oauth=...&reason=... Show the real
+  // outcome once, then remove the parameters so a refresh does not repeat the message.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const returned = parseOAuthReturn(window.location.search)
+    if (!returned) return
+    const message = oauthReturnMessage(returned)
+    if (message.tone === 'danger') {
+      setError(message.text)
+    } else {
+      setNotice(message.text)
+    }
+    const params = new URLSearchParams(window.location.search)
+    ;['connector_oauth', 'connector_id', 'reason'].forEach((key) => params.delete(key))
+    const query = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+    void load(true)
+  }, [load])
+
   // Periodic refresh when any sync run is active
   useEffect(() => {
     const hasRunning = connectors.some((c) =>
@@ -188,6 +219,15 @@ export function DataConnectorsPanel({
     const interval = setInterval(() => { void load(true) }, 2500)
     return () => clearInterval(interval)
   }, [connectors, load])
+
+  // Tell the page once, when a sync that was queued/running actually finished with data, so the signals list refreshes then and
+  // not when the request was merely accepted. A failed or recovered sync never counts.
+  const lastSyncStatuses = useRef<Record<number, string>>({})
+  useEffect(() => {
+    const finished = finishedSyncs(lastSyncStatuses.current, connectors)
+    lastSyncStatuses.current = latestStatuses(connectors)
+    if (finished.length > 0) onSyncCompleted?.()
+  }, [connectors, onSyncCompleted])
 
   const handleManualRefresh = () => {
     setRefreshing(true)
@@ -200,9 +240,9 @@ export function DataConnectorsPanel({
     setNotice(null)
     try {
       const res = await opportunitiesService.syncConnector(context, connector.id, { interactive: true })
-      setNotice(res.message || `Successfully synced ${connector.name}`)
+      // The server answers 202 "queued": say that, never "synced". The card then follows the sync until it ends.
+      setNotice(syncRequestedMessage(res.message, connector.name))
       await load(true)
-      onSyncCompleted?.()
     } catch (err) {
       setError(apiErrorText(err, 'Connector sync failed.'))
     } finally {
@@ -240,17 +280,54 @@ export function DataConnectorsPanel({
   const handleConnect = async (connector: DataConnectorInfo) => {
     setBusyId(connector.id)
     setError(null)
+    setNotice(null)
     try {
       if (connector.type === 'public_web_page') {
         await opportunitiesService.connectConnector(context, connector.id)
-        setNotice(`Connected ${connector.name}`)
+        setNotice(`${connector.name} is enabled. Click Sync Now to fetch the page.`)
       } else {
-        await opportunitiesService.authorizeConnector(context, connector.id)
-        setNotice(`Authorized and connected ${connector.name}`)
+        const provider = catalog.find((entry) => entry.key === connector.type)
+        if (provider && provider.ready === false) {
+          setError(provider.readiness_message || 'This platform is not configured on the server yet. Ask an administrator to complete provider setup.')
+          return
+        }
+        const res = await opportunitiesService.authorizeConnector(context, connector.id)
+        const authUrl = res && 'data' in res && typeof res.data === 'object' && res.data && 'authorization_url' in res.data
+          ? (res.data.authorization_url as string)
+          : null
+        if (!authUrl) {
+          setError('The server did not return an authorization link. Nothing was connected.')
+          return
+        }
+        // Leaves the app for the official provider sign-in; the callback returns to this screen.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- absolute provider URL issued by the server, not an internal route
+        window.location.assign(authUrl)
+        return
       }
+      // Status always comes from the server; it is never assumed locally.
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not connect this provider.'))
+      await load(true)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleSelectAccount = async (connector: DataConnectorInfo, accountId: string) => {
+    if (!accountId) {
+      setError('Choose an account first.')
+      return
+    }
+    setBusyId(connector.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await opportunitiesService.selectConnectorAccount(context, connector.id, accountId)
+      setNotice(`Connected ${res.data.account_name || connector.name}. You can now sync.`)
+      await load(true)
+    } catch (err) {
+      setError(apiErrorText(err, 'Could not save the selected account.'))
     } finally {
       setBusyId(null)
     }
@@ -383,16 +460,53 @@ export function DataConnectorsPanel({
           </div>
         )}
 
-        {/* Engine mode pill */}
+        {/* Storage not ready */}
         {!tablesMigrated && (
-          <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-xs text-foreground">
-            <Zap className="size-4 text-primary shrink-0" />
+          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
+            <AlertCircle className="size-4 text-warning shrink-0" />
             <div className="flex-1">
-              <span className="font-semibold text-primary">Interactive Ingestion Hub Active: </span>
-              Connectors are fully operational with instant sync, local persistence, and finding generation.
+              <span className="font-semibold">Connector storage is not set up on the server. </span>
+              Connectors cannot be saved or synced until an administrator runs the pending database migration.
             </div>
           </div>
         )}
+
+        {/* One-time administrator setup, shown only when a platform application is not configured */}
+        {catalog.some((entry) => entry.auth === 'oauth' && entry.ready === false) && (
+          <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">
+            <div className="flex items-center gap-2 font-semibold">
+              <ShieldCheck className="size-4 text-warning shrink-0" />
+              Platform setup required (administrator, one time)
+            </div>
+            <p className="text-muted-foreground">
+              These platforms cannot be connected until the G2G application is registered with them and its credentials are set on the server. Ordinary users never need to do this.
+            </p>
+            <ul className="space-y-1.5">
+              {catalog.filter((entry) => entry.auth === 'oauth' && entry.ready === false).map((entry) => (
+                <li key={entry.key} className="rounded-lg border border-border/60 bg-card px-3 py-2">
+                  <div className="font-semibold">{entry.label}</div>
+                  {entry.missing_config && entry.missing_config.length > 0 && (
+                    <div className="text-muted-foreground">Missing server settings: <span className="font-mono">{entry.missing_config.join(', ')}</span></div>
+                  )}
+                  {entry.redirect_uri && (
+                    <div className="text-muted-foreground">Redirect URI to register with the provider: <span className="font-mono break-all">{entry.redirect_uri}</span></div>
+                  )}
+                  {entry.requirements.length > 0 && (
+                    <div className="text-muted-foreground">Needs: {entry.requirements.join('; ')}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Deployment warnings that would break the OAuth round trip (e.g. localhost redirect in production) */}
+        {Array.from(new Set(catalog.flatMap((entry) => entry.warnings ?? []))).map((warning) => (
+          <div key={warning} className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
+            <AlertCircle className="mt-0.5 size-4 text-warning shrink-0" />
+            <span>{warning}</span>
+          </div>
+        ))}
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
@@ -524,7 +638,13 @@ export function DataConnectorsPanel({
             const targetHref = connector.url || (connector.external_account_id ? `https://linkedin.com/company/${connector.external_account_id}` : null)
 
             const isConnected = connector.connection_status === 'connected'
-            const isRateLimited = connector.connection_status === 'rate_limited'
+            const isOauth = connector.type !== 'public_web_page'
+            const provider = catalog.find((entry) => entry.key === connector.type)
+            const providerReady = provider?.ready !== false
+            const needsAccount = connector.available_accounts.length > 0 && !isConnected
+            const statusInfo = connectorStatusInfo(connector.connection_status, { oauth: isOauth, providerReady, needsAccount })
+            const chosenAccount = accountChoice[connector.id] ?? connector.available_accounts[0]?.id ?? ''
+            const syncButton = syncButtonState(connector.history)
 
             return (
               <article
@@ -542,21 +662,15 @@ export function DataConnectorsPanel({
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-bold text-foreground truncate">{connector.name}</h3>
 
-                        {/* Connection Status Badge */}
-                        {isConnected ? (
-                          <Badge variant="success" className="text-[10px] gap-1 px-2 py-0.5">
-                            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Connected
-                          </Badge>
-                        ) : isRateLimited ? (
-                          <Badge variant="warning" className="text-[10px]">
-                            Rate Limited
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Disconnected
-                          </Badge>
-                        )}
+                        {/* Connection Status Badge (always the server's state) */}
+                        <Badge
+                          variant={statusInfo.tone === 'success' ? 'success' : statusInfo.tone === 'warning' ? 'warning' : statusInfo.tone === 'danger' ? 'destructive' : 'outline'}
+                          className="text-[10px] gap-1 px-2 py-0.5"
+                          title={statusInfo.action ?? undefined}
+                        >
+                          {isConnected && <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                          {statusInfo.label}
+                        </Badge>
 
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${platform.badgeClass}`}>
                           {platform.name}
@@ -594,16 +708,17 @@ export function DataConnectorsPanel({
                     <Button
                       type="button"
                       size="sm"
-                      disabled={isBusy || !connector.sync_enabled}
+                      disabled={isBusy || !connector.sync_enabled || syncButton.disabled}
+                      title={syncButton.hint ?? undefined}
                       onClick={() => void handleSyncNow(connector)}
                       className="gap-1.5 text-xs font-semibold"
                     >
-                      {isBusy ? (
+                      {isBusy || syncButton.disabled ? (
                         <Loader2 className="size-3.5 animate-spin" />
                       ) : (
                         <RefreshCw className="size-3.5" />
                       )}
-                      Sync Now
+                      {syncButton.label}
                     </Button>
 
                     {/* Test Connection */}
@@ -613,7 +728,7 @@ export function DataConnectorsPanel({
                       size="sm"
                       disabled={isTesting || isBusy}
                       onClick={() => void handleTestConnection(connector)}
-                      title="Test reachability & latency"
+                      title="Check the connector's stored connection status"
                       className="gap-1.5 text-xs"
                     >
                       {isTesting ? <Loader2 className="size-3.5 animate-spin" /> : <Wifi className="size-3.5" />}
@@ -626,11 +741,16 @@ export function DataConnectorsPanel({
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={isBusy}
+                        disabled={isBusy || (isOauth && !providerReady)}
                         onClick={() => void handleConnect(connector)}
+                        title={isOauth && !providerReady ? 'An administrator must complete platform setup first.' : undefined}
                         className="text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                       >
-                        Connect
+                        {!isOauth
+                          ? 'Enable'
+                          : ['token_expired', 'permission_required', 'error', 'rate_limited'].includes(connector.connection_status)
+                            ? 'Reconnect'
+                            : 'Connect Account'}
                       </Button>
                     ) : (
                       <Button
@@ -717,6 +837,40 @@ export function DataConnectorsPanel({
                   </div>
                 )}
 
+                {/* Account selection after OAuth (Facebook Page / Instagram account) */}
+                {needsAccount && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
+                    <span className="font-medium text-foreground">Choose the account to monitor:</span>
+                    <select
+                      value={chosenAccount}
+                      onChange={(e) => setAccountChoice((prev) => ({ ...prev, [connector.id]: e.target.value }))}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      aria-label={`Account for ${connector.name}`}
+                    >
+                      {connector.available_accounts.map((account) => (
+                        <option key={account.id} value={account.id}>{account.name}</option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isBusy || !chosenAccount}
+                      onClick={() => void handleSelectAccount(connector, chosenAccount)}
+                      className="text-xs"
+                    >
+                      Use this account
+                    </Button>
+                  </div>
+                )}
+
+                {/* What to do next, when the connector is not working */}
+                {!isConnected && statusInfo.action && !needsAccount && (
+                  <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                    <span>{statusInfo.action}</span>
+                  </div>
+                )}
+
                 {/* Last Error banner */}
                 {connector.last_error && (
                   <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
@@ -779,10 +933,14 @@ export function DataConnectorsPanel({
                               <CheckCircle2 className="size-3.5 text-emerald-500" />
                             ) : run.status === 'failed' ? (
                               <XCircle className="size-3.5 text-destructive" />
+                            ) : run.status === 'partial' ? (
+                              <AlertCircle className="size-3.5 text-amber-500" />
+                            ) : run.status === 'skipped' ? (
+                              <CheckCircle2 className="size-3.5 text-muted-foreground" />
                             ) : (
                               <Clock3 className="size-3.5 text-amber-500" />
                             )}
-                            <span className="font-semibold text-foreground capitalize">{run.status}</span>
+                            <span className="font-semibold text-foreground">{syncRunDisplay(run.status).label}</span>
                             <span className="text-[11px] text-muted-foreground">{formatDate(run.started_at)}</span>
                           </div>
 
@@ -819,11 +977,16 @@ export function DataConnectorsPanel({
           setCreateDialogOpen(false)
           setEditConnector(null)
         }}
-        onSaved={() => {
-          void load(true)
+        onSaved={(saved) => {
+          const justCreated = !editConnector
           setCreateDialogOpen(false)
           setEditConnector(null)
+          void load(true)
           onSyncCompleted?.()
+          // New OAuth connector: go straight to the official sign-in (blocked with a clear message if the platform is not set up).
+          if (justCreated && saved && saved.type !== 'public_web_page') {
+            void handleConnect(saved)
+          }
         }}
       />
 

@@ -33,7 +33,7 @@ type RunDate = RunDatesResponse['data']['dates'][number]
  * Product Portfolio.
  */
 export function CompanyOpportunities({ context }: { context: LaravelContext }) {
-  const { products, loading } = useProducts(context)
+  const { products, loading, reload: reloadProducts } = useProducts(context)
   // A run covers the selected master product and its configured product line.
   const [choice, setChoice] = useSelectedProduct(context, products, { allowAll: false, allowSub: true })
   const { productKey: product, offerId } = splitChoice(choice)
@@ -49,7 +49,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRegions(loaded)
   }, [])
-  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions)
+  // When the server creates or changes the sub-product's ICP Region, the products (and their ICP readiness) are read again.
+  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions, reloadProducts)
   const setCustomerModel = run.setCustomerModel
   useEffect(() => {
     setCustomerModel(icpType)
@@ -228,7 +229,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           {/* Dropdown 3: Region */}
-          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
+          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} context={context} />
 
         </div>
 

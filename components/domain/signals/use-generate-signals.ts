@@ -5,7 +5,7 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { ApiError } from '@/services/core'
 import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import type { ProductInfo } from '@/services/portfolio/types'
-import { runGuardedGenerate, type GenerateSub } from '@/lib/signals-generate'
+import { describeIcpSync, runGuardedGenerate, type GenerateSub } from '@/lib/signals-generate'
 import type { RegionSelection } from '@/lib/region-scope'
 import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
 import { regionSignature } from '@/lib/signal-run-view'
@@ -41,7 +41,8 @@ export function useGenerateSignals(
   products: ProductInfo[] | null,
   offerId: string | null = null,
   regions: RegionSelection[] = [],
-
+  /** Called once when the server created or changed the sub-product's ICP Region, so the screen re-reads the ICP data it shows. */
+  onIcpSynced?: () => void,
 ) {
   const [customerModel, setCustomerModel] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
   const [status, setStatus] = useState<ResearchStatusResponse['data'] | null>(null)
@@ -178,7 +179,10 @@ export function useGenerateSignals(
       },
       started: (outcome) => {
         setActiveRun((outcome.run as ResearchRun | null) ?? null)
-        setNotice({ tone: 'info', text: outcome.message })
+        // The server's own words about the ICP, only when it really created or changed one. Whole Product / All Regions say nothing about an ICP.
+        const icpText = describeIcpSync(outcome.icpSync)
+        setNotice({ tone: 'info', text: icpText ? `${outcome.message} ${icpText}` : outcome.message })
+        if (icpText) onIcpSynced?.()
         if (outcome.runId) {
           follow(outcome.runId)
         } else {
@@ -192,7 +196,7 @@ export function useGenerateSignals(
         setNotice({ tone: 'error', text: errText(e, 'Could not start the run.') })
       },
     })
-  }, [context, productKey, offerId, products, running, follow, loadStatus, customerModel])
+  }, [context, productKey, offerId, products, running, follow, loadStatus, customerModel, onIcpSynced])
 
   return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null), customerModel, setCustomerModel }
 }

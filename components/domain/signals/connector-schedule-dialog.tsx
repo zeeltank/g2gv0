@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Clock, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -17,30 +17,25 @@ export interface ConnectorScheduleDialogProps {
   onSaved: (updated: DataConnectorInfo) => void
 }
 
-export function ConnectorScheduleDialog({
+/** Mounts a fresh form for each connector each time the dialog opens, so no reset-in-effect is needed. */
+export function ConnectorScheduleDialog(props: ConnectorScheduleDialogProps) {
+  if (!props.open || !props.connector) return null
+  return <ConnectorScheduleDialogBody key={props.connector.id} {...props} connector={props.connector} />
+}
+
+function ConnectorScheduleDialogBody({
   context,
   open,
   connector,
   onClose,
   onSaved,
-}: ConnectorScheduleDialogProps) {
-  const [syncEnabled, setSyncEnabled] = useState(true)
-  const [scheduleEnabled, setScheduleEnabled] = useState(true)
-  const [intervalMinutes, setIntervalMinutes] = useState(60)
-  const [timezone, setTimezone] = useState('Asia/Kolkata')
+}: ConnectorScheduleDialogProps & { connector: DataConnectorInfo }) {
+  const [syncEnabled, setSyncEnabled] = useState(connector.sync_enabled)
+  const [scheduleEnabled, setScheduleEnabled] = useState(connector.schedule_enabled)
+  const [intervalMinutes, setIntervalMinutes] = useState(connector.schedule_interval_minutes || 60)
+  const [timezone, setTimezone] = useState(connector.schedule_timezone || 'Asia/Kolkata')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open || !connector) return
-    setSyncEnabled(connector.sync_enabled)
-    setScheduleEnabled(connector.schedule_enabled)
-    setIntervalMinutes(connector.schedule_interval_minutes || 60)
-    setTimezone(connector.schedule_timezone || 'Asia/Kolkata')
-    setError(null)
-  }, [open, connector])
-
-  if (!connector) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

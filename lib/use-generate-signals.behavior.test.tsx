@@ -27,7 +27,7 @@ const statusBody = (over: Record<string, unknown> = {}) => ({
 
 const run = (status: string, over: Record<string, unknown> = {}) => ({ id: 7, status, stage: 'searching', stage_message: 'x', ...over })
 
-async function setup(script: { polls: Array<Record<string, unknown>> }) {
+async function setup(script: { polls: Array<Record<string, unknown>>; icpSync?: Record<string, unknown> | null }, onIcpSynced?: () => void) {
   const { opportunitiesService } = await import('@/services/signals/opportunities')
   const { useGenerateSignals } = await import('@/components/domain/signals/use-generate-signals')
   const React = await import('react')
@@ -37,12 +37,12 @@ async function setup(script: { polls: Array<Record<string, unknown>> }) {
   const calls = { runResearch: 0, getRun: 0 }
   const svc = opportunitiesService as unknown as Record<string, unknown>
   svc.getStatus = async () => statusBody()
-  svc.runResearch = async () => { calls.runResearch += 1; return { status: 1, message: 'Research started.', data: { run_id: 7, run: run('running') } } }
+  svc.runResearch = async () => { calls.runResearch += 1; return { status: 1, message: 'Research started.', data: { run_id: 7, run: run('running'), ...(script.icpSync === undefined ? {} : { icp_sync: script.icpSync }) } } }
   svc.getRun = async () => { calls.getRun += 1; const r = script.polls[Math.min(polls, script.polls.length - 1)]; polls += 1; return { status: 1, data: r } }
 
   const latest: { hook: Hook | null } = { hook: null }
   function Harness({ regions }: { regions: { country: string; state?: string }[] }) {
-    latest.hook = useGenerateSignals(ctx, 'p', products, null, regions as never)
+    latest.hook = useGenerateSignals(ctx, 'p', products, null, regions as never, onIcpSynced)
     return null
   }
   const host = document.createElement('div')   // a fresh container per test
@@ -99,5 +99,35 @@ describe('Following a run: the real hook rendered', () => {
     await t.tick(10000)
     assert.equal(t.calls.getRun, callsAtEnd, 'polling stopped')
     await t.unmount()
+  })
+
+  it('reports the ICP the server created or updated, once, and reads the ICP data again', async () => {
+    let reloads = 0
+    const t = await setup({ polls: [run('running')], icpSync: { status: 'updated', message: 'Updated the Region of the B2B ICP for Fee Suite to USA.' } }, () => { reloads += 1 })
+    await t.render([])
+    await t.flush()
+
+    await t.act(async () => { await t.latest.hook!.generate([place] as never, 'b2b') })
+    await t.flush()
+
+    assert.match(t.latest.hook!.notice?.text ?? '', /Research started\. Updated the Region of the B2B ICP for Fee Suite to USA\./)
+    assert.equal(reloads, 1)
+    await t.unmount()
+  })
+
+  it('says nothing about an ICP for Whole Product or an unchanged ICP, and does not reload', async () => {
+    for (const icpSync of [{ status: 'skipped', reason: 'whole_product', message: null }, { status: 'unchanged', message: null }, undefined]) {
+      let reloads = 0
+      const t = await setup({ polls: [run('running')], icpSync }, () => { reloads += 1 })
+      await t.render([])
+      await t.flush()
+
+      await t.act(async () => { await t.latest.hook!.generate([place] as never, 'b2b') })
+      await t.flush()
+
+      assert.equal(t.latest.hook!.notice?.text, 'Research started.')
+      assert.equal(reloads, 0)
+      await t.unmount()
+    }
   })
 })

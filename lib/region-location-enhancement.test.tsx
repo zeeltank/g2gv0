@@ -35,51 +35,30 @@ describe('G2G Region Filter & Location Management Enhancement', () => {
     assert.match(screenSrc, /persistSavedRegions\(next\)/)
   })
 
-  it('2. Country Selection: searchable country list with India first', () => {
-    const countries = getAvailableCountries()
-    assert.ok(countries.length > 150)
-    assert.equal(countries[0].name, 'India')
-
+  it('2. Country Selection: the selector uses the full searchable country list from the location service, not a short built-in one', () => {
     const selectorSrc = read('components/domain/signals/region-selector.tsx')
-    assert.match(selectorSrc, /getAvailableCountries\(\)/)
-    assert.match(selectorSrc, /placeholder="Search country…"/)
-    assert.match(selectorSrc, /India \(Default\)/)
+    assert.match(selectorSrc, /<LocationPicker /)
+    assert.doesNotMatch(selectorSrc, /getAvailableCountries|<select/, 'no short built-in list and no native dropdown in the selector')
+    const pickerSrc = read('components/domain/signals/location-picker.tsx')
+    assert.match(pickerSrc, /loader\.countries\(\)/)
+    assert.match(pickerSrc, /label="Country"\s+required/)
+    // behaviour (search, India first, Singapore found) is exercised against the real component in location-picker.test.tsx
+    assert.ok(getAvailableCountries().length > 150, 'the older client-side helper is untouched')
   })
 
-  it('3. State / Province Management: lists states for selected country and supports adding custom states', () => {
-    const indiaStates = getAvailableStates('India')
-    assert.ok(indiaStates.includes('Gujarat'))
-    assert.ok(indiaStates.includes('Maharashtra'))
-
-    // Adding custom state
-    const addRes = addCustomLocation({ country: 'India', state: 'New State X' })
-    assert.equal(addRes.success, true)
-
-    // Stored and deduplicated (case-insensitive)
-    const dupRes = addCustomLocation({ country: 'India', state: 'new state x' })
-    assert.equal(dupRes.success, true)
-
-    const selectorSrc = read('components/domain/signals/region-selector.tsx')
-    assert.match(selectorSrc, /getAvailableStates\(effectiveCountry/)
-    assert.match(selectorSrc, /\+ Add new state/)
+  it('3. State / Province is a plain text input: no list is loaded, no dropdown, no suggestions', () => {
+    const pickerSrc = read('components/domain/signals/location-picker.tsx')
+    assert.match(pickerSrc, /State \/ Province \/ Region/)
+    assert.match(pickerSrc, /placeholder="Enter state \/ province"/)
+    assert.doesNotMatch(pickerSrc, /loader\.states|getLocationStates|<datalist/)
+    assert.ok(getAvailableStates('India').includes('Gujarat'), 'the older client-side helper is untouched')
   })
 
-  it('4. City Management: lists cities for selected state, needs state, and prevents duplicates', () => {
-    const cities = getAvailableCities('India', 'Gujarat')
-    assert.ok(cities.includes('Ahmedabad'))
-    assert.ok(cities.includes('Surat'))
-
-    // Adding custom city
-    const addRes = addCustomLocation({ country: 'India', state: 'Gujarat', city: 'Ankleshwar' })
-    assert.equal(addRes.success, true)
-
-    // Cannot add city without state
-    const invalid = addCustomLocation({ country: 'India', city: 'NoStateCity' })
-    assert.equal(invalid.success, false)
-
-    const selectorSrc = read('components/domain/signals/region-selector.tsx')
-    assert.match(selectorSrc, /getAvailableCities\(effectiveCountry, state\)/)
-    assert.match(selectorSrc, /\+ Add new city/)
+  it('4. City is a plain text input: no list is loaded, no dropdown, no suggestions', () => {
+    const pickerSrc = read('components/domain/signals/location-picker.tsx')
+    assert.match(pickerSrc, /placeholder="Enter city"/)
+    assert.doesNotMatch(pickerSrc, /loader\.cities|getLocationCities|<datalist/)
+    assert.ok(getAvailableCities('India', 'Gujarat').includes('Surat'), 'the older client-side helper is untouched')
   })
 
   it('5. Add Region Behavior: renders trigger with India selected by default and provides Add Location form', () => {
@@ -97,9 +76,9 @@ describe('G2G Region Filter & Location Management Enhancement', () => {
     assert.match(selectorSrc, /Active Locations/)
   })
 
-  it('6. Changing country resets incompatible state and city', () => {
-    const selectorSrc = read('components/domain/signals/region-selector.tsx')
-    assert.match(selectorSrc, /const setCountry = \(v: string\) => onDraft\(\{ country: v, state: '', city: '' \}\)/)
-    assert.match(selectorSrc, /city: v\.trim\(\) === '' \? '' : draft\.city/)
+  it('6. Changing the country keeps the typed state and city', () => {
+    const pickerSrc = read('components/domain/signals/location-picker.tsx')
+    assert.match(pickerSrc, /state: draft\.state, city: draft\.city, countryCode: chosen\.code/)
+    // the behaviour itself is exercised in location-picker.test.tsx
   })
 })

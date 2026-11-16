@@ -35,18 +35,18 @@ describe('A chosen country is used when Generate Signals is pressed, even withou
 
   it('an unusable draft stops the run with a reason and is never turned into another region', () => {
     const noState = commitPending([], { country: 'India', state: '', city: 'Surat' })
-    assert.deepEqual(noState.list, [])
-    assert.match(noState.problems.join(' '), /needs its state/)
+    assert.deepEqual(noState.problems, [], 'a city without a state is fine: both are free text')
+    assert.deepEqual(noState.list, [{ country: 'India', city: 'Surat' }])
     const noCountry = commitPending([{ country: 'India' }], { country: '', state: 'Gujarat', city: '' })
     assert.deepEqual(noCountry.list, [{ country: 'India' }], 'the added places are not touched')
     assert.ok(noCountry.problems.length > 0)
-    assert.deepEqual(previewRegions([], { country: 'India', state: '', city: 'Surat' }), [], 'the preview leaves an unusable draft out')
+    assert.deepEqual(previewRegions([], { country: '', state: 'Gujarat', city: '' }), [], 'the preview leaves an unusable draft out')
   })
 
-  it('stale state and city are cleared when the country changes, and a city is cleared when its state is emptied', () => {
+  it('the form keeps typed state and city when the country changes, and the draft is cleared after Add place', () => {
+    const picker = read('components/domain/signals/location-picker.tsx')
+    assert.match(picker, /onDraft\(\{ country: chosen\.name, state: draft\.state, city: draft\.city, countryCode: chosen\.code \}\)/, 'a new country keeps the typed state and city')
     const src = read('components/domain/signals/region-selector.tsx')
-    assert.match(src, /const setCountry = \(v: string\) => onDraft\(\{ country: v, state: '', city: '' \}\)/)
-    assert.match(src, /city: v\.trim\(\) === '' \? '' : draft\.city/)
     assert.match(src, /onDraft\(emptyDraft\(\)\)/, 'the draft is cleared after Add place')
     const screen = read('components/domain/signals/company-opportunities.tsx')
     assert.match(screen, /setRegions\(\[\]\); setDraft\(emptyDraft\(\)\); setRegionProblems\(\[\]\)/, 'a product change starts clean')
