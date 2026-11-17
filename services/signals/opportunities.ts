@@ -9,6 +9,7 @@ import { dataConnectorMockApi, isDataConnectorMockModeEnabled } from '@/lib/sign
 import { connectorHealth } from '@/lib/signals/connector-diagnostics'
 import type { IcpRegionSync } from '@/lib/signals-generate'
 import type { CitiesAnswer, CountriesAnswer, StatesAnswer } from '@/lib/location-api'
+import type { ProviderSettings, SavePayload, SettingsProviderKey, SettingsTestResult } from '@/lib/signals/connector-settings'
 
 export type ReviewStatus = 'New' | 'Reviewed' | 'Follow-up' | 'Dismissed'
 export type Level = 'High' | 'Medium' | 'Low'
@@ -710,10 +711,14 @@ export interface ConnectorProviderInfo {
   account_type?: 'channel' | 'organization' | 'page' | 'instagram_account' | null
   /** False when the platform application is not configured on the server (one-time administrator setup). */
   ready?: boolean
-  readiness_status?: 'ready' | 'configuration_required'
+  readiness_status?: 'ready' | 'configuration_required' | 'configuration_invalid'
   readiness_message?: string | null
   /** Names of the missing server settings (not values). */
   missing_config?: string[]
+  /** Names (never values) of server settings that are present but do not look valid. */
+  invalid_config?: string[]
+  /** Provider approval / access-level requirements, from the provider's own documentation. */
+  approval?: string | null
   /** Redirect URI an administrator must register with the provider. */
   redirect_uri?: string | null
   warnings?: string[]
@@ -724,6 +729,8 @@ export interface DataConnectorsResponse {
   tables_migrated?: boolean
   notice?: string
   global_schedule_enabled: boolean
+  /** True for administrators: they may open Connector Settings (the settings themselves come from admin-only routes). */
+  can_manage_settings?: boolean
   available: ConnectorProviderInfo[]
   data: DataConnectorInfo[]
 }
@@ -929,12 +936,25 @@ export const opportunitiesService = {
     return apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/connect?${qs(c)}`, {})
   },
 
-  disconnectConnector: async (c: LaravelContext, id: number) => {
+  disconnectConnector: async (c: LaravelContext, id: number): Promise<{ status: number; message?: string; revocation?: 'revoked' | 'failed' | 'not_supported' | 'not_attempted'; data: DataConnectorInfo }> => {
     if (isDataConnectorMockModeEnabled()) {
       return dataConnectorMockApi.disconnect(c, id)
     }
-    return apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {})
+    return apiClient.post<{ status: number; message?: string; revocation?: 'revoked' | 'failed' | 'not_supported' | 'not_attempted'; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {})
   },
+
+  // ── Connector Settings (administrators only): the provider application credentials. No response carries a secret. ──
+  getConnectorSettings: (c: LaravelContext) =>
+    apiClient.get<{ status: number; data: { storage_ready: boolean; providers: ProviderSettings[] } }>('/signals/ingestion/connector-settings', base(c)),
+
+  saveConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey, body: SavePayload) =>
+    apiClient.put<{ status: number; message: string; data: ProviderSettings; warnings: string[] }>(`/signals/ingestion/connector-settings/${provider}?${qs(c)}`, body),
+
+  testConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey) =>
+    apiClient.post<{ status: number; data: SettingsTestResult }>(`/signals/ingestion/connector-settings/${provider}/test?${qs(c)}`, {}),
+
+  deleteConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey) =>
+    apiClient.delete<{ status: number; message: string; data: ProviderSettings; warnings: string[] }>(`/signals/ingestion/connector-settings/${provider}?${qs(c)}`),
 
   authorizeConnector: async (c: LaravelContext, id: number) => {
     if (isDataConnectorMockModeEnabled()) {

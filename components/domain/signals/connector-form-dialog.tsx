@@ -28,8 +28,10 @@ import { apiErrorText } from '@/lib/api-messages'
 import type { ProductInfo } from '@/services/portfolio/types'
 import {
   opportunitiesService,
+  type ConnectorProviderInfo,
   type DataConnectorInfo,
 } from '@/services/signals/opportunities'
+import { ConnectorSetupGuide } from './connector-setup-guide'
 
 export interface ConnectorFormDialogProps {
   context: LaravelContext
@@ -38,6 +40,14 @@ export interface ConnectorFormDialogProps {
   connector?: DataConnectorInfo | null
   products: ProductInfo[] | null
   defaultProductKey?: string | null
+  /** Preselect this platform when creating (used by Connector Settings > Connect Account). */
+  defaultType?: DataConnectorInfo['type'] | null
+  /** Platform readiness from the server, so the form can show whether the app credentials are in place. */
+  catalog?: ConnectorProviderInfo[]
+  /** Administrators can enter the platform's app credentials right inside this form. */
+  canManageSettings?: boolean
+  /** Called after credentials were saved here so the screen can refresh readiness. */
+  onCredentialsSaved?: () => void
   onClose: () => void
   onSaved: (saved: DataConnectorInfo) => void
 }
@@ -148,6 +158,10 @@ function ConnectorFormBody({
   connector: connectorProp,
   products,
   defaultProductKey,
+  defaultType,
+  catalog,
+  canManageSettings = false,
+  onCredentialsSaved,
   onClose,
   onSaved,
 }: ConnectorFormDialogProps) {
@@ -158,7 +172,7 @@ function ConnectorFormBody({
 
   const editing = isEdit && connector ? connector : null
   const initialProduct = editing?.product_key ?? (defaultProductKey || (products && products.length > 0 ? products[0].key : 'g2g'))
-  const [type, setType] = useState<DataConnectorInfo['type']>(editing?.type ?? 'public_web_page')
+  const [type, setType] = useState<DataConnectorInfo['type']>(editing?.type ?? defaultType ?? 'public_web_page')
   const [name, setName] = useState(editing?.name ?? '')
   const [url, setUrl] = useState(editing?.url ?? '')
   const [accountId, setAccountId] = useState(editing?.external_account_id ?? '')
@@ -172,6 +186,8 @@ function ConnectorFormBody({
   const [timezone, setTimezone] = useState(editing?.schedule_timezone || 'Asia/Kolkata')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Platforms whose app credentials were saved from inside this form (the server list is refreshed too, but this unlocks Create at once).
+  const [savedHere, setSavedHere] = useState<string[]>([])
 
   // Determine available product key
   const availableProductKey = useMemo(() => {
@@ -187,10 +203,18 @@ function ConnectorFormBody({
   }, [products, availableProductKey])
 
   const selectedPlatform = PLATFORMS.find((p) => p.type === type) || PLATFORMS[0]
+  const catalogEntry = catalog?.find((entry) => entry.key === type)
+  const isOAuth = type !== 'public_web_page'
+  const credentialsReady = !isOAuth || catalogEntry?.ready !== false || savedHere.includes(type)
+  const blockedByCredentials = !isEdit && isOAuth && !credentialsReady
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (saving) return
+    if (blockedByCredentials) {
+      setError('Save the app credentials for this platform first (see the setup card above).')
+      return
+    }
 
     const trimmedName = name.trim()
     if (!trimmedName) {
@@ -349,6 +373,23 @@ function ConnectorFormBody({
             </div>
           )}
 
+          {/* What this platform needs, in short steps, with the one-time credentials entered right here */}
+          {!isEdit && (
+            <ConnectorSetupGuide
+              key={type}
+              context={context}
+              type={type}
+              entry={catalogEntry}
+              ready={credentialsReady}
+              canManage={canManageSettings}
+              onReady={(done, ok) => {
+                setSavedHere((list) => (ok ? (list.includes(done) ? list : [...list, done]) : list.filter((t) => t !== done)))
+                setError(null)
+                onCredentialsSaved?.()
+              }}
+            />
+          )}
+
           {/* Step 2: Connector Identity & Target */}
           <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -407,8 +448,7 @@ function ConnectorFormBody({
                 </div>
               ) : (
                 <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:col-span-2">
-                  After you save, you will sign in with {selectedPlatform.name} and choose the account to monitor.
-                  No tokens, keys or developer credentials are needed.
+                  After you click Create &amp; Connect, you will sign in with {selectedPlatform.name} and choose the account to monitor.
                 </div>
               )}
             </div>
@@ -596,9 +636,9 @@ function ConnectorFormBody({
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="gap-2">
+            <Button type="submit" disabled={saving || blockedByCredentials} className="gap-2">
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              {isEdit ? 'Save Changes' : 'Create Connector'}
+              {isEdit ? 'Save Changes' : isOAuth ? 'Create & Connect' : 'Create Connector'}
             </Button>
           </div>
         </form>
