@@ -188,3 +188,97 @@ export function latestStatuses(connectors: Array<{ id: number; history: SyncRunL
   }
   return snapshot
 }
+
+export type ConnectorStageLabel =
+  | 'Setup Required'
+  | 'Ready to Connect'
+  | 'Connecting'
+  | 'Authorization Required'
+  | 'Connected'
+  | 'Sync Queued'
+  | 'Syncing'
+  | 'Synced'
+  | 'Partial'
+  | 'Failed'
+  | 'Reconnect Required'
+  | 'Rate Limited'
+  | 'Disconnected'
+
+export interface ConnectorStage {
+  label: ConnectorStageLabel
+  tone: ConnectorTone
+  /** What happens next, or what the person must do. */
+  action: string | null
+}
+
+/**
+ * The one stage a connector card shows, derived ONLY from what the server says: the provider's readiness, the connection status, the account
+ * choice still pending, and the newest sync. A connected account is "Connected" until a sync has run; "Synced" means the newest sync finished
+ * and reports what it fetched, analysed and saved (see syncStageCounts), never merely that the account is authorised.
+ */
+export function connectorStage(
+  connector: { connection_status: string },
+  history: SyncRunLike[],
+  options: { oauth: boolean; providerReady?: boolean; needsAccount?: boolean; connecting?: boolean },
+): ConnectorStage {
+  if (options.oauth && options.providerReady === false) {
+    return { label: 'Setup Required', tone: 'warning', action: 'An administrator must finish the one-time provider setup first.' }
+  }
+  if (options.connecting) return { label: 'Connecting', tone: 'muted', action: 'Opening the platform sign-in…' }
+
+  switch (connector.connection_status) {
+    case 'token_expired':
+      return { label: 'Reconnect Required', tone: 'danger', action: 'Authorization expired or was revoked. Click Reconnect and approve access again.' }
+    case 'permission_required':
+      return options.needsAccount
+        ? { label: 'Authorization Required', tone: 'warning', action: 'Signed in. Choose the account to monitor to finish setup.' }
+        : { label: 'Reconnect Required', tone: 'danger', action: 'A required permission was not granted. Reconnect and allow every requested permission.' }
+    case 'error':
+      return { label: 'Failed', tone: 'danger', action: 'See the message below. Retry; if it persists contact an administrator.' }
+    case 'disconnected':
+      return { label: 'Disconnected', tone: 'muted', action: options.oauth ? 'Click Connect to authorize again.' : 'Click Connect to re-enable this connector.' }
+    case 'not_configured':
+      return options.oauth
+        ? { label: 'Ready to Connect', tone: 'muted', action: 'Click Connect Account to sign in with the platform.' }
+        : { label: 'Connected', tone: 'muted', action: 'Click Sync Now to fetch the page for the first time.' }
+    case 'rate_limited':
+      return { label: 'Rate Limited', tone: 'warning', action: 'The platform is throttling requests. The sync resumes by itself; no action is needed.' }
+  }
+
+  // connected: the newest sync decides
+  switch (latestSyncStatus(history)) {
+    case 'queued':
+      return { label: 'Sync Queued', tone: 'muted', action: 'Waiting for a worker to start it.' }
+    case 'running':
+      return { label: 'Syncing', tone: 'warning', action: 'Fetching and analysing. This page refreshes until it finishes.' }
+    case 'completed':
+    case 'skipped':
+      return { label: 'Synced', tone: 'success', action: null }
+    case 'partial':
+      return { label: 'Partial', tone: 'warning', action: 'Some items could not be processed. See the sync history.' }
+    case 'failed':
+      return { label: 'Failed', tone: 'danger', action: 'The last sync failed. See its message in the sync history, then retry.' }
+    default:
+      return { label: 'Connected', tone: 'success', action: 'Authorized. No sync has run yet: click Sync Now.' }
+  }
+}
+
+export interface SyncCountsLike {
+  status: string
+  records_fetched: number
+  records_processed: number
+  records_created: number
+}
+
+/**
+ * The three stages of one sync, kept apart so none is mistaken for another:
+ *  - fetched: items the platform returned;
+ *  - analysed: items that finished analysis (not merely stored);
+ *  - signals: signals created from them (0 is normal when nothing qualified, and not a failure).
+ * A sync that is still queued or running has no final numbers yet: `done` says whether they are final.
+ */
+export function syncStageCounts(run: SyncCountsLike | null | undefined): { fetched: number; analysed: number; signals: number; done: boolean } | null {
+  if (!run) return null
+  const done = !['queued', 'running'].includes(run.status)
+  return { fetched: run.records_fetched, analysed: run.records_processed, signals: run.records_created, done }
+}

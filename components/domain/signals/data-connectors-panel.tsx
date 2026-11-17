@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  KeyRound,
   ShieldCheck,
   Trash2,
   Wifi,
@@ -41,7 +42,7 @@ import {
   type DataConnectorsResponse,
 } from '@/services/signals/opportunities'
 import {
-  connectorStatusInfo,
+  connectorStage,
   finishedSyncs,
   latestStatuses,
   oauthReturnMessage,
@@ -49,6 +50,7 @@ import {
   syncButtonState,
   syncRequestedMessage,
   syncRunDisplay,
+  syncStageCounts,
 } from '@/lib/signals/connector-diagnostics'
 import { ConnectorFormDialog } from './connector-form-dialog'
 import { ConnectorScheduleDialog } from './connector-schedule-dialog'
@@ -150,11 +152,16 @@ export function DataConnectorsPanel({
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
+  // The connector whose platform sign-in is opening (shown as Connecting, never as Connected).
+  const [connectingId, setConnectingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   // Modals
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  // Connector Settings is for administrators: the server says who they are, and its routes refuse everyone else.
+  const [canManageSettings, setCanManageSettings] = useState(false)
+  const [createType, setCreateType] = useState<DataConnectorInfo['type'] | null>(null)
   const [editConnector, setEditConnector] = useState<DataConnectorInfo | null>(null)
   const [scheduleConnector, setScheduleConnector] = useState<DataConnectorInfo | null>(null)
 
@@ -177,6 +184,7 @@ export function DataConnectorsPanel({
       const response = await opportunitiesService.listConnectors(context)
       setConnectors(response.data || [])
       setCatalog(response.available || [])
+      setCanManageSettings(response.can_manage_settings === true)
       setTablesMigrated(response.tables_migrated !== false)
       setError(null)
     } catch (err) {
@@ -300,6 +308,7 @@ export function DataConnectorsPanel({
           return
         }
         // Leaves the app for the official provider sign-in; the callback returns to this screen.
+        setConnectingId(connector.id)
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- absolute provider URL issued by the server, not an internal route
         window.location.assign(authUrl)
         return
@@ -337,8 +346,9 @@ export function DataConnectorsPanel({
     setBusyId(connector.id)
     setError(null)
     try {
-      await opportunitiesService.disconnectConnector(context, connector.id)
-      setNotice(`Disconnected ${connector.name}`)
+      const res = await opportunitiesService.disconnectConnector(context, connector.id)
+      // The server says whether the platform confirmed the revocation; never claimed here.
+      setNotice(res.message || `Disconnected ${connector.name}`)
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not disconnect connector.'))
@@ -441,7 +451,7 @@ export function DataConnectorsPanel({
             <Button
               type="button"
               size="sm"
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={() => { setCreateType(null); setCreateDialogOpen(true) }}
               className="gap-1.5 font-semibold shadow-xs"
             >
               <Plus className="size-3.5" />
@@ -471,32 +481,37 @@ export function DataConnectorsPanel({
           </div>
         )}
 
-        {/* One-time administrator setup, shown only when a platform application is not configured */}
+        {/* A platform application that is not configured: administrators are pointed to Add Connector, which holds the credentials; everyone else is told plainly */}
         {catalog.some((entry) => entry.auth === 'oauth' && entry.ready === false) && (
-          <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShieldCheck className="size-4 text-warning shrink-0" />
-              Platform setup required (administrator, one time)
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
+            <div className="flex min-w-0 items-center gap-2">
+              <ShieldCheck className="size-4 shrink-0 text-warning" aria-hidden />
+              <span>
+                <span className="font-semibold">{catalog.filter((entry) => entry.auth === 'oauth' && entry.ready === false).map((entry) => entry.label).join(', ')}</span>
+                {(() => {
+                  const many = catalog.filter((entry) => entry.auth === 'oauth' && entry.ready === false).length > 1
+                  return canManageSettings
+                    ? ` ${many ? 'need' : 'needs'} provider credentials before accounts can be connected.`
+                    : ` ${many ? 'are' : 'is'} not set up yet. An administrator needs to finish the one-time setup.`
+                })()}
+              </span>
             </div>
-            <p className="text-muted-foreground">
-              These platforms cannot be connected until the G2G application is registered with them and its credentials are set on the server. Ordinary users never need to do this.
-            </p>
-            <ul className="space-y-1.5">
-              {catalog.filter((entry) => entry.auth === 'oauth' && entry.ready === false).map((entry) => (
-                <li key={entry.key} className="rounded-lg border border-border/60 bg-card px-3 py-2">
-                  <div className="font-semibold">{entry.label}</div>
-                  {entry.missing_config && entry.missing_config.length > 0 && (
-                    <div className="text-muted-foreground">Missing server settings: <span className="font-mono">{entry.missing_config.join(', ')}</span></div>
-                  )}
-                  {entry.redirect_uri && (
-                    <div className="text-muted-foreground">Redirect URI to register with the provider: <span className="font-mono break-all">{entry.redirect_uri}</span></div>
-                  )}
-                  {entry.requirements.length > 0 && (
-                    <div className="text-muted-foreground">Needs: {entry.requirements.join('; ')}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
+            {canManageSettings && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const first = catalog.find((entry) => entry.auth === 'oauth' && entry.ready === false)
+                  setCreateType((first?.key as DataConnectorInfo['type'] | undefined) ?? null)
+                  setCreateDialogOpen(true)
+                }}
+                className="h-7 gap-1.5 text-xs"
+              >
+                <KeyRound className="size-3.5" />
+                Set up in Add Connector
+              </Button>
+            )}
           </div>
         )}
 
@@ -642,7 +657,8 @@ export function DataConnectorsPanel({
             const provider = catalog.find((entry) => entry.key === connector.type)
             const providerReady = provider?.ready !== false
             const needsAccount = connector.available_accounts.length > 0 && !isConnected
-            const statusInfo = connectorStatusInfo(connector.connection_status, { oauth: isOauth, providerReady, needsAccount })
+            const statusInfo = connectorStage(connector, connector.history, { oauth: isOauth, providerReady, needsAccount, connecting: connectingId === connector.id })
+            const counts = syncStageCounts(connector.history[0])
             const chosenAccount = accountChoice[connector.id] ?? connector.available_accounts[0]?.id ?? ''
             const syncButton = syncButtonState(connector.history)
 
@@ -879,6 +895,16 @@ export function DataConnectorsPanel({
                   </div>
                 )}
 
+                {/* The newest sync, as three separate numbers: fetched from the platform, analysed, and signals created */}
+                {counts && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Latest sync counts">
+                    <span><strong className="text-foreground">{counts.fetched}</strong> fetched</span>
+                    <span><strong className="text-foreground">{counts.analysed}</strong> analysed</span>
+                    <span><strong className="text-foreground">{counts.signals}</strong> signals created</span>
+                    {!counts.done && <span className="italic">in progress: numbers are not final</span>}
+                  </div>
+                )}
+
                 {/* Metadata & Stats Strip */}
                 <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 pt-2 border-t border-border/60 text-xs text-muted-foreground">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -973,14 +999,20 @@ export function DataConnectorsPanel({
         connector={editConnector}
         products={products ?? null}
         defaultProductKey={productKey ?? null}
+        defaultType={createType}
+        catalog={catalog}
+        canManageSettings={canManageSettings}
+        onCredentialsSaved={() => void load(true)}
         onClose={() => {
           setCreateDialogOpen(false)
           setEditConnector(null)
+          setCreateType(null)
         }}
         onSaved={(saved) => {
           const justCreated = !editConnector
           setCreateDialogOpen(false)
           setEditConnector(null)
+          setCreateType(null)
           void load(true)
           onSyncCompleted?.()
           // New OAuth connector: go straight to the official sign-in (blocked with a clear message if the platform is not set up).
