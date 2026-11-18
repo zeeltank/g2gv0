@@ -101,6 +101,7 @@ export function ConnectorSetupGuide({
 }) {
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
+  const [loginConfigId, setLoginConfigId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -126,7 +127,11 @@ export function ConnectorSetupGuide({
     setBusy(true)
     setError(null)
     try {
-      await opportunitiesService.saveConnectorSettings(context, provider, { client_id: clientId.trim(), client_secret: clientSecret.trim() })
+      await opportunitiesService.saveConnectorSettings(context, provider, {
+        client_id: clientId.trim(),
+        client_secret: clientSecret.trim(),
+        ...(provider === 'meta' && loginConfigId.trim() ? { login_config_id: loginConfigId.trim() } : {}),
+      })
       setClientSecret('')   // the secret is never kept in the browser
       onReady(type, true)
     } catch (cause) {
@@ -188,6 +193,13 @@ export function ConnectorSetupGuide({
           <label htmlFor="guide-client-secret" className="text-xs font-medium text-foreground">{guide.secretLabel}</label>
           <Input id="guide-client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Paste the secret" autoComplete="new-password" spellCheck={false} className="h-9 bg-background text-xs" />
         </div>
+        {provider === 'meta' && (
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="guide-config-id" className="text-xs font-medium text-foreground">Configuration ID (Facebook Login for Business)</label>
+            <Input id="guide-config-id" value={loginConfigId} onChange={(e) => setLoginConfigId(e.target.value)} placeholder="Paste the long number from Meta: Facebook Login for Business, then Configurations" autoComplete="off" spellCheck={false} className="h-9 bg-background text-xs" />
+            <p className="text-[11px] text-muted-foreground">Needed when your Meta app only offers Facebook Login for Business. You can add it later.</p>
+          </div>
+        )}
       </div>
       {error && (
         <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -246,7 +258,7 @@ function ManageCredentials({ context, type, provider, guide, callback, onChanged
 }) {
   const [open, setOpen] = useState(false)
   const [settings, setSettings] = useState<ProviderSettings | null>(null)
-  const [form, setForm] = useState({ clientId: '', clientSecret: '' })
+  const [form, setForm] = useState<{ clientId: string; clientSecret: string; loginConfigId?: string }>({ clientId: '', clientSecret: '', loginConfigId: '' })
   const [busy, setBusy] = useState<null | 'load' | 'save' | 'test' | 'remove'>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -277,7 +289,7 @@ function ManageCredentials({ context, type, provider, guide, callback, onChanged
     try {
       const res = await opportunitiesService.saveConnectorSettings(context, provider, payload)
       setSettings(res.data)
-      setForm({ clientId: res.data.client_id ?? '', clientSecret: '' })   // the secret is never kept in the browser
+      setForm(formFor(res.data))   // the secret is never kept in the browser
       setNotice(res.warnings?.[0] ?? 'Saved.')
       onChanged(res.data.valid)
     } catch (cause) {
@@ -305,7 +317,7 @@ function ManageCredentials({ context, type, provider, guide, callback, onChanged
     try {
       const res = await opportunitiesService.deleteConnectorSettings(context, provider)
       setSettings(res.data)
-      setForm({ clientId: '', clientSecret: '' })
+      setForm({ clientId: '', clientSecret: '', loginConfigId: '' })
       setNotice('Saved credentials removed.')
       onChanged(res.data.valid)
     } catch (cause) {
@@ -339,6 +351,12 @@ function ManageCredentials({ context, type, provider, guide, callback, onChanged
                   <label htmlFor={`manage-secret-${type}`} className="text-xs font-medium text-foreground">{guide.secretLabel}</label>
                   <Input id={`manage-secret-${type}`} type="password" value={form.clientSecret} onChange={(e) => setForm((f) => ({ ...f, clientSecret: e.target.value }))} placeholder={settings.secret_saved ? (settings.secret_mask ?? '••••••••••••') : 'Paste the secret'} autoComplete="new-password" spellCheck={false} className="h-9 bg-background text-xs" />
                 </div>
+                {provider === 'meta' && (
+                  <div className="space-y-1 sm:col-span-2">
+                    <label htmlFor={`manage-config-${type}`} className="text-xs font-medium text-foreground">Configuration ID (Facebook Login for Business)</label>
+                    <Input id={`manage-config-${type}`} value={form.loginConfigId ?? ''} onChange={(e) => setForm((f) => ({ ...f, loginConfigId: e.target.value }))} placeholder="Paste the long number from Meta: Facebook Login for Business, then Configurations" autoComplete="off" spellCheck={false} className="h-9 bg-background text-xs" />
+                  </div>
+                )}
               </div>
               <p className="text-[11px] text-muted-foreground">{settings.secret_saved ? 'A secret is saved. Leave the secret empty to keep it, or type a new one to replace it.' : 'Stored encrypted. It cannot be read back after saving.'}</p>
             </>
