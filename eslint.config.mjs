@@ -17,7 +17,7 @@ import nextTypescript from "eslint-config-next/typescript";
 const eslintConfig = [
   // Build output and dependencies - never lint these.
   {
-    ignores: [".next/**", "node_modules/**", "next-env.d.ts"],
+    ignores: [".next/**", "node_modules/**", "next-env.d.ts", "scripts/sales-training/**"],
   },
   ...nextCoreWebVitals,
   ...nextTypescript,

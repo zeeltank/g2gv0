@@ -1,0 +1,5944 @@
+[
+ {
+  "num": 1,
+  "id": "home",
+  "type": "home",
+  "product": null,
+  "title": "Home",
+  "links": [
+   {
+    "label": "Open LMS-K12",
+    "to": 3,
+    "role": "product"
+   },
+   {
+    "label": "Open G2G",
+    "to": 96,
+    "role": "product"
+   },
+   {
+    "label": "Open Enterprise Brain",
+    "to": 190,
+    "role": "product"
+   },
+   {
+    "label": "How this deck works",
+    "to": 2,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 2,
+  "id": "howto",
+  "type": "howto",
+  "product": null,
+  "title": "How to use this deck",
+  "links": []
+ },
+ {
+  "num": 3,
+  "id": "sc:hub",
+  "type": "hub",
+  "product": "sc",
+  "title": "LMS-K12 - Product hub",
+  "links": [
+   {
+    "label": "Overview",
+    "to": 4,
+    "role": "info"
+   },
+   {
+    "label": "Modules and offers",
+    "to": 5,
+    "role": "info"
+   },
+   {
+    "label": "Customer problems solved",
+    "to": 9,
+    "role": "info"
+   },
+   {
+    "label": "Target customers",
+    "to": 10,
+    "role": "info"
+   },
+   {
+    "label": "Benefits and USPs",
+    "to": 11,
+    "role": "info"
+   },
+   {
+    "label": "Use cases and proof",
+    "to": 12,
+    "role": "info"
+   },
+   {
+    "label": "Readiness and limitations",
+    "to": 13,
+    "role": "info"
+   },
+   {
+    "label": "What we cannot claim",
+    "to": 14,
+    "role": "info"
+   },
+   {
+    "label": "Meet the customer",
+    "to": 15,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 4,
+  "id": "sc:overview",
+  "type": "info",
+  "product": "sc",
+  "title": "Overview",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 5,
+  "id": "sc:modules",
+  "type": "modhub",
+  "product": "sc",
+  "title": "Modules and offers",
+  "links": [
+   {
+    "label": "School ERP (SCH-01)  -  LIVE with client",
+    "to": 6,
+    "role": "info"
+   },
+   {
+    "label": "Learning and intelligence offers  -  NOT live yet",
+    "to": 7,
+    "role": "info"
+   },
+   {
+    "label": "Concepts and bundle  -  PROPOSAL / CONCEPT",
+    "to": 8,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 6,
+  "id": "sc:mod0",
+  "type": "info",
+  "product": "sc",
+  "title": "School ERP (SCH-01)  -  LIVE with client",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 7,
+  "id": "sc:mod1",
+  "type": "info",
+  "product": "sc",
+  "title": "Learning and intelligence offers  -  NOT live yet",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 8,
+  "id": "sc:mod2",
+  "type": "info",
+  "product": "sc",
+  "title": "Concepts and bundle  -  PROPOSAL / CONCEPT",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 9,
+  "id": "sc:problems",
+  "type": "info",
+  "product": "sc",
+  "title": "Customer problems solved",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 10,
+  "id": "sc:customers",
+  "type": "info",
+  "product": "sc",
+  "title": "Target customers",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 11,
+  "id": "sc:benefits",
+  "type": "benefits",
+  "product": "sc",
+  "title": "Benefits and USPs",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 12,
+  "id": "sc:proof",
+  "type": "info",
+  "product": "sc",
+  "title": "Use cases and proof",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 13,
+  "id": "sc:readiness",
+  "type": "readiness",
+  "product": "sc",
+  "title": "Readiness and limitations",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 14,
+  "id": "sc:missing",
+  "type": "missing",
+  "product": "sc",
+  "title": "What we cannot claim",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 3,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 15,
+  "id": "sc:persona",
+  "type": "persona",
+  "product": "sc",
+  "title": "Customer persona and brief",
+  "links": [
+   {
+    "label": "Start the scenario",
+    "to": 17,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 16,
+  "id": "sc:map",
+  "type": "map",
+  "product": "sc",
+  "title": "Scenario map",
+  "links": [
+   {
+    "label": "Decision 1",
+    "to": 17,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 2",
+    "to": 23,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 3",
+    "to": 33,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 4",
+    "to": 43,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 5",
+    "to": 53,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 6",
+    "to": 63,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 7",
+    "to": 73,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 8",
+    "to": 83,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 17,
+  "id": "sc:d0S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 1",
+  "links": [
+   {
+    "label": "Give a two-minute overview of the ERP modules, then ask what she would like to see first.",
+    "to": 18,
+    "role": "partial"
+   },
+   {
+    "label": "Ask about how admissions, fees, attendance and results run today and which one hurts most, before presenting anything.",
+    "to": 19,
+    "role": "best"
+   },
+   {
+    "label": "Present the whole range: ERP, AI lesson videos, career intelligence and the bundle.",
+    "to": 20,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 18,
+  "id": "sc:d0S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 28,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 17,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 19,
+  "id": "sc:d0S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 23,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 17,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 20,
+  "id": "sc:d0S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 21,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 17,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 21,
+  "id": "sc:d0S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D1 recovery",
+  "links": [
+   {
+    "label": "Say you overreached: the School ERP is live; the rest is roadmap. Ask what she needs first.",
+    "to": 28,
+    "role": "recover"
+   },
+   {
+    "label": "Insist everything is \"basically ready\" and keep presenting.",
+    "to": 22,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 17,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 22,
+  "id": "sc:lost0",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 1",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 17,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 23,
+  "id": "sc:d1S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 2",
+  "links": [
+   {
+    "label": "Promise to solve all three together, because Scholar covers fees, lessons and careers.",
+    "to": 24,
+    "role": "poor"
+   },
+   {
+    "label": "Confirm fees as the priority, ask what \"bad\" means (follow-up, receipts, reports), and park lessons and careers as later conversations.",
+    "to": 25,
+    "role": "best"
+   },
+   {
+    "label": "Note all three, then say you will come back with ideas for each.",
+    "to": 26,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 24,
+  "id": "sc:d1S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 27,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 23,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 25,
+  "id": "sc:d1S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 33,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 23,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 26,
+  "id": "sc:d1S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 38,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 23,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 27,
+  "id": "sc:d1S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D2 recovery",
+  "links": [
+   {
+    "label": "Reset: say fees is the first target, state which parts are live, and offer to scope the rest later.",
+    "to": 38,
+    "role": "recover"
+   },
+   {
+    "label": "Say \"you misunderstood\" and repeat the full list.",
+    "to": 32,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 23,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 28,
+  "id": "sc:d1M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 2 (customer wavering)",
+  "links": [
+   {
+    "label": "Promise to solve all three together, because Scholar covers fees, lessons and careers.",
+    "to": 29,
+    "role": "poor"
+   },
+   {
+    "label": "Confirm fees as the priority, ask what \"bad\" means (follow-up, receipts, reports), and park lessons and careers as later conversations.",
+    "to": 30,
+    "role": "best"
+   },
+   {
+    "label": "Note all three, then say you will come back with ideas for each.",
+    "to": 31,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 29,
+  "id": "sc:d1M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 32,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 28,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 30,
+  "id": "sc:d1M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 33,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 28,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 31,
+  "id": "sc:d1M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 38,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 28,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 32,
+  "id": "sc:lost1",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 2",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 23,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 33,
+  "id": "sc:d2S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 3",
+  "links": [
+   {
+    "label": "Recommend the School ERP and mention that AI lessons and careers \"are coming soon\".",
+    "to": 34,
+    "role": "partial"
+   },
+   {
+    "label": "Recommend the Fees Intelligence DSS (63 signals) as the main solution to her fee problem.",
+    "to": 35,
+    "role": "poor"
+   },
+   {
+    "label": "Recommend the School ERP (live with a client) starting with Fees and Admission. Say AI lessons and careers are in development and will be discussed separately.",
+    "to": 36,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 34,
+  "id": "sc:d2S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 48,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 33,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 35,
+  "id": "sc:d2S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 37,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 33,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 36,
+  "id": "sc:d2S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 43,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 33,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 37,
+  "id": "sc:d2S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D3 recovery",
+  "links": [
+   {
+    "label": "Own the mistake, refocus on the live ERP fees module, and offer to show a real screen.",
+    "to": 48,
+    "role": "recover"
+   },
+   {
+    "label": "Argue that a prototype is \"the same thing\" as a product.",
+    "to": 42,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 33,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 38,
+  "id": "sc:d2M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 3 (customer wavering)",
+  "links": [
+   {
+    "label": "Recommend the School ERP and mention that AI lessons and careers \"are coming soon\".",
+    "to": 39,
+    "role": "partial"
+   },
+   {
+    "label": "Recommend the Fees Intelligence DSS (63 signals) as the main solution to her fee problem.",
+    "to": 40,
+    "role": "poor"
+   },
+   {
+    "label": "Recommend the School ERP (live with a client) starting with Fees and Admission. Say AI lessons and careers are in development and will be discussed separately.",
+    "to": 41,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 39,
+  "id": "sc:d2M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 48,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 38,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 40,
+  "id": "sc:d2M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 42,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 38,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 41,
+  "id": "sc:d2M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 43,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 38,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 42,
+  "id": "sc:lost2",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 3",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 33,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 43,
+  "id": "sc:d3S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 4",
+  "links": [
+   {
+    "label": "Open the LMS area to impress her with Quiz and the new interactive content.",
+    "to": 44,
+    "role": "poor"
+   },
+   {
+    "label": "Walk her fee workflow in a demo tenant: Fees and Admission menus, tied to the dues and receipt problem she described.",
+    "to": 45,
+    "role": "best"
+   },
+   {
+    "label": "Click through all 25 module groups quickly to show breadth.",
+    "to": 46,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 44,
+  "id": "sc:d3S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 47,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 43,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 45,
+  "id": "sc:d3S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 53,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 43,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 46,
+  "id": "sc:d3S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 58,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 43,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 47,
+  "id": "sc:d3S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D4 recovery",
+  "links": [
+   {
+    "label": "Be honest: that screen is not ready. Switch to the live fees module and show it working.",
+    "to": 58,
+    "role": "recover"
+   },
+   {
+    "label": "Claim it is \"just loading slowly\" and keep clicking.",
+    "to": 52,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 43,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 48,
+  "id": "sc:d3M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 4 (customer wavering)",
+  "links": [
+   {
+    "label": "Open the LMS area to impress her with Quiz and the new interactive content.",
+    "to": 49,
+    "role": "poor"
+   },
+   {
+    "label": "Walk her fee workflow in a demo tenant: Fees and Admission menus, tied to the dues and receipt problem she described.",
+    "to": 50,
+    "role": "best"
+   },
+   {
+    "label": "Click through all 25 module groups quickly to show breadth.",
+    "to": 51,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 49,
+  "id": "sc:d3M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 52,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 50,
+  "id": "sc:d3M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 53,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 51,
+  "id": "sc:d3M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 58,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 52,
+  "id": "sc:lost3",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 4",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 43,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 53,
+  "id": "sc:d4S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 5",
+  "links": [
+   {
+    "label": "\"Over fifty schools already use it.\"",
+    "to": 54,
+    "role": "poor"
+   },
+   {
+    "label": "\"Several schools use it successfully. I will send details later.\"",
+    "to": 55,
+    "role": "partial"
+   },
+   {
+    "label": "Name the two documented references (Anand Niketan School; Lions Club of Silvassa), say no larger client figure is approved yet, and offer to ask whether a reference conversation can be arranged.",
+    "to": 56,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 54,
+  "id": "sc:d4S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 57,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 55,
+  "id": "sc:d4S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 68,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 56,
+  "id": "sc:d4S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 63,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 57,
+  "id": "sc:d4S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D5 recovery",
+  "links": [
+   {
+    "label": "Admit it: you cannot source that number. Offer the two real references and apologise.",
+    "to": 68,
+    "role": "recover"
+   },
+   {
+    "label": "Say the number is \"a rough estimate\" and move on.",
+    "to": 62,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 58,
+  "id": "sc:d4M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 5 (customer wavering)",
+  "links": [
+   {
+    "label": "\"Over fifty schools already use it.\"",
+    "to": 59,
+    "role": "poor"
+   },
+   {
+    "label": "\"Several schools use it successfully. I will send details later.\"",
+    "to": 60,
+    "role": "partial"
+   },
+   {
+    "label": "Name the two documented references (Anand Niketan School; Lions Club of Silvassa), say no larger client figure is approved yet, and offer to ask whether a reference conversation can be arranged.",
+    "to": 61,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 59,
+  "id": "sc:d4M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 62,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 60,
+  "id": "sc:d4M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 68,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 61,
+  "id": "sc:d4M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 63,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 62,
+  "id": "sc:lost4",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 5",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 53,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 63,
+  "id": "sc:d5S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 6",
+  "links": [
+   {
+    "label": "Ask what she liked and what was missing in those demos, then position Scholar on its documented scope (one system across admissions, fees, attendance, results) without comparing features you cannot verify.",
+    "to": 64,
+    "role": "best"
+   },
+   {
+    "label": "Say those tools are unreliable and lack proper fee management.",
+    "to": 65,
+    "role": "poor"
+   },
+   {
+    "label": "Stress that Scholar has 285 menus across 25 module groups, more than she saw elsewhere.",
+    "to": 66,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 64,
+  "id": "sc:d5S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 73,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 65,
+  "id": "sc:d5S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 67,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 66,
+  "id": "sc:d5S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 78,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 67,
+  "id": "sc:d5S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D6 recovery",
+  "links": [
+   {
+    "label": "Retract the claim, apologise, and ask what criteria matter to her.",
+    "to": 78,
+    "role": "recover"
+   },
+   {
+    "label": "Double down: \"everyone knows they are unreliable\".",
+    "to": 72,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 68,
+  "id": "sc:d5M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 6 (customer wavering)",
+  "links": [
+   {
+    "label": "Ask what she liked and what was missing in those demos, then position Scholar on its documented scope (one system across admissions, fees, attendance, results) without comparing features you cannot verify.",
+    "to": 69,
+    "role": "best"
+   },
+   {
+    "label": "Say those tools are unreliable and lack proper fee management.",
+    "to": 70,
+    "role": "poor"
+   },
+   {
+    "label": "Stress that Scholar has 285 menus across 25 module groups, more than she saw elsewhere.",
+    "to": 71,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 69,
+  "id": "sc:d5M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 73,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 70,
+  "id": "sc:d5M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 72,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 71,
+  "id": "sc:d5M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 78,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 72,
+  "id": "sc:lost5",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 6",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 63,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 73,
+  "id": "sc:d6S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 7",
+  "links": [
+   {
+    "label": "Promise \"the best discount we can do\" without a figure and say you will get approval later.",
+    "to": 74,
+    "role": "partial"
+   },
+   {
+    "label": "Quote a per-student fee on the spot to look decisive.",
+    "to": 75,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing depends on scope and has not been fixed yet. Agree the modules and school size, commit to a written proposal by a date, and negotiate scope and phasing rather than price.",
+    "to": 76,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 74,
+  "id": "sc:d6S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 88,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 75,
+  "id": "sc:d6S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 77,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 76,
+  "id": "sc:d6S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 83,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 77,
+  "id": "sc:d6S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D7 recovery",
+  "links": [
+   {
+    "label": "Withdraw the figure, apologise, and explain that an approved proposal will follow.",
+    "to": 88,
+    "role": "recover"
+   },
+   {
+    "label": "Insist the figure stands and ask her to sign.",
+    "to": 82,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 78,
+  "id": "sc:d6M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 7 (customer wavering)",
+  "links": [
+   {
+    "label": "Promise \"the best discount we can do\" without a figure and say you will get approval later.",
+    "to": 79,
+    "role": "partial"
+   },
+   {
+    "label": "Quote a per-student fee on the spot to look decisive.",
+    "to": 80,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing depends on scope and has not been fixed yet. Agree the modules and school size, commit to a written proposal by a date, and negotiate scope and phasing rather than price.",
+    "to": 81,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 79,
+  "id": "sc:d6M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 88,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 80,
+  "id": "sc:d6M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 82,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 81,
+  "id": "sc:d6M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 83,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 82,
+  "id": "sc:lost6",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 7",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 73,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 83,
+  "id": "sc:d7S",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 8",
+  "links": [
+   {
+    "label": "Press her to sign today, saying the offer closes next week.",
+    "to": 84,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed scope (live ERP, fees first), send a written recap within a day, offer a one-page summary for the trustees, book a date to review, and name who on both sides owns the next step.",
+    "to": 85,
+    "role": "best"
+   },
+   {
+    "label": "Ask \"so are we good to go?\" and leave it open until she calls.",
+    "to": 86,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 84,
+  "id": "sc:d7S:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 87,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 85,
+  "id": "sc:d7S:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 93,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 86,
+  "id": "sc:d7S:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 94,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 87,
+  "id": "sc:d7S:rec",
+  "type": "rec",
+  "product": "sc",
+  "title": "D8 recovery",
+  "links": [
+   {
+    "label": "Back off, apologise, and agree a written recap and a post-board meeting date.",
+    "to": 95,
+    "role": "recover"
+   },
+   {
+    "label": "Repeat that the offer ends next week.",
+    "to": 92,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 88,
+  "id": "sc:d7M",
+  "type": "dec",
+  "product": "sc",
+  "title": "Decision 8 (customer wavering)",
+  "links": [
+   {
+    "label": "Press her to sign today, saying the offer closes next week.",
+    "to": 89,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed scope (live ERP, fees first), send a written recap within a day, offer a one-page summary for the trustees, book a date to review, and name who on both sides owns the next step.",
+    "to": 90,
+    "role": "best"
+   },
+   {
+    "label": "Ask \"so are we good to go?\" and leave it open until she calls.",
+    "to": 91,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 89,
+  "id": "sc:d7M:fb0",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 92,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 90,
+  "id": "sc:d7M:fb1",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 94,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 91,
+  "id": "sc:d7M:fb2",
+  "type": "fb",
+  "product": "sc",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 95,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 92,
+  "id": "sc:lost7",
+  "type": "lost",
+  "product": "sc",
+  "title": "Deal lost at decision 8",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 83,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 17,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 93,
+  "id": "sc:out:won",
+  "type": "out",
+  "product": "sc",
+  "title": "Deal won: school-wide ERP engagement agreed",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 17,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 94,
+  "id": "sc:out:wonConc",
+  "type": "out",
+  "product": "sc",
+  "title": "Deal won, with concessions",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 17,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 95,
+  "id": "sc:out:stalled",
+  "type": "out",
+  "product": "sc",
+  "title": "Deal stalled: not lost, not won",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 17,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 16,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 96,
+  "id": "g2g:hub",
+  "type": "hub",
+  "product": "g2g",
+  "title": "G2G - Product hub",
+  "links": [
+   {
+    "label": "Overview",
+    "to": 97,
+    "role": "info"
+   },
+   {
+    "label": "Modules and offers",
+    "to": 98,
+    "role": "info"
+   },
+   {
+    "label": "Customer problems solved",
+    "to": 103,
+    "role": "info"
+   },
+   {
+    "label": "Target customers",
+    "to": 104,
+    "role": "info"
+   },
+   {
+    "label": "Benefits and USPs",
+    "to": 105,
+    "role": "info"
+   },
+   {
+    "label": "Use cases and proof",
+    "to": 106,
+    "role": "info"
+   },
+   {
+    "label": "Readiness and limitations",
+    "to": 107,
+    "role": "info"
+   },
+   {
+    "label": "What we cannot claim",
+    "to": 108,
+    "role": "info"
+   },
+   {
+    "label": "Meet the customer",
+    "to": 109,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 97,
+  "id": "g2g:overview",
+  "type": "info",
+  "product": "g2g",
+  "title": "Overview",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 98,
+  "id": "g2g:modules",
+  "type": "modhub",
+  "product": "g2g",
+  "title": "Modules and offers",
+  "links": [
+   {
+    "label": "HRIT: Attendance, Leave, Payroll  -  docs status: Complete (parts Partial)",
+    "to": 99,
+    "role": "info"
+   },
+   {
+    "label": "Talent Management and Capability Intelligence",
+    "to": 100,
+    "role": "info"
+   },
+   {
+    "label": "G2G LMS and Task Management",
+    "to": 101,
+    "role": "info"
+   },
+   {
+    "label": "Portfolio offers (G2G-01 to G2G-10)",
+    "to": 102,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 99,
+  "id": "g2g:mod0",
+  "type": "info",
+  "product": "g2g",
+  "title": "HRIT: Attendance, Leave, Payroll  -  docs status: Complete (parts Partial)",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 100,
+  "id": "g2g:mod1",
+  "type": "info",
+  "product": "g2g",
+  "title": "Talent Management and Capability Intelligence",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 101,
+  "id": "g2g:mod2",
+  "type": "info",
+  "product": "g2g",
+  "title": "G2G LMS and Task Management",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 102,
+  "id": "g2g:mod3",
+  "type": "info",
+  "product": "g2g",
+  "title": "Portfolio offers (G2G-01 to G2G-10)",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 103,
+  "id": "g2g:problems",
+  "type": "info",
+  "product": "g2g",
+  "title": "Customer problems solved",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 104,
+  "id": "g2g:customers",
+  "type": "info",
+  "product": "g2g",
+  "title": "Target customers",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 105,
+  "id": "g2g:benefits",
+  "type": "benefits",
+  "product": "g2g",
+  "title": "Benefits and USPs",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 106,
+  "id": "g2g:proof",
+  "type": "info",
+  "product": "g2g",
+  "title": "Use cases and proof",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 107,
+  "id": "g2g:readiness",
+  "type": "readiness",
+  "product": "g2g",
+  "title": "Readiness and limitations",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 108,
+  "id": "g2g:missing",
+  "type": "missing",
+  "product": "g2g",
+  "title": "What we cannot claim",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 96,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 109,
+  "id": "g2g:persona",
+  "type": "persona",
+  "product": "g2g",
+  "title": "Customer persona and brief",
+  "links": [
+   {
+    "label": "Start the scenario",
+    "to": 111,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 110,
+  "id": "g2g:map",
+  "type": "map",
+  "product": "g2g",
+  "title": "Scenario map",
+  "links": [
+   {
+    "label": "Decision 1",
+    "to": 111,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 2",
+    "to": 117,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 3",
+    "to": 127,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 4",
+    "to": 137,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 5",
+    "to": 147,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 6",
+    "to": 157,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 7",
+    "to": 167,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 8",
+    "to": 177,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 111,
+  "id": "g2g:d0S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 1",
+  "links": [
+   {
+    "label": "Walk through every module and the AI agents roadmap in one go.",
+    "to": 112,
+    "role": "poor"
+   },
+   {
+    "label": "Ask about team size, how attendance, leave and payroll run today, whether capability or training is a priority, and what he wants to fix first.",
+    "to": 113,
+    "role": "best"
+   },
+   {
+    "label": "Give a one-line description (\"capability and competency workflows\") and ask what he is looking for.",
+    "to": 114,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 112,
+  "id": "g2g:d0S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 115,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 111,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 113,
+  "id": "g2g:d0S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 117,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 111,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 114,
+  "id": "g2g:d0S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 122,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 111,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 115,
+  "id": "g2g:d0S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D1 recovery",
+  "links": [
+   {
+    "label": "Acknowledge it was too much; say what is built, what is in development, and ask what he needs first.",
+    "to": 122,
+    "role": "recover"
+   },
+   {
+    "label": "Say \"all of it, basically\" and continue.",
+    "to": 116,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 111,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 116,
+  "id": "g2g:lost0",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 1",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 111,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 117,
+  "id": "g2g:d1S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 2",
+  "links": [
+   {
+    "label": "Say G2G solves both, immediately.",
+    "to": 118,
+    "role": "partial"
+   },
+   {
+    "label": "Promise payroll prep time will drop by half.",
+    "to": 119,
+    "role": "poor"
+   },
+   {
+    "label": "Separate operations (attendance-to-payroll) from capability (skill gaps), ask which costs more and how he measures it, then agree a first focus.",
+    "to": 120,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 118,
+  "id": "g2g:d1S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 132,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 117,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 119,
+  "id": "g2g:d1S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 121,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 117,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 120,
+  "id": "g2g:d1S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 127,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 117,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 121,
+  "id": "g2g:d1S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D2 recovery",
+  "links": [
+   {
+    "label": "Retract the number, apologise, and propose to measure his current prep time together.",
+    "to": 132,
+    "role": "recover"
+   },
+   {
+    "label": "Say \"it was an average\" and keep going.",
+    "to": 126,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 117,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 122,
+  "id": "g2g:d1M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 2 (customer wavering)",
+  "links": [
+   {
+    "label": "Say G2G solves both, immediately.",
+    "to": 123,
+    "role": "partial"
+   },
+   {
+    "label": "Promise payroll prep time will drop by half.",
+    "to": 124,
+    "role": "poor"
+   },
+   {
+    "label": "Separate operations (attendance-to-payroll) from capability (skill gaps), ask which costs more and how he measures it, then agree a first focus.",
+    "to": 125,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 123,
+  "id": "g2g:d1M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 132,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 122,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 124,
+  "id": "g2g:d1M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 126,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 122,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 125,
+  "id": "g2g:d1M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 127,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 122,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 126,
+  "id": "g2g:lost1",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 2",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 117,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 127,
+  "id": "g2g:d2S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 3",
+  "links": [
+   {
+    "label": "Recommend Task Execution with ESO and the AI agents as the future of his HR operations.",
+    "to": 128,
+    "role": "poor"
+   },
+   {
+    "label": "Start with HRIT (attendance, leave, payroll link), then a capability gap assessment in phase two. Say plainly that G2G offers are built but no production client exists yet.",
+    "to": 129,
+    "role": "best"
+   },
+   {
+    "label": "Recommend the SME bundle (gap assessment + HRMS core + Enterprise Brain + AI assistant) as the full answer.",
+    "to": 130,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 128,
+  "id": "g2g:d2S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 131,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 127,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 129,
+  "id": "g2g:d2S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 137,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 127,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 130,
+  "id": "g2g:d2S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 142,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 127,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 131,
+  "id": "g2g:d2S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D3 recovery",
+  "links": [
+   {
+    "label": "Apologise, say they are in development, and reset to HRIT and gap assessment.",
+    "to": 142,
+    "role": "recover"
+   },
+   {
+    "label": "Say they are \"nearly ready\" and move on.",
+    "to": 136,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 127,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 132,
+  "id": "g2g:d2M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 3 (customer wavering)",
+  "links": [
+   {
+    "label": "Recommend Task Execution with ESO and the AI agents as the future of his HR operations.",
+    "to": 133,
+    "role": "poor"
+   },
+   {
+    "label": "Start with HRIT (attendance, leave, payroll link), then a capability gap assessment in phase two. Say plainly that G2G offers are built but no production client exists yet.",
+    "to": 134,
+    "role": "best"
+   },
+   {
+    "label": "Recommend the SME bundle (gap assessment + HRMS core + Enterprise Brain + AI assistant) as the full answer.",
+    "to": 135,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 133,
+  "id": "g2g:d2M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 136,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 132,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 134,
+  "id": "g2g:d2M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 137,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 132,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 135,
+  "id": "g2g:d2M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 142,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 132,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 136,
+  "id": "g2g:lost2",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 3",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 127,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 137,
+  "id": "g2g:d3S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 4",
+  "links": [
+   {
+    "label": "Show only the competency library and skills screens, since that is the exciting part.",
+    "to": 138,
+    "role": "partial"
+   },
+   {
+    "label": "Promise a live monthly payroll run and bank transfer file export in the demo.",
+    "to": 139,
+    "role": "poor"
+   },
+   {
+    "label": "Demo the documented flows: punch in/out, a leave request and its approval, and the salary-structure grid, showing how attendance feeds payroll. Say what is partial.",
+    "to": 140,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 138,
+  "id": "g2g:d3S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 152,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 137,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 139,
+  "id": "g2g:d3S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 141,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 137,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 140,
+  "id": "g2g:d3S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 147,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 137,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 141,
+  "id": "g2g:d3S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D4 recovery",
+  "links": [
+   {
+    "label": "Admit the monthly run is partial and the bank file is planned, then show the complete flows.",
+    "to": 152,
+    "role": "recover"
+   },
+   {
+    "label": "Blame the demo environment and promise it will \"work next week\".",
+    "to": 146,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 137,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 142,
+  "id": "g2g:d3M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 4 (customer wavering)",
+  "links": [
+   {
+    "label": "Show only the competency library and skills screens, since that is the exciting part.",
+    "to": 143,
+    "role": "partial"
+   },
+   {
+    "label": "Promise a live monthly payroll run and bank transfer file export in the demo.",
+    "to": 144,
+    "role": "poor"
+   },
+   {
+    "label": "Demo the documented flows: punch in/out, a leave request and its approval, and the salary-structure grid, showing how attendance feeds payroll. Say what is partial.",
+    "to": 145,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 143,
+  "id": "g2g:d3M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 152,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 142,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 144,
+  "id": "g2g:d3M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 146,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 142,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 145,
+  "id": "g2g:d3M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 147,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 142,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 146,
+  "id": "g2g:lost3",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 4",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 137,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 147,
+  "id": "g2g:d4S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 5",
+  "links": [
+   {
+    "label": "Say several companies in his industry already run G2G.",
+    "to": 148,
+    "role": "poor"
+   },
+   {
+    "label": "Say G2G works for any organisation.",
+    "to": 149,
+    "role": "partial"
+   },
+   {
+    "label": "Acknowledge that v1 docs describe educational organisations and no G2G offer has a production client yet, then propose a scoped pilot to validate fit on his own data with clear success criteria.",
+    "to": 150,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 148,
+  "id": "g2g:d4S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 151,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 147,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 149,
+  "id": "g2g:d4S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 162,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 147,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 150,
+  "id": "g2g:d4S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 157,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 147,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 151,
+  "id": "g2g:d4S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D5 recovery",
+  "links": [
+   {
+    "label": "Retract, apologise, and say there is no production client yet; propose a pilot.",
+    "to": 162,
+    "role": "recover"
+   },
+   {
+    "label": "Say the client \"prefers to stay anonymous\".",
+    "to": 156,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 147,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 152,
+  "id": "g2g:d4M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 5 (customer wavering)",
+  "links": [
+   {
+    "label": "Say several companies in his industry already run G2G.",
+    "to": 153,
+    "role": "poor"
+   },
+   {
+    "label": "Say G2G works for any organisation.",
+    "to": 154,
+    "role": "partial"
+   },
+   {
+    "label": "Acknowledge that v1 docs describe educational organisations and no G2G offer has a production client yet, then propose a scoped pilot to validate fit on his own data with clear success criteria.",
+    "to": 155,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 153,
+  "id": "g2g:d4M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 156,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 152,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 154,
+  "id": "g2g:d4M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 162,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 152,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 155,
+  "id": "g2g:d4M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 157,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 152,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 156,
+  "id": "g2g:lost4",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 5",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 147,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 157,
+  "id": "g2g:d5S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 6",
+  "links": [
+   {
+    "label": "Emphasise the AI assistant and agentic library as what competitors lack.",
+    "to": 158,
+    "role": "partial"
+   },
+   {
+    "label": "Ask which tools and what criteria matter, then position on what is documented: attendance linked to payroll, plus a competency and capability layer in the same platform. Avoid feature claims about rivals.",
+    "to": 159,
+    "role": "best"
+   },
+   {
+    "label": "Say established HRMS tools do not have any competency library.",
+    "to": 160,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 158,
+  "id": "g2g:d5S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 172,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 157,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 159,
+  "id": "g2g:d5S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 167,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 157,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 160,
+  "id": "g2g:d5S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 161,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 157,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 161,
+  "id": "g2g:d5S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D6 recovery",
+  "links": [
+   {
+    "label": "Retract, apologise, and ask what he values in his current candidates.",
+    "to": 172,
+    "role": "recover"
+   },
+   {
+    "label": "Insist your statement is correct.",
+    "to": 166,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 157,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 162,
+  "id": "g2g:d5M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 6 (customer wavering)",
+  "links": [
+   {
+    "label": "Emphasise the AI assistant and agentic library as what competitors lack.",
+    "to": 163,
+    "role": "partial"
+   },
+   {
+    "label": "Ask which tools and what criteria matter, then position on what is documented: attendance linked to payroll, plus a competency and capability layer in the same platform. Avoid feature claims about rivals.",
+    "to": 164,
+    "role": "best"
+   },
+   {
+    "label": "Say established HRMS tools do not have any competency library.",
+    "to": 165,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 163,
+  "id": "g2g:d5M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 172,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 162,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 164,
+  "id": "g2g:d5M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 167,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 162,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 165,
+  "id": "g2g:d5M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 166,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 162,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 166,
+  "id": "g2g:lost5",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 6",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 157,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 167,
+  "id": "g2g:d6S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 7",
+  "links": [
+   {
+    "label": "Quote a per-employee monthly price to keep momentum.",
+    "to": 168,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing has not been defined yet. Agree pilot scope, duration and success criteria, and commit to a written proposal by a date. Negotiate scope, not an unapproved price.",
+    "to": 169,
+    "role": "best"
+   },
+   {
+    "label": "Offer the pilot free of charge to win the deal.",
+    "to": 170,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 168,
+  "id": "g2g:d6S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 171,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 167,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 169,
+  "id": "g2g:d6S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 177,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 167,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 170,
+  "id": "g2g:d6S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 182,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 167,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 171,
+  "id": "g2g:d6S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D7 recovery",
+  "links": [
+   {
+    "label": "Withdraw the figure, apologise, and say an approved proposal will follow.",
+    "to": 182,
+    "role": "recover"
+   },
+   {
+    "label": "Insist the number is final.",
+    "to": 176,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 167,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 172,
+  "id": "g2g:d6M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 7 (customer wavering)",
+  "links": [
+   {
+    "label": "Quote a per-employee monthly price to keep momentum.",
+    "to": 173,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing has not been defined yet. Agree pilot scope, duration and success criteria, and commit to a written proposal by a date. Negotiate scope, not an unapproved price.",
+    "to": 174,
+    "role": "best"
+   },
+   {
+    "label": "Offer the pilot free of charge to win the deal.",
+    "to": 175,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 173,
+  "id": "g2g:d6M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 176,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 172,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 174,
+  "id": "g2g:d6M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 177,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 172,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 175,
+  "id": "g2g:d6M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 182,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 172,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 176,
+  "id": "g2g:lost6",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 7",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 167,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 177,
+  "id": "g2g:d7S",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 8",
+  "links": [
+   {
+    "label": "Ask \"are we good to go?\" and wait for him to revert.",
+    "to": 178,
+    "role": "partial"
+   },
+   {
+    "label": "Tell him the pilot slot is limited and ask him to commit today.",
+    "to": 179,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed pilot scope and success criteria, send a written recap within a day with an executive summary for the CEO, book a review date, and name who owns each next step.",
+    "to": 180,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 178,
+  "id": "g2g:d7S:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 188,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 177,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 179,
+  "id": "g2g:d7S:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 181,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 177,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 180,
+  "id": "g2g:d7S:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 187,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 177,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 181,
+  "id": "g2g:d7S:rec",
+  "type": "rec",
+  "product": "g2g",
+  "title": "D8 recovery",
+  "links": [
+   {
+    "label": "Back off, apologise, and agree a written recap and a review date.",
+    "to": 189,
+    "role": "recover"
+   },
+   {
+    "label": "Repeat that the slot is limited.",
+    "to": 186,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 177,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 182,
+  "id": "g2g:d7M",
+  "type": "dec",
+  "product": "g2g",
+  "title": "Decision 8 (customer wavering)",
+  "links": [
+   {
+    "label": "Ask \"are we good to go?\" and wait for him to revert.",
+    "to": 183,
+    "role": "partial"
+   },
+   {
+    "label": "Tell him the pilot slot is limited and ask him to commit today.",
+    "to": 184,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed pilot scope and success criteria, send a written recap within a day with an executive summary for the CEO, book a review date, and name who owns each next step.",
+    "to": 185,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 183,
+  "id": "g2g:d7M:fb0",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 189,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 182,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 184,
+  "id": "g2g:d7M:fb1",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 186,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 182,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 185,
+  "id": "g2g:d7M:fb2",
+  "type": "fb",
+  "product": "g2g",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 188,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 182,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 186,
+  "id": "g2g:lost7",
+  "type": "lost",
+  "product": "g2g",
+  "title": "Deal lost at decision 8",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 177,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 111,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 187,
+  "id": "g2g:out:won",
+  "type": "out",
+  "product": "g2g",
+  "title": "Deal won: scoped pilot agreed",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 111,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 188,
+  "id": "g2g:out:wonConc",
+  "type": "out",
+  "product": "g2g",
+  "title": "Deal won, with concessions",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 111,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 189,
+  "id": "g2g:out:stalled",
+  "type": "out",
+  "product": "g2g",
+  "title": "Deal stalled: not lost, not won",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 111,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 110,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 190,
+  "id": "eb:hub",
+  "type": "hub",
+  "product": "eb",
+  "title": "Enterprise Brain - Product hub",
+  "links": [
+   {
+    "label": "Overview",
+    "to": 191,
+    "role": "info"
+   },
+   {
+    "label": "Modules and offers",
+    "to": 192,
+    "role": "info"
+   },
+   {
+    "label": "Customer problems solved",
+    "to": 196,
+    "role": "info"
+   },
+   {
+    "label": "Target customers",
+    "to": 197,
+    "role": "info"
+   },
+   {
+    "label": "Benefits and USPs",
+    "to": 198,
+    "role": "info"
+   },
+   {
+    "label": "Use cases and proof",
+    "to": 199,
+    "role": "info"
+   },
+   {
+    "label": "Readiness and limitations",
+    "to": 200,
+    "role": "info"
+   },
+   {
+    "label": "What we cannot claim",
+    "to": 201,
+    "role": "info"
+   },
+   {
+    "label": "Meet the customer",
+    "to": 202,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 191,
+  "id": "eb:overview",
+  "type": "info",
+  "product": "eb",
+  "title": "Overview",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 192,
+  "id": "eb:modules",
+  "type": "modhub",
+  "product": "eb",
+  "title": "Modules and offers",
+  "links": [
+   {
+    "label": "Intelligence Layer (EB-01) and Data Ingestion (EB-03)",
+    "to": 193,
+    "role": "info"
+   },
+   {
+    "label": "Department and Person Intelligence (EB-02), KASBA Scoring (EB-05)",
+    "to": 194,
+    "role": "info"
+   },
+   {
+    "label": "Knowledge & Memory, and the in-app menu",
+    "to": 195,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 193,
+  "id": "eb:mod0",
+  "type": "info",
+  "product": "eb",
+  "title": "Intelligence Layer (EB-01) and Data Ingestion (EB-03)",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 194,
+  "id": "eb:mod1",
+  "type": "info",
+  "product": "eb",
+  "title": "Department and Person Intelligence (EB-02), KASBA Scoring (EB-05)",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 195,
+  "id": "eb:mod2",
+  "type": "info",
+  "product": "eb",
+  "title": "Knowledge & Memory, and the in-app menu",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 196,
+  "id": "eb:problems",
+  "type": "info",
+  "product": "eb",
+  "title": "Customer problems solved",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 197,
+  "id": "eb:customers",
+  "type": "info",
+  "product": "eb",
+  "title": "Target customers",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 198,
+  "id": "eb:benefits",
+  "type": "benefits",
+  "product": "eb",
+  "title": "Benefits and USPs",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 199,
+  "id": "eb:proof",
+  "type": "info",
+  "product": "eb",
+  "title": "Use cases and proof",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 200,
+  "id": "eb:readiness",
+  "type": "readiness",
+  "product": "eb",
+  "title": "Readiness and limitations",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 201,
+  "id": "eb:missing",
+  "type": "missing",
+  "product": "eb",
+  "title": "What we cannot claim",
+  "links": [
+   {
+    "label": "Back to product hub",
+    "to": 190,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 202,
+  "id": "eb:persona",
+  "type": "persona",
+  "product": "eb",
+  "title": "Customer persona and brief",
+  "links": [
+   {
+    "label": "Start the scenario",
+    "to": 204,
+    "role": "start"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   }
+  ]
+ },
+ {
+  "num": 203,
+  "id": "eb:map",
+  "type": "map",
+  "product": "eb",
+  "title": "Scenario map",
+  "links": [
+   {
+    "label": "Decision 1",
+    "to": 204,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 2",
+    "to": 210,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 3",
+    "to": 220,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 4",
+    "to": 230,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 5",
+    "to": 240,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 6",
+    "to": 250,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 7",
+    "to": 260,
+    "role": "replay"
+   },
+   {
+    "label": "Decision 8",
+    "to": 270,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 204,
+  "id": "eb:d0S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 1",
+  "links": [
+   {
+    "label": "Ask how decisions get made today, which reports she trusts or distrusts, and where her numbers come from, before describing anything.",
+    "to": 205,
+    "role": "best"
+   },
+   {
+    "label": "Say it is an AI brain that understands the whole company and gives answers instantly.",
+    "to": 206,
+    "role": "poor"
+   },
+   {
+    "label": "Read her the portfolio one-liner: an intelligence layer above ERP and HR systems that produces verdicts over reports.",
+    "to": 207,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 205,
+  "id": "eb:d0S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 210,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 204,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 206,
+  "id": "eb:d0S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 208,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 204,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 207,
+  "id": "eb:d0S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D1 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 215,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 204,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 208,
+  "id": "eb:d0S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D1 recovery",
+  "links": [
+   {
+    "label": "Back up: say it is an evidence-based layer, and ask about her reporting pain.",
+    "to": 215,
+    "role": "recover"
+   },
+   {
+    "label": "Repeat that it knows everything.",
+    "to": 209,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 204,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 209,
+  "id": "eb:lost0",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 1",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 204,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 210,
+  "id": "eb:d1S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 2",
+  "links": [
+   {
+    "label": "Promise the product will end all reporting arguments.",
+    "to": 211,
+    "role": "poor"
+   },
+   {
+    "label": "Frame it as data consolidation from existing systems plus traceable evidence. Ask which decision hurts most and which sources conflict.",
+    "to": 212,
+    "role": "best"
+   },
+   {
+    "label": "Say the product can sit above all her systems and fix the mess.",
+    "to": 213,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 211,
+  "id": "eb:d1S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 214,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 210,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 212,
+  "id": "eb:d1S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 220,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 210,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 213,
+  "id": "eb:d1S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 225,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 210,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 214,
+  "id": "eb:d1S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D2 recovery",
+  "links": [
+   {
+    "label": "Walk it back: it consolidates data and exposes evidence so arguments become traceable; outcomes depend on her data.",
+    "to": 225,
+    "role": "recover"
+   },
+   {
+    "label": "Reassure her with \"trust me, it works\".",
+    "to": 219,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 210,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 215,
+  "id": "eb:d1M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 2 (customer wavering)",
+  "links": [
+   {
+    "label": "Promise the product will end all reporting arguments.",
+    "to": 216,
+    "role": "poor"
+   },
+   {
+    "label": "Frame it as data consolidation from existing systems plus traceable evidence. Ask which decision hurts most and which sources conflict.",
+    "to": 217,
+    "role": "best"
+   },
+   {
+    "label": "Say the product can sit above all her systems and fix the mess.",
+    "to": 218,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 216,
+  "id": "eb:d1M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 219,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 215,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 217,
+  "id": "eb:d1M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 220,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 215,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 218,
+  "id": "eb:d1M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D2 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 225,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 215,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 219,
+  "id": "eb:lost1",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 2",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 210,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 220,
+  "id": "eb:d2S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 3",
+  "links": [
+   {
+    "label": "Recommend the full Enterprise Brain: intelligence layer, department intelligence, knowledge and AI assistant.",
+    "to": 221,
+    "role": "partial"
+   },
+   {
+    "label": "Recommend a scoped pilot: Data Ingestion plus the Intelligence Layer on one decision area. Say the layer has been proven in a pilot on FiberValley and Lions School data and has no production client yet.",
+    "to": 222,
+    "role": "best"
+   },
+   {
+    "label": "Lead with the Department & Person Intelligence dashboards as the headline feature.",
+    "to": 223,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 221,
+  "id": "eb:d2S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 235,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 220,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 222,
+  "id": "eb:d2S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 230,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 220,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 223,
+  "id": "eb:d2S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 224,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 220,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 224,
+  "id": "eb:d2S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D3 recovery",
+  "links": [
+   {
+    "label": "Apologise, name what is proven in pilot and what is not, and refocus on the pilot.",
+    "to": 235,
+    "role": "recover"
+   },
+   {
+    "label": "Say the dashboards are \"being finalised\" and move on.",
+    "to": 229,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 220,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 225,
+  "id": "eb:d2M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 3 (customer wavering)",
+  "links": [
+   {
+    "label": "Recommend the full Enterprise Brain: intelligence layer, department intelligence, knowledge and AI assistant.",
+    "to": 226,
+    "role": "partial"
+   },
+   {
+    "label": "Recommend a scoped pilot: Data Ingestion plus the Intelligence Layer on one decision area. Say the layer has been proven in a pilot on FiberValley and Lions School data and has no production client yet.",
+    "to": 227,
+    "role": "best"
+   },
+   {
+    "label": "Lead with the Department & Person Intelligence dashboards as the headline feature.",
+    "to": 228,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 226,
+  "id": "eb:d2M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 235,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 225,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 227,
+  "id": "eb:d2M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 230,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 225,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 228,
+  "id": "eb:d2M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D3 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 229,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 225,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 229,
+  "id": "eb:lost2",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 3",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 220,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 230,
+  "id": "eb:d3S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 4",
+  "links": [
+   {
+    "label": "Open the Governance screen to show the decision approval trail.",
+    "to": 231,
+    "role": "poor"
+   },
+   {
+    "label": "Show ingestion from an Excel export into the Evidence Ledger, then the Intelligence Loop on a pilot dataset, including an UNDETERMINED result. Say which screens are still under redesign.",
+    "to": 232,
+    "role": "best"
+   },
+   {
+    "label": "Walk through the whole menu: Foundation, Capabilities, Intelligence Loop, Analytics, Knowledge, Automation.",
+    "to": 233,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 231,
+  "id": "eb:d3S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 234,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 230,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 232,
+  "id": "eb:d3S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 240,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 230,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 233,
+  "id": "eb:d3S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 245,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 230,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 234,
+  "id": "eb:d3S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D4 recovery",
+  "links": [
+   {
+    "label": "Be candid: that screen is not ready. Switch to the ingestion and evidence flow.",
+    "to": 245,
+    "role": "recover"
+   },
+   {
+    "label": "Say it is a \"loading issue\" and click around.",
+    "to": 239,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 230,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 235,
+  "id": "eb:d3M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 4 (customer wavering)",
+  "links": [
+   {
+    "label": "Open the Governance screen to show the decision approval trail.",
+    "to": 236,
+    "role": "poor"
+   },
+   {
+    "label": "Show ingestion from an Excel export into the Evidence Ledger, then the Intelligence Loop on a pilot dataset, including an UNDETERMINED result. Say which screens are still under redesign.",
+    "to": 237,
+    "role": "best"
+   },
+   {
+    "label": "Walk through the whole menu: Foundation, Capabilities, Intelligence Loop, Analytics, Knowledge, Automation.",
+    "to": 238,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 236,
+  "id": "eb:d3M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 239,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 235,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 237,
+  "id": "eb:d3M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 240,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 235,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 238,
+  "id": "eb:d3M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D4 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 245,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 235,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 239,
+  "id": "eb:lost3",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 4",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 230,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 240,
+  "id": "eb:d4S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 5",
+  "links": [
+   {
+    "label": "Say several enterprises use it and the AI is highly accurate.",
+    "to": 241,
+    "role": "partial"
+   },
+   {
+    "label": "Quote an accuracy percentage from a past project.",
+    "to": 242,
+    "role": "poor"
+   },
+   {
+    "label": "Be specific: the layer has been proven in a pilot on FiberValley and Lions School data; there is no production client yet. And it is designed to say UNDETERMINED rather than guess when evidence is thin.",
+    "to": 243,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 241,
+  "id": "eb:d4S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 255,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 240,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 242,
+  "id": "eb:d4S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 244,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 240,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 243,
+  "id": "eb:d4S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 250,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 240,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 244,
+  "id": "eb:d4S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D5 recovery",
+  "links": [
+   {
+    "label": "Admit you cannot source it, apologise, and explain the documented pilot proof.",
+    "to": 255,
+    "role": "recover"
+   },
+   {
+    "label": "Say the report is confidential.",
+    "to": 249,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 240,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 245,
+  "id": "eb:d4M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 5 (customer wavering)",
+  "links": [
+   {
+    "label": "Say several enterprises use it and the AI is highly accurate.",
+    "to": 246,
+    "role": "partial"
+   },
+   {
+    "label": "Quote an accuracy percentage from a past project.",
+    "to": 247,
+    "role": "poor"
+   },
+   {
+    "label": "Be specific: the layer has been proven in a pilot on FiberValley and Lions School data; there is no production client yet. And it is designed to say UNDETERMINED rather than guess when evidence is thin.",
+    "to": 248,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 246,
+  "id": "eb:d4M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 255,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 245,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 247,
+  "id": "eb:d4M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 249,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 245,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 248,
+  "id": "eb:d4M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D5 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 250,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 245,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 249,
+  "id": "eb:lost4",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 5",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 240,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 250,
+  "id": "eb:d5S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 6",
+  "links": [
+   {
+    "label": "Say BI dashboards are shallow and never give real intelligence.",
+    "to": 251,
+    "role": "poor"
+   },
+   {
+    "label": "Ask what she expects from a dashboard tool, then explain what is documented: a layer on top of existing systems, traceable evidence, verdicts that can say UNDETERMINED. Say you have no verified head-to-head comparison.",
+    "to": 252,
+    "role": "best"
+   },
+   {
+    "label": "Say Enterprise Brain complements dashboards, so she need not choose.",
+    "to": 253,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 251,
+  "id": "eb:d5S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 254,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 250,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 252,
+  "id": "eb:d5S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 260,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 250,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 253,
+  "id": "eb:d5S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 265,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 250,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 254,
+  "id": "eb:d5S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D6 recovery",
+  "links": [
+   {
+    "label": "Withdraw the claim and ask what she needs from such a tool.",
+    "to": 265,
+    "role": "recover"
+   },
+   {
+    "label": "Say \"everyone in the industry knows\".",
+    "to": 259,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 250,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 255,
+  "id": "eb:d5M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 6 (customer wavering)",
+  "links": [
+   {
+    "label": "Say BI dashboards are shallow and never give real intelligence.",
+    "to": 256,
+    "role": "poor"
+   },
+   {
+    "label": "Ask what she expects from a dashboard tool, then explain what is documented: a layer on top of existing systems, traceable evidence, verdicts that can say UNDETERMINED. Say you have no verified head-to-head comparison.",
+    "to": 257,
+    "role": "best"
+   },
+   {
+    "label": "Say Enterprise Brain complements dashboards, so she need not choose.",
+    "to": 258,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 256,
+  "id": "eb:d5M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 259,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 255,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 257,
+  "id": "eb:d5M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 260,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 255,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 258,
+  "id": "eb:d5M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D6 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 265,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 255,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 259,
+  "id": "eb:lost5",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 6",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 250,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 260,
+  "id": "eb:d6S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 7",
+  "links": [
+   {
+    "label": "Offer to do the pilot at cost, \"to prove the value\".",
+    "to": 261,
+    "role": "partial"
+   },
+   {
+    "label": "Say pricing has not been set yet. Agree a pilot scope, one decision area and data sources, plus success criteria, and commit to a written proposal by a date.",
+    "to": 262,
+    "role": "best"
+   },
+   {
+    "label": "Quote a yearly licence fee to appear confident.",
+    "to": 263,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 261,
+  "id": "eb:d6S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 275,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 260,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 262,
+  "id": "eb:d6S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 270,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 260,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 263,
+  "id": "eb:d6S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 264,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 260,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 264,
+  "id": "eb:d6S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D7 recovery",
+  "links": [
+   {
+    "label": "Withdraw the figure, apologise, and commit to an approved proposal.",
+    "to": 275,
+    "role": "recover"
+   },
+   {
+    "label": "Say finance is wrong.",
+    "to": 269,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 260,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 265,
+  "id": "eb:d6M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 7 (customer wavering)",
+  "links": [
+   {
+    "label": "Offer to do the pilot at cost, \"to prove the value\".",
+    "to": 266,
+    "role": "partial"
+   },
+   {
+    "label": "Say pricing has not been set yet. Agree a pilot scope, one decision area and data sources, plus success criteria, and commit to a written proposal by a date.",
+    "to": 267,
+    "role": "best"
+   },
+   {
+    "label": "Quote a yearly licence fee to appear confident.",
+    "to": 268,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 266,
+  "id": "eb:d6M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 275,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 265,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 267,
+  "id": "eb:d6M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 270,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 265,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 268,
+  "id": "eb:d6M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D7 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 269,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 265,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 269,
+  "id": "eb:lost6",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 7",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 260,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 270,
+  "id": "eb:d7S",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 8",
+  "links": [
+   {
+    "label": "Say \"let me know when you are ready\" and leave it with her.",
+    "to": 271,
+    "role": "partial"
+   },
+   {
+    "label": "Recap the pilot: one decision area, data sources, UNDETERMINED handling, success criteria and owners. Send a written recap within a day, plus a one-page note for her CEO, and book a review date.",
+    "to": 272,
+    "role": "best"
+   },
+   {
+    "label": "Say pilot data capacity is limited and she must commit today.",
+    "to": 273,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 271,
+  "id": "eb:d7S:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 281,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 270,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 272,
+  "id": "eb:d7S:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 280,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 270,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 273,
+  "id": "eb:d7S:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 274,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 270,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 274,
+  "id": "eb:d7S:rec",
+  "type": "rec",
+  "product": "eb",
+  "title": "D8 recovery",
+  "links": [
+   {
+    "label": "Step back, apologise, and agree a written recap and review date.",
+    "to": 282,
+    "role": "recover"
+   },
+   {
+    "label": "Repeat that capacity is limited.",
+    "to": 279,
+    "role": "double-down"
+   },
+   {
+    "label": "Return to decision",
+    "to": 270,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 275,
+  "id": "eb:d7M",
+  "type": "dec",
+  "product": "eb",
+  "title": "Decision 8 (customer wavering)",
+  "links": [
+   {
+    "label": "Say \"let me know when you are ready\" and leave it with her.",
+    "to": 276,
+    "role": "partial"
+   },
+   {
+    "label": "Recap the pilot: one decision area, data sources, UNDETERMINED handling, success criteria and owners. Send a written recap within a day, plus a one-page note for her CEO, and book a review date.",
+    "to": 277,
+    "role": "best"
+   },
+   {
+    "label": "Say pilot data capacity is limited and she must commit today.",
+    "to": 278,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 276,
+  "id": "eb:d7M:fb0",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 282,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 275,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 277,
+  "id": "eb:d7M:fb1",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 281,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 275,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 278,
+  "id": "eb:d7M:fb2",
+  "type": "fb",
+  "product": "eb",
+  "title": "D8 feedback",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 279,
+    "role": "continue"
+   },
+   {
+    "label": "Return to decision",
+    "to": 275,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 279,
+  "id": "eb:lost7",
+  "type": "lost",
+  "product": "eb",
+  "title": "Deal lost at decision 8",
+  "links": [
+   {
+    "label": "Replay decision",
+    "to": 270,
+    "role": "replay"
+   },
+   {
+    "label": "Scenario map",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Start over",
+    "to": 204,
+    "role": "replay"
+   }
+  ]
+ },
+ {
+  "num": 280,
+  "id": "eb:out:won",
+  "type": "out",
+  "product": "eb",
+  "title": "Deal won: scoped evidence pilot agreed",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 204,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 281,
+  "id": "eb:out:wonConc",
+  "type": "out",
+  "product": "eb",
+  "title": "Deal won, with concessions",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 204,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 282,
+  "id": "eb:out:stalled",
+  "type": "out",
+  "product": "eb",
+  "title": "Deal stalled: not lost, not won",
+  "links": [
+   {
+    "label": "Replay the scenario",
+    "to": 204,
+    "role": "replay"
+   },
+   {
+    "label": "Review decisions",
+    "to": 203,
+    "role": "info"
+   },
+   {
+    "label": "Try another product",
+    "to": 1,
+    "role": "nav"
+   }
+  ]
+ }
+]

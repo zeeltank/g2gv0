@@ -1,0 +1,1692 @@
+[
+ {
+  "num": 1,
+  "id": "home",
+  "type": "home",
+  "title": "G2G Sales Home",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 2,
+    "role": "section"
+   },
+   {
+    "label": "Modules",
+    "to": 3,
+    "role": "section"
+   },
+   {
+    "label": "Business Problems",
+    "to": 4,
+    "role": "section"
+   },
+   {
+    "label": "Solutions",
+    "to": 5,
+    "role": "section"
+   },
+   {
+    "label": "Sales Scenarios",
+    "to": 6,
+    "role": "section"
+   }
+  ]
+ },
+ {
+  "num": 2,
+  "id": "roles",
+  "type": "hub",
+  "title": "Roles",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Finance Admin",
+    "to": 10,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   }
+  ]
+ },
+ {
+  "num": 3,
+  "id": "modules",
+  "type": "hub",
+  "title": "Modules",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Competency management",
+    "to": 16,
+    "role": "module"
+   },
+   {
+    "label": "KASBA framework",
+    "to": 17,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 18,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 20,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   },
+   {
+    "label": "Organisation and access",
+    "to": 23,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 4,
+  "id": "problems",
+  "type": "hub",
+  "title": "Business Problems",
+  "links": [
+   {
+    "label": "Month-end HR work takes too long",
+    "to": 35,
+    "role": "problem"
+   },
+   {
+    "label": "Start the conversation  >",
+    "to": 35,
+    "role": "problem"
+   },
+   {
+    "label": "See the solution",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "We do not know our people's skills and gaps",
+    "to": 36,
+    "role": "problem"
+   },
+   {
+    "label": "Start the conversation  >",
+    "to": 36,
+    "role": "problem"
+   },
+   {
+    "label": "See the solution",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "Training and appraisals are not joined up",
+    "to": 37,
+    "role": "problem"
+   },
+   {
+    "label": "Start the conversation  >",
+    "to": 37,
+    "role": "problem"
+   },
+   {
+    "label": "See the solution",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "No clear view, and wrong access for people",
+    "to": 38,
+    "role": "problem"
+   },
+   {
+    "label": "Start the conversation  >",
+    "to": 38,
+    "role": "problem"
+   },
+   {
+    "label": "See the solution",
+    "to": 5,
+    "role": "solution"
+   }
+  ]
+ },
+ {
+  "num": 5,
+  "id": "solutions",
+  "type": "hub",
+  "title": "Solutions",
+  "links": [
+   {
+    "label": "Run HR day to day",
+    "to": 35,
+    "role": "scenario"
+   },
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Know and grow skills",
+    "to": 36,
+    "role": "scenario"
+   },
+   {
+    "label": "Competency management",
+    "to": 16,
+    "role": "module"
+   },
+   {
+    "label": "KASBA framework",
+    "to": 17,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 18,
+    "role": "module"
+   },
+   {
+    "label": "Learning and talent",
+    "to": 37,
+    "role": "scenario"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 20,
+    "role": "module"
+   },
+   {
+    "label": "Reports, tasks and access",
+    "to": 38,
+    "role": "scenario"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   },
+   {
+    "label": "Organisation and access",
+    "to": 23,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 6,
+  "id": "scenarios",
+  "type": "hub",
+  "title": "Sales Scenarios",
+  "links": [
+   {
+    "label": "Month-end HR work takes too long",
+    "to": 35,
+    "role": "scenario"
+   },
+   {
+    "label": "We do not know our people's skills and gaps",
+    "to": 36,
+    "role": "scenario"
+   },
+   {
+    "label": "Training and appraisals are not joined up",
+    "to": 37,
+    "role": "scenario"
+   },
+   {
+    "label": "No clear view, and wrong access for people",
+    "to": 38,
+    "role": "scenario"
+   },
+   {
+    "label": "Cost, other clients, what is ready  >",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Close the meeting: next steps  >",
+    "to": 40,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 7,
+  "id": "role:hr",
+  "type": "role",
+  "title": "HR Admin",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 20,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 18,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 8,
+  "id": "role:mgr",
+  "type": "role",
+  "title": "Manager",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 20,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 18,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 9,
+  "id": "role:emp",
+  "type": "role",
+  "title": "Employee",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 18,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 10,
+  "id": "role:fin",
+  "type": "role",
+  "title": "Finance Admin",
+  "links": [
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 22,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 11,
+  "id": "role:prin",
+  "type": "role",
+  "title": "Principal",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Organisation and access",
+    "to": 23,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 12,
+  "id": "role:adm",
+  "type": "role",
+  "title": "Super Admin / Admin",
+  "links": [
+   {
+    "label": "Leave",
+    "to": 14,
+    "role": "module"
+   },
+   {
+    "label": "Organisation and access",
+    "to": 23,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 13,
+  "id": "mod:attendance",
+  "type": "module",
+  "title": "Attendance",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "Punch in and out, with a calendar",
+    "to": 24,
+    "role": "feature"
+   },
+   {
+    "label": "Alerts",
+    "to": 24,
+    "role": "feature"
+   },
+   {
+    "label": "Corrections with approval",
+    "to": 24,
+    "role": "feature"
+   },
+   {
+    "label": "Payroll features  >",
+    "to": 26,
+    "role": "nav"
+   },
+   {
+    "label": "Leave features  >",
+    "to": 25,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 14,
+  "id": "mod:leave",
+  "type": "module",
+  "title": "Leave",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "Apply and approve",
+    "to": 25,
+    "role": "feature"
+   },
+   {
+    "label": "Policy set-up",
+    "to": 25,
+    "role": "feature"
+   },
+   {
+    "label": "Balances and reports",
+    "to": 25,
+    "role": "feature"
+   },
+   {
+    "label": "Attendance features  >",
+    "to": 24,
+    "role": "nav"
+   },
+   {
+    "label": "Reports and analytics features  >",
+    "to": 33,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 15,
+  "id": "mod:payroll",
+  "type": "module",
+  "title": "Payroll",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Finance Admin",
+    "to": 10,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "Salary structure",
+    "to": 26,
+    "role": "feature"
+   },
+   {
+    "label": "Linked to attendance",
+    "to": 26,
+    "role": "feature"
+   },
+   {
+    "label": "Form 16 and certificates",
+    "to": 26,
+    "role": "feature"
+   },
+   {
+    "label": "Attendance features  >",
+    "to": 24,
+    "role": "nav"
+   },
+   {
+    "label": "Reports and analytics features  >",
+    "to": 33,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 16,
+  "id": "mod:competency",
+  "type": "module",
+  "title": "Competency management",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Competency library and framework",
+    "to": 27,
+    "role": "feature"
+   },
+   {
+    "label": "Capability Explorer",
+    "to": 27,
+    "role": "feature"
+   },
+   {
+    "label": "Skills matrix and gap report",
+    "to": 27,
+    "role": "feature"
+   },
+   {
+    "label": "KASBA framework features  >",
+    "to": 28,
+    "role": "nav"
+   },
+   {
+    "label": "Gap assessment features  >",
+    "to": 29,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 17,
+  "id": "mod:kasba",
+  "type": "module",
+  "title": "KASBA framework",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "What KASBA stands for",
+    "to": 28,
+    "role": "feature"
+   },
+   {
+    "label": "A ready library",
+    "to": 28,
+    "role": "feature"
+   },
+   {
+    "label": "Tasks by work function",
+    "to": 28,
+    "role": "feature"
+   },
+   {
+    "label": "Competency management features  >",
+    "to": 27,
+    "role": "nav"
+   },
+   {
+    "label": "Gap assessment features  >",
+    "to": 29,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 18,
+  "id": "mod:gap",
+  "type": "module",
+  "title": "Gap assessment",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Six-level scale",
+    "to": 29,
+    "role": "feature"
+   },
+   {
+    "label": "Expected level per role",
+    "to": 29,
+    "role": "feature"
+   },
+   {
+    "label": "Self-rating and assessment",
+    "to": 29,
+    "role": "feature"
+   },
+   {
+    "label": "Competency management features  >",
+    "to": 27,
+    "role": "nav"
+   },
+   {
+    "label": "Learning (LMS) features  >",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 19,
+  "id": "mod:lms",
+  "type": "module",
+  "title": "Learning (LMS)",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Catalog and My Learning",
+    "to": 30,
+    "role": "feature"
+   },
+   {
+    "label": "Assignments and certificates",
+    "to": 30,
+    "role": "feature"
+   },
+   {
+    "label": "Course Builder",
+    "to": 30,
+    "role": "feature"
+   },
+   {
+    "label": "Gap assessment features  >",
+    "to": 29,
+    "role": "nav"
+   },
+   {
+    "label": "Talent features  >",
+    "to": 31,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 20,
+  "id": "mod:talent",
+  "type": "module",
+  "title": "Talent",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Appraisal flow",
+    "to": 31,
+    "role": "feature"
+   },
+   {
+    "label": "Recruitment and onboarding",
+    "to": 31,
+    "role": "feature"
+   },
+   {
+    "label": "Succession and exit",
+    "to": 31,
+    "role": "feature"
+   },
+   {
+    "label": "Learning (LMS) features  >",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Gap assessment features  >",
+    "to": 29,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 21,
+  "id": "mod:tasks",
+  "type": "module",
+  "title": "Tasks",
+  "links": [
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "Projects and workstreams",
+    "to": 32,
+    "role": "feature"
+   },
+   {
+    "label": "My Tasks and calendar",
+    "to": 32,
+    "role": "feature"
+   },
+   {
+    "label": "Task report and audit log",
+    "to": 32,
+    "role": "feature"
+   },
+   {
+    "label": "Reports and analytics features  >",
+    "to": 33,
+    "role": "nav"
+   },
+   {
+    "label": "Organisation and access features  >",
+    "to": 34,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 22,
+  "id": "mod:reports",
+  "type": "module",
+  "title": "Reports and analytics",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Finance Admin",
+    "to": 10,
+    "role": "role"
+   },
+   {
+    "label": "One report catalog",
+    "to": 33,
+    "role": "feature"
+   },
+   {
+    "label": "Filters",
+    "to": 33,
+    "role": "feature"
+   },
+   {
+    "label": "Export",
+    "to": 33,
+    "role": "feature"
+   },
+   {
+    "label": "Attendance features  >",
+    "to": 24,
+    "role": "nav"
+   },
+   {
+    "label": "Gap assessment features  >",
+    "to": 29,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 23,
+  "id": "mod:org",
+  "type": "module",
+  "title": "Organisation and access",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "Directory and structure",
+    "to": 34,
+    "role": "feature"
+   },
+   {
+    "label": "Rights per role",
+    "to": 34,
+    "role": "feature"
+   },
+   {
+    "label": "Safe defaults",
+    "to": 34,
+    "role": "feature"
+   },
+   {
+    "label": "Roles  >",
+    "to": 2,
+    "role": "nav"
+   },
+   {
+    "label": "Reports and analytics features  >",
+    "to": 33,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 24,
+  "id": "feat:attendance",
+  "type": "feature",
+  "title": "Attendance: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 13,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Payroll  >",
+    "to": 26,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Leave  >",
+    "to": 25,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 25,
+  "id": "feat:leave",
+  "type": "feature",
+  "title": "Leave: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 14,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Attendance  >",
+    "to": 24,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Reports and analytics  >",
+    "to": 33,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 26,
+  "id": "feat:payroll",
+  "type": "feature",
+  "title": "Payroll: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Finance Admin",
+    "to": 10,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 15,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Attendance  >",
+    "to": 24,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Reports and analytics  >",
+    "to": 33,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 27,
+  "id": "feat:competency",
+  "type": "feature",
+  "title": "Competency management: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 16,
+    "role": "return"
+   },
+   {
+    "label": "Also show: KASBA framework  >",
+    "to": 28,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Gap assessment  >",
+    "to": 29,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 28,
+  "id": "feat:kasba",
+  "type": "feature",
+  "title": "KASBA framework: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 17,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Competency management  >",
+    "to": 27,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Gap assessment  >",
+    "to": 29,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 29,
+  "id": "feat:gap",
+  "type": "feature",
+  "title": "Gap assessment: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 18,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Competency management  >",
+    "to": 27,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Learning (LMS)  >",
+    "to": 30,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 30,
+  "id": "feat:lms",
+  "type": "feature",
+  "title": "Learning (LMS): features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 19,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Gap assessment  >",
+    "to": 29,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Talent  >",
+    "to": 31,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 31,
+  "id": "feat:talent",
+  "type": "feature",
+  "title": "Talent: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 20,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Learning (LMS)  >",
+    "to": 30,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Gap assessment  >",
+    "to": 29,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 32,
+  "id": "feat:tasks",
+  "type": "feature",
+  "title": "Tasks: features",
+  "links": [
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 21,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Reports and analytics  >",
+    "to": 33,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Organisation and access  >",
+    "to": 34,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 33,
+  "id": "feat:reports",
+  "type": "feature",
+  "title": "Reports and analytics: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Manager",
+    "to": 8,
+    "role": "role"
+   },
+   {
+    "label": "Employee",
+    "to": 9,
+    "role": "role"
+   },
+   {
+    "label": "Finance Admin",
+    "to": 10,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 22,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Attendance  >",
+    "to": 24,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Gap assessment  >",
+    "to": 29,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 34,
+  "id": "feat:org",
+  "type": "feature",
+  "title": "Organisation and access: features",
+  "links": [
+   {
+    "label": "HR Admin",
+    "to": 7,
+    "role": "role"
+   },
+   {
+    "label": "Principal",
+    "to": 11,
+    "role": "role"
+   },
+   {
+    "label": "Super Admin / Admin",
+    "to": 12,
+    "role": "role"
+   },
+   {
+    "label": "< Back to the talk track",
+    "to": 23,
+    "role": "return"
+   },
+   {
+    "label": "Also show: Roles  >",
+    "to": 2,
+    "role": "related"
+   },
+   {
+    "label": "Also show: Reports and analytics  >",
+    "to": 33,
+    "role": "related"
+   }
+  ]
+ },
+ {
+  "num": 35,
+  "id": "conv:A",
+  "type": "conv",
+  "title": "Conversation A",
+  "links": [
+   {
+    "label": "\"Attendance is on registers, and correct",
+    "to": 24,
+    "role": "feature"
+   },
+   {
+    "label": "\"We rebuild salary sheets in Excel every",
+    "to": 26,
+    "role": "feature"
+   },
+   {
+    "label": "\"Leave approvals are scattered across ma",
+    "to": 25,
+    "role": "feature"
+   },
+   {
+    "label": "\"Show me the whole flow.\"",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "Customer questions  >",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Other conversations",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 36,
+  "id": "conv:B",
+  "type": "conv",
+  "title": "Conversation B",
+  "links": [
+   {
+    "label": "\"We have no framework for the skills eac",
+    "to": 16,
+    "role": "module"
+   },
+   {
+    "label": "\"We do not know where to start. There ar",
+    "to": 28,
+    "role": "feature"
+   },
+   {
+    "label": "\"We cannot tell who is short of which sk",
+    "to": 29,
+    "role": "feature"
+   },
+   {
+    "label": "\"Show me the complete picture.\"",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "Customer questions  >",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Other conversations",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 37,
+  "id": "conv:C",
+  "type": "conv",
+  "title": "Conversation C",
+  "links": [
+   {
+    "label": "\"We cannot tell who has completed which ",
+    "to": 30,
+    "role": "feature"
+   },
+   {
+    "label": "\"Appraisals have no clear process.\"",
+    "to": 31,
+    "role": "feature"
+   },
+   {
+    "label": "\"Can training follow each person's skill",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "\"Show me the complete picture.\"",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "Customer questions  >",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Other conversations",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 38,
+  "id": "conv:D",
+  "type": "conv",
+  "title": "Conversation D",
+  "links": [
+   {
+    "label": "\"Managers wait for HR to send reports.\"",
+    "to": 33,
+    "role": "feature"
+   },
+   {
+    "label": "\"We delegate work by phone and messages.",
+    "to": 32,
+    "role": "feature"
+   },
+   {
+    "label": "\"Who gets to see salaries?\"",
+    "to": 34,
+    "role": "feature"
+   },
+   {
+    "label": "\"Show me the complete picture.\"",
+    "to": 5,
+    "role": "solution"
+   },
+   {
+    "label": "Customer questions  >",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Other conversations",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 39,
+  "id": "questions",
+  "type": "answer",
+  "title": "Customer questions",
+  "links": [
+   {
+    "label": "Close the meeting: next steps  >",
+    "to": 40,
+    "role": "nav"
+   },
+   {
+    "label": "Back to the scenarios",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 40,
+  "id": "closing",
+  "type": "closing",
+  "title": "Sales closing",
+  "links": [
+   {
+    "label": "Run HR day to day",
+    "to": 35,
+    "role": "solution"
+   },
+   {
+    "label": "Know and grow skills",
+    "to": 36,
+    "role": "solution"
+   },
+   {
+    "label": "Learning and talent",
+    "to": 37,
+    "role": "solution"
+   },
+   {
+    "label": "Reports, tasks and access",
+    "to": 38,
+    "role": "solution"
+   },
+   {
+    "label": "Return to Home",
+    "to": 1,
+    "role": "nav"
+   },
+   {
+    "label": "Customer questions",
+    "to": 39,
+    "role": "nav"
+   },
+   {
+    "label": "Sales scenarios",
+    "to": 6,
+    "role": "nav"
+   }
+  ]
+ }
+]
