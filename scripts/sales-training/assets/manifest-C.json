@@ -1,0 +1,24 @@
+[
+  {
+    "id": "tasks",
+    "forModules": ["tasks"],
+    "use": "module",
+    "kind": "illustration",
+    "file": "img/tasks-1.png",
+    "title": "Abstract Kanban Board",
+    "creator": "Jennifer Falco",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Abstract_Kanban_Board.svg",
+    "download_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Abstract_Kanban_Board.svg?width=1600",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0",
+    "attribution_required": true,
+    "attribution_text": "\"Abstract Kanban Board\" by Jennifer Falco, Wikimedia Commons, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0)",
+    "width": 1920,
+    "height": 1006,
+    "retrieved": "2026-11-17",
+    "description": "Generic four-column kanban board (Backlog, Doing, Review, Done) with placeholder cards; rasterised from the original SVG to PNG.",
+    "why_relevant": "Shows the task-board / workstream / delegation flow in a neutral way, with no third-party product UI or logos.",
+    "caution": "Placeholder illustration, not the G2G screen. Licence verified via the Commons API (LicenseShortName CC BY 4.0); credit line must be printed on the slide.",
+    "primary": true
+  }
+]
