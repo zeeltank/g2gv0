@@ -46,7 +46,7 @@ describe('Connector Settings access on the Data Connectors screen', () => {
   it('there is ONE button, Add Connector: no separate Connector Settings button, and an administrator is pointed into Add Connector for setup', async () => {
     const t = await render(true)
     assert.equal(t.button(/^\s*Connector Settings\s*$/), undefined, 'the second button is gone')
-    assert.ok(t.button(/Add Connector/) && t.button(/Refresh/), 'existing actions are untouched')
+    assert.ok(t.button(/Add connector/i) && document.querySelector('[aria-label="Refresh sources"]'), 'existing actions are untouched')
     assert.match(t.text(), /YouTube needs provider credentials before accounts can be connected\./)
     assert.doesNotMatch(t.text(), /YOUTUBE_OAUTH_CLIENT_ID/, 'no server variable names on the main screen')
     assert.equal(t.calls.settings, 0, 'the settings are not loaded until an administrator asks')
@@ -63,7 +63,7 @@ describe('Connector Settings access on the Data Connectors screen', () => {
     assert.match(t.text(), /YouTube is not set up yet\. An administrator needs to finish the one-time setup\./)
     assert.doesNotMatch(t.text(), /YOUTUBE_OAUTH_CLIENT_ID|Redirect URI/)
     assert.equal(t.calls.settings, 0, 'the settings route is never even requested')
-    assert.ok(t.button(/Add Connector/), 'their existing actions are untouched')
+    assert.ok(t.button(/Add connector/i), 'their existing actions are untouched')
     await t.unmount()
   })
 })

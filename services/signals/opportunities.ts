@@ -164,6 +164,8 @@ export interface SignalAssessment {
 export interface Opportunity {
   /** Added by a person, not found by research: it has no run, and is listed under the day it was saved. */
   entered_manually?: boolean
+  /** Set when the signal was found by a connector (YouTube, LinkedIn, ...) or an analysed page or document, not by a research run. */
+  found_via?: { kind: 'connector' | 'ingestion'; platform: string | null; label: string } | null
   /** The day it was saved, in the signals timezone (YYYY-MM-DD). Null for researched rows. */
   captured_on?: string | null
   /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */
@@ -671,6 +673,8 @@ export interface ConnectorSyncInfo {
   records_created: number
   records_duplicate: number
   records_failed: number
+  /** 0-100, server-computed: waiting for a worker, reading the platform, then analysing posts. */
+  progress?: number
   error_message: string | null
   started_at: string | null
   completed_at: string | null
