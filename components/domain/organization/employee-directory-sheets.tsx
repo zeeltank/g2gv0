@@ -2,7 +2,7 @@
 
 import { EmployeeAvatar } from '@/components/domain/organization/employee-avatar'
 import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
-import { Briefcase, Loader2 } from 'lucide-react'
+import { Briefcase, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
@@ -741,6 +741,17 @@ function EmployeeOverviewSheet({
     image: employee.image || '',
   }
 
+  // The shift, with its hours when it is still in the active list; an inactive
+  // shift keeps its name (from the row) so the profile never says "none" for
+  // somebody who is on one.
+  const shiftId = Number(mergedEmployee.shift_id || 0)
+  const shift = referenceData?.shifts?.find((s) => s.id === shiftId)
+  const shiftLabel = !shiftId
+    ? 'No shift assigned'
+    : shift
+      ? `${shift.name} · ${shift.start_time}–${shift.end_time}`
+      : mergedEmployee.shift_name || 'Shift assigned'
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex h-full w-[95vw] flex-col gap-0 border-l border-border/80 p-0 sm:max-w-4xl">
@@ -757,6 +768,10 @@ function EmployeeOverviewSheet({
               <div>
                 <h2 className="text-xl font-bold text-foreground">{mergedEmployee.full_name}</h2>
                 <p className="text-sm font-medium text-muted-foreground">{mergedEmployee.jobRole} {mergedEmployee.department_name ? `• ${mergedEmployee.department_name}` : ''}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  {shiftLabel}
+                </p>
               </div>
             </div>
             {isLoading && (
@@ -809,6 +824,7 @@ function EmployeeOverviewSheet({
                   jobRoles={profileData?.jobroleList || []}
                   userProfiles={profileData?.user_profiles || []}
                   employeesList={profileData?.employees || []}
+                  shifts={referenceData?.shifts ?? []}
                   onSave={handleSavePersonalInfo}
                 />
               </Suspense>

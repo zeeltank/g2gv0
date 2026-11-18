@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Download, Loader2, ShieldAlert, ShieldCheck, X } from 'lucide-react'
+import { Building2, Clock, Download, Loader2, ShieldAlert, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { organizationService } from '@/services/organization'
 import { employeeDirectoryService } from '@/services/organization/employee-directory'
+import { shiftService } from '@/services/organization/shifts'
 import type { LaravelContext } from '@/lib/laravel-context'
 import type { Employee } from '@/types/employee'
 
@@ -28,6 +29,7 @@ export function BulkActionsBar({
   context,
   selected,
   departments,
+  shifts = [],
   onClear,
   onExport,
   onDone,
@@ -35,11 +37,14 @@ export function BulkActionsBar({
   context: LaravelContext
   selected: Employee[]
   departments: { id: number; name: string }[]
+  /** Active shifts, for "Move to shift". */
+  shifts?: { id: number; name: string; start_time: string; end_time: string }[]
   onClear: () => void
   onExport: () => void
   onDone: (message: string) => void | Promise<void>
 }) {
   const [departmentId, setDepartmentId] = useState('')
+  const [shiftId, setShiftId] = useState('')
   const [busy, setBusy] = useState('')
 
   const ids = selected.map((e) => Number(e.id))
@@ -68,6 +73,18 @@ export function BulkActionsBar({
       )
       setDepartmentId('')
       return response?.message || `Moved ${ids.length} employee(s) to ${target.name}.`
+    })
+  }
+
+  /** One request for the whole selection; the server limits it to this organisation's people. */
+  function moveToShift() {
+    const target = shifts.find((s) => String(s.id) === shiftId)
+    if (!target) return
+
+    return run('shift', async () => {
+      const response = await shiftService.assign(context, target.id, ids)
+      setShiftId('')
+      return response?.message || `Put ${ids.length} employee(s) on ${target.name}.`
     })
   }
 
@@ -110,6 +127,20 @@ export function BulkActionsBar({
         />
         <Button size="sm" onClick={moveToDepartment} disabled={!departmentId || busy !== ''}>
           {busy === 'move' ? <Loader2 className="size-3.5 animate-spin" /> : 'Move'}
+        </Button>
+      </div>
+
+      <div className="flex min-w-52 items-center gap-2">
+        <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Select
+          value={shiftId}
+          onChange={setShiftId}
+          placeholder="Move to shift..."
+          size="sm"
+          options={shifts.map((s) => ({ label: `${s.name} (${s.start_time}–${s.end_time})`, value: String(s.id) }))}
+        />
+        <Button size="sm" onClick={moveToShift} disabled={!shiftId || busy !== ''}>
+          {busy === 'shift' ? <Loader2 className="size-3.5 animate-spin" /> : 'Move'}
         </Button>
       </div>
 

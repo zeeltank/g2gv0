@@ -2,6 +2,7 @@ import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 import {
   ORG_PROFILE_ACCESS_LINK,
   DEPT_MANAGEMENT_ACCESS_LINK,
+  SHIFT_MASTER_ACCESS_LINK,
   MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK,
   EMPLOYEE_DIRECTORY_ACCESS_LINK,
   ROLE_PERMISSIONS_ACCESS_LINK,
@@ -12,6 +13,7 @@ import {
 
 const OrganizationInformation = createLazyComponent(() => import('@/domain/organization/organization-information').then((m) => ({ default: m.OrganizationInformation })))
 const DepartmentList = createLazyComponent(() => import('@/domain/organization/department-management/department-list').then((m) => ({ default: m.DepartmentList })))
+const ShiftMaster = createLazyComponent(() => import('@/domain/organization/shift-master').then((m) => ({ default: m.ShiftMaster })))
 const MyDepartmentDocuments = createLazyComponent(() => import('@/domain/documents/my-department-documents').then((m) => ({ default: m.MyDepartmentDocuments })))
 const EmployeeDirectory = createLazyComponent(() => import('@/domain/organization/employee-directory').then((m) => ({ default: m.EmployeeDirectory })))
 const RolePermissions = createLazyComponent(() => import('@/domain/organization/role-permissions').then((m) => ({ default: m.RolePermissions })))
@@ -25,6 +27,7 @@ const OrganizationReadiness = createLazyComponent(() => import('@/domain/organiz
 export const M1_CONTENT: ContentRoute[] = [
   { accessLink: ORG_PROFILE_ACCESS_LINK,  component: OrganizationInformation }, // Organization Profile
   { accessLink: DEPT_MANAGEMENT_ACCESS_LINK,  component: DepartmentList }, // Department Management
+  { accessLink: SHIFT_MASTER_ACCESS_LINK,  component: ShiftMaster }, // Shift Master
   { accessLink: MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK,  component: MyDepartmentDocuments }, // My Department Documents
   { accessLink: EMPLOYEE_DIRECTORY_ACCESS_LINK,  component: EmployeeDirectory }, // Employee Directory
   { accessLink: ROLE_PERMISSIONS_ACCESS_LINK,  component: RolePermissions }, // Role & Permissions
