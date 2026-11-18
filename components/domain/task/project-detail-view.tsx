@@ -41,6 +41,7 @@ import { WorkstreamDialog } from './workstream-form'
 import { ProjectCommandBar } from './project-command-bar'
 import { BacklogBoard } from './backlog-board'
 import { CreateTaskModal } from './create-task-modal'
+import { MemberPicker } from './member-picker'
 import { MyTaskDetailsDrawer } from './my-task-details-drawer'
 import { WorkstreamSchedule } from './workstream-schedule'
 import { WorkstreamListPane } from './workstream-list-pane'
@@ -91,6 +92,14 @@ export function ProjectDetailView({
   const [taskAssignee, setTaskAssignee] = useState('')
   const [backlogOpen, setBacklogOpen] = useState(0)
   const [assignSeed, setAssignSeed] = useState<BacklogItem | null>(null)
+  // The add-member control's candidate pool - fetched lazily the first time
+  // the Team tab is opened, since most visits never add anyone.
+  const [memberOptions, setMemberOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [memberSaving, setMemberSaving] = useState(false)
+  // NOT the page-level `error` state: that one full-page-replaces this
+  // screen (`if (error || !project)` below), which a failed member add must
+  // never trigger on an already-loaded project.
+  const [memberError, setMemberError] = useState('')
 
   /*
    * The list is the other way out of a workstream with unsaved edits, so it
@@ -144,6 +153,35 @@ export function ProjectDetailView({
     () => (project?.members ?? []).map((m) => ({ id: String(m.id), name: m.name })),
     [project?.members],
   )
+
+  useEffect(() => {
+    if (tab !== 'team' || memberOptions.length) return
+    taskService.getAssignmentUsers(getLaravelContext())
+      .then((users) => setMemberOptions(users.map((user) => ({
+        id: String(user.id),
+        name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' '),
+      }))))
+      .catch(() => { /* the picker just shows no options; the rest of the tab still works */ })
+  }, [tab, memberOptions.length])
+
+  /**
+   * ADD MEMBER, WIRED TO AN ENDPOINT THAT ALREADY WORKED. syncProjectMembers
+   * replaces the FULL list, not one row, so "add" means posting the current
+   * roster plus the new id - the only way onto this team used to be leaving
+   * the project page entirely, for create-project-modal.tsx's own form.
+   */
+  const updateMembers = async (nextIds: string[]) => {
+    if (!project) return
+    setMemberSaving(true); setMemberError('')
+    try {
+      const response = await taskService.syncProjectMembers(getLaravelContext(), projectId, nextIds)
+      setProject({ ...project, members: response.data, members_count: response.data?.length ?? 0 })
+    } catch (reason) {
+      setMemberError(reason instanceof Error ? reason.message : 'Unable to update the team.')
+    } finally {
+      setMemberSaving(false)
+    }
+  }
 
   /*
    * ONE TASK AT A TIME, NEVER THE WHOLE LIST.
@@ -456,6 +494,23 @@ export function ProjectDetailView({
         <div className="g2g-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Card><CardContent className="p-5">
           <h2 className="mb-3 text-base font-semibold tracking-tight text-foreground">Project team</h2>
+          {/* ADD MEMBER, DIRECTLY HERE. Previously the only way onto this
+              team was leaving the project page entirely, for the create
+              form's own picker - syncProjectMembers was already functional
+              and already called from there; this just gives the Team tab
+              the same control. */}
+          <div className="mb-4">
+            <MemberPicker
+              value={projectMembers.map((m) => m.id)}
+              options={memberOptions}
+              onChange={(nextIds) => void updateMembers(nextIds)}
+              placeholder="Add a team member..."
+              disabled={memberSaving}
+            />
+          </div>
+          {memberError && (
+            <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{memberError}</p>
+          )}
           {projectMembers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No members yet.</p>
           ) : (

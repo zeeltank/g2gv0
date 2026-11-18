@@ -26,6 +26,15 @@ function toParam(value: string | number | null | undefined) {
   return String(value).trim()
 }
 
+let lastContext: LaravelContext | null = null
+
+/** The same object is returned while nothing in it has changed, so hooks that depend on it do not re-run on every render. */
+function stable(next: LaravelContext): LaravelContext {
+  if (lastContext && (Object.keys(next) as (keyof LaravelContext)[]).every((k) => lastContext![k] === next[k])) return lastContext
+  lastContext = next
+  return next
+}
+
 /**
  * Resolves the tenant coordinates Laravel expects on every request.
  *
@@ -38,10 +47,10 @@ export function getLaravelContext(user?: User | null): LaravelContext {
   const session = readLaravelSession()
 
   if (!session) {
-    return { ...EMPTY_CONTEXT, userId: toParam(user?.id) }
+    return stable({ ...EMPTY_CONTEXT, userId: toParam(user?.id) })
   }
 
-  return {
+  return stable({
     token: toParam(session.token),
     subInstituteId: toParam(session.sub_institute_id),
     syear: toParam(session.syear),
@@ -49,7 +58,7 @@ export function getLaravelContext(user?: User | null): LaravelContext {
     organizationId: toParam(session.org_id),
     orgType: toParam(session.org_type),
     profileId: toParam(session.user_profile_id),
-  }
+  })
 }
 
 /** Guard for callers that must not fire a request before the user has logged in. */

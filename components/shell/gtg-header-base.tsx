@@ -1,7 +1,7 @@
 'use client'
 
 import { type RefObject } from 'react'
-import { ChevronDown, Menu } from 'lucide-react'
+import { ChevronDown, Grid3x3, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GtgNavSearch } from '@/components/shell/gtg-nav-search'
 import { NotificationsMenu } from '@/components/shell/notifications-menu'
@@ -12,11 +12,17 @@ export function GtgHeaderBase({
   subheaderOpen,
   onSubheaderToggle,
   subheaderButtonRef,
+  toolbarOpen,
+  onToolbarToggle,
+  toolbarButtonRef,
 }: {
   onMenuClick?: () => void
   subheaderOpen?: boolean
   onSubheaderToggle?: () => void
   subheaderButtonRef?: RefObject<HTMLButtonElement | null>
+  toolbarOpen?: boolean
+  onToolbarToggle?: () => void
+  toolbarButtonRef?: RefObject<HTMLButtonElement | null>
 } = {}) {
   return (
     <header
@@ -58,6 +64,20 @@ export function GtgHeaderBase({
         <NotificationsMenu />
         <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
         <GtgUserMenu />
+        <button
+          ref={toolbarButtonRef}
+          type="button"
+          onClick={onToolbarToggle}
+          aria-label="Platform services and AI"
+          aria-haspopup="dialog"
+          aria-expanded={toolbarOpen}
+          className={cn(
+            'relative flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring',
+            toolbarOpen && 'bg-secondary text-secondary-foreground',
+          )}
+        >
+          <Grid3x3 className="size-5" aria-hidden="true" />
+        </button>
       </div>
     </header>
   )

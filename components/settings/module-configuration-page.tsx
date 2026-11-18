@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Check } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
@@ -133,26 +134,62 @@ export function ModuleConfigurationPage() {
 
         <ModuleConfiguration onReady={setHandle} onSaved={setSaved} />
 
-        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-          <Button variant="ghost" onClick={() => router.push(backHref)} disabled={busy}>
-            Cancel
-          </Button>
-          {/*
-            * The same guard the in-Settings placement has. This page and that
-            * section drive the SAME imperative handle, so a confirmation on one
-            * and not the other would mean the safer route was whichever door you
-            * happened to come through.
-            */}
-          <Button
-            onClick={() => {
-              if ((handle?.turningOff ?? []).length > 0) setConfirming(true)
-              else void save()
-            }}
-            disabled={busy || !ready}
-          >
-            {busy ? 'Saving…' : handle?.loading ? 'Loading…' : 'Save modules'}
-          </Button>
-        </div>
+        {(() => {
+          const turningOff = handle?.turningOff ?? []
+          const turningOn = handle?.turningOn ?? []
+          const changes = turningOff.length + turningOn.length
+
+          return (
+            <div
+              className={cn(
+                'transition-all duration-200 border-t border-border pt-5 mt-6',
+                changes > 0
+                  ? 'sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-4 border-t border-primary/20 bg-background/95 p-4 shadow-lg backdrop-blur rounded-xl'
+                  : 'flex flex-col-reverse gap-3 sm:flex-row sm:justify-end',
+              )}
+            >
+              {changes > 0 ? (
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <span className="flex size-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="font-medium">
+                    {changes} unsaved {changes === 1 ? 'change' : 'changes'}
+                  </span>
+                  <span className="hidden text-muted-foreground sm:inline">
+                    ({turningOn.length > 0 ? `${turningOn.length} turning on` : ''}
+                    {turningOn.length > 0 && turningOff.length > 0 ? ', ' : ''}
+                    {turningOff.length > 0 ? `${turningOff.length} turning off` : ''})
+                  </span>
+                </div>
+              ) : (
+                <Button variant="ghost" onClick={() => router.push(backHref)} disabled={busy}>
+                  Cancel
+                </Button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                {changes > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => handle?.reset?.()}
+                  >
+                    Discard
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    if (turningOff.length > 0) setConfirming(true)
+                    else void save()
+                  }}
+                  disabled={busy || !ready || changes === 0}
+                  className={changes > 0 ? 'bg-primary text-primary-foreground shadow-md' : ''}
+                >
+                  {busy ? 'Saving…' : handle?.loading ? 'Loading…' : changes === 0 ? 'No changes' : `Save ${changes} ${changes === 1 ? 'change' : 'changes'}`}
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
 
         <ConfirmDialog
           open={confirming}

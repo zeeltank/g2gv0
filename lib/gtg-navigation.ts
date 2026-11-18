@@ -40,6 +40,8 @@ export const HOME_NAV: ActiveNav = {
  */
 export const ORG_PROFILE_ACCESS_LINK = '/module/organizational-management/organization-setup/organization-profile'
 export const DEPT_MANAGEMENT_ACCESS_LINK = '/module/organizational-management/organization-setup/department-management'
+/** Self-service - every employee's own department's shared documents. Must match the `access_link` seeded by database/migrations/2026_10_08_100100_add_my_department_documents_menu.php exactly. */
+export const MY_DEPARTMENT_DOCUMENTS_ACCESS_LINK = '/module/organizational-management/organization-setup/my-department-documents'
 export const EMPLOYEE_DIRECTORY_ACCESS_LINK = '/module/organizational-management/user-management/employee-directory'
 export const ROLE_PERMISSIONS_ACCESS_LINK = '/module/organizational-management/user-management/role-and-permissions'
 export const COMPLIANCE_LIBRARY_ACCESS_LINK = '/module/organizational-management/compliance-and-discipline/compliance-library'
@@ -60,6 +62,25 @@ export const LMS_MY_LEARNING_ACCESS_LINK = '/module/lms/learning/my-learning'
  */
 export const LMS_COURSE_BUILDER_ACCESS_LINK = '/module/lms/administration/course-builder'
 export const LMS_ASSIGNMENTS_ACCESS_LINK = '/module/lms/training-and-records/assignments'
+/**
+ * Capability Gap Inbox — HR/Admin queue of competencies the auto-assignment
+ * reactor could not resolve because no course exists for them yet.
+ *
+ * A sibling of LMS_ASSIGNMENTS_ACCESS_LINK by design: it sits beside
+ * Assignments in Training & Records navigation. Requires a tblmenumaster_g2g
+ * row with this exact access_link before anyone can reach it through the
+ * menu — see content-map-m4.ts for the component this resolves to.
+ */
+export const LMS_CAPABILITY_GAP_INBOX_ACCESS_LINK =
+  '/module/lms/training-and-records/capability-gap-inbox'
+/**
+ * Simulation Learning - the gallery of interactive simulations an organisation has, and the player that plays them.
+ *
+ * A level-2 row under LMS, created by hp_erp's 2026_12_03_090100_create_simulation_learning_menu_row migration. Rights are the matrix on that
+ * row (view to browse and play, add to add a simulation, edit for a new version or a card, delete to remove one); content-map-m4.ts resolves
+ * this link to SimulationLearning. The backend resolves the row by this exact link, never by id - the ids differ between hosts.
+ */
+export const LMS_SIMULATION_LEARNING_ACCESS_LINK = '/module/lms/simulation-learning'
 export const LMS_SESSIONS_CALENDAR_ACCESS_LINK = '/module/lms/training-and-records/sessions-and-calendar'
 /**
  * Capability Library - where job roles, skills and competencies are authored.
@@ -78,6 +99,49 @@ export const COMPETENCY_LIBRARY_ACCESS_LINK = '/module/capability-intelligence/c
  * how the department drawer's "Create in Library" button broke.
  */
 export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
+
+/**
+ * CRM → Marketing. Nested under /marketing/ (not a flat /module/crm/{leaf}),
+ * matching tblmenumaster_g2g's own existing convention for this tree - these
+ * are reactivated rows (id 199/200/201 predate this work; 199 is safe to
+ * hardcode in hooks/use-content-map.ts because it is the same id on both the
+ * local and live databases, unlike a brand-new root would be).
+ */
+export const CRM_LEADS_ACCESS_LINK = '/module/crm/marketing/leads'
+export const CRM_CONTACTS_ACCESS_LINK = '/module/crm/marketing/contacts'
+export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organizations'
+export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
+
+// Sales phase - "Sales" itself is a fresh menu insert (unlike "Marketing",
+// which was reactivated, pre-existing scaffolding), so its own id is NOT
+// guaranteed to match between the mysql/live connections. Nothing may ever
+// hardcode it - every lookup goes through MenuRight::idForAccessLink() on
+// the backend, and these access_link strings on the frontend, exactly like
+// Contacts/Organizations/Campaigns already do.
+export const CRM_OPPORTUNITIES_ACCESS_LINK = '/module/crm/sales/opportunities'
+export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
+export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
+export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
+export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
+export const CRM_PRICE_BOOKS_ACCESS_LINK = '/module/crm/sales/price-books'
+export const CRM_PURCHASE_ORDERS_ACCESS_LINK = '/module/crm/sales/purchase-orders'
+
+// Order-to-cash phase (Vendors/Sales Orders/Purchase Orders/Invoices) - same
+// fresh-menu-insert reasoning as the rest of "Sales" above; every lookup
+// still goes through MenuRight::idForAccessLink() + resolveAccessLink(),
+// never a hardcoded id.
+export const CRM_VENDORS_ACCESS_LINK = '/module/crm/sales/vendors'
+export const CRM_INVOICES_ACCESS_LINK = '/module/crm/sales/invoices'
+
+/**
+ * NOT an access_link - there is no tblmenumaster_g2g row for the Recycle
+ * Bin (it is reached from a button on the 4 list views above, gated per-row
+ * by CrmRecycleBinController itself rather than one dedicated menu
+ * permission). Navigate to it with a literal `router.push`, never
+ * `resolveAccessLink()` - that function falls back to `/dashboard` for any
+ * path with no matching menu node.
+ */
+export const CRM_RECYCLE_BIN_PATH = '/module/crm/marketing/recycle-bin'
 
 /**
  * Talent Management — every sub-module, so nothing has to hand-roll a path.
@@ -113,10 +177,23 @@ export const TALENT_MOBILITY_ACCESS_LINK = '/module/talent-management/mobility-a
 export const TALENT_OFFBOARDING_ACCESS_LINK = '/module/talent-management/offboarding'
 export const TALENT_ADMINISTRATION_ACCESS_LINK = '/module/talent-management/administration'
 
+export const AG_AGENT_DASHBOARD_ACCESS_LINK = '/module/agentic-ai/agent-dashboard'
 export const AG_CREATE_AGENT_ACCESS_LINK = '/module/agentic-ai/create-agent'
 export const AG_AGENT_LIBRARY_ACCESS_LINK = '/module/agentic-ai/agentic-library'
 export const AG_RUN_LOG_ACCESS_LINK = '/module/agentic-ai/run-log'
 export const AG_ANALYTICS_ACCESS_LINK = '/module/agentic-ai/analytics'
+export const AG_MULTI_AGENT_ACCESS_LINK = '/module/agentic-ai/multi-agent'
+export const AG_REFLECTION_ACCESS_LINK = '/module/agentic-ai/reflection'
+/**
+ * AgAgentWorkspace - a full working screen for ONE agent (Launch/History
+ * tabs + run results), reached by appending `?agent=<id>` to this same
+ * access_link. It used to have no real tblmenumaster_g2g row at all (every
+ * catalogue agent's "Open X" button pointed at a legacy module-code path,
+ * '/module/m7/ag-agent-workspace/...', that this app's content-map never
+ * resolved) - see 2026_11_28_090000_create_agentic_workspace_menu_row.php
+ * on hp_erp, which created this real row.
+ */
+export const AG_AGENT_WORKSPACE_ACCESS_LINK = '/module/agentic-ai/agent-workspace'
 
 export type BreadcrumbItem = {
   label: string

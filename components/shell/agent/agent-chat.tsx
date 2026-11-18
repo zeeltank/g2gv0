@@ -14,6 +14,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SuggestedPrompts } from './suggested-prompts'
+import { ActionCard } from './action-card'
+import { ApprovalsPanel } from './approvals-panel'
+import { LifecyclePanel } from './lifecycle-panel'
+import type { LifecyclePayload } from '@/lib/intelligence/ai-lifecycle'
+import type { EntityMatch } from '@/lib/page-entities/types'
+import { useChatActions } from './chat-actions-context'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { useVoiceInteraction } from '@/hooks/use-voice-interaction'
@@ -26,6 +32,19 @@ export interface Message {
   status?: string
   conversationType?: string
   tools?: string[]
+  /** Set when this message is a proposed action; the card renders it from the flow state. */
+  action?: { key: string }
+  /** What stands behind an answer from the lifecycle: trace, evidence, suggestions, report. */
+  lifecycle?: LifecyclePayload
+  /** Set when this message offers to take the user to a page they asked for. */
+  navigate?: { label: string; path: string; trail: string[] }
+  /**
+   * Real records the user asked to find, to choose from. Each has its own Open button; nothing is
+   * opened until the user presses one (a single clear match is opened by the shell and not listed).
+   */
+  entities?: { providerKey: string; noun: string; summary: string; matches: EntityMatch[] }
+  /** Real values the assistant offers in answer to a question it asked; each sends its message. */
+  choices?: Array<{ label: string; message: string }>
 }
 
 const SUGGESTED_PROMPTS = [
@@ -38,23 +57,41 @@ const SUGGESTED_PROMPTS = [
 ]
 
 interface AgentChatProps {
+  /**
+   * Starter questions for the page the chat is opened on. Left undefined, the built-in list is
+   * shown; provided (even empty), ONLY these are shown - an empty list shows none rather than
+   * falling back to questions about other modules.
+   */
+  suggestedPrompts?: string[]
+  /** The module/page the chat is working in; titles the starter questions ("In <label>"). */
+  contextLabel?: string | null
   messages: Message[]
   isLoading?: boolean
   error?: string | null
   onSendMessage?: (message: string) => void | Promise<void>
+  /** Open one record the chat listed (the application knows how). */
+  /** Open one record the chat listed, or take the user to where it lives (the application knows how). */
+  onOpenEntity?: (providerKey: string, match: EntityMatch, action?: 'open' | 'reveal') => void
 }
 
 export function AgentChat({
+  suggestedPrompts,
+  contextLabel,
   messages,
   isLoading = false,
   error,
   onSendMessage,
+  onOpenEntity,
 }: AgentChatProps) {
+  const chatActions = useChatActions()
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const {
     supportedLanguages,
     isSupported,
+    isSpeechSupported,
+    speakReplies,
+    setSpeakReplies,
     language,
     setLanguage,
     transcript,
@@ -76,6 +113,15 @@ export function AgentChat({
       ),
     [messages]
   )
+
+  // Read an answer aloud once, when it arrives (never for messages already on screen).
+  const spokenIdRef = useRef<string | null>(latestAssistantMessage?.id ?? null)
+  useEffect(() => {
+    if (!latestAssistantMessage || spokenIdRef.current === latestAssistantMessage.id) return
+    spokenIdRef.current = latestAssistantMessage.id
+    if (speakReplies && latestAssistantMessage.content) speakText(latestAssistantMessage.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestAssistantMessage, speakReplies])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -104,10 +150,18 @@ export function AgentChat({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-5">
+        <div className="pt-4 empty:hidden"><ApprovalsPanel /></div>
         {messages.length === 0 ? (
           <div className="py-5">
+            {suggestedPrompts !== undefined && suggestedPrompts.length === 0 && (
+              <p className="text-xs leading-5 text-muted-foreground">
+                Questions about this page will appear here once it has loaded.
+              </p>
+            )}
             <SuggestedPrompts
-              prompts={SUGGESTED_PROMPTS}
+              prompts={suggestedPrompts ?? SUGGESTED_PROMPTS}
+              label={contextLabel ? `In ${contextLabel}` : 'Suggested prompts'}
+              disabled={isLoading}
               onSelect={(prompt) => {
                 if (!isLoading) {
                   onSendMessage?.(prompt)
@@ -117,7 +171,17 @@ export function AgentChat({
           </div>
         ) : (
           <div className="space-y-4 py-5">
-            {messages.map((message) => (
+            {messages.map((message) =>
+              message.action ? (
+                <div key={message.id} className="flex gap-3">
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                    <BotIcon className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 max-w-[88%] flex-1">
+                    <ActionCard messageId={message.id} />
+                  </div>
+                </div>
+              ) : (
               <div
                 key={message.id}
                 className={cn(
@@ -126,15 +190,15 @@ export function AgentChat({
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
-                    <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                    <BotIcon className="size-4" aria-hidden="true" />
                   </div>
                 )}
                 <div
                   className={cn(
                     'max-w-[88%] whitespace-pre-wrap break-words rounded-3xl px-4 py-3 text-sm leading-7 shadow-sm',
                     message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'border border-[#0D6EFD]/10 bg-[#0D6EFD] text-white shadow-[0_12px_30px_rgba(13,110,253,0.18)]'
                       : message.variant === 'error'
                         ? 'border border-destructive/20 bg-destructive/10 text-destructive'
                         : 'border border-border/70 bg-card text-foreground shadow-[0_8px_30px_rgba(15,23,42,0.06)]'
@@ -164,18 +228,95 @@ export function AgentChat({
                     </div>
                   ) : null}
                   {message.content}
+                  {message.navigate ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button type="button" size="sm" onClick={() => chatActions?.navigate(message.navigate!.path)}>
+                        Open {message.navigate.label}
+                      </Button>
+                      {message.navigate.trail.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">{message.navigate.trail.join(' › ')}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {message.entities ? (
+                    <ul className="mt-3 space-y-2">
+                      {message.entities.matches.map((match) => (
+                        <li key={match.id} className="rounded-2xl border border-border/70 bg-background p-3 text-sm leading-6">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="break-words font-medium text-foreground">
+                                {match.kind === 'folder' ? '📁 ' : ''}
+                                {match.title}
+                              </p>
+                              {match.subtitle ? <p className="text-xs text-muted-foreground">{match.subtitle}</p> : null}
+                              {match.location ? (
+                                <p className="mt-0.5 break-words text-xs text-primary">
+                                  {match.kind === 'folder' ? 'Path' : 'Location'}: {match.location}
+                                </p>
+                              ) : null}
+                              <dl className="mt-1 grid grid-cols-[auto,1fr] gap-x-3 text-xs">
+                                {match.details.map((detail) => (
+                                  <div key={detail.label} className="contents">
+                                    <dt className="text-muted-foreground">{detail.label}</dt>
+                                    <dd className="break-words text-foreground">{detail.value}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => onOpenEntity?.(message.entities!.providerKey, match, 'open')}
+                              >
+                                {match.kind === 'folder' ? 'Open folder' : 'Open'}
+                              </Button>
+                              {match.revealable ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onOpenEntity?.(message.entities!.providerKey, match, 'reveal')}
+                                >
+                                  Show in folder
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {message.choices ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {message.choices.map((choice) => (
+                        <button
+                          key={choice.message}
+                          type="button"
+                          onClick={() => void onSendMessage?.(choice.message)}
+                          className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition hover:border-primary hover:text-primary"
+                        >
+                          {choice.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {message.lifecycle ? (
+                    <LifecyclePanel payload={message.lifecycle} onSend={(text) => void onSendMessage?.(text)} />
+                  ) : null}
                 </div>
                 {message.role === 'user' && (
-                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-border/60">
-                    <User className="size-4 text-secondary-foreground" aria-hidden="true" />
+                  <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-[0_4px_14px_rgba(15,23,42,0.05)]">
+                    <User className="size-4 text-muted-foreground" aria-hidden="true" />
                   </div>
                 )}
               </div>
-            ))}
+              ),
+            )}
             {isLoading && (
               <div className="flex justify-start gap-3">
-                <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/10">
-                  <BotIcon className="size-4 text-primary" aria-hidden="true" />
+                <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(13,110,253,0.16)]" style={{ background: 'var(--accent-gradient)' }}>
+                  <BotIcon className="size-4" aria-hidden="true" />
                 </div>
                 <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -207,7 +348,7 @@ export function AgentChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about employees, attendance, leave, learning, competencies, hiring, tasks or reports..."
+            placeholder="Ask about employees, attendance, leave, learning, or hiring…"
             disabled={isLoading}
             className={cn(
               'h-11 min-w-0 flex-1 rounded-2xl border border-input bg-background px-4 py-2 text-sm text-foreground shadow-sm',
@@ -221,10 +362,11 @@ export function AgentChat({
             disabled={!input.trim() || isLoading}
             aria-label="Send message"
             className={cn(
-              'flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm',
+              'flex size-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_12px_28px_rgba(13,110,253,0.22)]',
               'transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              'hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
+              'hover:brightness-[1.03] disabled:cursor-not-allowed disabled:opacity-50'
             )}
+            style={{ background: 'var(--accent-gradient)' }}
           >
             <Send className="size-4" aria-hidden="true" />
           </button>
@@ -284,9 +426,22 @@ export function AgentChat({
           </Button>
         </div>
 
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={speakReplies}
+              disabled={!isSpeechSupported}
+              onChange={(event) => setSpeakReplies(event.target.checked)}
+              className="size-3.5 rounded border-border"
+            />
+            Read replies aloud
+          </label>
+        </div>
+
         {isRecording ? (
           <div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-destructive">
-            Recording in progress...
+            Listening… speak now
           </div>
         ) : null}
       </div>

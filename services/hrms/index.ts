@@ -95,7 +95,22 @@ export interface MonthlyAttendanceResponse {
   status?: number
   message?: string
   data?: {
-    employee?: { id?: number | string; name?: string | null; employee_id?: string | null }
+    /**
+     * `has_roster` is what lets a caller translate this report's `weekend`
+     * honestly. The report has no `unset`: for an employee with no roster it
+     * answers `weekend` for every day of the month. A screen that renders that
+     * unchanged tells the user an employee has a month of days off when in fact
+     * nobody ever recorded which days they work.
+     *
+     * Optional, so the frontend ships before the server and falls back to its
+     * own `unknown` state rather than guessing either way.
+     */
+    employee?: {
+      id?: number | string
+      name?: string | null
+      employee_id?: string | null
+      has_roster?: boolean
+    }
     month?: string
     summary?: MonthlyAttendanceSummary
     /** Named `daily_report`, not `daily`. */
@@ -197,6 +212,340 @@ export interface AttendanceEmployeeOption {
   first_name?: string | null
   middle_name?: string | null
   last_name?: string | null
+}
+
+/* ---------------- Employee office-hours requests ---------------- */
+
+/**
+ * One weekday of a proposed or recorded week.
+ *
+ * `is_working: null` means NEVER SET, which is a different fact from `false`
+ * (set, and not a working day). The distinction is the whole reason this module
+ * exists: 2,008 of 2,283 active employees are in the "never set" state, and the
+ * fix for them is not the fix for somebody whose Sunday is correctly off.
+ *
+ * Shares its weekday union with DepartmentScheduleDay rather than redeclaring
+ * seven strings, because the two are compared against each other constantly and
+ * a drift between them would be invisible.
+ */
+export interface OfficeHoursDay {
+  weekday: DepartmentScheduleDay['weekday']
+  is_working: boolean | null
+  in_time: string | null
+  out_time: string | null
+}
+
+export type OfficeHoursRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+
+/**
+ * One request to change a week.
+ *
+ * Field naming deliberately mirrors `RegularisationRow` so the two approver
+ * queues read the same way and a reviewer moving between them is not relearning
+ * a vocabulary.
+ *
+ * `current_week` is the before-image **captured at submission**, not derived at
+ * read time. By the time an approver looks, `tbluser` may have moved under it
+ * through a department apply or an HR edit - and showing the approver a diff
+ * the employee never saw is worse than showing none.
+ */
+export interface OfficeHoursRequestRow {
+  id: number
+  user_id: number
+  employee_name: string | null
+  employee_no: string | null
+  department_id: number | null
+  department_name: string | null
+  /** What is being asked for. Only the weekdays the employee actually mentioned. */
+  week: OfficeHoursDay[]
+  /** What those weekdays said at submission. */
+  current_week: OfficeHoursDay[]
+  /** The department template at submission, for context. Null if they have no department. */
+  template_week: OfficeHoursDay[] | null
+  reason: string
+  status: OfficeHoursRequestStatus
+  reviewer_comment: string | null
+  reviewed_at: string | null
+  reviewed_by_name: string | null
+  submitted_at: string | null
+  /** When the tbluser write landed - not the same instant as reviewed_at if it was retried. */
+  applied_at: string | null
+}
+
+/** Everything the self-service screen needs, in one call. */
+export interface MyOfficeHoursResponse {
+  status?: number
+  data?: {
+    /** The employee's own hours as tbluser holds them now. */
+    current: OfficeHoursDay[]
+    /** False when no weekday has ever been set for them. */
+    has_schedule: boolean
+    department_id: number | null
+    department_name: string | null
+    /** Their department's template, or null if it has none / they have no department. */
+    template: OfficeHoursDay[] | null
+    /** The one request awaiting a decision, if any. */
+    pending: OfficeHoursRequestRow | null
+    /** Recently decided requests, newest first. */
+    history: OfficeHoursRequestRow[]
+  }
+}
+
+export interface OfficeHoursRequestListResponse {
+  status?: number
+  message?: string
+  scope?: 'mine' | 'team'
+  count?: number
+  data?: OfficeHoursRequestRow[]
+}
+
+export interface OfficeHoursRequestPayload {
+  /** Only the weekdays being changed. An omitted weekday is left exactly as it is. */
+  week: Array<{ weekday: string; is_working: boolean; in_time: string | null; out_time: string | null }>
+  reason: string
+}
+
+export interface OfficeHoursActionResponse {
+  status?: number
+  message?: string
+  data?: { id?: number }
+  errors?: Record<string, string[]>
+}
+
+/* ---------------- Department office hours ---------------- */
+
+/**
+ * One weekday of a department's template.
+ *
+ * `is_working: null` means never set, which is a different fact from `false`
+ * (set, and not a working day). The screen needs the distinction: 88% of
+ * employees are in the "never set" state and the fix for them is different from
+ * the fix for someone whose Sunday is correctly off.
+ */
+export interface DepartmentScheduleDay {
+  weekday: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+  is_working: boolean | null
+  in_time: string | null
+  out_time: string | null
+}
+
+export interface DepartmentSchedule {
+  department_id: number
+  department_name: string
+  employee_count: number
+  has_schedule: boolean
+  week: DepartmentScheduleDay[]
+}
+
+export interface DepartmentSchedulesResponse {
+  status: number
+  data: DepartmentSchedule[]
+}
+
+/** What an apply would do to one weekday, per employee bucket. */
+export interface SchedulePreviewWeekday {
+  weekday: string
+  is_working: boolean
+  in_time: string | null
+  out_time: string | null
+  is_weekend: boolean
+  already_match: number
+  /**
+   * Employees holding hours somebody CHOSE, which this apply would overwrite.
+   * The number to read before pressing Apply - the previous version of this
+   * feature was deleted for overwriting 100 Saturdays without showing it.
+   */
+  would_change: number
+  /** Employees with nothing set, who would get hours for the first time. */
+  would_set: number
+  /**
+   * Employees whose hours for this weekday came from their OWN approved
+   * request, and who are therefore left alone unless the override is ticked.
+   *
+   * Optional so this ships before the server does and the column is hidden
+   * rather than rendering `undefined`. It is a per-weekday count: summing it
+   * across the week counts a person once per day, which is why the summary
+   * carries a separate distinct-people figure.
+   */
+  employee_set?: number
+}
+
+export interface SchedulePreviewResponse {
+  status: number
+  applied: boolean
+  message?: string
+  data: {
+    department_id: number
+    employees: number
+    weekdays: string[]
+    includes_weekend: string[]
+    per_weekday: SchedulePreviewWeekday[]
+    employees_touched: number
+    total_would_change: number
+    total_would_set: number
+    /** Whether the apply was told to overwrite employee-set hours. */
+    override_employee_hours?: boolean
+    /** Weekday-rows summed - 21 for three people across seven days. */
+    total_employee_set?: number
+    /**
+     * DISTINCT PEOPLE left alone. This is the number the sentence "3 employees
+     * set their own hours and will be left alone" is about; total_employee_set
+     * would say 21 for the same three people.
+     */
+    employees_left_alone?: number
+    /** user_id -> name, so the confirmation can say who. */
+    employees_left_alone_list?: Record<string, string>
+  }
+}
+
+/* ---------------- The HR attendance desk (admin corrections) ---------------- */
+
+/**
+ * One cell of the month grid.
+ *
+ * `status` carries a third answer the rest of the module does not have. Two
+ * existing screens disagree about an employee with no roster - Monthly
+ * Attendance Report reads every day as a weekend, Attendance Tracking reads
+ * Mon-Sat as worked - because each invented a different fallback. 2,008 of
+ * 2,283 active employees are in exactly that state. `unset` says so instead of
+ * picking a side, and `upcoming` keeps a month-to-date view from counting days
+ * that have not happened as absences.
+ */
+export type AttendanceGridStatus =
+  | 'present'     // punched in and out
+  | 'incomplete'  // punched in, never out
+  | 'recorded'    // a row exists with neither time - something created it
+  | 'absent'      // no row, and the roster says this day is worked
+  | 'weekend'     // no row, and the roster says it is not
+  | 'unset'       // no row, and the employee has NO roster at all
+  | 'upcoming'    // no row, and the day is in the future
+
+export interface AttendanceGridCell {
+  status: AttendanceGridStatus
+  in: string | null
+  out: string | null
+  duration: string | null
+  work_mode: string | null
+  /** A correction has been applied to this day. The who and why come from /admin/edits. */
+  edited: boolean
+  shift_in: string | null
+  shift_out: string | null
+}
+
+export interface AttendanceGridDay {
+  date: string
+  day_of: number
+  weekday: string
+  is_future: boolean
+}
+
+export interface AttendanceGridEmployee {
+  user_id: number
+  name: string
+  employee_code: string | null
+  department_id: number | null
+  department_name: string | null
+  has_roster: boolean
+  /** Keyed by 'YYYY-MM-DD'; every day of the month is present. */
+  days: Record<string, AttendanceGridCell>
+}
+
+export interface AttendanceGridResponse {
+  status: number
+  data: {
+    month: string
+    days: AttendanceGridDay[]
+    employees: AttendanceGridEmployee[]
+    meta: {
+      page: number
+      per_page: number
+      total: number
+      total_pages: number
+      without_roster: number
+    }
+  }
+}
+
+export interface AttendanceCorrectionPayload {
+  userId: number | string
+  day: string
+  /** 'HH:MM'. Omit to leave that side of the day untouched. */
+  inTime?: string
+  outTime?: string
+  reason: string
+}
+
+export interface AttendanceCorrectionResponse {
+  status: number
+  message: string
+  data?: {
+    attendance_id: number
+    created_row: boolean
+    before: Record<string, string | null> | null
+    after: { punchin_time: string | null; punchout_time: string | null; timestamp_diff: string | null }
+  }
+}
+
+/** One recorded change. The before-image is what makes it an audit rather than a log. */
+export interface AttendanceEditRow {
+  id: number
+  /** The EMPLOYEE's id. Not `id`, which is this audit row's own. */
+  user_id: number
+  day: string
+  attendance_id: number | null
+  /** Set when this edit came from an approved employee regularisation request. */
+  regularisation_id: number | null
+  /**
+   * "HH:MM" or null, normalised server-side.
+   *
+   * It used to be whatever the driver handed back - a full datetime for
+   * `after_*` and anything at all for `before_*`, since the audit columns are
+   * plain varchars. The client sliced at a fixed offset, which returns an empty
+   * string for the narrow form - and '' is not nullish, so its own `?? '—'`
+   * fallback never fired and the cell rendered blank.
+   */
+  before_in_time: string | null
+  before_out_time: string | null
+  before_duration: string | null
+  after_in_time: string | null
+  after_out_time: string | null
+  after_duration: string | null
+  /**
+   * BOOLEAN, not a number - and this was the whole bug.
+   *
+   * `PDO::ATTR_EMULATE_PREPARES` makes the driver return every column as a
+   * string, so this arrived as `"0"`. `"0"` is truthy in JavaScript, so the
+   * Change History table rendered "day did not exist" on EVERY row and the
+   * before-image was never shown. The server now casts it; this type says so,
+   * so nobody writes a truthiness test against a string again.
+   */
+  created_row: boolean
+  reason: string
+  /** 'admin' for an HR correction, 'regularisation' for an approved request. */
+  source: string
+  created_at: string
+  employee_name: string | null
+  employee_code: string | null
+  changed_by_name: string | null
+}
+
+export interface AttendanceEditsResponse {
+  status: number
+  data: AttendanceEditRow[]
+  /**
+   * Additive sibling of `data`, which stays a plain array because its consumers
+   * live outside this repo.
+   *
+   * `truncated` exists because the 200-row cap used to be silent, and "the
+   * history only goes back this far" is a very different statement from "that
+   * is all the history there is".
+   */
+  meta?: {
+    total: number
+    returned: number
+    limit: number
+    truncated: boolean
+  }
 }
 
 export interface AttendanceEmployeesResponse {
@@ -526,6 +875,243 @@ export const hrmsService = {
 
   withdrawRegularisation: (context: LaravelContext, id: number) =>
     apiClient.delete<RegularisationActionResponse>(`/attendance/regularisations/${id}`, withLaravelParams(context)),
+
+  /* ---------------- The HR attendance desk ---------------- */
+
+  /**
+   * GET /api/attendance/admin/grid - every employee down, every day across.
+   *
+   * One request for the whole screen. The alternative was one request per
+   * employee against /employee-attendance-monthly-report, which is the only
+   * other endpoint that returns a month day by day and takes a single user_id:
+   * 50 round trips for a department, 2,283 for an organisation.
+   *
+   * Paged on PEOPLE, never on days - a half-month row would be worse than a
+   * missing one, because an empty cell already carries meaning here.
+   */
+  getAttendanceGrid: (
+    context: LaravelContext,
+    params: { month: string; departmentId?: string; search?: string; page?: number; perPage?: number },
+  ) =>
+    apiClient.get<AttendanceGridResponse>('/attendance/admin/grid', {
+      ...withLaravelParams(context),
+      month: params.month,
+      ...(activeFilter(params.departmentId) ? { department_id: activeFilter(params.departmentId) as string } : {}),
+      ...(params.search ? { search: params.search } : {}),
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.perPage ? { per_page: String(params.perPage) } : {}),
+    }),
+
+  /**
+   * POST /api/attendance/admin/corrections - HR changes somebody else's day.
+   *
+   * The ONLY endpoint that does this. The three that came close were not
+   * usable: update_user_att has no caller and writes across tenants, the two
+   * punch endpoints are self-service (and now force the subject to the caller),
+   * and the regularisation path only ever runs for a request the employee
+   * raised themselves.
+   *
+   * A reason is required, as it is on the employee-raised path. Omitting a time
+   * leaves that side of the day alone, so a missing punch-out can be filled in
+   * without restating the punch-in.
+   *
+   * The server refuses an employee id outside the caller's organisation with
+   * 404 rather than 403 - a refusal should not confirm that the id exists
+   * somewhere else.
+   */
+  correctAttendance: (context: LaravelContext, payload: AttendanceCorrectionPayload) =>
+    apiClient.post<AttendanceCorrectionResponse>('/attendance/admin/corrections', {
+      ...withLaravelParams(context),
+      user_id: payload.userId,
+      day: payload.day,
+      ...(payload.inTime ? { in_time: payload.inTime } : {}),
+      ...(payload.outTime ? { out_time: payload.outTime } : {}),
+      reason: payload.reason,
+    }),
+
+  /**
+   * GET /api/attendance/admin/edits - who changed whose day, from what, and why.
+   *
+   * The platform event log holds the same facts and is the system of record,
+   * but it is keyed by entity and time and answering "who changed Priya's
+   * Tuesday" from it is a query nobody on the HR desk will write. This is that
+   * question, asked the way the screen asks it.
+   */
+  getAttendanceEdits: (
+    context: LaravelContext,
+    params?: { userId?: number | string; month?: string; day?: string },
+  ) =>
+    apiClient.get<AttendanceEditsResponse>('/attendance/admin/edits', {
+      ...withLaravelParams(context),
+      ...(params?.userId ? { user_id: String(params.userId) } : {}),
+      // `month` filters on the day that was CORRECTED, not the day somebody
+      // corrected it - so a correction made today to a day last month does not
+      // appear under this month.
+      ...(params?.month ? { month: params.month } : {}),
+      // One day, for the drill-down from a cell the grid marked as changed.
+      ...(params?.day ? { day: params.day } : {}),
+    }),
+
+  /* ---------------- Employee office-hours requests ---------------- */
+
+  /**
+   * GET /attendance/my-office-hours - the employee's own week, their
+   * department's template, and anything pending, in ONE call.
+   *
+   * NO SUBJECT ID, by design - the subject is always the token owner. A client
+   * that cannot express the wrong request cannot send it, which is what makes
+   * this safe for every employee to reach without a role gate.
+   *
+   * One call rather than three because two of the three an employee may not be
+   * permitted to make: `/employees-management/{id}` is gated profile:admin,hr,
+   * so an employee cannot read their own tbluser schedule through it.
+   */
+  getMyOfficeHours: (context: LaravelContext) =>
+    apiClient.get<MyOfficeHoursResponse>('/attendance/my-office-hours', withLaravelParams(context)),
+
+  /**
+   * POST /attendance/office-hours-requests - propose a change to my own week.
+   *
+   * Always for the caller. Re-submitting while one is pending REPLACES it
+   * rather than creating a second, matching the rule the regularisation path
+   * already follows - an approver should never see two contradictory versions
+   * of the same week.
+   *
+   * Only the weekdays being changed are sent. An omitted weekday is left
+   * exactly as it is, which is why the server stores a row per weekday rather
+   * than 21 columns: an absent row means "not asked about", and a NULL column
+   * cannot distinguish that from "asked for it off".
+   */
+  submitOfficeHoursRequest: (context: LaravelContext, payload: OfficeHoursRequestPayload) =>
+    apiClient.post<OfficeHoursActionResponse>('/attendance/office-hours-requests', {
+      ...withLaravelParams(context),
+      week: payload.week,
+      reason: payload.reason,
+    }),
+
+  /** DELETE - withdraw my own pending request. Soft-deleted, so the trail survives. */
+  withdrawOfficeHoursRequest: (context: LaravelContext, id: number) =>
+    apiClient.delete<OfficeHoursActionResponse>(
+      `/attendance/office-hours-requests/${id}`,
+      withLaravelParams(context),
+    ),
+
+  /**
+   * GET /attendance/office-hours-requests - mine, or the approver queue.
+   *
+   * `scope: 'team'` is the queue and answers 403 unless the caller may approve,
+   * exactly like getRegularisations. A component should render nothing on that
+   * 403 rather than gate itself on a role - the server decides who approves.
+   */
+  getOfficeHoursRequests: (
+    context: LaravelContext,
+    params?: { scope?: 'mine' | 'team'; status?: string },
+  ) =>
+    apiClient.get<OfficeHoursRequestListResponse>('/attendance/office-hours-requests', {
+      ...withLaravelParams(context),
+      ...(params?.scope ? { scope: params.scope } : {}),
+      ...(params?.status ? { status: params.status } : {}),
+    }),
+
+  /**
+   * POST .../decision - approve or reject.
+   *
+   * An approval is what writes the employee's tbluser weekday columns, and
+   * those columns are a payroll input: PayrollController reads
+   * saturday_in_date when counting 2nd-Saturday lateness, which is subtracted
+   * from payable days. Nothing before the approval touches pay.
+   */
+  decideOfficeHoursRequest: (
+    context: LaravelContext,
+    id: number,
+    status: 'approved' | 'rejected',
+    reviewerComment?: string,
+  ) =>
+    apiClient.post<OfficeHoursActionResponse>(`/attendance/office-hours-requests/${id}/decision`, {
+      ...withLaravelParams(context),
+      status,
+      ...(reviewerComment ? { reviewer_comment: reviewerComment } : {}),
+    }),
+
+  /* ---------------- Department office hours ---------------- */
+
+  /**
+   * GET /attendance/admin/schedules - every department with its week.
+   *
+   * Departments with no schedule come back with all seven days present and
+   * empty, so the screen renders one shape instead of branching on
+   * "has a schedule".
+   */
+  getDepartmentSchedules: (context: LaravelContext) =>
+    apiClient.get<DepartmentSchedulesResponse>('/attendance/admin/schedules', withLaravelParams(context)),
+
+  /**
+   * POST /attendance/admin/schedules - save one department's week.
+   *
+   * The TEMPLATE only. No employee row changes until applySchedule is called,
+   * and that separation is the safety mechanism rather than a nicety: saving
+   * what the hours should be is cheap and reversible, writing them onto a
+   * hundred people is neither.
+   */
+  saveDepartmentSchedule: (
+    context: LaravelContext,
+    payload: { departmentId: number; week: Array<{ weekday: string; is_working: boolean; in_time: string | null; out_time: string | null }> },
+  ) =>
+    apiClient.post<{ status: number; message: string }>('/attendance/admin/schedules', {
+      ...withLaravelParams(context),
+      department_id: payload.departmentId,
+      week: payload.week,
+    }),
+
+  /**
+   * POST /attendance/admin/schedules/preview - what an apply would do.
+   *
+   * Computes exactly what applySchedule computes and writes nothing. A preview
+   * that diverges from the write is worse than none: it is a promise the write
+   * does not keep.
+   */
+  previewScheduleApply: (
+    context: LaravelContext,
+    payload: { departmentId: number; weekdays: string[]; overrideEmployeeHours?: boolean },
+  ) =>
+    apiClient.post<SchedulePreviewResponse>('/attendance/admin/schedules/preview', {
+      ...withLaravelParams(context),
+      department_id: payload.departmentId,
+      weekdays: payload.weekdays,
+      // Sent only when true. The server defaults it to false and parses it
+      // with FILTER_VALIDATE_BOOLEAN, because the string "false" is truthy
+      // in PHP and this is the tick that decides whether somebody's chosen
+      // Saturday gets overwritten.
+      ...(payload.overrideEmployeeHours ? { override_employee_hours: 1 } : {}),
+    }),
+
+  /**
+   * POST /attendance/admin/schedules/apply - write the template onto employees.
+   *
+   * `weekdays` is explicit and there is no "all" on the server. Saturday and
+   * Sunday have to be named, because Saturday is the day whose hours genuinely
+   * vary - 100 employees in one tenant finish at 14:00 - and a blanket write is
+   * what got the previous version of this feature removed.
+   *
+   * Records a `department.schedule.applied` event with the before-image of
+   * every employee it touched.
+   */
+  applySchedule: (
+    context: LaravelContext,
+    payload: { departmentId: number; weekdays: string[]; overrideEmployeeHours?: boolean },
+  ) =>
+    apiClient.post<SchedulePreviewResponse>('/attendance/admin/schedules/apply', {
+      ...withLaravelParams(context),
+      department_id: payload.departmentId,
+      weekdays: payload.weekdays,
+      // Sent only when true. The server defaults it to false and parses it
+      // with FILTER_VALIDATE_BOOLEAN, because the string "false" is truthy
+      // in PHP and this is the tick that decides whether somebody's chosen
+      // Saturday gets overwritten.
+      ...(payload.overrideEmployeeHours ? { override_employee_hours: 1 } : {}),
+    }),
+
+
 
   // Leave - see leaveService below for the Leave Management module endpoints.
 

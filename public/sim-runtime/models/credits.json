@@ -1,0 +1,152 @@
+[
+ {
+  "model": "server-rack",
+  "title": "Server Rack",
+  "author": "Spellkaze",
+  "source": "sketchfab.com",
+  "licence": "Creative Commons Attribution",
+  "licenceUrl": "http://creativecommons.org/licenses/by/4.0/",
+  "url": "https://sketchfab.com/3d-models/server-rack-62f6779cb7e448b19aaf58544c3c7218",
+  "attributionRequired": true
+ },
+ {
+  "model": "network-switch",
+  "title": "TL-SF1005D",
+  "author": "arieffitrah",
+  "source": "sketchfab.com",
+  "licence": "Creative Commons Attribution",
+  "licenceUrl": "http://creativecommons.org/licenses/by/4.0/",
+  "url": "https://sketchfab.com/3d-models/tl-sf1005d-90966bd409204294918c68c11c7da831",
+  "attributionRequired": true
+ },
+ {
+  "model": "wall-console",
+  "title": "Large Wall-Mounted Computer Console",
+  "author": "Inditrion Dradnon",
+  "source": "sketchfab.com",
+  "licence": "Creative Commons Attribution",
+  "licenceUrl": "http://creativecommons.org/licenses/by/4.0/",
+  "url": "https://sketchfab.com/3d-models/large-wall-mounted-computer-console-298b7d9b68064618a3819d1a8fae4baf",
+  "attributionRequired": true
+ },
+ {
+  "model": "laptop",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "computer-screen",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "keyboard",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "desk",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "chair-desk",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "potted-plant",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "desk-lamp",
+  "title": "furniture-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "tank-large",
+  "title": "city-kit-industrial",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/city-kit-industrial",
+  "attributionRequired": false
+ },
+ {
+  "model": "container",
+  "title": "city-kit-industrial",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/city-kit-industrial",
+  "attributionRequired": false
+ },
+ {
+  "model": "machine-generator",
+  "title": "space-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/space-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "machine-barrel",
+  "title": "space-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/space-kit",
+  "attributionRequired": false
+ },
+ {
+  "model": "satellite-dish",
+  "title": "space-kit",
+  "author": "Kenney (kenney.nl)",
+  "source": "kenney.nl",
+  "licence": "CC0 1.0 (public domain dedication)",
+  "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "url": "https://kenney.nl/assets/space-kit",
+  "attributionRequired": false
+ }
+]

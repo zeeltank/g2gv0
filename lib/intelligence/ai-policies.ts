@@ -48,8 +48,6 @@ export interface AiPolicyModuleOption {
 export interface AiPolicyRow {
   id: number
   sub_institute_id: number | null
-  /** A platform worked example (shown with an "example" pill by the module AI Stack). */
-  is_example?: number
   /** A shared baseline policy. Visible to every organisation, editable by none. */
   is_platform: boolean
   editable: boolean
@@ -120,8 +118,8 @@ export function fetchAiPolicyOptions(): Promise<AiPolicyOptions> {
 }
 
 /** Policies for one module. Omit `moduleKey` for every policy the organisation can see. */
-export function fetchAiPolicies(moduleKey?: string | null): Promise<AiPolicyIndex> {
-  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}` : ''
+export function fetchAiPolicies(moduleKey?: string | null, options: { rollup?: boolean } = {}): Promise<AiPolicyIndex> {
+  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}${options.rollup ? '&rollup=1' : ''}` : ''
 
   return aiRequest<AiPolicyIndex>(`/policies${query}`)
 }

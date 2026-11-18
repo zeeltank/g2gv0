@@ -9,8 +9,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_ENDPOINT =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+// Model ids are overridable per environment so a retired or renamed model does not need a
+// code change. The defaults are what this route has always sent; 'gemini-3.6-flash' is the
+// id the AI Model Setup catalogue (ai_models) lists for Gemini.
+const DEEPSEEK_MODEL = process.env.SCREENING_DEEPSEEK_MODEL || 'deepseek-chat';
+const OPENROUTER_MODEL = process.env.SCREENING_OPENROUTER_MODEL || 'deepseek/deepseek-chat';
+const GEMINI_MODEL = process.env.SCREENING_GEMINI_MODEL || 'gemini-3.6-flash';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`;
 
 interface ProviderErrorBody {
   error?: { message?: string };
@@ -131,7 +136,7 @@ Provide analysis in valid JSON format:
         providerData = await requestScreening(
           DEEPSEEK_ENDPOINT,
           deepSeekApiKey,
-          'deepseek-chat',
+          DEEPSEEK_MODEL,
           screeningPrompt
         );
       } catch (deepSeekError) {
@@ -148,7 +153,7 @@ Provide analysis in valid JSON format:
         providerData = await requestScreening(
           OPENROUTER_ENDPOINT,
           openRouterApiKey,
-          'deepseek/deepseek-chat',
+          OPENROUTER_MODEL,
           screeningPrompt
         );
       } catch (openRouterError) {
@@ -167,20 +172,30 @@ Provide analysis in valid JSON format:
     if (!providerData) throw new Error('No screening provider is available');
     const content = providerData.choices?.[0]?.message?.content || '{}';
 
+    // An unreadable provider answer is an error, not a result. It used to be replaced by a
+    // canned "0% / Low / Unlikely" analysis that the caller then stored as a genuine
+    // low-fit screening, indistinguishable from a real one.
     let analysis: any;
     try {
       analysis = JSON.parse(content);
     } catch {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {
-        competency_match: 0,
-        cultural_fit: 'Low',
-        predicted_success: 'Unlikely',
-        summary: 'Unable to analyze',
-        skill_gaps: [],
-        strengths: [],
-        recommendation: 'Request Additional Info'
-      };
+      try {
+        analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      } catch {
+        analysis = null;
+      }
+    }
+
+    if (!analysis || typeof analysis !== 'object' || typeof analysis.competency_match !== 'number') {
+      console.error('Candidate screening: provider returned an unreadable result');
+      return NextResponse.json(
+        {
+          error: 'The screening provider returned a result that could not be read. No screening was recorded.',
+          code: 'SCREENING_UNPARSEABLE',
+        },
+        { status: 502 }
+      );
     }
 
     const skillMatchDetails = jdData.core_skills?.map((skill: string) => {

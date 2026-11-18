@@ -12,6 +12,7 @@ import { getLaravelContext } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import { toDateOnly } from '@/lib/date-only'
 import type { ProjectOptions, ProjectPayload, ProjectRecord, ProjectStatus } from '@/types/task-management'
+import { MemberPicker } from './member-picker'
 import { PriorityBadge } from './priority-badge'
 
 interface Props {
@@ -91,7 +92,6 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
     finally { setSaving(false) }
   }
 
-  const memberOptions = options.users.filter((user) => !form.member_ids.includes(String(user.id)))
   return <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
     <DialogContent className="flex h-[min(90vh,760px)] max-h-[90vh] flex-col overflow-hidden rounded-2xl border-primary/20 bg-card/95 p-0 shadow-2xl backdrop-blur-3xl sm:max-w-[700px]">
       <div className="shrink-0 border-b border-primary/10 bg-gradient-to-r from-primary/10 via-background to-background p-5 sm:p-6">
@@ -138,8 +138,8 @@ export function CreateProjectModal({ isOpen, onClose, options, project, onSaved 
             </Field>
             <div className="grid gap-4 sm:grid-cols-2"><Field label="Project Manager (Lead) *"><Select value={form.manager_id} onChange={(value) => set('manager_id', value)} options={options.users.map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select manager" className="h-11 rounded-xl" /></Field><Field label="Executive Sponsor"><Select value={form.sponsor_id ?? ''} onChange={(value) => set('sponsor_id', value)} options={options.users.map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select sponsor" className="h-11 rounded-xl" /></Field></div>
             <Field label="Expected Team Size"><div className="flex flex-wrap gap-2">{['1-5','6-10','11-25','26-50','50+'].map((size) => <Button type="button" variant="ghost" key={size} onClick={() => set('team_size', size)} className={cn('rounded-xl border px-4 py-2 text-sm', form.team_size === size ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background/50 text-muted-foreground')}>{size}</Button>)}</div></Field>
-            <Field label="Assign Core Team Members"><Select value="" onChange={(value) => value && set('member_ids', [...form.member_ids, value])} options={[{ value: '', label: 'Select an employee...' }, ...memberOptions.map((user) => ({ value: String(user.id), label: user.name }))]} className="h-11 rounded-xl" />
-              {!!form.member_ids.length && <div className="mt-3 flex flex-wrap gap-2">{form.member_ids.map((id) => <span key={id} className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">{options.users.find((user) => String(user.id) === id)?.name ?? id}<button type="button" onClick={() => set('member_ids', form.member_ids.filter((value) => value !== id))} className="rounded-full p-0.5 hover:bg-primary/20"><X className="size-3.5" /></button></span>)}</div>}
+            <Field label="Assign Core Team Members">
+              <MemberPicker value={form.member_ids} options={options.users} onChange={(nextIds) => set('member_ids', nextIds)} />
             </Field>
           </div>}
 

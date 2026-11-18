@@ -55,7 +55,7 @@ export default function AiConsolePage() {
   return (
     <div className="mx-auto max-w-[1100px]">
       <header>
-        <h1 className="text-2xl font-semibold text-foreground">AI &amp; Intelligence</h1>
+        <h1 className="text-2xl font-semibold text-foreground">AI and insights</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
           The AI capabilities this platform provides once and every module calls. G2G serves them from
           its own database, so what you see below is this organisation&rsquo;s own configuration and its

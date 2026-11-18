@@ -4,13 +4,16 @@ import { cn } from '@/lib/utils'
 interface BreadcrumbProps extends React.HTMLAttributes<HTMLElement> {}
 
 const Breadcrumb = React.forwardRef<HTMLElement, BreadcrumbProps>(
-  ({ className, ...props }, ref) => (
+  ({ className, children, ...props }, ref) => (
     <nav
       ref={ref}
       aria-label="breadcrumb"
       className={cn('flex items-center', className)}
       {...props}
-    />
+    >
+      {/* The items are <li>s, which belong in a list. The list carries the row layout the nav used to carry; its own list styling is reset. */}
+      <ol className="m-0 flex list-none items-center p-0">{children}</ol>
+    </nav>
   ),
 )
 Breadcrumb.displayName = 'Breadcrumb'

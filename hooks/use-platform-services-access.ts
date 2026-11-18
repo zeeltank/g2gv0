@@ -13,6 +13,7 @@ export interface PlatformServicesAccessResult {
   audit: boolean
   platformAdministration: boolean
   whatsComing: boolean
+  documentLibrary: boolean
   ai: PlatformServicesAccess['ai']
   /** At least one of the six module rows — what the unscoped backend calls (e.g. `/api/platform/registry`) also grant on. */
   anyModule: boolean
@@ -74,6 +75,7 @@ export function usePlatformServicesAccess(): PlatformServicesAccessResult {
       audit: data?.audit ?? false,
       platformAdministration: data?.platform_administration ?? false,
       whatsComing: data?.whats_coming ?? false,
+      documentLibrary: data?.document_library ?? false,
       ai: data?.ai ?? EMPTY_AI,
       anyModule: Object.values(modules).some(Boolean),
       loading: ready && query.isLoading,

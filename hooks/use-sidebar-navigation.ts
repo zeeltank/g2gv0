@@ -5,13 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { sidebarService } from '@/services/navigation/sidebar'
-import type { SidebarMenuNode } from '@/services/navigation/sidebar'
+import type { SidebarMenuNode, SidebarMenuResponse } from '@/services/navigation/sidebar'
 import {
   getRouteByAccessLink,
   type NavNode,
   type NavModule,
   type ActiveNav,
 } from '@/lib/gtg-navigation'
+import { collapseSignalsNav } from '@/lib/signals-nav'
 
 type FlatNode = {
   id: number
@@ -89,15 +90,56 @@ function buildModuleTree(rawModules: SidebarMenuNode[]): NavModule[] {
   }))
 }
 
+/**
+ * Top-level modules kept out of the rendered sidebar list, by their stable
+ * `access_link` rather than a numeric id — dev and live have been observed to
+ * disagree on a row's id for the same menu_name/access_link (see the hide
+ * migrations' own matching style), so an id would silently target the wrong
+ * row on one host.
+ *
+ * This does NOT hide the screens themselves or touch any right: it only
+ * drops the entry from `sidebarModules` (what `<GtgSidebar>` renders).
+ * `modules` (full, unfiltered) is still what `resolveAccessLink` searches, so
+ * a deep link into one of these modules — e.g. "Agent Management" in the AI
+ * & Intelligence launcher, which resolves `/module/agentic-ai/agentic-library`
+ * — keeps working for whoever already has rights to it. Someone with no
+ * rights to the module still can't reach it either way; nothing about
+ * can_view enforcement changes.
+ */
+const SIDEBAR_HIDDEN_ACCESS_LINKS = new Set<string>(['/module/agentic-ai'])
+
 export interface SidebarNavigationResult {
+  /** Full tree, rights-filtered but otherwise complete — what resolution (resolveAccessLink, getRoutePath) reads. */
   modules: NavModule[]
+  /** `modules` minus `SIDEBAR_HIDDEN_ACCESS_LINKS` — what `<GtgSidebar>` should render. */
+  sidebarModules: NavModule[]
   loading: boolean
   error: string | null
   /** null when nothing is mapped — the caller must decline to navigate, not guess. */
   getRoutePath: (active: ActiveNav) => string | null
   parseRoutePath: (pathname: string) => ActiveNav | null
+  /**
+   * The Signals screens (their routes) this user's menu contained before they were folded into the single Signals entry; null when the menu has no
+   * Signals group. The Signals header shows a tab for each.
+   */
+  signalsTabs: string[] | null
   /** Resolves a known tblmenumaster_g2g access_link against the caller's live, rights-filtered tree; falls back to '/dashboard' if the profile can't see it. */
   resolveAccessLink: (accessLink: string) => string
+}
+
+/**
+ * Clears any cached sidebar navigation data from sessionStorage.
+ * Used whenever permissions or enabled modules are updated.
+ */
+export function clearSidebarCache() {
+  if (typeof window !== 'undefined') {
+    for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+      const k = window.sessionStorage.key(i)
+      if (k && k.startsWith('gtg-sidebar-cache-v3')) {
+        window.sessionStorage.removeItem(k)
+      }
+    }
+  }
 }
 
 /**
@@ -111,9 +153,35 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
 
+  const cacheKey = context.subInstituteId && context.profileId
+    ? `gtg-sidebar-cache-v3:${context.subInstituteId}:${context.profileId}`
+    : null
+
+  const initialData = useMemo(() => {
+    if (!cacheKey || typeof window === 'undefined') return undefined
+    try {
+      const stored = window.sessionStorage.getItem(cacheKey)
+      if (stored) {
+        return JSON.parse(stored) as SidebarMenuResponse
+      }
+    } catch {
+      // Storage unavailable
+    }
+    return undefined
+  }, [cacheKey])
+
   const query = useQuery({
-    queryKey: ['sidebar-navigation', context.token, context.subInstituteId, context.profileId],
-    queryFn: () => sidebarService.getMenu(context),
+    queryKey: ['sidebar-navigation-v3', context.token, context.subInstituteId, context.profileId],
+    queryFn: async () => {
+      const res = await sidebarService.getMenu(context)
+      if (cacheKey && res?.data && typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify(res))
+        } catch {}
+      }
+      return res
+    },
+    initialData,
     enabled: ready,
     staleTime: 5 * 60 * 1000,
   })
@@ -147,62 +215,21 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * revoking it is supposed to mean. /dashboard itself stays reachable by URL,
    * so this removes the link, not the page.
    */
-  const modules = useMemo(() => {
-    const fromDb = buildModuleTree(query.data?.data ?? [])
-
-    const signalsModule: NavModule = {
-      id: 'signals',
-      label: 'Signals',
-      short: 'Signals',
-      icon: 'mdi mdi-radar',
-      accessLink: '/signals',
-      children: [],
-      standalone: true,
-    }
-
-    const ingestionModule: NavModule = {
-      id: 'ingestion',
-      label: 'Ingestion Engine',
-      short: 'Ingestion',
-      icon: 'mdi mdi-cloud-upload-outline',
-      accessLink: '/ingestion',
-      children: [],
-      standalone: true,
-    }
-
-    const portfolioModule: NavModule = {
-      id: 'portfolio',
-      label: 'Product Portfolio',
-      short: 'Portfolio',
-      icon: 'mdi mdi-briefcase-outline',
-      accessLink: '/portfolio',
-      children: [],
-      standalone: true,
-    }
-
-    const partnersModule: NavModule = {
-      id: 'partners',
-      label: 'Partner Network',
-      short: 'Partners',
-      icon: 'mdi mdi-handshake-outline',
-      accessLink: '/partners',
-      children: [],
-      standalone: true,
-    }
-
-    const hasSignals = fromDb.some((m) => m.accessLink === '/signals' || m.id === 'signals')
-    const hasIngestion = fromDb.some((m) => m.accessLink === '/ingestion' || m.id === 'ingestion')
-    const hasPortfolio = fromDb.some((m) => m.accessLink === '/portfolio' || m.id === 'portfolio')
-    const hasPartners = fromDb.some((m) => m.accessLink === '/partners' || m.id === 'partners')
-
-    const extra: NavModule[] = []
-    if (!hasSignals) extra.push(signalsModule)
-    if (!hasIngestion) extra.push(ingestionModule)
-    if (!hasPortfolio) extra.push(portfolioModule)
-    if (!hasPartners) extra.push(partnersModule)
-
-    return [...fromDb, ...extra]
+  const collapsed = useMemo(() => {
+    // Signals, Ingestion Engine, Product Portfolio and Partner Network used to be injected here as
+    // standalone sidebar links. They are intentionally no longer added; their routes and pages
+    // are untouched (see parseRoutePath below), and Intelligence Loop comes from the server menu.
+    //
+    // The four child rows of the Signals entry are folded into it HERE, in code: they are now tabs on the Signals screen. The database
+    // rows are not touched, and each route still resolves (see `owners` below).
+    return collapseSignalsNav(buildModuleTree(query.data?.data ?? []))
   }, [query.data])
+  const modules = collapsed.modules
+
+  const sidebarModules = useMemo(
+    () => modules.filter((module) => !SIDEBAR_HIDDEN_ACCESS_LINKS.has(module.accessLink ?? '')),
+    [modules],
+  )
 
   const { pathByKey, keyByPath } = useMemo(() => {
     const pathByKey = new Map<string, string>()
@@ -229,31 +256,48 @@ export function useSidebarNavigation(): SidebarNavigationResult {
       }
     }
 
+    // The folded-away Signals screens resolve to the Signals entry, so the sidebar highlight and the breadcrumb stay on it.
+    for (const [path, active] of Object.entries(collapsed.owners)) {
+      if (!keyByPath.has(path)) keyByPath.set(path, active)
+    }
+
     return { pathByKey, keyByPath }
-  }, [modules])
+  }, [modules, collapsed.owners])
 
   const getRoutePath = (active: ActiveNav): string | null => {
     return pathByKey.get(`${active.moduleId}:${active.menuId}:${active.submenuId}`) ?? null
   }
 
+  /*
+   * Signals/Ingestion/Portfolio/Partners used to have no real menu row at
+   * all, so this returned fake string ids ('signals', 'portfolio', ...) just
+   * to give the sidebar *something* stable to highlight. Sales & Marketing's
+   * Signals branch (tblmenumaster_g2g id 489 and its real children) gives
+   * them genuine rows now, already walked into `keyByPath` below like every
+   * other screen - the fake branches only shadowed that correct, rights-
+   * aware, connection-safe resolution with a value that could never match a
+   * real node, which is why these 4 routes' breadcrumbs stayed stuck on
+   * "Home" even after the menu tree had fully loaded.
+   */
   const parseRoutePath = (pathname: string): ActiveNav | null => {
-    if (pathname.startsWith('/signals')) {
-      return { moduleId: 'signals', menuId: 'signals', submenuId: 'signals' }
+    const exact = keyByPath.get(pathname)
+    if (exact) return exact
+
+    // Detail and task routes belong to the nearest real menu row. This keeps
+    // the sidebar and breadcrumb anchored to My Learning when a learner opens
+    // its dedicated assessment page, without inventing a second menu record.
+    let closest: { path: string; active: ActiveNav } | null = null
+    for (const [path, active] of keyByPath) {
+      if (pathname.startsWith(`${path}/`) && (!closest || path.length > closest.path.length)) {
+        closest = { path, active }
+      }
     }
-    if (pathname.startsWith('/ingestion')) {
-      return { moduleId: 'ingestion', menuId: 'ingestion', submenuId: 'ingestion' }
-    }
-    if (pathname.startsWith('/portfolio')) {
-      return { moduleId: 'portfolio', menuId: 'portfolio', submenuId: 'portfolio' }
-    }
-    if (pathname.startsWith('/partners')) {
-      return { moduleId: 'partners', menuId: 'partners', submenuId: 'partners' }
-    }
-    return keyByPath.get(pathname) ?? null
+
+    return closest?.active ?? null
   }
 
   const resolveAccessLink = (accessLink: string): string => {
-    if (accessLink === '/signals') return '/signals'
+    if (accessLink === '/signals' || accessLink === '/module/crm/signals') return '/signals'
     if (accessLink === '/ingestion') return '/ingestion'
     if (accessLink === '/portfolio') return '/portfolio'
     if (accessLink === '/partners') return '/partners'
@@ -262,10 +306,12 @@ export function useSidebarNavigation(): SidebarNavigationResult {
 
   return {
     modules,
+    sidebarModules,
     loading: ready && query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     getRoutePath,
     parseRoutePath,
     resolveAccessLink,
+    signalsTabs: collapsed.tabs,
   }
 }

@@ -45,6 +45,16 @@ interface RequestConfig {
 export type RequestOptions = Pick<RequestConfig, 'headers' | 'credentials'>
 export type MutationOptions = Pick<RequestConfig, 'headers' | 'credentials' | 'params'>
 
+/** A download that is bigger than the caller said it would accept (see ApiClient.getFile). `code` lets callers tell it apart without importing this. */
+export class ResponseTooLargeError extends Error {
+  readonly code = 'too_large'
+
+  constructor(readonly maxBytes: number) {
+    super(`The file is larger than the ${Math.round(maxBytes / (1024 * 1024))} MB that is accepted.`)
+    this.name = 'ResponseTooLargeError'
+  }
+}
+
 /** Laravel replies with {message, errors} on 4xx - surface that instead of a bare status code. */
 export class ApiError extends Error {
   constructor(
@@ -217,6 +227,73 @@ class ApiClient {
     return response.blob()
   }
 
+  /**
+   * A file as raw bytes and its Content-Type, with a ceiling on how much will be read.
+   *
+   * For files the page itself consumes rather than hands to the browser (a 3D model or an image that is posted into a sandboxed frame),
+   * where a blob is the wrong shape and an unbounded read would let a wrong or hostile response fill the tab's memory. The ceiling is
+   * enforced twice: on the declared `Content-Length`, before any of the body is read, and on the bytes actually received, because the
+   * header can be absent or wrong. `maxBytes` may be a function of the response's Content-Type, so a picture can be held to less than a
+   * model; it runs once, after the headers arrive and before the body is read. Anything but a plain 200 is an error; the server's own JSON
+   * message is surfaced for a failure, as in getBlob.
+   */
+  async getFile(
+    endpoint: string,
+    {
+      accept = '*/*',
+      maxBytes = Number.POSITIVE_INFINITY,
+      signal,
+    }: { accept?: string; maxBytes?: number | ((contentType: string | null) => number); signal?: AbortSignal } = {},
+  ): Promise<{ bytes: ArrayBuffer; contentType: string | null }> {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      // The file on success, JSON on failure.
+      headers: { Accept: `${accept}, application/json`, ...authHeader() },
+      signal,
+    })
+
+    if (!response.ok) throw await buildApiError(response)
+    if (response.status !== 200) {
+      void response.body?.cancel().catch(() => undefined)
+      throw new ApiError(`API Error: ${response.status} ${response.statusText}`, response.status)
+    }
+
+    const contentType = response.headers.get('Content-Type')
+    const limit = typeof maxBytes === 'function' ? maxBytes(contentType) : maxBytes
+
+    const declared = response.headers.get('Content-Length')
+    if (declared !== null && declared.trim() !== '' && Number(declared) > limit) {
+      void response.body?.cancel().catch(() => undefined)
+      throw new ResponseTooLargeError(limit)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      const whole = await response.arrayBuffer()
+      if (whole.byteLength > limit) throw new ResponseTooLargeError(limit)
+      return { bytes: whole, contentType }
+    }
+
+    const chunks: Uint8Array[] = []
+    let received = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      received += value.byteLength
+      if (received > limit) {
+        await reader.cancel().catch(() => undefined)
+        throw new ResponseTooLargeError(limit)
+      }
+      chunks.push(value)
+    }
+    const bytes = new Uint8Array(received)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    return { bytes: bytes.buffer, contentType }
+  }
+
   async post<T>(endpoint: string, body: unknown, options?: MutationOptions): Promise<T> {
     return this.request<T>(endpoint, { method: 'POST', body, ...options })
   }
@@ -240,6 +317,17 @@ class ApiClient {
 
   async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', params })
+  }
+
+  /**
+   * DELETE with a JSON body, for the rare endpoint that needs to send more
+   * than scalar ids - e.g. an array of task ids to bulk-delete. `delete()`
+   * only carries `params` (a flat query string), which cannot express an
+   * array the way PHP's `task_ids[]=` convention would without hand-built
+   * query encoding; a real body is simpler and matches put()/patch() below.
+   */
+  async deleteWithBody<T>(endpoint: string, body: unknown): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', body })
   }
 }
 

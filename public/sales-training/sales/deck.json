@@ -1,0 +1,3296 @@
+{
+ "version": 3,
+ "title": "G2G Sales Presentation",
+ "theme": "professional",
+ "accent": "#0E9F8E",
+ "product": {
+  "key": "sales",
+  "name": "G2G Sales Presentation",
+  "tagline": "Your people, skills and learning on one platform"
+ },
+ "chapter": {
+  "id": 990000,
+  "name": "G2G Sales Presentation",
+  "number": 1,
+  "standard_id": 0,
+  "subject_id": 0,
+  "standard_name": "Sales",
+  "subject_name": "G2G"
+ },
+ "chapter_id": 990000,
+ "slide_count": 40,
+ "teaching_strategy": "Salesperson-led. Start from a role, a module, a business problem, a solution or a live conversation; there is no fixed sequence.",
+ "nav": [
+  {
+   "label": "Home",
+   "goto": 1
+  },
+  {
+   "label": "Roles",
+   "goto": 2
+  },
+  {
+   "label": "Modules",
+   "goto": 3
+  },
+  {
+   "label": "Business Problems",
+   "goto": 4
+  },
+  {
+   "label": "Solutions",
+   "goto": 5
+  },
+  {
+   "label": "Sales Scenarios",
+   "goto": 6
+  }
+ ],
+ "outline": [],
+ "concepts": {},
+ "slides": [
+  {
+   "n": 1,
+   "section": "G2G - Verified product facts",
+   "slide_type": "hook",
+   "title": "Your people, skills and learning on one platform",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Attendance, leave and payroll. Talent and appraisals. Skills and training. Tasks and access control.",
+    "explanations": [],
+    "bullets": [
+     "The salesperson controls the meeting: start from a role, a module, a business problem, a solution or a live conversation.",
+     "Only documented features are shown; unfinished parts are labelled."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": 2,
+   "product": {
+    "name": "G2G",
+    "tagline": "Your people, skills and learning on one platform"
+   },
+   "links": [
+    {
+     "label": "Roles",
+     "goto": 2,
+     "primary": true
+    },
+    {
+     "label": "Modules",
+     "goto": 3
+    },
+    {
+     "label": "Business Problems",
+     "goto": 4
+    },
+    {
+     "label": "Solutions",
+     "goto": 5
+    },
+    {
+     "label": "Sales Scenarios",
+     "goto": 6
+    }
+   ],
+   "group": "Home"
+  },
+  {
+   "n": 2,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Roles",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Who is in the room? Pick the role to see the modules it uses.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "HR Admin: Runs people operations, talent and learning (7 modules)",
+     "goto": 7
+    },
+    {
+     "label": "Manager: Leads a team: approvals, appraisals, work (7 modules)",
+     "goto": 8
+    },
+    {
+     "label": "Employee: Punches in, applies for leave, learns (6 modules)",
+     "goto": 9
+    },
+    {
+     "label": "Finance Admin: Works payroll processing and reports (2 modules)",
+     "goto": 10
+    },
+    {
+     "label": "Principal: Leadership: approve-only access to HR and payroll (3 modules)",
+     "goto": 11
+    },
+    {
+     "label": "Super Admin / Admin: Sets up the organisation, rights and policy (3 modules)",
+     "goto": 12
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 3,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Modules",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Click any module to open its talk track. The Workforce AI assistant is still in development and is not part of today's offer.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Attendance: Know who is in, late or missing, and feed payroll",
+     "goto": 13
+    },
+    {
+     "label": "Leave: Apply, approve and track leave with a clear policy",
+     "goto": 14
+    },
+    {
+     "label": "Payroll: Salary structure, payslip documents and payroll linked to attendance",
+     "goto": 15
+    },
+    {
+     "label": "Competency management: Define the skills each role needs, and keep them in one place",
+     "goto": 16
+    },
+    {
+     "label": "KASBA framework: A ready library of roles, tasks and skills to start from",
+     "goto": 17
+    },
+    {
+     "label": "Gap assessment: Measure skills against what each role needs",
+     "goto": 18
+    },
+    {
+     "label": "Learning (LMS): Train staff in one place and track progress",
+     "goto": 19
+    },
+    {
+     "label": "Talent: From recruitment and onboarding to appraisals and exit",
+     "goto": 20
+    },
+    {
+     "label": "Tasks: Clear owners and status for everyday work",
+     "goto": 21
+    },
+    {
+     "label": "Reports and analytics: Ready reports across HR, talent, skills, learning and tasks",
+     "goto": 22
+    },
+    {
+     "label": "Organisation and access: One directory of people, and the right access for each role",
+     "goto": 23
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 4,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Business problems",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "What hurts most? Open the live conversation, or go to the solution. These are typical situations, not real customers.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Conversation: Month-end HR work takes too long",
+     "goto": 35
+    },
+    {
+     "label": "Conversation: We do not know our people's skills and gaps",
+     "goto": 36
+    },
+    {
+     "label": "Conversation: Training and appraisals are not joined up",
+     "goto": 37
+    },
+    {
+     "label": "Conversation: No clear view, and wrong access for people",
+     "goto": 38
+    },
+    {
+     "label": "See the solutions",
+     "goto": 5
+    }
+   ],
+   "group": "Business Problems"
+  },
+  {
+   "n": 5,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Solutions",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Business problem, G2G capability and business value, one row per solution area.",
+    "explanations": [],
+    "bullets": [
+     "Run HR day to day (Attendance, Leave, Payroll): Month-end HR work takes too long. Value: One live attendance record; Payroll built from real attendance; HR verifies before payment.",
+     "Know and grow skills (Competency management, KASBA framework, Gap assessment): No clear picture of skills and gaps. Value: A common scale for skills; Start from a ready library; Training needs based on evidence.",
+     "Learning and talent (Learning (LMS), Talent): Training and appraisals are not joined up. Value: HR sees progress and certificates; A clear appraisal process; One flow from joining to leaving.",
+     "Reports, tasks and access (Reports and analytics, Tasks, Organisation and access): No one clear view, and the wrong access. Value: One place for reports; A clear owner for every task; Each role sees only what it should."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Open the conversation",
+     "goto": 35,
+     "group": "Run HR day to day"
+    },
+    {
+     "label": "Attendance",
+     "goto": 13,
+     "group": "Run HR day to day"
+    },
+    {
+     "label": "Leave",
+     "goto": 14,
+     "group": "Run HR day to day"
+    },
+    {
+     "label": "Payroll",
+     "goto": 15,
+     "group": "Run HR day to day"
+    },
+    {
+     "label": "Open the conversation",
+     "goto": 36,
+     "group": "Know and grow skills"
+    },
+    {
+     "label": "Competency management",
+     "goto": 16,
+     "group": "Know and grow skills"
+    },
+    {
+     "label": "KASBA framework",
+     "goto": 17,
+     "group": "Know and grow skills"
+    },
+    {
+     "label": "Gap assessment",
+     "goto": 18,
+     "group": "Know and grow skills"
+    },
+    {
+     "label": "Open the conversation",
+     "goto": 37,
+     "group": "Learning and talent"
+    },
+    {
+     "label": "Learning (LMS)",
+     "goto": 19,
+     "group": "Learning and talent"
+    },
+    {
+     "label": "Talent",
+     "goto": 20,
+     "group": "Learning and talent"
+    },
+    {
+     "label": "Open the conversation",
+     "goto": 38,
+     "group": "Reports, tasks and access"
+    },
+    {
+     "label": "Reports and analytics",
+     "goto": 22,
+     "group": "Reports, tasks and access"
+    },
+    {
+     "label": "Tasks",
+     "goto": 21,
+     "group": "Reports, tasks and access"
+    },
+    {
+     "label": "Organisation and access",
+     "goto": 23,
+     "group": "Reports, tasks and access"
+    }
+   ],
+   "group": "Solutions"
+  },
+  {
+   "n": 6,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Sales scenarios",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Open a live conversation. Ask the question, then click what the customer says.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Conversation: How does month-end HR work run today?",
+     "goto": 35
+    },
+    {
+     "label": "Conversation: What is your biggest challenge in managing employee competencies?",
+     "goto": 36
+    },
+    {
+     "label": "Conversation: How do you run training and appraisals today?",
+     "goto": 37
+    },
+    {
+     "label": "Conversation: How do managers get their numbers, and who sees what?",
+     "goto": 38
+    },
+    {
+     "label": "Customer questions: cost, other clients, what is ready",
+     "goto": 39
+    },
+    {
+     "label": "Close the meeting: next steps",
+     "goto": 40
+    }
+   ],
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 7,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "HR Admin",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Runs people operations, talent and learning. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Attendance: Approves corrections and runs reports for payroll and compliance",
+     "Leave: Sees every request, can override, and sets up the leave policy",
+     "Payroll: Sets up salary heads and structure, verifies payroll, produces Form 16",
+     "Talent: Follows recruitment, onboarding, performance and offboarding through reports",
+     "Gap assessment: Sees the Competency Gap Report across the organisation",
+     "Learning (LMS): Creates courses and follows progress, certificates and results",
+     "Reports and analytics: Listed on most reports, from attendance and payroll to talent, skills and learning"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-hr",
+    "alt": "HR Admin (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Attendance",
+     "goto": 13
+    },
+    {
+     "label": "Leave",
+     "goto": 14
+    },
+    {
+     "label": "Payroll",
+     "goto": 15
+    },
+    {
+     "label": "Talent",
+     "goto": 20
+    },
+    {
+     "label": "Gap assessment",
+     "goto": 18
+    },
+    {
+     "label": "Learning (LMS)",
+     "goto": 19
+    },
+    {
+     "label": "Reports and analytics",
+     "goto": 22
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 8,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Manager",
+   "accent": "#2F6FB0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Leads a team: approvals, appraisals, work. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Attendance: Sees the team and handles correction requests",
+     "Leave: Approves, rejects or sends back; decides in bulk",
+     "Talent: Reviews performance and takes part in appraisals",
+     "Gap assessment: Reviews the competency gaps of the team",
+     "Learning (LMS): Follows assignment completion for the team",
+     "Tasks: Delegates work and follows the task report",
+     "Reports and analytics: Team reports: leave, performance, competency gaps, assignments, tasks"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-mgr",
+    "alt": "Manager (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Attendance",
+     "goto": 13
+    },
+    {
+     "label": "Leave",
+     "goto": 14
+    },
+    {
+     "label": "Talent",
+     "goto": 20
+    },
+    {
+     "label": "Gap assessment",
+     "goto": 18
+    },
+    {
+     "label": "Learning (LMS)",
+     "goto": 19
+    },
+    {
+     "label": "Tasks",
+     "goto": 21
+    },
+    {
+     "label": "Reports and analytics",
+     "goto": 22
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 9,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Employee",
+   "accent": "#7C3AED",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Punches in, applies for leave, learns. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Attendance: Punches in and out, sees their own calendar, asks for a correction",
+     "Leave: Applies for leave, cancels a pending request, sees their balance",
+     "Payroll: Receives salary certificates",
+     "Gap assessment: Does a self-rating and takes the assessment",
+     "Learning (LMS): Learns through My Learning, takes assessments, earns certificates",
+     "Reports and analytics: Own reports: leave balance, skills, learning progress, salary certificate"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-emp",
+    "alt": "Employee (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Attendance",
+     "goto": 13
+    },
+    {
+     "label": "Leave",
+     "goto": 14
+    },
+    {
+     "label": "Payroll",
+     "goto": 15
+    },
+    {
+     "label": "Gap assessment",
+     "goto": 18
+    },
+    {
+     "label": "Learning (LMS)",
+     "goto": 19
+    },
+    {
+     "label": "Reports and analytics",
+     "goto": 22
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 10,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Finance Admin",
+   "accent": "#C77700",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Works payroll processing and reports. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Payroll: Works payroll processing and the monthly payroll report",
+     "Reports and analytics: Monthly Payroll Report"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-fin",
+    "alt": "Finance Admin (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Payroll",
+     "goto": 15
+    },
+    {
+     "label": "Reports and analytics",
+     "goto": 22
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 11,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Principal",
+   "accent": "#0369A1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Leadership: approve-only access to HR and payroll. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Attendance: Can run the Staff Attendance Report",
+     "Payroll: Approve-only access to HR and payroll by default",
+     "Organisation and access: Approve-only access to HR and payroll"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-prin",
+    "alt": "Principal (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Attendance",
+     "goto": 13
+    },
+    {
+     "label": "Payroll",
+     "goto": 15
+    },
+    {
+     "label": "Organisation and access",
+     "goto": 23
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 12,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Super Admin / Admin",
+   "accent": "#0B1F3A",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Sets up the organisation, rights and policy. Click a module card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Leave: Can configure leave types, holidays and the approval workflow",
+     "Organisation and access: Full access by default; adjusts rights for the organisation",
+     "Tasks: Follows the task report and the audit log"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/role-adm",
+    "alt": "Super Admin / Admin (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Leave",
+     "goto": 14
+    },
+    {
+     "label": "Organisation and access",
+     "goto": 23
+    },
+    {
+     "label": "Tasks",
+     "goto": 21
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 13,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Attendance",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Know who is in, late or missing, and feed payroll",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Attendance kept on paper registers or spreadsheets",
+     "Problem it solves: Hard to see who is in, late or missing today",
+     "Why the customer needs it: Paper registers and spreadsheets make it hard to see who is in, late or missing today.",
+     "How G2G addresses it: Staff punch in and out, with their own calendar and history",
+     "How G2G addresses it: Alerts for late arrivals, missed punches and pending corrections",
+     "Employee needs: Punches in and out, sees their own calendar, asks for a correction",
+     "Manager needs: Sees the team and handles correction requests",
+     "HR Admin needs: Approves corrections and runs reports for payroll and compliance",
+     "Principal needs: Can run the Staff Attendance Report",
+     "Business value: One live record of attendance for everyone",
+     "Business value: Corrections handled in one place, with approval",
+     "Business value: Attendance data flows into payroll",
+     "Ask: How do you track attendance today, and how do you fix a missed punch?",
+     "Status: BUILT. Docs status: complete. Attendance policy screen details are limited."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-attendance",
+    "alt": "Attendance: A day in Attendance",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-tracking",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Punch in and out, with a calendar",
+     "goto": 24,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Alerts",
+     "goto": 24,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Corrections with approval",
+     "goto": 24,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Payroll features",
+     "goto": 26,
+     "group": "Related"
+    },
+    {
+     "label": "Leave features",
+     "goto": 25,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 14,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Leave",
+   "accent": "#2F6FB0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Apply, approve and track leave with a clear policy",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Leave requests and balances tracked by hand",
+     "Problem it solves: Approvals scattered across managers",
+     "Why the customer needs it: Leave requests and balances are tracked by hand, and approvals are scattered across managers.",
+     "How G2G addresses it: Employees apply; managers approve, reject or send back",
+     "How G2G addresses it: Leave types, holidays, weekly offs and the approval chain set up by HR",
+     "Employee needs: Applies for leave, cancels a pending request, sees their balance",
+     "Manager needs: Approves, rejects or sends back; decides in bulk",
+     "HR Admin needs: Sees every request, can override, and sets up the leave policy",
+     "Super Admin needs: Can configure leave types, holidays and the approval workflow",
+     "Business value: Everyone sees their balance and request status",
+     "Business value: Managers decide in one place",
+     "Business value: HR keeps the policy and the record",
+     "Ask: Who approves leave today, and how do people see their balance?",
+     "Status: BUILT. Docs status: complete. The multi-level approval screen is still being confirmed."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-leave",
+    "alt": "Leave: How a leave request moves",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/leave-management/leave-dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Apply and approve",
+     "goto": 25,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Policy set-up",
+     "goto": 25,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Balances and reports",
+     "goto": 25,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Attendance features",
+     "goto": 24,
+     "group": "Related"
+    },
+    {
+     "label": "Reports and analytics features",
+     "goto": 33,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 15,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Payroll",
+   "accent": "#7A3FD1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Salary structure, payslip documents and payroll linked to attendance",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Salary sheets rebuilt in Excel every month",
+     "Problem it solves: Salary heads and deductions kept in different files",
+     "Why the customer needs it: Salary sheets are rebuilt in Excel every month, and salary heads and deductions sit in different files.",
+     "How G2G addresses it: Define earning and deduction heads (fixed or percentage)",
+     "How G2G addresses it: One salary grid per department with each person's amounts",
+     "HR Admin needs: Sets up salary heads and structure, verifies payroll, produces Form 16",
+     "Finance Admin needs: Works payroll processing and the monthly payroll report",
+     "Employee needs: Receives salary certificates",
+     "Principal needs: Approve-only access to HR and payroll by default",
+     "Business value: Salary structure kept in one place",
+     "Business value: Payroll built from real attendance",
+     "Business value: HR stays in control with a verification step",
+     "Ask: How is monthly salary prepared today, and who checks it before payment?",
+     "Status: BUILT, PARTS BEING COMPLETED. Monthly payroll run and deduction screens are still being completed. Bank transfer file is a later step."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-payroll",
+    "alt": "Payroll: From salary structure to payslip documents",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/payroll-management/salary-structure",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Salary structure",
+     "goto": 26,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Linked to attendance",
+     "goto": 26,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Form 16 and certificates",
+     "goto": 26,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Finance Admin",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Attendance features",
+     "goto": 24,
+     "group": "Related"
+    },
+    {
+     "label": "Reports and analytics features",
+     "goto": 33,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 16,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Competency management",
+   "accent": "#0E7C86",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Define the skills each role needs, and keep them in one place",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: No shared description of the skills each role needs",
+     "Problem it solves: Skills known to individuals, not recorded anywhere",
+     "Why the customer needs it: There is no shared description of the skills each role needs; skills sit with individuals and are not recorded.",
+     "How G2G addresses it: Competency library, capability library and competency framework",
+     "How G2G addresses it: Capability Explorer to browse roles and skills",
+     "HR Admin needs: Listed on the Skills Matrix and Competency Gap reports",
+     "Manager needs: Listed on the Competency Gap Report for the team",
+     "Employee needs: Listed on the Employee Skills Report",
+     "Business value: One framework of roles and competencies",
+     "Business value: A skills matrix you can read at a glance",
+     "Business value: A base for training and succession decisions",
+     "Ask: How do you define the skills each role needs today?",
+     "Status: BUILT. Portfolio: built, no production client yet. The docs describe this module in the overview and reports catalog only."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-competency",
+    "alt": "Competency management: From role to skills picture",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/competency-library",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Competency library and framework",
+     "goto": 27,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Capability Explorer",
+     "goto": 27,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Skills matrix and gap report",
+     "goto": 27,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "KASBA framework features",
+     "goto": 28,
+     "group": "Related"
+    },
+    {
+     "label": "Gap assessment features",
+     "goto": 29,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 17,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "KASBA framework",
+   "accent": "#2B6CB0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "A ready library of roles, tasks and skills to start from",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Role descriptions written from scratch",
+     "Problem it solves: No common language for skills across roles",
+     "Why the customer needs it: Role descriptions get written from scratch, and there is no common language for skills across roles.",
+     "How G2G addresses it: KASBA stands for Knowledge, Ability, Skill, Behaviour and Attitude",
+     "How G2G addresses it: Ready library: 3,572 job-role tasks across 268 job roles and 128 skills",
+     "HR Admin needs: Listed on the Skills Matrix report that draws on the skills library",
+     "Employee needs: Listed on the Employee Skills Report",
+     "Business value: Start from a ready library, not a blank page",
+     "Business value: Roles described by tasks and skills in one structure",
+     "Ask: Do you already have role descriptions and skill lists, or would you start from a blank page?",
+     "Status: BUILT. Portfolio: built, no production client yet. Entries for knowledge, ability, attitude and behaviour are still thin (about 10 each)."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-kasba",
+    "alt": "KASBA framework: KASBA",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/capability-library",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: What KASBA stands for",
+     "goto": 28,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: A ready library",
+     "goto": 28,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Tasks by work function",
+     "goto": 28,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Competency management features",
+     "goto": 27,
+     "group": "Related"
+    },
+    {
+     "label": "Gap assessment features",
+     "goto": 29,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 18,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Gap assessment",
+   "accent": "#7C3AED",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Measure skills against what each role needs",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Training decided without knowing the gaps",
+     "Problem it solves: Opinion, not a common scale, decides who needs what",
+     "Why the customer needs it: Training is decided without knowing the gaps, and opinion rather than a common scale decides who needs what.",
+     "How G2G addresses it: Rate competencies on a 6-level scale",
+     "How G2G addresses it: Set the expected level for each role",
+     "Employee needs: Does a self-rating and takes the assessment",
+     "Manager needs: Reviews the competency gaps of the team",
+     "HR Admin needs: Sees the Competency Gap Report across the organisation",
+     "Business value: A common scale for everyone",
+     "Business value: See gaps by person and by team",
+     "Business value: Training needs based on evidence",
+     "Ask: How do you decide who needs training in which skill?",
+     "Status: BUILT. Portfolio: built, no production client yet. Self-rating and the question-based assessment are already built."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-gap",
+    "alt": "Gap assessment: Measuring a skills gap",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/talent-management/my-capability",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Six-level scale",
+     "goto": 29,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Expected level per role",
+     "goto": 29,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Self-rating and assessment",
+     "goto": 29,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Competency management features",
+     "goto": 27,
+     "group": "Related"
+    },
+    {
+     "label": "Learning (LMS) features",
+     "goto": 30,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 19,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Learning (LMS)",
+   "accent": "#1F6FEB",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Train staff in one place and track progress",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Training tracked on paper or in separate tools",
+     "Problem it solves: Hard to know who completed what",
+     "Why the customer needs it: Training is tracked on paper or in separate tools, so it is hard to know who completed what.",
+     "How G2G addresses it: Course catalog and My Learning for each person",
+     "How G2G addresses it: Assignments, assessments and certifications",
+     "Employee needs: Learns through My Learning, takes assessments, earns certificates",
+     "Manager needs: Follows assignment completion for the team",
+     "HR Admin needs: Creates courses and follows progress, certificates and results",
+     "Business value: Staff learn in one place",
+     "Business value: HR sees progress and certificates",
+     "Business value: Next: courses linked to skills (in development)",
+     "Ask: How do you assign training today, and how do you know who has completed it?",
+     "Status: CORE BUILT, SKILL-LINKED LEARNING IN DEVELOPMENT. Linking courses to competencies is in development (portfolio G2G-04)."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-lms",
+    "alt": "Learning (LMS): Learning in one place",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/lms/learning/learning-dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Catalog and My Learning",
+     "goto": 30,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Assignments and certificates",
+     "goto": 30,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Course Builder",
+     "goto": 30,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Gap assessment features",
+     "goto": 29,
+     "group": "Related"
+    },
+    {
+     "label": "Talent features",
+     "goto": 31,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 20,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Talent",
+   "accent": "#C77700",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "From recruitment and onboarding to appraisals and exit",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Recruitment, onboarding and appraisals in separate files",
+     "Problem it solves: Appraisals without a clear process",
+     "Why the customer needs it: Recruitment, onboarding and appraisals sit in separate files, and appraisals lack a clear process.",
+     "How G2G addresses it: Recruitment, onboarding roadmaps and goal setting",
+     "How G2G addresses it: Appraisal flow: self, peer, evaluator, then management confirmation",
+     "HR Admin needs: Follows recruitment, onboarding, performance and offboarding through reports",
+     "Recruiter needs: Follows the recruitment pipeline",
+     "Manager needs: Reviews performance and takes part in appraisals",
+     "Employee needs: Completes their self-appraisal",
+     "Business value: One flow from joining to leaving",
+     "Business value: A clear, multi-step appraisal process",
+     "Business value: HR sees pipeline and status in reports",
+     "Ask: How do appraisals run today, from self-review to the final decision?",
+     "Status: BUILT. Described in the docs overview and reports catalog; no detailed module pages."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-talent",
+    "alt": "Talent: From joining to leaving",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/talent-management/talent-dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Appraisal flow",
+     "goto": 31,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Recruitment and onboarding",
+     "goto": 31,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Succession and exit",
+     "goto": 31,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Learning (LMS) features",
+     "goto": 30,
+     "group": "Related"
+    },
+    {
+     "label": "Gap assessment features",
+     "goto": 29,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 21,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Tasks",
+   "accent": "#C93B3B",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Clear owners and status for everyday work",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Work delegated by calls and messages",
+     "Problem it solves: No shared view of who owns what",
+     "Why the customer needs it: Work is delegated by calls and messages, and there is no shared view of who owns what.",
+     "How G2G addresses it: Projects and workstreams with dependencies",
+     "How G2G addresses it: My Tasks and a task calendar",
+     "Manager needs: Delegates work and follows the task report",
+     "Admin needs: Follows the task report and the audit log",
+     "Anyone assigned a task needs: Works from My Tasks and the task calendar",
+     "Business value: A clear owner and status for every task",
+     "Business value: Accountability boards for managers",
+     "Business value: A record of who changed what",
+     "Ask: How do you assign work and follow it up today?",
+     "Status: BUILT, TASK AUTOMATION IN DEVELOPMENT. Described in the docs overview; AI-assisted task execution is in development (portfolio G2G-07)."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-tasks",
+    "alt": "Tasks: From project to audit log",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/task-management/task-management-dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Projects and workstreams",
+     "goto": 32,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: My Tasks and calendar",
+     "goto": 32,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Task report and audit log",
+     "goto": 32,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Reports and analytics features",
+     "goto": 33,
+     "group": "Related"
+    },
+    {
+     "label": "Organisation and access features",
+     "goto": 34,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 22,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Reports and analytics",
+   "accent": "#0369A1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Ready reports across HR, talent, skills, learning and tasks",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Numbers pulled by hand from different files",
+     "Problem it solves: Managers wait for HR to send reports",
+     "Why the customer needs it: Numbers are pulled by hand from different files, and managers wait for HR to send reports.",
+     "How G2G addresses it: A reports catalog across attendance, leave, payroll, talent, skills, learning and tasks",
+     "How G2G addresses it: Filters such as department, employee, date range and status",
+     "HR Admin needs: Listed on most reports, from attendance and payroll to talent, skills and learning",
+     "Manager needs: Team reports: leave, performance, competency gaps, assignments, tasks",
+     "Employee needs: Own reports: leave balance, skills, learning progress, salary certificate",
+     "Finance Admin needs: Monthly Payroll Report",
+     "Business value: One place for HR, talent, skills, learning and task reports",
+     "Business value: Each report shown to the roles listed for it",
+     "Business value: Ready-made reports instead of manual compiling",
+     "Ask: How long does it take you to get the numbers you need?",
+     "Status: BUILT. The docs list export as CSV on some screens and Excel or PDF in the catalog; per-report detail pages are not published."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-reports",
+    "alt": "Reports and analytics: One catalog of reports",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-reports",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: One report catalog",
+     "goto": 33,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Filters",
+     "goto": 33,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Export",
+     "goto": 33,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Finance Admin",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Attendance features",
+     "goto": 24,
+     "group": "Related"
+    },
+    {
+     "label": "Gap assessment features",
+     "goto": 29,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 23,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Organisation and access",
+   "accent": "#0B1F3A",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "One directory of people, and the right access for each role",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Everyone sees too much, or too little",
+     "Problem it solves: Staff records spread across files",
+     "Why the customer needs it: Everyone sees too much or too little, and staff records are spread across files.",
+     "How G2G addresses it: Employee directory and organisation structure",
+     "How G2G addresses it: Roles and permissions set for your organisation",
+     "Super Admin / Admin needs: Full access by default; adjusts rights for the organisation",
+     "HR Manager needs: Full access to staff records, payroll and leave",
+     "Principal needs: Approve-only access to HR and payroll",
+     "Teacher / Accountant / Student needs: No default access to HR and payroll",
+     "Business value: Each role sees only what it should",
+     "Business value: One directory of people",
+     "Business value: Access adjusted to your organisation",
+     "Ask: Who should be able to see salaries and HR records in your organisation?",
+     "Status: BUILT. Listed in the docs index; little detail beyond the menu."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/mod-org",
+    "alt": "Organisation and access: HR and payroll access by default",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Show live demo",
+     "href": "https://g2gv0.vercel.app/module/talent-management/employee-profiles",
+     "group": "Live demo"
+    },
+    {
+     "label": "Feature: Directory and structure",
+     "goto": 34,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Rights per role",
+     "goto": 34,
+     "group": "Features"
+    },
+    {
+     "label": "Feature: Safe defaults",
+     "goto": 34,
+     "group": "Features"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Roles",
+     "goto": 2,
+     "group": "Related"
+    },
+    {
+     "label": "Reports and analytics features",
+     "goto": 33,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 24,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Attendance: features to demonstrate",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Punch in and out, with a calendar. Show: Staff punch in and out; each person has their own calendar and history. Why it matters: One live record for everyone.",
+     "Alerts. Show: Alerts for late arrivals, missed punches and pending corrections. Why it matters: Problems are visible the same day.",
+     "Corrections with approval. Show: A missed punch becomes a correction request that the manager or HR approves. Why it matters: Fixes happen in one place, not by back-and-forth."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-attendance",
+    "alt": "Attendance: A day in Attendance",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 13,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Punch in and out, with a calendar",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-tracking",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Alerts",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-tracking",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Corrections with approval",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-tracking",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Payroll",
+     "goto": 26,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Leave",
+     "goto": 25,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 25,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Leave: features to demonstrate",
+   "accent": "#2F6FB0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Apply and approve. Show: Employees apply; managers approve, reject or send back. Why it matters: Everyone sees the status of a request.",
+     "Policy set-up. Show: HR sets leave types, holidays, weekly offs and the approval chain. Why it matters: The policy lives in the system, not in files.",
+     "Balances and reports. Show: A balance for each person, bulk decisions for managers, and a dashboard with summary, register and balance reports. Why it matters: Managers decide in one place; HR keeps the record."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-leave",
+    "alt": "Leave: How a leave request moves",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 14,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Apply and approve",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/leave-management/leave-requests",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Policy set-up",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/leave-management/leave-configuration",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Balances and reports",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/leave-management/leave-dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Attendance",
+     "goto": 24,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Reports and analytics",
+     "goto": 33,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 26,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Payroll: features to demonstrate",
+   "accent": "#7A3FD1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Salary structure. Show: Earning and deduction heads (fixed or percentage), and one salary grid per department. Why it matters: The structure is kept in one place.",
+     "Linked to attendance. Show: Payroll is built from attendance data, and HR verifies it before payment. Why it matters: Payroll from real attendance, with a control step.",
+     "Form 16 and certificates. Show: Form 16 and salary certificates. Why it matters: Documents come from the same data."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-payroll",
+    "alt": "Payroll: From salary structure to payslip documents",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 15,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Salary structure",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/payroll-management/salary-structure",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Linked to attendance",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/payroll-management/monthly-payroll-report",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Form 16 and certificates",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/payroll-management/form-16",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Finance Admin",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Attendance",
+     "goto": 24,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Reports and analytics",
+     "goto": 33,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 27,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Competency management: features to demonstrate",
+   "accent": "#0E7C86",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Competency library and framework. Show: Competency library, capability library and competency framework. Why it matters: One framework of roles and competencies.",
+     "Capability Explorer. Show: Browse roles and their skills in the Capability Explorer. Why it matters: Find what a role needs quickly.",
+     "Skills matrix and gap report. Show: The skills matrix and the competency gap report. Why it matters: See who has which skill at a glance."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-competency",
+    "alt": "Competency management: From role to skills picture",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 16,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Competency library and framework",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/competency-framework",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Capability Explorer",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/capability-explorer",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Skills matrix and gap report",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/dashboard",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: KASBA framework",
+     "goto": 28,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Gap assessment",
+     "goto": 29,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 28,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "KASBA framework: features to demonstrate",
+   "accent": "#2B6CB0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "What KASBA stands for. Show: Knowledge, Ability, Skill, Behaviour and Attitude. Why it matters: A common language for skills.",
+     "A ready library. Show: 3,572 job-role tasks across 268 job roles and 128 skills, already in the platform. Why it matters: Start from a ready library, not a blank page.",
+     "Tasks by work function. Show: Tasks are grouped by critical work function. Why it matters: Roles described by tasks and skills in one structure."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-kasba",
+    "alt": "KASBA framework: KASBA",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 17,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: What KASBA stands for",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/capability-library",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: A ready library",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/capability-library",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Tasks by work function",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/capability-library",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Competency management",
+     "goto": 27,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Gap assessment",
+     "goto": 29,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 29,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Gap assessment: features to demonstrate",
+   "accent": "#7C3AED",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Six-level scale. Show: Competencies are rated on a six-level scale. Why it matters: A common scale for everyone.",
+     "Expected level per role. Show: The expected level is set for each role. Why it matters: Gaps are measured against what the role needs.",
+     "Self-rating and assessment. Show: The employee rates themselves and takes a question-based assessment; gap reports show who falls short. Why it matters: Gaps by person and by team."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-gap",
+    "alt": "Gap assessment: Measuring a skills gap",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 18,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Six-level scale",
+     "href": "https://g2gv0.vercel.app/module/talent-management/my-capability",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Expected level per role",
+     "href": "https://g2gv0.vercel.app/module/capability-intelligence/competency-framework",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Self-rating and assessment",
+     "href": "https://g2gv0.vercel.app/module/lms/training-and-records/capability-gap-inbox",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Competency management",
+     "goto": 27,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Learning (LMS)",
+     "goto": 30,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 30,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Learning (LMS): features to demonstrate",
+   "accent": "#1F6FEB",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Catalog and My Learning. Show: A course catalog, and My Learning for each person. Why it matters: Staff learn in one place.",
+     "Assignments and certificates. Show: Assignments, assessments and certifications. Why it matters: HR sees progress and certificates.",
+     "Course Builder. Show: HR and Admin create courses in the Course Builder. Why it matters: Your own content, built in the platform."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-lms",
+    "alt": "Learning (LMS): Learning in one place",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 19,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Catalog and My Learning",
+     "href": "https://g2gv0.vercel.app/module/lms/learning/my-learning",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Assignments and certificates",
+     "href": "https://g2gv0.vercel.app/module/lms/training-and-records/assignments",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Course Builder",
+     "href": "https://g2gv0.vercel.app/module/lms/administration/course-builder",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Gap assessment",
+     "goto": 29,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Talent",
+     "goto": 31,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 31,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Talent: features to demonstrate",
+   "accent": "#C77700",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Appraisal flow. Show: Self, peer, evaluator, then management confirmation. Why it matters: A clear, multi-step process.",
+     "Recruitment and onboarding. Show: Recruitment, onboarding roadmaps and goal setting. Why it matters: One flow from joining.",
+     "Succession and exit. Show: Succession and mobility, and offboarding. Why it matters: The same flow carries through to leaving."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-talent",
+    "alt": "Talent: From joining to leaving",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 20,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Appraisal flow",
+     "href": "https://g2gv0.vercel.app/module/talent-management/performance-reviews-and-appraisals",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Recruitment and onboarding",
+     "href": "https://g2gv0.vercel.app/module/talent-management/recruitment",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Succession and exit",
+     "href": "https://g2gv0.vercel.app/module/talent-management/mobility-and-succession",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Learning (LMS)",
+     "goto": 30,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Gap assessment",
+     "goto": 29,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 32,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Tasks: features to demonstrate",
+   "accent": "#C93B3B",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Projects and workstreams. Show: Projects and workstreams with dependencies. Why it matters: Structure for bigger pieces of work.",
+     "My Tasks and calendar. Show: My Tasks and a task calendar, with delegation at department level. Why it matters: Each person sees their own work.",
+     "Task report and audit log. Show: A task report and an audit log of changes. Why it matters: A record of who changed what."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-tasks",
+    "alt": "Tasks: From project to audit log",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 21,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Projects and workstreams",
+     "href": "https://g2gv0.vercel.app/module/task-management/projects-and-workstreams",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: My Tasks and calendar",
+     "href": "https://g2gv0.vercel.app/module/task-management/my-tasks",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Task report and audit log",
+     "href": "https://g2gv0.vercel.app/module/task-management/task-audit-logs",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Reports and analytics",
+     "goto": 33,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Organisation and access",
+     "goto": 34,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 33,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Reports and analytics: features to demonstrate",
+   "accent": "#0369A1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "One report catalog. Show: A catalog across attendance, leave, payroll, talent, skills, learning and tasks. Why it matters: One place for HR, skills and learning reports.",
+     "Filters. Show: Filters such as department, employee, date range and status. Why it matters: Each manager sees their own slice.",
+     "Export. Show: Export to Excel or PDF (CSV on some screens). Why it matters: Reports can be shared and filed."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-reports",
+    "alt": "Reports and analytics: One catalog of reports",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 22,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: One report catalog",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-reports",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Filters",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/attendance-management/attendance-reports",
+     "group": "Live demo"
+    },
+    {
+     "label": "Show live demo: Export",
+     "href": "https://g2gv0.vercel.app/module/hrit-solutions/leave-management/leave-reports",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Manager",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Employee",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Finance Admin",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Attendance",
+     "goto": 24,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Gap assessment",
+     "goto": 29,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 34,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Organisation and access: features to demonstrate",
+   "accent": "#0B1F3A",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Show these three. Each says what to show and why the customer cares.",
+    "explanations": [],
+    "bullets": [
+     "Directory and structure. Show: An employee directory and the organisation structure. Why it matters: One directory of people.",
+     "Rights per role. Show: Roles and permissions are set for your organisation. Why it matters: Each role sees only what it should.",
+     "Safe defaults. Show: By default HR and payroll are limited to HR, admin and approvers. Why it matters: A sensible start that you can adjust."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/feat-org",
+    "alt": "Organisation and access: HR and payroll access by default",
+    "tag": "DIAGRAM DRAWN FOR THIS DECK"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 23,
+     "primary": true
+    },
+    {
+     "label": "Show live demo: Directory and structure",
+     "href": "https://g2gv0.vercel.app/module/talent-management/employee-profiles",
+     "group": "Live demo"
+    },
+    {
+     "label": "Used by: HR Admin",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Principal",
+     "goto": 11,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Super Admin / Admin",
+     "goto": 12,
+     "group": "Used by"
+    },
+    {
+     "label": "Also show: Roles",
+     "goto": 2,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Reports and analytics",
+     "goto": 33,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 35,
+   "section": "Decision 1 of 4 - G2G - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Month-end HR work takes too long",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How does month-end HR work run today?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Month-end HR work takes too long - you ask",
+    "question": "You ask: How does month-end HR work run today?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"Attendance is on registers, and corrections are a mess.\" Opens: Attendance corrections",
+      "goto": 24
+     },
+     {
+      "id": "b",
+      "text": "\"We rebuild salary sheets in Excel every month.\" Opens: Payroll from attendance",
+      "goto": 26
+     },
+     {
+      "id": "c",
+      "text": "\"Leave approvals are scattered across managers.\" Opens: Leave approval and policy",
+      "goto": 25
+     },
+     {
+      "id": "d",
+      "text": "\"Show me the whole flow.\" Opens: The HR day-to-day solution",
+      "goto": 5
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/story-scene",
+    "alt": "The conversation"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 36,
+   "section": "Decision 2 of 4 - G2G - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: We do not know our people's skills and gaps",
+   "accent": "#0E7C86",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: What is your biggest challenge in managing employee competencies?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "We do not know our people's skills and gaps - you ask",
+    "question": "You ask: What is your biggest challenge in managing employee competencies?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"We have no framework for the skills each role needs.\" Opens: Competency management",
+      "goto": 16
+     },
+     {
+      "id": "b",
+      "text": "\"We do not know where to start. There are no role descriptions.\" Opens: The ready KASBA library",
+      "goto": 28
+     },
+     {
+      "id": "c",
+      "text": "\"We cannot tell who is short of which skill.\" Opens: Six-level gap assessment",
+      "goto": 29
+     },
+     {
+      "id": "d",
+      "text": "\"Show me the complete picture.\" Opens: The skills solution",
+      "goto": 5
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/story-scene",
+    "alt": "The conversation"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 37,
+   "section": "Decision 3 of 4 - G2G - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Training and appraisals are not joined up",
+   "accent": "#1F6FEB",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How do you run training and appraisals today?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Training and appraisals are not joined up - you ask",
+    "question": "You ask: How do you run training and appraisals today?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"We cannot tell who has completed which course.\" Opens: Assignments and certificates",
+      "goto": 30
+     },
+     {
+      "id": "b",
+      "text": "\"Appraisals have no clear process.\" Opens: The appraisal flow",
+      "goto": 31
+     },
+     {
+      "id": "c",
+      "text": "\"Can training follow each person's skill gaps?\" Opens: Honest answer: linking courses to skills is in development",
+      "goto": 19
+     },
+     {
+      "id": "d",
+      "text": "\"Show me the complete picture.\" Opens: The learning and talent solution",
+      "goto": 5
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/story-scene",
+    "alt": "The conversation"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 38,
+   "section": "Decision 4 of 4 - G2G - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: No clear view, and wrong access for people",
+   "accent": "#0369A1",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How do managers get their numbers, and who sees what?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "No clear view, and wrong access for people - you ask",
+    "question": "You ask: How do managers get their numbers, and who sees what?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"Managers wait for HR to send reports.\" Opens: Reports and filters",
+      "goto": 33
+     },
+     {
+      "id": "b",
+      "text": "\"We delegate work by phone and messages.\" Opens: Tasks and the audit log",
+      "goto": 32
+     },
+     {
+      "id": "c",
+      "text": "\"Who gets to see salaries?\" Opens: Access by role",
+      "goto": 34
+     },
+     {
+      "id": "d",
+      "text": "\"Show me the complete picture.\" Opens: The reports, tasks and access solution",
+      "goto": 5
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/api/sales-training/images/story-scene",
+    "alt": "The conversation"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 39,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Customer questions",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Straight answers, using only what is documented.",
+    "explanations": [],
+    "bullets": [
+     "What will it cost? Say: Pricing has not been fixed, so I will not quote a number. Let us agree the modules and the number of people, and I will bring a written proposal by an agreed date. (Basis: Portfolio: pricing is \"To fill\". Docs: pricing is TBD.)",
+     "Who else uses it? Say: None of the G2G modules is in production at a client yet. That is why we propose a small pilot, and I will not quote client numbers I cannot back. (Basis: Portfolio: no offer is \"Live with client\". No testimonial or client count is documented.)",
+     "What is ready today? Say: Attendance, leave, salary structure, skills library and gap assessment are built. The monthly payroll run, courses linked to skills, and AI assistance are still being completed. (Basis: v1 docs status and the portfolio readiness list.)"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Close the meeting: next steps",
+     "goto": 40,
+     "primary": true
+    },
+    {
+     "label": "Back to the scenarios",
+     "goto": 6
+    }
+   ],
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 40,
+   "section": "G2G - Verified product facts",
+   "slide_type": "objectives",
+   "title": "Sales closing",
+   "accent": "#0E9F8E",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Value proposition: your people, skills and learning on one platform. Attendance, leave and payroll. Talent and appraisals. Skills and training. Tasks and access control.",
+    "explanations": [],
+    "bullets": [
+     "Next step 1: Agree the one or two modules and the number of people",
+     "Next step 2: Run the pilot on your own data",
+     "Next step 3: You choose the success measures",
+     "Next step 4: We send a written proposal by an agreed date",
+     "This is our proposed approach, not a documented product feature. Pricing is not fixed, so no number is quoted."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Run HR day to day",
+     "goto": 35,
+     "group": "Solution highlights"
+    },
+    {
+     "label": "Know and grow skills",
+     "goto": 36,
+     "group": "Solution highlights"
+    },
+    {
+     "label": "Learning and talent",
+     "goto": 37,
+     "group": "Solution highlights"
+    },
+    {
+     "label": "Reports, tasks and access",
+     "goto": 38,
+     "group": "Solution highlights"
+    },
+    {
+     "label": "Customer questions",
+     "goto": 39
+    },
+    {
+     "label": "Return to Home",
+     "goto": 1,
+     "primary": true
+    }
+   ],
+   "group": "Sales Scenarios"
+  }
+ ],
+ "concept_slides": {},
+ "taught_by": {},
+ "concept_questions": {}
+}

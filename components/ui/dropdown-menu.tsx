@@ -3,7 +3,27 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { Check, ChevronRight, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+/**
+ * NON-MODAL BY DEFAULT - this is what stops the frozen screen.
+ *
+ * A modal Radix menu and a modal Radix dialog both write into dismissable-layer's
+ * MODULE-LEVEL `originalBodyPointerEvents`. When a menu item opens a Dialog or
+ * ConfirmDialog (every "Edit" / "Delete" in a row-actions menu), the two layers'
+ * teardowns overlap and whichever finishes last writes `pointer-events: none`
+ * back onto <body>. The page then looks normal and swallows every click until it
+ * is refreshed. Reproduced against the real Radix versions: menu -> Dialog and
+ * menu -> ConfirmDialog both leave <body> at `none` with no layer left open;
+ * a plain button -> Dialog never does.
+ *
+ * A non-modal menu never touches <body>, so the race cannot start. Clicking
+ * outside still closes it. Pass `modal` explicitly to opt back in.
+ */
+const DropdownMenu = ({
+  modal = false,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => (
+  <DropdownMenuPrimitive.Root modal={modal} {...props} />
+)
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal

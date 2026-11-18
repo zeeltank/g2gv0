@@ -1,7 +1,7 @@
 'use client'
 
 import { type RefObject } from 'react'
-import { ChevronDown, LayoutGrid, Menu } from 'lucide-react'
+import { ChevronDown, Grid3x3, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GtgNavSearch } from '@/components/shell/gtg-nav-search'
 import { NotificationsMenu } from '@/components/shell/notifications-menu'
@@ -76,11 +76,11 @@ export function GtgHeader({
         />
         <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
         <GtgUserMenu />
-         <button
+        <button
           ref={toolbarButtonRef}
           type="button"
           onClick={onToolbarToggle}
-          aria-label="Toggle toolbar"
+          aria-label="Platform services and AI"
           aria-haspopup="dialog"
           aria-expanded={toolbarOpen}
           className={cn(
@@ -88,9 +88,8 @@ export function GtgHeader({
             toolbarOpen && 'bg-secondary text-secondary-foreground',
           )}
         >
-          <LayoutGrid  className="size-5" aria-hidden="true" />
+          <Grid3x3 className="size-5" aria-hidden="true" />
         </button>
-
       </div>
     </header>
   )

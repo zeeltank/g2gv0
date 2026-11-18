@@ -1,6 +1,21 @@
 import { google } from "@ai-sdk/google";
 
-export function createAiModel() {
+/**
+ * The Gemini model the chat uses when an administrator has not chosen one in AI Model Setup.
+ *
+ * Was gemini-2.5-flash, which Google has retired for newly issued keys (404 "no longer
+ * available to new users"), so the chatbot failed outright on a new key. gemini-3.6-flash is
+ * verified to answer and is also what the backend resolver defaults to. GEMINI_MODEL still wins.
+ */
+export function defaultChatModelName() {
+  return process.env.GEMINI_MODEL || "gemini-3.6-flash";
+}
+
+/**
+ * `modelId` is the model an administrator explicitly chose in AI Model Setup, when there is
+ * one (see lib/ai/backend/chat-usage.ts). Omitted, behaviour is exactly what it always was.
+ */
+export function createAiModel(modelId?: string) {
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GEMINI_API_KEY) {
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY;
   }
@@ -11,7 +26,7 @@ export function createAiModel() {
     );
   }
 
-  return google(process.env.GEMINI_MODEL || "gemini-2.5-flash");
+  return google(modelId || defaultChatModelName());
 }
 
 /* ------------------------------------------------------------------------- *

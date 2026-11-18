@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-EIAPxkjE.js";var t=e();function n(){return(0,t.jsxs)(`main`,{className:`shell-error`,children:[(0,t.jsx)(`h1`,{children:`Studio`}),(0,t.jsx)(`p`,{children:`The studio is not set up yet.`})]})}export{n as default};

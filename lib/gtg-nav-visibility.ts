@@ -146,6 +146,36 @@ const VISIBILITY_RULES: Record<string, Role[]> = {
   // Submenus
   'attendance-tracking': EVERYONE,
   'attendance-reports': REPORTING,
+  /*
+   * ── THESE TWO ARE DOCUMENTATION. THIS FILE IS NOT A GATE. ────────────────
+   *
+   * `isMenuVisible` and `canAccessMenu` have **zero callers** - verified:
+   *
+   *   grep -rn "isMenuVisible\|canAccessMenu" --include=*.ts --include=*.tsx .
+   *
+   * returns nothing outside this file. The sidebar is built from the server
+   * menu tree joined to `tblgroupwise_rights_g2g`, so what a person actually
+   * sees is decided by that table and by each route's `profile:` middleware -
+   * never by this map. The file reads like an access control and is not one,
+   * which is why both entries are spelled out here rather than left absent:
+   * an absent key reads as "nobody thought about this screen", and these two
+   * were thought about carefully.
+   *
+   * Manage Employee Attendance is HR_ADMIN because the route is
+   * `profile:admin,hr` and the screen corrects other people's attendance.
+   *
+   * My Office Hours is EVERYONE for the F-130 reason given below for My HR:
+   * the endpoint behind it takes no employee id at all
+   * (EmployeeScheduleRequestController::store reads $context['user_id']), so
+   * "everyone" means "everyone proposes exactly their own hours". The
+   * APPROVAL side of it is not a screen of its own - it is a panel on the HR
+   * desk's Office hours tab, gated by that screen's own route.
+   *
+   * If either value here ever appears to matter, something has started
+   * calling this file and that is the thing to look at first.
+   */
+  'manage-employee-attendance': HR_ADMIN,
+  'my-office-hours': EVERYONE,
   'leave-dashboard': EVERYONE,
   'leave-operations': EVERYONE,
   'leave-requests': EVERYONE,

@@ -40,6 +40,8 @@ export interface AiModuleTurnDetail {
   total?: number;
   avg_duration_ms?: number | null;
   max_duration_ms?: number | null;
+  /** How many answers carried a latency; the averages cover only those. */
+  latency_samples?: number;
   by_status?: Record<string, number>;
   by_intent?: Array<{ intent: string; count: number }>;
 }
@@ -64,16 +66,22 @@ export interface AiModuleRate {
   /** Null when no price is published for the model. Cost then stays null too. */
   input_per_1k: number | null;
   output_per_1k: number | null;
+  /** The currency of both prices (rupees by default). An older server omits it: read that as `USD`. */
+  currency?: string | null;
 }
 
 export interface AiModuleTokens {
-  outputs: number;
-  reviewed: number;
+  /** Null when nothing is metered for this module: unknown, not zero. */
+  outputs: number | null;
+  /** Null: G2G records no review flag, so how many were reviewed is not known. */
+  reviewed: number | null;
   prompt_tokens: number | null;
   completion_tokens: number | null;
   avg_latency_ms: number | null;
   rate: AiModuleRate | null;
   cost: number | null;
+  /** The currency of `cost` (`USD` for a recorded cost, the rate's own currency for a computed one); null when there is no cost. An older server omits it: read that as `USD`. */
+  cost_currency?: string | null;
   /** `recorded` came from the output rows, `computed` from tokens × rate. */
   cost_source: 'recorded' | 'computed' | 'unavailable';
   /** Why there is no money figure. Shown verbatim rather than paraphrased. */
@@ -163,6 +171,8 @@ export interface AiModuleGuardrails {
   module: AiModuleIdentity;
   capabilities: Record<string, boolean>;
   review: AiModuleReview;
+  /** False when no metered consumer is linked to the module: an empty list then means "not measured". */
+  refusals_metered?: boolean;
   refusals: AiModuleRefusal[];
   refusal_counts: Array<{ status: string; count: number }>;
 }
@@ -178,12 +188,18 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
   return aiRequest<T>(path, (init.method ?? 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE', init.body);
 }
 
-export function fetchModuleUsage(moduleKey: string): Promise<AiModuleUsage> {
-  return call<AiModuleUsage>(`/modules/${encodeURIComponent(moduleKey)}/usage`);
+/**
+ * `rollup: true` is the module-wide view: a top-level module also reads what was recorded under
+ * its screens' keys (the backend derives them from the menu tree). Without it, exactly the key.
+ */
+const rollupQuery = (options?: { rollup?: boolean }) => (options?.rollup ? '?rollup=1' : '');
+
+export function fetchModuleUsage(moduleKey: string, options?: { rollup?: boolean }): Promise<AiModuleUsage> {
+  return call<AiModuleUsage>(`/modules/${encodeURIComponent(moduleKey)}/usage${rollupQuery(options)}`);
 }
 
-export function fetchModuleGuardrails(moduleKey: string): Promise<AiModuleGuardrails> {
-  return call<AiModuleGuardrails>(`/modules/${encodeURIComponent(moduleKey)}/guardrails`);
+export function fetchModuleGuardrails(moduleKey: string, options?: { rollup?: boolean }): Promise<AiModuleGuardrails> {
+  return call<AiModuleGuardrails>(`/modules/${encodeURIComponent(moduleKey)}/guardrails${rollupQuery(options)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +236,8 @@ export type AiModuleActivityStatus = 'completed' | 'failed' | 'denied' | 'skippe
 
 export interface AiModuleActivityEntry {
   id: number;
+  /** The module key the row was written under - a screen's key when the view is rolled up. */
+  module?: string | null;
   operation: string;
   operation_label: string | null;
   capability: string | null;
@@ -234,6 +252,10 @@ export interface AiModuleActivityEntry {
   reference: string | null;
   used: AiModuleActivityUsed;
   result: Record<string, unknown> | null;
+  /** Measured by whoever recorded the row. Null is "not measured", never zero. */
+  duration_ms?: number | null;
+  /** Whether a knowledge graph was consulted. Null is "not measured". */
+  knowledge_graph_used?: boolean | null;
   created_at: string | null;
 }
 
@@ -261,6 +283,8 @@ export interface RecordModuleActivityInput {
   reference?: string | null;
   template_id?: number | null;
   prompt_id?: number | null;
+  duration_ms?: number | null;
+  knowledge_graph_used?: boolean | null;
   agent_id?: string | null;
   agent_name?: string | null;
   agent_run_id?: string | null;
@@ -271,9 +295,10 @@ export interface RecordModuleActivityInput {
 
 export function fetchModuleActivity(
   moduleKey: string,
-  filter: { operation?: string; outcome?: string; subjectId?: number; limit?: number } = {},
+  filter: { operation?: string; outcome?: string; subjectId?: number; limit?: number; rollup?: boolean } = {},
 ): Promise<AiModuleActivity> {
   const params = new URLSearchParams();
+  if (filter.rollup) params.set('rollup', '1');
   if (filter.operation) params.set('operation', filter.operation);
   if (filter.outcome) params.set('outcome', filter.outcome);
   if (filter.subjectId) params.set('subject_id', String(filter.subjectId));
@@ -402,6 +427,8 @@ export interface AiModuleProviderOption {
   key: string;
   label: string;
   default_model: string | null;
+  /** Whether a credential for this provider resolves for the organisation now (saved key or platform key). */
+  has_credential?: boolean;
   models: AiModuleModelOption[];
 }
 

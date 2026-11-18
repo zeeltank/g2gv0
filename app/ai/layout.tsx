@@ -32,7 +32,7 @@ export default function AiLayout({ children }: { children: React.ReactNode }) {
         initialActive={{ moduleId: '', menuId: '', submenuId: '' }}
         breadcrumbItems={[
           { label: 'Home', href: '/' },
-          { label: 'AI & Intelligence', href: '/ai' },
+          { label: 'AI and insights', href: '/ai' },
         ]}
       >
         {children}

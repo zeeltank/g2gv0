@@ -41,7 +41,7 @@ export default function PlatformServicesLayout({ children }: { children: React.R
         initialActive={{ moduleId: '', menuId: '', submenuId: '' }}
         breadcrumbItems={[
           { label: 'Home', href: '/' },
-          { label: 'Platform Services', href: '/platform-services' },
+          { label: 'Platform services', href: '/platform-services' },
         ]}
       >
         {children}

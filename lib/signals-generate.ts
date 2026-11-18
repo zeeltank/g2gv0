@@ -1,0 +1,164 @@
+import type { LaravelContext } from '@/lib/laravel-context'
+import type { RegionSelection } from '@/lib/region-scope'
+
+/*
+ * "Generate Signals": the rules that decide whether a research run may start, kept apart from the screen so they can be tested.
+ *
+ * A run is always for ONE explicit, valid, ready product. Nothing here starts research for "all products", for an unknown key, for a product
+ * whose ICP the backend does not consider ready, or while a run is already going. The backend stays the authority: it is asked again
+ * (fresh status) immediately before the request, and it refuses an unready product on its own as well.
+ */
+
+export interface GenerateProduct {
+  key: string
+  label: string
+  ready: boolean
+  missing: string[]
+  next_step?: string | null
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean }>
+}
+
+/** One sub-product (an offer) of the chosen product, when the run is for it alone. `ready` = its own Individual ICP is complete enough. */
+export interface GenerateSub {
+  offer_id: string
+  name: string
+  ready: boolean
+  missing: string[]
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean }>
+}
+
+export type GenerateRefusal = 'no_product' | 'all_products' | 'unknown_product' | 'not_ready' | 'running' | 'providers'
+
+/**
+ * What the server did with the sub-product's ICP Region when the run was accepted. Decided and enforced on the backend; the screen only reports it.
+ * `skipped` covers Whole Product, All Regions and shared sub-products (no ICP is created or changed); `unchanged` means the ICP already had these places.
+ */
+export interface IcpRegionSync {
+  status: 'created' | 'updated' | 'unchanged' | 'skipped'
+  reason?: string | null
+  message?: string | null
+  icp?: { id: number; key: string; name: string; customer_model: string; offer_id: string; offer_name: string; regions: string[] } | null
+}
+
+/** The sentence to show about the ICP, or null when nothing was created or changed (never a message that implies an ICP was updated when it was not). */
+export function describeIcpSync(sync: IcpRegionSync | null | undefined): string | null {
+  if (!sync || (sync.status !== 'created' && sync.status !== 'updated')) return null
+  const text = (sync.message ?? '').trim()
+
+  return text !== '' ? text : null
+}
+
+export type GenerateOutcome =
+  | { started: true; runId: number | null; message: string; run: unknown; icpSync: IcpRegionSync | null }
+  | { started: false; reason: GenerateRefusal; message: string; missing: string[]; nextStep: string | null }
+
+/** The slice of the backend status this decision reads. */
+export interface GenerateStatus {
+  product?: { key: string; label: string; ready: boolean; missing: string[] } | null
+  requirements: { search_configured: boolean; ai_configured: boolean }
+  running: boolean
+}
+
+export interface GenerateService {
+  getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions?: RegionSelection[]) => Promise<{ data: GenerateStatus }>
+  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') => Promise<{ message: string; data?: { run_id?: number; run?: unknown; icp_sync?: IcpRegionSync | null } }>
+}
+
+const refuse = (reason: GenerateRefusal, message: string, missing: string[] = [], nextStep: string | null = null): GenerateOutcome =>
+  ({ started: false, reason, message, missing, nextStep })
+
+/** Local checks only (no request). Returns the product when a run may be attempted. */
+export function decideGenerate(
+  choice: string | null | undefined,
+  products: GenerateProduct[] | null,
+  running: boolean,
+  sub: GenerateSub | null = null,
+  customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b',
+): { ok: true; product: GenerateProduct } | { ok: false; outcome: GenerateOutcome } {
+  if (choice === 'all') return { ok: false, outcome: refuse('all_products', 'Choose one product. A run is always for a single product.') }
+  if (!choice) return { ok: false, outcome: refuse('no_product', 'Choose a product first.') }
+  const product = products?.find((p) => p.key === choice)
+  if (!product) return { ok: false, outcome: refuse('unknown_product', 'That product is not available.') }
+  if (running) return { ok: false, outcome: refuse('running', 'A run is already in progress.') }
+
+  return { ok: true, product }
+}
+
+/**
+ * Validate, ask the backend whether the product is ready, then (only then) start the run with the exact product key.
+ * Never throws for a refusal; a transport error from the service propagates so the screen can show it.
+ */
+export async function generateSignals(args: {
+  context: LaravelContext
+  choice: string | null | undefined
+  products: GenerateProduct[] | null
+  running: boolean
+  service: GenerateService
+  /** The places this request is limited to ([] or absent = All Regions). Sent with the request; the backend also saves them to the ICP of ONE chosen sub-product (never for Whole Product). */
+  regions?: RegionSelection[]
+  /** Run for this ONE sub-product of the product (its own Individual ICP). Absent = the whole product, as before. */
+  sub?: GenerateSub | null
+  /** Customer model to research (b2b, b2c, b2g). Default b2b. */
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+}): Promise<GenerateOutcome> {
+  const customerModel = args.customerModel ?? 'b2b'
+  const local = decideGenerate(args.choice, args.products, args.running, args.sub ?? null, customerModel)
+  if (!local.ok) return local.outcome
+  const { product } = local
+
+  const status = (await args.service.getStatus(args.context, product.key, customerModel, args.sub?.offer_id ?? null, args.regions)).data
+  if (status.running) return refuse('running', 'A run is already in progress.')
+  if (!status.product || status.product.key !== product.key) {
+    return refuse('unknown_product', `${product.label} is not available.`)
+  }
+  if (!status.requirements.search_configured || !status.requirements.ai_configured) {
+    return refuse('providers', !status.requirements.search_configured
+      ? 'No web search provider is configured. An administrator must set one up first.'
+      : 'No AI provider is configured for this organisation.')
+  }
+
+  const res = await args.service.runResearch(args.context, undefined, product.key, args.regions, args.sub?.offer_id ?? null, customerModel)
+
+  return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null, icpSync: res.data?.icp_sync ?? null }
+}
+
+export interface GenerateHandlers {
+  /** The lock was already held (a click or run is in flight): tell the person instead of doing nothing. */
+  busy: () => void
+  /** Accepted: show an immediate response before the first request returns. */
+  begin: () => void
+  /** Refused with a reason (not ready, providers, already running). The lock has been released before this is called. */
+  refused: (outcome: Extract<GenerateOutcome, { started: false }>) => void
+  /** The backend accepted the run. The lock stays held until the caller follows the run to its end and releases it. */
+  started: (outcome: Extract<GenerateOutcome, { started: true }>) => void
+  /** The request failed. The lock has been released before this is called. */
+  failed: (error: unknown) => void
+}
+
+/**
+ * One click on Generate Signals. `guard` is a ref-like object checked and set synchronously, so a rapid second click cannot start a second
+ * request (React state alone updates too late for that). The guard is released on every path that does not hand a run to the caller:
+ * refusal and failure. Nothing here ever leaves it held without a run being followed.
+ */
+export async function runGuardedGenerate(guard: { current: boolean }, args: Parameters<typeof generateSignals>[0], on: GenerateHandlers): Promise<void> {
+  if (guard.current) {
+    on.busy()
+
+    return
+  }
+  guard.current = true
+  on.begin()
+  try {
+    const outcome = await generateSignals(args)
+    if (!outcome.started) {
+      guard.current = false
+      on.refused(outcome)
+
+      return
+    }
+    on.started(outcome)
+  } catch (e) {
+    guard.current = false
+    on.failed(e)
+  }
+}

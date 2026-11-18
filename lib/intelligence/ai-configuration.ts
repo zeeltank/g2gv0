@@ -39,8 +39,11 @@ export interface AiModelOption {
   model_id: string
   label: string
   max_output_tokens: number | null
+  /** The price of 1,000 input tokens, in `currency`. Null is unknown, never free. See `model-price.ts` for the per-million form people type. */
   input_cost_per_1k: number | null
   output_cost_per_1k: number | null
+  /** The currency of both rates (`INR` or `USD`). Absent from a server that predates currencies, whose rates were dollars: read it through `rowCurrency`. */
+  currency?: string | null
   sort_order: number
   status: number
   /** `platform` rows are shared across the estate and read-only to an organisation. */
@@ -70,6 +73,13 @@ export interface AiConfigurationRow {
   editable: boolean
   key_preview: string | null
   updated_at: string | null
+  /** Failover state of this credential. `invalid` = rejected by the provider, retried later. */
+  health?: 'healthy' | 'cooldown' | 'invalid' | 'retired'
+  cooldown_until?: string | null
+  last_error_type?: string | null
+  last_error_at?: string | null
+  failure_count?: number
+  last_used_at?: string | null
 }
 
 /** What a module resolves to right now, including modules with nothing saved. */
@@ -109,6 +119,8 @@ export interface AiConfigurationPayload {
   account_email?: string | null
   api_limit?: number | null
   status?: number
+  /** Add another credential for the same module + provider (failover pool). */
+  additional_credential?: boolean
 }
 
 export interface AiModelPayload {
@@ -116,8 +128,10 @@ export interface AiModelPayload {
   model_id: string
   label: string
   max_output_tokens?: number | null
+  /** Per 1,000 tokens, in `currency`. Both or neither: the server prices a call only from a full rate. */
   input_cost_per_1k?: number | null
   output_cost_per_1k?: number | null
+  currency?: string
   sort_order?: number
   status?: number
 }

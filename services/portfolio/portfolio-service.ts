@@ -1,13 +1,26 @@
 import { apiClient } from '@/services/core'
 import { withLaravelParams, type LaravelContext } from '@/lib/laravel-context'
 import type {
+  ReadinessLogEntry,
   ProductOffer,
   Partner,
   TaxonomyData,
   SignalMatchingResponse,
+  ProductsResponse,
+  ResearchContext,
 } from './types'
 
 export const portfolioService = {
+  /** The configured products with their stored offers, ICP and what is missing. */
+  async getProducts(context: LaravelContext): Promise<ProductsResponse> {
+    return apiClient.get('/portfolio/products', withLaravelParams(context))
+  },
+
+  /** The saved product details and ICP a run for this product would use (read-only; starts nothing). */
+  async getResearchContext(context: LaravelContext, key: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null): Promise<{ status: number; data: { research_context: ResearchContext } }> {
+    return apiClient.get(`/portfolio/products/${encodeURIComponent(key)}`, withLaravelParams(context, { ...(regions && regions.length > 0 ? { regions: JSON.stringify(regions) } : {}), ...(offerId ? { offer_id: offerId } : {}) }))
+  },
+
   async getTaxonomy(context: LaravelContext): Promise<{ status: number; data: TaxonomyData }> {
     return apiClient.get('/portfolio/taxonomy', withLaravelParams(context))
   },
@@ -73,6 +86,25 @@ export const portfolioService = {
     return apiClient.put(`/portfolio/offers/${id}`, offer, {
       params: withLaravelParams(context),
     })
+  },
+
+  /**
+   * Confirm (or remove the confirmation of) an offer's readiness. Administrators only; the server
+   * enforces it, records who and when, and appends an audit row. A note is required to confirm.
+   */
+  async setReadiness(
+    context: LaravelContext,
+    id: string | number,
+    confirmed: boolean,
+    note?: string,
+  ): Promise<{ status: number; message: string; data: ProductOffer }> {
+    return apiClient.post(`/portfolio/offers/${id}/readiness`, { confirmed, note }, {
+      params: withLaravelParams(context),
+    })
+  },
+
+  async getReadinessLog(context: LaravelContext, id: string | number): Promise<{ status: number; data: ReadinessLogEntry[] }> {
+    return apiClient.get(`/portfolio/offers/${id}/readiness-log`, withLaravelParams(context))
   },
 
   async deleteOffer(context: LaravelContext, id: string | number): Promise<{ status: number; message: string }> {

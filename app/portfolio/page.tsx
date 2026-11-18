@@ -1,20 +1,33 @@
 'use client'
 
+import { PremiumPage } from '@/components/domain/signals/premium-page'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
+import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { PortfolioView } from '@/components/domain/portfolio/portfolio-view'
+import { SignalsFrame } from '@/components/domain/signals/signals-frame'
+
+const PORTFOLIO_ACCESS_LINK = '/portfolio'
 
 export default function ProductPortfolioPage() {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const canManage = user?.role === 'administrator' || user?.role === 'hr_manager' || user?.role === 'executive'
+  const { parseRoutePath } = useSidebarNavigation()
+  const activeNav = parseRoutePath(PORTFOLIO_ACCESS_LINK) ?? undefined
 
   return (
     <ProtectedLayout>
-      <GtgPageShell>
-        <PortfolioView context={context} canManage={canManage} />
+      <GtgPageShell initialActive={activeNav}>
+        <GtgBreadcrumbFromContext />
+        <PremiumPage>
+          <SignalsFrame active="portfolio">
+            <PortfolioView context={context} canManage={canManage} />
+          </SignalsFrame>
+        </PremiumPage>
       </GtgPageShell>
     </ProtectedLayout>
   )

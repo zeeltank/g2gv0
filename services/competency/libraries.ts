@@ -210,6 +210,13 @@ export interface JobroleSkillLink {
   proficiency_level: string | null
   proficiency_description: string | null
   type: string | null
+  /**
+   * Per-skill KASA breakdown at this job role's required proficiency level -
+   * only present via the jobrole detail endpoint. Unlike the role-level
+   * `JobroleDetail.kasa` (4 tabs), this also carries a 'skill' bucket - see
+   * LibraryController::jobroleAssociations() in the Laravel backend.
+   */
+  kasa?: Record<KasaTabId | 'skill', MappedAttribute[]>
 }
 
 /** A knowledge / ability / attitude / behaviour item mapped to a job role. */

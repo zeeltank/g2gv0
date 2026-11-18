@@ -1,0 +1,122 @@
+{
+ "server-rack": {
+  "sha256": "8a53ccf3bd5f192e3ee8124d809da8e41fc455947d4644f0a47756ba4a5bee49",
+  "bytes": 26024,
+  "name": "Server rack",
+  "licence": "CC BY 4.0",
+  "credit": "\"Server Rack\" by Spellkaze, CC BY 4.0, from sketchfab.com. Modified: restyled to the runtime's flat palette.",
+  "source": "https://sketchfab.com/3d-models/server-rack-62f6779cb7e448b19aaf58544c3c7218"
+ },
+ "network-switch": {
+  "sha256": "dbc2e763669246fc9e802940d82d6d3c565b2e2e3f56579542335d6941dc4afc",
+  "bytes": 229072,
+  "name": "Network switch",
+  "licence": "CC BY 4.0",
+  "credit": "\"TL-SF1005D\" by arieffitrah, CC BY 4.0, from sketchfab.com. Modified: restyled to the runtime's flat palette.",
+  "source": "https://sketchfab.com/3d-models/tl-sf1005d-90966bd409204294918c68c11c7da831"
+ },
+ "wall-console": {
+  "sha256": "d87404199523e9f8422c431fddda84c9b6627f35f6730c12fbe3b96289ce080c",
+  "bytes": 182200,
+  "name": "Wall console",
+  "licence": "CC BY 4.0",
+  "credit": "\"Large Wall-Mounted Computer Console\" by Inditrion Dradnon, CC BY 4.0, from sketchfab.com. Modified: restyled to the runtime's flat palette.",
+  "source": "https://sketchfab.com/3d-models/large-wall-mounted-computer-console-298b7d9b68064618a3819d1a8fae4baf"
+ },
+ "laptop": {
+  "sha256": "d052981d936d5c2cb80efa53ad6d3e4a8e492f2e3a703acf9f37546181e4df26",
+  "bytes": 3744,
+  "name": "Laptop",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "computer-screen": {
+  "sha256": "91fae5c8b0e862e7cbd6bc2150ba85c0c4eb46c8c9b7e18d9da7b6514471835c",
+  "bytes": 3976,
+  "name": "Computer screen",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "keyboard": {
+  "sha256": "d838f176e87c611ffd5f29d9ef0d127a5abf38b18ae7d2a6bde2aae1d30ba926",
+  "bytes": 3328,
+  "name": "Keyboard",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "desk": {
+  "sha256": "e6c845cc2c7762f7db636b2b63f722dcc71dd6e06ba0f713701942085b5e6cf2",
+  "bytes": 5192,
+  "name": "Desk",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "chair-desk": {
+  "sha256": "30d3611bc6d99d495457441346c93ed9edae8774da825e939b179f9a709cb2ca",
+  "bytes": 8712,
+  "name": "Office chair",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "potted-plant": {
+  "sha256": "200f6a3fe9b27658651918e2cafb4bbf5175759adea26851f3abf1edff343798",
+  "bytes": 3996,
+  "name": "Potted plant",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "desk-lamp": {
+  "sha256": "858c6450bc913a2e1dadf1747c24d2a35c859b4423674dbb12d8dc7d2e4ead95",
+  "bytes": 3736,
+  "name": "Desk lamp",
+  "licence": "CC0 1.0",
+  "credit": "\"furniture-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/furniture-kit"
+ },
+ "tank-large": {
+  "sha256": "fde6a8151bba6476889a14c4417dcb674d7e32dcfd3c0968563a80ae512798ee",
+  "bytes": 7936,
+  "name": "Large tank",
+  "licence": "CC0 1.0",
+  "credit": "\"city-kit-industrial\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/city-kit-industrial"
+ },
+ "container": {
+  "sha256": "6de7f4ad05b9a068f9ff9fb39c79c78fd41b81f51db35771b1dd2e273a988300",
+  "bytes": 7948,
+  "name": "Shipping container",
+  "licence": "CC0 1.0",
+  "credit": "\"city-kit-industrial\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/city-kit-industrial"
+ },
+ "machine-generator": {
+  "sha256": "c114812dfc0327f69a5597f7f14b744e9ea2b586706dbf6bfadd3be812f914e7",
+  "bytes": 6772,
+  "name": "Generator",
+  "licence": "CC0 1.0",
+  "credit": "\"space-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/space-kit"
+ },
+ "machine-barrel": {
+  "sha256": "b2b220b38e5039e9e7845c7fc083e7be5bfd6f6f44a3ade5052f9ff634fed0cd",
+  "bytes": 6416,
+  "name": "Barrel machine",
+  "licence": "CC0 1.0",
+  "credit": "\"space-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/space-kit"
+ },
+ "satellite-dish": {
+  "sha256": "b78f14f2249417fea3a8712dcedda275c16527509e2a0e2ff2e12f9c1a94df06",
+  "bytes": 6636,
+  "name": "Satellite dish",
+  "licence": "CC0 1.0",
+  "credit": "\"space-kit\" by Kenney (kenney.nl), CC0 1.0, from kenney.nl. Modified: restyled to the runtime's flat palette.",
+  "source": "https://kenney.nl/assets/space-kit"
+ }
+}

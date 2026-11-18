@@ -30,7 +30,9 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
-import { ApiError } from '@/services/core'
+import { apiErrorText } from '@/lib/api-messages'
+import { DataConnectorsPanel } from '@/components/domain/signals/data-connectors-panel'
+import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
   type IngestionSourceDetail,
@@ -46,11 +48,19 @@ export function IngestionEngineView() {
   const context = getLaravelContext(user)
   const ready = isLaravelContextReady(context)
 
+  // Every document and link is added for ONE product, and only that product's documents are listed.
+  const { products, loading: productsLoading, error: productsError } = useProducts(context)
+  const [product, setProduct] = useSelectedProduct(context, products, { allowAll: false })
+  const selectedProduct = products?.find((p) => p.key === product)
+
   // Input state
-  const [tab, setTab] = useState<'url' | 'document'>('url')
+  // Which of the two tools is open under the product bar.
+  const [section, setSection] = useState<'connectors' | 'document'>('connectors')
   const [urlInput, setUrlInput] = useState('')
   const [fileInput, setFileInput] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)   // synchronous double-submit guard (state alone updates a render later)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Recent sources list & active source selection
@@ -66,9 +76,9 @@ export function IngestionEngineView() {
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadSources = useCallback(async () => {
-    if (!ready) return
+    if (!ready || !product) return
     try {
-      const res = await opportunitiesService.listSources(context)
+      const res = await opportunitiesService.listSources(context, product)
       setSources(res.data)
       if (res.data.length > 0 && activeSourceId === null) {
         setActiveSourceId(res.data[0].id)
@@ -76,7 +86,7 @@ export function IngestionEngineView() {
     } catch {
       // Ignored
     }
-  }, [context, ready, activeSourceId])
+  }, [context, ready, activeSourceId, product])
 
   const loadActiveDetail = useCallback(async (sourceId: number) => {
     if (!ready) return
@@ -93,16 +103,24 @@ export function IngestionEngineView() {
     }
   }, [context, ready])
 
+  // Switching product shows only that product's documents: nothing from the previous one stays on screen.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSources([]); setActiveSourceId(null); setActiveDetail(null)
+  }, [product])
+
   // Initial load
   useEffect(() => {
-    loadSources()
+    let live = true
+    Promise.resolve().then(() => { if (live) void loadSources() })
+    return () => { live = false }
   }, [loadSources])
 
   // Load detail when active source changes
   useEffect(() => {
-    if (activeSourceId) {
-      loadActiveDetail(activeSourceId)
-    }
+    let live = true
+    if (activeSourceId) Promise.resolve().then(() => { if (live) void loadActiveDetail(activeSourceId) })
+    return () => { live = false }
   }, [activeSourceId, loadActiveDetail])
 
   // Polling for generating source
@@ -128,38 +146,46 @@ export function IngestionEngineView() {
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const targetUrl = urlInput.trim()
-    if (!targetUrl || !ready) return
+    if (!targetUrl || !ready || submittingRef.current) return
+    setActionError(null)
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const res = await opportunitiesService.addUrl(context, targetUrl)
+      const res = await opportunitiesService.addUrl(context, targetUrl, product)
       setUrlInput('')
       await loadSources()
       setActiveSourceId(res.data.id)
       pollCount.current = 0
     } catch (err) {
-      setSubmitError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to ingest URL')
+      setSubmitError(apiErrorText(err, 'Failed to ingest URL'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!fileInput || !ready) return
+    if (!fileInput || !ready || submittingRef.current) return
+    setActionError(null)
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const res = await opportunitiesService.upload(context, fileInput)
+      const res = await opportunitiesService.upload(context, fileInput, product)
       setFileInput(null)
       await loadSources()
       setActiveSourceId(res.data.id)
       pollCount.current = 0
     } catch (err) {
-      setSubmitError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to ingest document')
+      setSubmitError(apiErrorText(err, 'Failed to ingest document'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -171,7 +197,7 @@ export function IngestionEngineView() {
       pollCount.current = 0
       loadActiveDetail(activeDetail.id)
     } catch (err) {
-      alert(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to trigger retry')
+      setActionError(apiErrorText(err, 'Failed to trigger retry'))
     }
   }
 
@@ -189,148 +215,132 @@ export function IngestionEngineView() {
         setActiveSourceId(null)
       }
     } catch (err) {
-      alert(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to delete source')
+      setActionError(apiErrorText(err, 'Failed to delete source'))
     }
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-border pb-6">
-        <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <UploadCloud className="size-5" />
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Ingestion Engine
-          </h1>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} fullWidth />
+          <ProductSetupNotice product={selectedProduct} />
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Provide a company URL or upload documents. The engine extracts intelligence, discovers related public news, and displays results directly below.
-        </p>
+        {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
       </div>
 
-      {/* Prominent Input Card at Top */}
-      <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-sm">
-        {/* Tab switch */}
-        <div className="flex items-center gap-2 border-b border-border pb-4">
+      {/* Two tools, one click each */}
+      <div role="tablist" aria-label="Ingestion tools" className="grid grid-cols-2 gap-2">
+        {([
+          { key: 'connectors', label: 'Connectors', hint: 'YouTube, LinkedIn, Facebook, Instagram, web pages', Icon: Layers },
+          { key: 'document', label: 'Page or document', hint: 'Analyse one link or file', Icon: FileText },
+        ] as const).map(({ key, label, hint, Icon }) => (
           <button
+            key={key}
             type="button"
-            onClick={() => setTab('url')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === 'url'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
+            role="tab"
+            aria-selected={section === key}
+            onClick={() => setSection(key)}
+            className={`flex items-center justify-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === key ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'}`}
           >
-            <Globe className="size-4" />
-            Website or Article URL
+            <Icon className="size-4 shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{label}</span>
+              <span className={`hidden text-[11px] sm:block ${section === key ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{hint}</span>
+            </span>
           </button>
-          <button
-            type="button"
-            onClick={() => setTab('document')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === 'document'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <FileText className="size-4" />
-            Upload Document (PDF, DOCX, TXT)
-          </button>
+        ))}
+      </div>
+
+      {section === 'connectors' && (
+        <div role="tabpanel">
+      <DataConnectorsPanel
+        context={context}
+        productKey={product || null}
+        products={products}
+        onSyncCompleted={loadSources}
+      />
+        </div>
+      )}
+
+      {section === 'document' && (
+        <div role="tabpanel" className="space-y-6">
+      {/* 2. Analyse a page or document: one long bar; a paperclip attaches a file to the same bar */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">Analyse page or document</h2>
+          <p className="text-xs text-muted-foreground">Paste a website, article or tender link, or attach a file (PDF, DOCX, TXT, XLSX up to 20MB). The signals appear below.</p>
         </div>
 
-        {/* Tab content */}
-        <div className="pt-5">
-          {tab === 'url' ? (
-            <form onSubmit={handleUrlSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground">
-                  Company Website or Article / Tender URL
-                </label>
-                <div className="mt-1.5 flex gap-2">
-                  <div className="relative flex-1">
-                    <LinkIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="url"
-                      required
-                      placeholder="https://example.com or https://news.domain.com/article"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      className="pl-9 text-xs"
-                      disabled={submitting}
-                    />
-                  </div>
-                  <Button type="submit" disabled={submitting || !urlInput.trim()} className="gap-2">
-                    {submitting ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Ingesting...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="size-4" />
-                        Extract & Discover Signals
-                      </>
-                    )}
-                  </Button>
-                </div>
+        <form
+          onSubmit={(e) => (fileInput ? handleFileUpload(e) : handleUrlSubmit(e))}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <div className="relative flex-1">
+            {fileInput ? (
+              <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background pl-3 pr-1 text-xs">
+                <FileText className="size-4 shrink-0 text-primary" />
+                <span className="flex-1 truncate text-foreground">{fileInput.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setFileInput(null)}
+                  disabled={submitting}
+                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Remove attached document"
+                >
+                  <XCircle className="size-4" />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Public pages are verified via SSRF guards and respect robots.txt policies.
-              </p>
-            </form>
-          ) : (
-            <form onSubmit={handleFileUpload} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground">
-                  Select Document File (.pdf, .docx, .txt, .xlsx)
-                </label>
-                <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-center">
+            ) : (
+              <>
+                <LinkIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="url"
+                  placeholder="https://example.com or https://news.domain.com/article"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="pl-9 pr-11 text-xs"
+                  disabled={submitting}
+                  aria-label="Website, article or tender URL"
+                />
+                <label
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                  title="Attach a document"
+                >
+                  <UploadCloud className="size-4" />
+                  <span className="sr-only">Attach a document</span>
                   <input
                     type="file"
-                    required
                     accept=".pdf,.docx,.txt,.xlsx"
                     onChange={(e) => setFileInput(e.target.files?.[0] || null)}
-                    className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-4 file:py-2 file:text-xs file:font-semibold file:text-foreground hover:file:bg-muted/80"
+                    className="sr-only"
                     disabled={submitting}
                   />
-                  <Button type="submit" disabled={submitting || !fileInput} className="gap-2 shrink-0">
-                    {submitting ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Uploading & Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="size-4" />
-                        Extract & Discover Signals
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Text content is securely parsed into verified segment quotes. Files up to 20MB supported.
-              </p>
-            </form>
-          )}
+                </label>
+              </>
+            )}
+          </div>
+          <Button type="submit" disabled={submitting || (!fileInput && !urlInput.trim())} className="gap-2 shrink-0">
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {fileInput ? 'Analyse document' : 'Find signals'}
+          </Button>
+        </form>
 
-          {submitError && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{submitError}</span>
-            </div>
-          )}
-        </div>
+        {submitError && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
       </div>
 
       {/* Quick Ingestion History Switcher */}
       {sources.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="font-semibold uppercase tracking-wider">Recently Ingested Sources</span>
-            <span>{sources.length} sources analyzed</span>
+            <span className="font-semibold uppercase tracking-wider">Items read</span>
+            <span>{sources.length} analysed</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
             {sources.map((src) => {
@@ -360,7 +370,7 @@ export function IngestionEngineView() {
         </div>
       )}
 
-      {/* RESULTS DISPLAYED DIRECTLY BELOW ON THE SAME PAGE */}
+      {/* Results, directly below the bar */}
       {loadingDetail && !activeDetail ? (
         <div className="space-y-4">
           <Skeleton className="h-40 w-full rounded-2xl" />
@@ -408,7 +418,7 @@ export function IngestionEngineView() {
 
             {/* Processing State Indicator */}
             {activeDetail.processing_status === 'generating' && (
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300">
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 text-xs text-primary">
                 <Loader2 className="size-5 animate-spin" />
                 <div>
                   <p className="font-semibold">Analyzing Content & Discovering Follow-up Signals...</p>
@@ -507,11 +517,11 @@ export function IngestionEngineView() {
               <div className="flex items-center gap-2">
                 <Sparkles className="size-5 text-primary" />
                 <h3 className="text-base font-bold text-foreground">
-                  Generated Opportunity Signals ({activeDetail.findings?.length || 0})
+                  Signals found ({activeDetail.findings?.length || 0})
                 </h3>
               </div>
               <span className="text-xs text-muted-foreground">
-                Linked directly to the main Signals feed
+                Findings stay here; qualified company signals go to Company Opportunities
               </span>
             </div>
 
@@ -585,7 +595,7 @@ export function IngestionEngineView() {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-                No signal findings generated yet. The analyzer is verifying the source content.
+                No signals found in this item yet.
               </div>
             )}
           </div>
@@ -597,6 +607,8 @@ export function IngestionEngineView() {
           <p className="mt-1 text-xs text-muted-foreground">
             Provide a company website URL or upload a document at the top to start analysis.
           </p>
+        </div>
+      )}
         </div>
       )}
 

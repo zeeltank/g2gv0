@@ -1,0 +1,2575 @@
+/**
+ * CRM Marketing module — Leads, Contacts, Organizations, Campaigns.
+ *
+ * Tenant-scoped by `sub_institute_id` only - none of these 4 entities are
+ * academic-year-bound the way Task Management's are, so no `syear` anywhere
+ * in this module's types/service calls.
+ */
+
+export interface CrmPicklistValue {
+  value: string
+  label: string
+  sortOrder: number
+  isDefault: boolean
+}
+
+/** `module` -> `field_key` -> ordered options, as returned by GET /crm/picklist-values. */
+export type CrmPicklistMap = Record<string, Record<string, CrmPicklistValue[]>>
+
+export interface CrmPicklistAdminRow {
+  id: string
+  module: CrmModule
+  fieldKey: string
+  value: string
+  label: string
+  sortOrder: number
+  isDefault: boolean
+  status: boolean
+}
+
+export interface CrmPicklistAdminResponse {
+  status: number
+  message: string
+  data: {
+    fieldKeys: Record<string, string[]>
+    rows: CrmPicklistAdminRow[]
+  }
+}
+
+export interface CrmPicklistValueResponse {
+  status: number
+  message: string
+  data: CrmPicklistAdminRow
+}
+
+export interface CrmPagination {
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export interface Lead {
+  id: string
+  leadNo: string | null
+  salutation: string | null
+  firstName: string | null
+  lastName: string
+  company: string | null
+  designation: string | null
+  email: string | null
+  secondaryEmail: string | null
+  phone: string | null
+  mobile: string | null
+  fax: string | null
+  website: string | null
+  industry: string | null
+  leadSource: string | null
+  leadStatus: string | null
+  rating: string | null
+  /** Server-computed only (App\Domain\Crm\Leads\LeadScorer) - never accepted in a payload. */
+  leadScore: number
+  /** Which active scoring rule(s) matched and how many points each contributed - explainability, not a black-box number. */
+  leadScoreBasis: CrmLeadScoreBasisEntry[]
+  annualRevenue: number | null
+  numberOfEmp: string | null
+  emailOptOut: boolean
+  lifecycleStatus: 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted' | 'lost' | null
+  nextAction: string | null
+  followUpDueDate: string | null
+  consentStatus: 'unknown' | 'opted_in' | 'opted_out' | 'suppressed' | null
+  suppressedAt: string | null
+  campaignText: string | null
+  street: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  postalCode: string | null
+  poBox: string | null
+  converted: boolean
+  convertedOrganizationId: string | null
+  convertedContactId: string | null
+  convertedOpportunityId: string | null
+  sourceCompanyOpportunityId?: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  missingFields?: string[]
+  hasRealName?: boolean
+  enrichmentStatus?: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
+  isQualifiedForOutreach?: boolean
+  /**
+   * Agentic CRM slice 6 (hp_erp docs/agentic-crm/slices/S06-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it (the backend
+   * may not be deployed yet) leaves the key out, and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/leads/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   */
+  product?: LeadProductRef | null
+  organisationAccount?: LeadOrganisationAccountRef | null
+  sourceSignalId?: number | null
+  /** The signal the lead was made from; the detail answer only. */
+  sourceSignal?: LeadSourceSignal | null
+  /** What the one consent gate says about each channel; the detail answer only. */
+  consent?: LeadConsent | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md): the campaign the lead first came from. OPTIONAL like the fields above: a
+   * missing key is an older server, `null` is a lead that came from no campaign. lib/campaigns/model.ts reads it.
+   */
+  campaign?: LeadCampaignRef | null
+}
+
+/** The campaign a lead first came from (read through the lead's own organisation by the server). */
+export interface LeadCampaignRef {
+  id: number
+  name: string
+}
+
+/** The product (a Product Master record) a lead is for. */
+export interface LeadProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The organisation account (Organisation 360 identity) a lead belongs to. */
+export interface LeadOrganisationAccountRef {
+  id: number
+  name: string
+}
+
+/** The signal a lead came from. Everything in it came from the web or a model: it is plain text and is shown as text. */
+export interface LeadSourceSignal {
+  id: number
+  title: string | null
+  sourceUrl: string | null
+  /** `YYYY-MM-DD` of the event the source describes; null when the source states none. */
+  eventDate: string | null
+  /** `YYYY-MM-DD` the source was published; shown only when no event date is stated. */
+  sourcePublishedAt?: string | null
+  /** A business-fit code (a product's key, `multiple`, ...). */
+  businessFit: string | null
+  /**
+   * The source's own words (`quoteKind` `excerpt`) or the signal's description of what happened (`observed_event`, which is NOT a quote and is never labelled as
+   * one). Not in the contract's written list; hp_erp's `LeadSignalEvidence` (slice 6, in progress) sends it, so it is read when present and never required.
+   */
+  quote?: string | null
+  quoteKind?: 'excerpt' | 'observed_event' | null
+}
+
+export interface LeadConsentChannel {
+  allowed: boolean
+  /** A sentence for a person; null when nothing blocks the channel. */
+  reason: string | null
+}
+
+export interface LeadConsent {
+  email?: LeadConsentChannel
+  sms?: LeadConsentChannel
+}
+
+export type LeadPayload = Partial<
+  Omit<Lead, 'id' | 'converted' | 'convertedOrganizationId' | 'convertedContactId' | 'convertedOpportunityId' | 'leadScore' | 'leadScoreBasis' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'organisationAccount' | 'sourceSignalId' | 'sourceSignal' | 'consent'>
+> & {
+  productMasterId?: number | null
+}
+
+export interface LeadListResponse {
+  status: number
+  message: string
+  data: {
+    items: Lead[]
+    pagination: CrmPagination
+  }
+}
+
+export interface LeadResponse {
+  status: number
+  message: string
+  data: Lead
+}
+
+// ── Lead scoring & assignment (Sales & Marketing gap-closure, Wave 2) ────
+
+export type CrmLeadScoringField = 'lead_source' | 'industry' | 'country' | 'rating' | 'lead_status' | 'annual_revenue' | 'number_of_emp'
+export type CrmLeadScoringOperator = 'equals' | 'not_equals' | 'contains' | 'is_not_empty' | 'greater_than' | 'less_than'
+
+export interface CrmLeadScoreBasisEntry {
+  ruleId: string
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value: string | null
+  points: number
+}
+
+export interface CrmLeadScoringRule {
+  id: string
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value: string | null
+  points: number
+  isActive: boolean
+}
+
+export interface CrmLeadScoringRulesResponse {
+  status: number
+  message: string
+  data: {
+    rules: CrmLeadScoringRule[]
+    fields: CrmLeadScoringField[]
+    operators: CrmLeadScoringOperator[]
+    numericOperators: CrmLeadScoringOperator[]
+  }
+}
+
+export interface CrmLeadScoringRulePayload {
+  fieldKey: CrmLeadScoringField
+  operator: CrmLeadScoringOperator
+  value?: string | null
+  points: number
+}
+
+export interface CrmLeadAssignmentMember {
+  id: string
+  userId: string
+  userName: string
+  isActive: boolean
+}
+
+export interface CrmLeadAssignmentSettings {
+  isEnabled: boolean
+  lastAssignedUserId: string | null
+  members: CrmLeadAssignmentMember[]
+}
+
+export interface CrmLeadAssignmentSettingsResponse {
+  status: number
+  message: string
+  data: CrmLeadAssignmentSettings
+}
+
+// ── Public web-to-lead capture (Sales & Marketing gap-closure, Wave 3) ───
+
+export interface CrmLeadCaptureSettings {
+  isEnabled: boolean
+  publicKey: string | null
+  defaultLeadSource: string
+  defaultAssignedTo: string | null
+  submissionsCount: number
+  lastSubmissionAt: string | null
+}
+
+export interface CrmLeadCaptureSettingsResponse {
+  status: number
+  message: string
+  data: CrmLeadCaptureSettings
+}
+
+export interface CrmLeadCaptureUpdatePayload {
+  isEnabled?: boolean
+  defaultLeadSource?: string
+  defaultAssignedTo?: string | null
+}
+
+/** The anonymous visitor's own submission - deliberately a much smaller shape than LeadPayload (no internal fields like assignedTo/leadStatus reach this form at all). */
+export interface PublicLeadCaptureSubmission {
+  firstName?: string
+  lastName: string
+  email?: string
+  phone?: string
+  company?: string
+  message?: string
+  /** Honeypot - always left empty by a real visitor; never shown to one. */
+  website?: string
+}
+
+export interface LeadListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  leadStatus?: string
+  assignedTo?: string
+  /** A Product Master id; 0 or absent = every product. Sent as `product_id`. */
+  productId?: number
+  /** `allowed` or `blocked` for email, through the consent gate; absent = every lead. Sent as `consent`. */
+  consent?: LeadConsentFilter
+  /** True = only leads made from a signal. Sent as `has_signal=1`. */
+  hasSignal?: boolean
+}
+
+export type LeadConsentFilter = 'allowed' | 'blocked'
+
+export interface ConvertLeadPayload {
+  createOrganization: boolean
+  createContact: boolean
+  organizationName?: string
+  existingContactId?: string
+  createOpportunity?: boolean
+  assignedTo: string
+}
+
+export interface ConvertLeadResponse {
+  status: number
+  message: string
+  data: {
+    organizationId: string | null
+    contactId: string | null
+    opportunityId: string | null
+    /** Present when no contact was made because the lead names no person (slice 6); `notice` says why, in words. */
+    contactSkipped?: boolean
+    notice?: string
+  }
+}
+
+export interface Organization {
+  id: string
+  accountNo: string | null
+  name: string
+  parentId: string | null
+  accountType: string | null
+  industry: string | null
+  rating: string | null
+  ownership: string | null
+  annualRevenue: number | null
+  employees: number | null
+  sicCode: string | null
+  tickerSymbol: string | null
+  phone: string | null
+  secondaryPhone: string | null
+  email: string | null
+  secondaryEmail: string | null
+  website: string | null
+  fax: string | null
+  emailOptOut: boolean
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type OrganizationPayload = Partial<Omit<Organization, 'id' | 'accountNo' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+
+export interface OrganizationListResponse {
+  status: number
+  message: string
+  data: { items: Organization[]; pagination: CrmPagination }
+}
+
+export interface OrganizationResponse {
+  status: number
+  message: string
+  data: Organization
+}
+
+export interface OrganizationListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  accountType?: string
+}
+
+export interface OrganizationHierarchyNode {
+  id: string
+  name: string
+  depth?: number
+}
+
+export interface OrganizationHierarchyResponse {
+  status: number
+  message: string
+  data: {
+    ancestors: OrganizationHierarchyNode[]
+    current: OrganizationHierarchyNode
+    descendants: OrganizationHierarchyNode[]
+  }
+}
+
+export interface Contact {
+  id: string
+  contactNo: string | null
+  organizationId: string | null
+  organizationName: string | null
+  salutation: string | null
+  firstName: string | null
+  lastName: string
+  title: string | null
+  department: string | null
+  email: string | null
+  secondaryEmail: string | null
+  phone: string | null
+  mobile: string | null
+  fax: string | null
+  homePhone: string | null
+  assistant: string | null
+  assistantPhone: string | null
+  reportsToId: string | null
+  birthday: string | null
+  leadSource: string | null
+  doNotCall: boolean
+  emailOptOut: boolean
+  mailingStreet: string | null
+  mailingCity: string | null
+  mailingState: string | null
+  mailingCode: string | null
+  mailingCountry: string | null
+  mailingPoBox: string | null
+  otherStreet: string | null
+  otherCity: string | null
+  otherState: string | null
+  otherCode: string | null
+  otherCountry: string | null
+  otherPoBox: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type ContactPayload = Partial<
+  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+>
+
+export interface ContactListResponse {
+  status: number
+  message: string
+  data: { items: Contact[]; pagination: CrmPagination }
+}
+
+export interface ContactResponse {
+  status: number
+  message: string
+  data: Contact
+}
+
+export interface ContactListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  organizationId?: string
+}
+
+export interface Campaign {
+  id: string
+  campaignNo: string | null
+  name: string
+  campaignType: string | null
+  campaignStatus: string | null
+  expectedRevenue: number | null
+  budgetCost: number | null
+  actualCost: number | null
+  expectedResponse: string | null
+  numSent: number | null
+  sponsor: string | null
+  targetAudience: string | null
+  targetSize: number | null
+  expectedResponseCount: number | null
+  expectedSalesCount: number | null
+  actualResponseCount: number | null
+  actualSalesCount: number | null
+  expectedRoi: number | null
+  actualRoi: number | null
+  closingDate: string | null
+  productId: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  /**
+   * Agentic CRM slice 9 (hp_erp docs/agentic-crm/slices/S09-campaigns-to-leads.md, "Contract"). Every field below is OPTIONAL: a server that does not send it
+   * (an older one) leaves the key out and the screens render without it. `null` means "none"; a missing key means "this server does not say".
+   * lib/campaigns/model.ts reads them from the server's answer (it accepts the contract's snake_case names and the presenter's own camelCase).
+   * `product` is on the list and the detail answers; the other three on the detail answer only.
+   */
+  product?: CampaignProductRef | null
+  funnel?: CampaignFunnel | null
+  gtmCampaign?: CampaignGtmRef | null
+  leads?: CampaignLeadsRef | null
+}
+
+/** The product (a Product Master record) a campaign is filed under. */
+export interface CampaignProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/**
+ * How a campaign is doing, counted from the touchpoints its targets have recorded. `targets` is how many targets the campaign has; each other number is how
+ * many of them have that touchpoint recorded. A target that replied and booked a meeting counts in both, so a step can be higher than the one before it.
+ */
+export interface CampaignFunnel {
+  targets: number
+  sent: number
+  opened: number
+  replied: number
+  meetings: number
+  converted: number
+  optedOut: number
+}
+
+/** The GTM campaign that is the same campaign as this CRM one. */
+export interface CampaignGtmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** The CRM campaign that is the same campaign as a GTM one (the GTM screen's side of the link). */
+export interface CampaignCrmRef {
+  id: number
+  name: string
+  status: string | null
+}
+
+/** How many of the organisation's leads first came from this campaign. */
+export interface CampaignLeadsRef {
+  count: number
+}
+
+/**
+ * What a create or edit sends. The slice-9 fields the server ANSWERS with are not part of it; the one link a person may set is the product, by the contract's
+ * own name (the server also accepts `productMasterId`). It is left out unless the person chose or changed it, so a form that never touched the product
+ * cannot change it (lib/campaigns/model.ts `productPayload`).
+ */
+export type CampaignPayload = Partial<Omit<Campaign, 'id' | 'campaignNo' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'funnel' | 'gtmCampaign' | 'leads'>> & {
+  product_master_id?: number | null
+}
+
+export interface CampaignListResponse {
+  status: number
+  message: string
+  data: { items: Campaign[]; pagination: CrmPagination }
+}
+
+export interface CampaignResponse {
+  status: number
+  message: string
+  data: Campaign
+}
+
+export interface CampaignListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  campaignStatus?: string
+}
+
+// ── Campaign send (Sales & Marketing gap-closure, Wave 5) ────────────────
+
+export interface CrmCampaignSendSummary {
+  totalTargets: number
+  /** Real, confirmed deliveries. */
+  sentCount: number
+  /** Queued/attempted but not yet confirmed delivered (e.g. sending is switched off, or the daily cap was hit). */
+  pendingCount: number
+  /** Never yet attempted - a fresh "Send" click would reach these. */
+  remainingCount: number
+  lastSentAt: string | null
+  sendingEnabled: boolean
+}
+
+export interface CrmCampaignSendSummaryResponse {
+  status: number
+  message: string
+  data: CrmCampaignSendSummary
+}
+
+export interface CrmCampaignSendPayload {
+  subject: string
+  body: string
+  templateId?: string
+}
+
+export interface CrmCampaignSendResult {
+  sent: number
+  notSent: number
+  failed: number
+  alreadyHandled: number
+  skippedNoEmail: number
+  skippedOptedOut: number
+  totalTargets: number
+  truncated: boolean
+  batchLimit: number
+}
+
+export interface CrmCampaignSendResponse {
+  status: number
+  message: string
+  data: CrmCampaignSendResult
+}
+
+// ── Bulk actions (shared across all 4 modules) ───────────────────────────
+
+export interface CrmBulkResult {
+  id: string
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmBulkActionResponse {
+  status: number
+  message: string
+  data: {
+    results: CrmBulkResult[]
+    summary: { succeeded: number; failed: number }
+  }
+}
+
+/**
+ * The CRM modules, by their list-view route segment. 'products' and
+ * 'services' are two routes/menu rights over the same `crm_products` table
+ * (see CrmProduct's own `itemType`) - deliberately still two CrmModule
+ * values, since Recycle Bin/Saved Views/bulk-rights all scope by module.
+ *
+ * SMS Notifier (`sms_log`) is a member here (Saved Views/bulk-rights can
+ * still scope by it) but has no detail page, and `CrmRecycleBinType` below
+ * explicitly excludes it - `crm_sms_log` is an append-only log, never
+ * soft-deleted, so it has nothing to recycle.
+ */
+export type CrmModule =
+  | 'leads' | 'contacts' | 'organizations' | 'campaigns'
+  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log' | 'price_books'
+  | 'vendors' | 'sales_orders' | 'purchase_orders' | 'invoices'
+  | 'tickets' | 'faqs' | 'service_contracts' | 'assets'
+
+// ── Saved Views (shared across all 4 modules) ─────────────────────────────
+
+export interface CrmSavedView {
+  id: string
+  module: CrmModule
+  name: string
+  /** That module's own query-param shape (search/status filter/sortBy/sortDir) - opaque here, applied back by the list view that saved it. */
+  conditions: Record<string, unknown>
+  createdAt: string | null
+}
+
+export interface CrmSavedViewListResponse {
+  status: number
+  message: string
+  data: CrmSavedView[]
+}
+
+export interface CrmSavedViewResponse {
+  status: number
+  message: string
+  data: CrmSavedView
+}
+
+// ── Duplicate detection + merge (Leads, Contacts, Organizations only -
+// Campaigns aren't a "duplicate record" the way those 3 are) ─────────────
+
+export interface CrmDuplicateGroup {
+  key: string
+  reason: string
+  /** Shape varies per module (Lead/Contact/Organization) - read via getLabel/getSubLabel, not indexed directly. */
+  rows: Array<Record<string, unknown> & { id: string }>
+}
+
+export interface CrmDuplicateGroupsResponse {
+  status: number
+  message: string
+  data: CrmDuplicateGroup[]
+}
+
+export interface CrmMergeResponse {
+  status: number
+  message: string
+  data: { survivorId: string; merged: number }
+}
+
+// ── CSV import/export (shared across all 4 modules) ──────────────────────
+
+export interface CrmImportRowResult {
+  row: number
+  ok: boolean
+  reason?: string
+}
+
+export interface CrmImportResponse {
+  status: number
+  message: string
+  data: {
+    created: number
+    results: CrmImportRowResult[]
+  }
+}
+
+// ── Recycle Bin (shared across all 4 modules) ─────────────────────────────
+
+/**
+ * Explicitly excludes 'sms_log', not just every other CrmModule member -
+ * crm_sms_log has no `deleted_at` column at all (append-only by design,
+ * confirmed in its own migration docblock), so CrmRecycleBinController's
+ * own TYPES const was never given an sms_log entry either. A blind
+ * `= CrmModule` alias would silently claim Recycle Bin support that
+ * cannot exist.
+ */
+export type CrmRecycleBinType = Exclude<CrmModule, 'sms_log'>
+
+export interface CrmRecycleBinItem {
+  type: CrmRecycleBinType
+  id: string
+  name: string
+  subLabel: string | null
+  deletedAt: string
+  deletedBy: string | null
+}
+
+export interface CrmRecycleBinListResponse {
+  status: number
+  message: string
+  data: {
+    items: CrmRecycleBinItem[]
+    pagination: CrmPagination
+  }
+}
+
+/** One targeted lead/contact/organization row on a campaign - `targetRowId` identifies the join row itself (for remove/status updates), `targetId` the underlying lead/contact/organization. */
+export interface CampaignTarget {
+  targetRowId: string
+  targetId: string
+  name: string
+  subLabel: string | null
+  responseStatus: string
+  sentAt: string | null
+  repliedAt: string | null
+  meetingBookedAt: string | null
+  optedOutAt: string | null
+  convertedAt: string | null
+}
+
+export type CampaignTargetEvent = 'sent' | 'opened' | 'replied' | 'meeting_booked' | 'opted_out' | 'converted'
+
+// ── Outreach Approvals ────────────────────────────────────────────────────
+
+export type OutreachApprovalStatus = 'pending' | 'approved' | 'rejected' | 'sent'
+
+export interface OutreachApproval {
+  id: string
+  campaignId: string
+  campaignName: string | null
+  targetRowId: string | null
+  targetType: 'lead' | 'contact' | 'organization' | null
+  targetId: string | null
+  targetName: string | null
+  subject: string | null
+  body: string | null
+  channel: string
+  status: OutreachApprovalStatus
+  requestedBy: string | null
+  requestedByName: string | null
+  reviewedBy: string | null
+  reviewedByName: string | null
+  reviewedAt: string | null
+  rejectionReason: string | null
+  sentAt: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface OutreachApprovalListResponse {
+  status: number
+  message: string
+  data: {
+    items: OutreachApproval[]
+    pagination: CrmPagination
+  }
+}
+
+export interface OutreachApprovalResponse {
+  status: number
+  message: string
+  data: OutreachApproval
+}
+
+export interface OutreachApprovalPayload {
+  campaignId: string
+  targetType: 'lead' | 'contact' | 'organization'
+  targetId: string
+  subject: string
+  body: string
+  channel?: string
+  targetRowId?: string
+}
+
+export interface CampaignTargetsResponse {
+  status: number
+  message: string
+  data: {
+    leads: CampaignTarget[]
+    contacts: CampaignTarget[]
+    organizations: CampaignTarget[]
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CRM Sales - Opportunities, Quotes, Products & Services, SMS Notifier.
+//
+// Named `CrmOpportunity`/`CrmQuote`/`CrmProduct`, never a bare `Opportunity`/
+// `Quote`/`Product` - `services/signals/opportunities.ts` already exports a
+// bare `Opportunity` (an unrelated AI buying-signal feature), and GTM's own
+// `ACCOUNT_STAGES` includes the literal string 'opportunity'. Namespacing
+// here avoids both collisions.
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface CrmTaxRate {
+  id: string
+  name: string
+  percentage: number
+  isDefault: boolean
+  isActive: boolean
+}
+
+export type CrmTaxRatePayload = Partial<Omit<CrmTaxRate, 'id'>>
+
+export interface CrmTaxRateListResponse {
+  status: number
+  message: string
+  data: CrmTaxRate[]
+}
+
+export interface CrmTaxRateResponse {
+  status: number
+  message: string
+  data: CrmTaxRate
+}
+
+// ── Products & Services (one table, two routes - see CrmModule) ──────────
+
+export type CrmItemType = 'product' | 'service'
+
+export interface CrmProduct {
+  id: string
+  itemType: CrmItemType
+  productNo: string | null
+  name: string
+  sku: string | null
+  category: string | null
+  glAccount: string | null
+  description: string | null
+  unitPrice: number | null
+  costPrice: number | null
+  commissionRate: number | null
+  currency: string | null
+  taxRateId: string | null
+  taxRateName: string | null
+  isActive: boolean
+  /** Product-only - always null for a service row. */
+  vendor: string | null
+  qtyInStock: number | null
+  /** Product-only - always null for a service row. */
+  qtyInDemand: number | null
+  reorderLevel: number | null
+  weight: number | null
+  usageUnit: string | null
+  imageUrl: string | null
+  assignedTo: string | null
+  productMasterId?: number | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  /**
+   * What the Products screen knows about this item through the product lines behind it (the Product Master). Always sent by an up-to-date server, absent
+   * from an older one, and null for an item tied to no sub-product: the list then shows no extra columns for it.
+   */
+  masterId?: number | null
+  masterKind?: 'product' | 'sub_product' | 'item' | null
+  masterStatus?: 'active' | 'archived' | null
+  /** The product line the item's sub-product sits under. */
+  productLine?: { id: number; name: string } | null
+  /** The sub-product's ID in the Portfolio. */
+  offerId?: string | null
+  /** Signals recorded for the sub-product. */
+  signalsFound?: number | null
+  icp?: CrmIcpState | null
+}
+
+/** The state of an ideal-customer profile, as the server words it. */
+export type CrmIcpState = 'active' | 'draft' | 'archived' | 'template' | 'none'
+
+/** What the Products list says about the product lines behind it: whether they exist on this server, how many items are tied to one, and how many there are. */
+export interface CrmProductLines {
+  available: boolean
+  linked: number
+  productLines: number
+  subProducts: number
+}
+
+export type CrmProductPayload = Partial<
+  Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'
+  | 'masterId' | 'masterKind' | 'masterStatus' | 'productLine' | 'offerId' | 'signalsFound' | 'icp'>
+> & {
+  productLineName?: string | null
+  newProductLineName?: string | null
+}
+
+export interface CrmProductBundleItem {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  unitPrice: number | null
+  quantity: number
+}
+
+export interface CrmProductListResponse {
+  status: number
+  message: string
+  /** `lines` is absent from a server that predates the product lines. */
+  data: { items: CrmProduct[]; pagination: CrmPagination; lines?: CrmProductLines }
+}
+
+export interface CrmProductResponse {
+  status: number
+  message: string
+  data: CrmProduct
+}
+
+export interface CrmProductListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  category?: string
+}
+
+// ── Opportunities ──────────────────────────────────────────────────────────
+
+export interface CrmOpportunity {
+  id: string
+  opportunityNo: string | null
+  name: string
+  organizationId: string | null
+  organizationName: string | null
+  campaignId: string | null
+  campaignName: string | null
+  amount: number | null
+  currency: string | null
+  closingDate: string | null
+  salesStage: string | null
+  probability: number | null
+  /** Computed server-side (amount x probability / 100) - never sent in a payload. */
+  weightedRevenue: number | null
+  leadSource: string | null
+  potentialType: string | null
+  nextStep: string | null
+  forecastCategory: string | null
+  description: string | null
+  /** Required by the backend the moment salesStage is set to "Closed Lost" (and wasn't already). */
+  closeReason: string | null
+  convertedFromGtmDealId: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  /**
+   * Agentic CRM slice 11 (hp_erp docs/agentic-crm/slices/S11-pipeline-and-forecast.md, "Contract"). Both fields are OPTIONAL: a server that does not send them
+   * (an older one) leaves the key out and the screens render without them. `null` means "none"; a missing key means "this server does not say".
+   * lib/opportunities/model.ts reads them from the server's answer (the contract's `loss_reason` and the presenter-style `lossReason` are both accepted).
+   */
+  product?: OpportunityProductRef | null
+  lossReason?: OpportunityLossReasonRef | null
+}
+
+/** The product (a Product Master record) an opportunity is for. */
+export interface OpportunityProductRef {
+  id: number
+  key: string | null
+  name: string
+}
+
+/** The coded reason an opportunity was lost: the code that is stored and the plain-English label the server gives it. */
+export interface OpportunityLossReasonRef {
+  code: string
+  label: string
+}
+
+/** One of the loss reasons the server accepts (the pipeline answer's `lossReasons`). */
+export interface OpportunityLossReasonOption {
+  code: string
+  label: string
+}
+
+/**
+ * What a create or edit sends. The slice-11 fields the server ANSWERS with (`product`, `lossReason`) are not part of it; the two a person may set go under the
+ * names the endpoint reads: `productMasterId` and `lossReasonCode`. Each is left out unless the person chose or changed it (lib/opportunities/model.ts).
+ */
+export type CrmOpportunityPayload = Partial<
+  Omit<
+    CrmOpportunity,
+    'id' | 'opportunityNo' | 'organizationName' | 'campaignName' | 'weightedRevenue'
+    | 'convertedFromGtmDealId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'product' | 'lossReason'
+  >
+> & {
+  productMasterId?: number | null
+  lossReasonCode?: string | null
+}
+
+export interface CrmOpportunityListResponse {
+  status: number
+  message: string
+  data: { items: CrmOpportunity[]; pagination: CrmPagination }
+}
+
+export interface CrmOpportunityResponse {
+  status: number
+  message: string
+  data: CrmOpportunity
+}
+
+export interface CrmOpportunityListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  salesStage?: string
+  organizationId?: string
+  contactId?: string
+}
+
+/** Stage-bucketed counts/values for the kanban board - mirrors GTM's own DealController::pipeline() shape. */
+export interface CrmOpportunityPipelineResponse {
+  status: number
+  message: string
+  data: {
+    stages: Array<{
+      stage: string
+      label: string
+      color: string | null
+      count: number
+      totalAmount: number
+    }>
+    /** Slice 11b: the loss-reason codes the server accepts. OPTIONAL: an older server does not send it (the screens then ask for free text only). */
+    lossReasons?: OpportunityLossReasonOption[]
+  }
+}
+
+export interface CrmOpportunityStageChangePayload {
+  salesStage: string
+  amount?: number | null
+  probability?: number | null
+  closingDate?: string | null
+  /** Required when salesStage is "Closed Lost" and the opportunity wasn't already lost. */
+  closeReason?: string | null
+  /** Slice 11b: one of the pipeline answer's `lossReasons` codes; sent only with a move into Closed Lost. */
+  lossReasonCode?: string | null
+}
+
+export interface CrmOpportunityStageHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  amount: number | null
+  probability: number | null
+  closingDate: string | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmOpportunityStageHistoryResponse {
+  status: number
+  message: string
+  data: CrmOpportunityStageHistoryEntry[]
+}
+
+/** A Contact linked to an Opportunity - `id` is the junction row (crm_opportunity_contacts), for removal. */
+export interface CrmOpportunityContact {
+  id: string
+  contactId: string
+  name: string
+  subLabel: string | null
+}
+
+export interface CrmOpportunityContactsResponse {
+  status: number
+  message: string
+  data: CrmOpportunityContact[]
+}
+
+/** A Product/Service tagged as "interested" on an Opportunity - unpriced, NOT a line item. `id` is the junction row (crm_opportunity_products). */
+export interface CrmOpportunityProduct {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  quantity: number
+}
+
+export interface CrmOpportunityProductsResponse {
+  status: number
+  message: string
+  data: CrmOpportunityProduct[]
+}
+
+// ── Quotes ─────────────────────────────────────────────────────────────────
+
+export interface CrmQuote {
+  id: string
+  quoteNo: string | null
+  subject: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  opportunityId: string | null
+  opportunityName: string | null
+  priceBookId: string | null
+  priceBookName: string | null
+  quoteStage: string | null
+  validTill: string | null
+  currency: string | null
+  subtotal: number
+  discountPercent: number | null
+  discountAmount: number
+  shippingHandlingAmount: number
+  adjustment: number
+  taxTotal: number
+  /** Server-authoritative - recomputed from line items on every save, never trusted from the client. */
+  total: number
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  termsConditions: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/**
+ * shippingHandlingAmount/adjustment ARE genuine inputs (CrmQuoteController's
+ * own payload() mapper accepts both) - only subtotal/discountAmount/taxTotal/
+ * total are server-computed outputs, recomputed from line items on every
+ * save and never accepted from the client.
+ */
+export type CrmQuotePayload = Partial<
+  Omit<
+    CrmQuote,
+    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName' | 'priceBookName'
+    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
+    | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmQuoteListResponse {
+  status: number
+  message: string
+  data: { items: CrmQuote[]; pagination: CrmPagination }
+}
+
+export interface CrmPriceBook {
+  id: string
+  priceBookNo: string | null
+  name: string
+  currency: string | null
+  isActive: boolean
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmPriceBookPayload = Partial<
+  Omit<CrmPriceBook, 'id' | 'priceBookNo' | 'createdAt' | 'updatedAt' | 'createdBy'>
+>
+
+export interface CrmPriceBookListResponse {
+  status: number
+  message: string
+  data: { items: CrmPriceBook[]; pagination: CrmPagination }
+}
+
+export interface CrmPriceBookResponse {
+  status: number
+  message: string
+  data: CrmPriceBook
+}
+
+export interface CrmPriceBookItem {
+  id: string
+  productId: string
+  name: string
+  itemType: CrmItemType
+  basePrice: number | null
+  listPrice: number
+}
+
+export interface CrmQuoteResponse {
+  status: number
+  message: string
+  data: CrmQuote
+}
+
+export interface CrmQuoteListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  quoteStage?: string
+  organizationId?: string
+  contactId?: string
+  opportunityId?: string
+}
+
+export interface CrmQuoteLineItem {
+  id: string
+  productId: string | null
+  description: string | null
+  quantity: number
+  unitPrice: number
+  discountPercent: number | null
+  discountAmount: number | null
+  taxRateId: string | null
+  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved quote's total. */
+  taxNameSnapshot: string | null
+  taxPercentSnapshot: number | null
+  lineTotal: number
+  sequenceNo: number
+}
+
+/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. */
+export type CrmQuoteLineItemInput = Omit<CrmQuoteLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
+
+export interface CrmQuoteLineItemsResponse {
+  status: number
+  message: string
+  data: CrmQuoteLineItem[]
+}
+
+/** Incidental gap-closing: Quotes never got a stage-history table/tab, unlike every order-to-cash sibling. */
+export interface CrmQuoteStageHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmQuoteStageHistoryResponse {
+  status: number
+  message: string
+  data: CrmQuoteStageHistoryEntry[]
+}
+
+// ── Vendors ───────────────────────────────────────────────────────────────
+// `CrmVendor`, never bare `Vendor` - `services/lms/governance.ts` already
+// exports a bare `Vendor` type for an unrelated LMS-training-suppliers
+// concept (same collision-avoidance reasoning this file already documents
+// for CrmOpportunity/CrmQuote/CrmProduct).
+
+export interface CrmVendor {
+  id: string
+  legacyId: string | null
+  vendorNo: string | null
+  name: string
+  phone: string | null
+  email: string | null
+  website: string | null
+  glAccount: string | null
+  category: string | null
+  street: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  postalCode: string | null
+  poBox: string | null
+  description: string | null
+  isActive: boolean
+  assignedTo: string | null
+  assignedToName: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmVendorPayload = Partial<Omit<CrmVendor, 'id' | 'vendorNo' | 'assignedToName' | 'createdAt' | 'updatedAt' | 'createdBy'>>
+
+export interface CrmVendorListResponse {
+  status: number
+  message: string
+  data: { items: CrmVendor[]; pagination: CrmPagination }
+}
+
+export interface CrmVendorResponse {
+  status: number
+  message: string
+  data: CrmVendor
+}
+
+export interface CrmVendorListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  category?: string
+  isActive?: boolean
+}
+
+/** A Contact linked to a Vendor - `id` is the junction row (crm_vendor_contacts), for removal. */
+export interface CrmVendorContact {
+  id: string
+  contactId: string
+  name: string
+  subLabel: string | null
+}
+
+export interface CrmVendorContactsResponse {
+  status: number
+  message: string
+  data: CrmVendorContact[]
+}
+
+// ── Sales Orders ───────────────────────────────────────────────────────────
+
+export interface CrmSalesOrder {
+  id: string
+  legacyId: string | null
+  soNo: string | null
+  subject: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  opportunityId: string | null
+  opportunityName: string | null
+  quoteId: string | null
+  /** The source quote's own quoteNo, for display next to the quoteId link - denormalized the same way organizationName/contactName/opportunityName are. */
+  quoteNo: string | null
+  soStage: string | null
+  dueDate: string | null
+  carrier: string | null
+  currency: string | null
+  subtotal: number
+  discountPercent: number | null
+  discountAmount: number
+  shippingHandlingAmount: number
+  adjustment: number
+  taxTotal: number
+  /** Server-authoritative - recomputed from line items on every save, never trusted from the client. */
+  total: number
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  termsConditions: string | null
+  description: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmSalesOrderPayload = Partial<
+  Omit<
+    CrmSalesOrder,
+    'id' | 'legacyId' | 'soNo' | 'organizationName' | 'contactName' | 'opportunityName' | 'quoteNo'
+    | 'assignedToName' | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
+    | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmSalesOrderListResponse {
+  status: number
+  message: string
+  data: { items: CrmSalesOrder[]; pagination: CrmPagination }
+}
+
+export interface CrmSalesOrderResponse {
+  status: number
+  message: string
+  data: CrmSalesOrder
+}
+
+export interface CrmSalesOrderListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  soStage?: string
+  organizationId?: string
+  contactId?: string
+  opportunityId?: string
+  quoteId?: string
+}
+
+export interface CrmSalesOrderLineItem {
+  id: string
+  productId: string | null
+  description: string | null
+  quantity: number
+  unitPrice: number
+  discountPercent: number | null
+  discountAmount: number | null
+  taxRateId: string | null
+  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved sales order's total. */
+  taxNameSnapshot: string | null
+  taxPercentSnapshot: number | null
+  lineTotal: number
+  sequenceNo: number
+}
+
+/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. */
+export type CrmSalesOrderLineItemInput = Omit<CrmSalesOrderLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
+
+export interface CrmSalesOrderLineItemsResponse {
+  status: number
+  message: string
+  data: CrmSalesOrderLineItem[]
+}
+
+export interface CrmSalesOrderStatusHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  total: number | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmSalesOrderStatusHistoryResponse {
+  status: number
+  message: string
+  data: CrmSalesOrderStatusHistoryEntry[]
+}
+
+// ── Purchase Orders ──────────────────────────────────────────────────────
+
+export interface CrmPurchaseOrder {
+  id: string
+  poNo: string | null
+  subject: string
+  vendorId: string | null
+  vendorName: string | null
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  quoteId: string | null
+  quoteNo: string | null
+  poStage: string | null
+  requisitionNo: string | null
+  trackingNo: string | null
+  dueDate: string | null
+  currency: string | null
+  subtotal: number
+  discountPercent: number | null
+  discountAmount: number
+  shippingHandlingAmount: number
+  adjustment: number
+  taxTotal: number
+  /** Server-authoritative - recomputed from line items on every save, never trusted from the client. */
+  total: number
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  termsConditions: string | null
+  description: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/**
+ * vendorId IS a genuine input and is REQUIRED at the application-validation
+ * level in store()/update() even though nullable at the DB level (legacy
+ * marks Vendor mandatory on a Purchase Order) - every other FK here stays
+ * optional, same as Quotes. subtotal/discountAmount/taxTotal/total are
+ * server-computed outputs only, recomputed from line items on every save.
+ */
+export type CrmPurchaseOrderPayload = Partial<
+  Omit<
+    CrmPurchaseOrder,
+    'id' | 'poNo' | 'vendorName' | 'organizationName' | 'contactName' | 'quoteNo'
+    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
+    | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmPurchaseOrderListResponse {
+  status: number
+  message: string
+  data: { items: CrmPurchaseOrder[]; pagination: CrmPagination }
+}
+
+export interface CrmPurchaseOrderResponse {
+  status: number
+  message: string
+  data: CrmPurchaseOrder
+}
+
+export interface CrmPurchaseOrderListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  poStage?: string
+  vendorId?: string
+  organizationId?: string
+  contactId?: string
+  quoteId?: string
+}
+
+export interface CrmPurchaseOrderLineItem {
+  id: string
+  productId: string | null
+  description: string | null
+  quantity: number
+  unitPrice: number
+  discountPercent: number | null
+  discountAmount: number | null
+  taxRateId: string | null
+  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved purchase order's total. */
+  taxNameSnapshot: string | null
+  taxPercentSnapshot: number | null
+  lineTotal: number
+  sequenceNo: number
+}
+
+/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. */
+export type CrmPurchaseOrderLineItemInput = Omit<CrmPurchaseOrderLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
+
+export interface CrmPurchaseOrderLineItemsResponse {
+  status: number
+  message: string
+  data: CrmPurchaseOrderLineItem[]
+}
+
+export interface CrmPurchaseOrderStageChangePayload {
+  poStage: string
+}
+
+export interface CrmPurchaseOrderStatusHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  total: number | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmPurchaseOrderStageHistoryResponse {
+  status: number
+  message: string
+  data: CrmPurchaseOrderStatusHistoryEntry[]
+}
+
+// ── Invoices ───────────────────────────────────────────────────────────────
+
+export interface CrmInvoice {
+  id: string
+  legacyId: string | null
+  invoiceNo: string | null
+  subject: string
+  salesOrderId: string | null
+  salesOrderNo: string | null
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  invoiceStage: string | null
+  invoiceDate: string | null
+  dueDate: string | null
+  currency: string | null
+  subtotal: number
+  discountPercent: number | null
+  discountAmount: number
+  shippingHandlingAmount: number
+  adjustment: number
+  taxTotal: number
+  /** Server-authoritative - recomputed from line items (or copied from the source Sales Order via fromSalesOrder()) on every save, never trusted from the client. */
+  total: number
+  /** Server-authoritative - the SUM of this invoice's own payment ledger (see recordPayment), never a client-set value. */
+  amountPaid: number
+  /** Computed, never stored - total - amountPaid. */
+  balanceDue: number
+  /** Computed: 'Unpaid' | 'Partially Paid' | 'Paid'. */
+  paymentStatus: 'Unpaid' | 'Partially Paid' | 'Paid'
+  /** Computed: balanceDue > 0 and dueDate has passed. */
+  isOverdue: boolean
+  billingStreet: string | null
+  billingCity: string | null
+  billingState: string | null
+  billingCode: string | null
+  billingCountry: string | null
+  billingPoBox: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingCode: string | null
+  shippingCountry: string | null
+  shippingPoBox: string | null
+  termsConditions: string | null
+  description: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/**
+ * shippingHandlingAmount/adjustment ARE genuine inputs - only subtotal/
+ * discountAmount/taxTotal/total are server-computed outputs, recomputed
+ * from line items on every save and never accepted from the client.
+ * invoiceStage is NOT mandatory (unlike so_stage/po_stage on its siblings).
+ */
+export type CrmInvoicePayload = Partial<
+  Omit<
+    CrmInvoice,
+    'id' | 'legacyId' | 'invoiceNo' | 'salesOrderNo' | 'organizationName' | 'contactName' | 'assignedToName'
+    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total' | 'amountPaid' | 'balanceDue' | 'paymentStatus' | 'isOverdue'
+    | 'createdAt' | 'updatedAt' | 'createdBy'
+  >
+>
+
+export interface CrmInvoicePaymentEntry {
+  id: string
+  amount: number
+  method: string | null
+  reference: string | null
+  paidOn: string | null
+  note: string | null
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmInvoicePaymentsResponse {
+  status: number
+  message: string
+  data: CrmInvoicePaymentEntry[]
+}
+
+export interface CrmInvoicePaymentPayload {
+  amount: number
+  method?: string | null
+  reference?: string | null
+  paidOn?: string | null
+  note?: string | null
+}
+
+export interface CrmInvoiceListResponse {
+  status: number
+  message: string
+  data: { items: CrmInvoice[]; pagination: CrmPagination }
+}
+
+export interface CrmInvoiceResponse {
+  status: number
+  message: string
+  data: CrmInvoice
+}
+
+export interface CrmInvoiceListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  invoiceStage?: string
+  organizationId?: string
+  contactId?: string
+  salesOrderId?: string
+}
+
+export interface CrmInvoiceStageChangePayload {
+  invoiceStage: string
+}
+
+export interface CrmInvoiceStatusHistoryEntry {
+  id: string
+  fromStage: string | null
+  toStage: string | null
+  total: number | null
+  changedBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmInvoiceStatusHistoryResponse {
+  status: number
+  message: string
+  data: CrmInvoiceStatusHistoryEntry[]
+}
+
+export interface CrmInvoiceLineItem {
+  id: string
+  productId: string | null
+  description: string | null
+  quantity: number
+  unitPrice: number
+  discountPercent: number | null
+  discountAmount: number | null
+  taxRateId: string | null
+  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved invoice's total. */
+  taxNameSnapshot: string | null
+  taxPercentSnapshot: number | null
+  lineTotal: number
+  sequenceNo: number
+}
+
+/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. Structurally identical to CrmQuoteLineItemInput, so quote-line-item-table.tsx's QuoteLineItemTable is reused as-is for Invoices. */
+export type CrmInvoiceLineItemInput = Omit<CrmInvoiceLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
+
+export interface CrmInvoiceLineItemsResponse {
+  status: number
+  message: string
+  data: CrmInvoiceLineItem[]
+}
+
+// ── Service Contracts ────────────────────────────────────────────────────
+
+export interface CrmServiceContract {
+  id: string
+  legacyId: string | null
+  contractNo: string | null
+  subject: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  startDate: string | null
+  endDate: string | null
+  dueDate: string | null
+  trackingUnit: string | null
+  totalUnits: number | null
+  /** Server-authoritative - written only by Tickets' consumption-math when a linked ticket closes/reopens/changes, and by this controller's own manual-complete auto-stamp. Never accept this from the client. */
+  usedUnits: number | null
+  /** Server-authoritative - same reasoning as usedUnits. */
+  progress: number | null
+  contractStatus: string | null
+  contractType: string | null
+  priority: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/**
+ * totalUnits/trackingUnit/etc ARE genuine inputs - only usedUnits/progress
+ * are server-computed outputs, never accepted from the client (same
+ * reasoning as CrmQuote's subtotal/total fields being excluded here).
+ */
+export type CrmServiceContractPayload = Partial<
+  Omit<
+    CrmServiceContract,
+    'id' | 'legacyId' | 'contractNo' | 'organizationName' | 'contactName' | 'assignedToName'
+    | 'usedUnits' | 'progress' | 'createdAt' | 'updatedAt'
+  >
+>
+
+export interface CrmServiceContractListResponse {
+  status: number
+  message: string
+  data: { items: CrmServiceContract[]; pagination: CrmPagination }
+}
+
+export interface CrmServiceContractResponse {
+  status: number
+  message: string
+  data: CrmServiceContract
+}
+
+export interface CrmServiceContractListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  contractStatus?: string
+  organizationId?: string
+  contactId?: string
+}
+
+// ── Assets (Support phase) ────────────────────────────────────────────────
+// `CrmAsset`, never bare `Asset` - `components/domain/talent/onboarding/
+// onboarding-tabs.tsx` already exports a bare `OnbAsset`/`AssetsPanel` for an
+// unrelated employee IT-equipment-issuance concept (same collision-avoidance
+// reasoning this file already documents for CrmOpportunity/CrmQuote/
+// CrmProduct/CrmVendor).
+
+export interface CrmAsset {
+  id: string
+  legacyId: string | null
+  assetNo: string | null
+  assetName: string
+  productId: string | null
+  productName: string | null
+  organizationId: string | null
+  organizationName: string | null
+  serialNumber: string | null
+  tagNumber: string | null
+  dateSold: string | null
+  dateInService: string | null
+  status: string | null
+  shippingMethod: string | null
+  shippingTrackingNumber: string | null
+  invoiceId: string | null
+  invoiceNo: string | null
+  description: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmAssetPayload = Partial<
+  Omit<CrmAsset, 'id' | 'legacyId' | 'assetNo' | 'productName' | 'organizationName' | 'invoiceNo' | 'assignedToName' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmAssetListResponse {
+  status: number
+  message: string
+  data: { items: CrmAsset[]; pagination: CrmPagination }
+}
+
+export interface CrmAssetResponse {
+  status: number
+  message: string
+  data: CrmAsset
+}
+
+export interface CrmAssetListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  productId?: string
+  organizationId?: string
+}
+
+// ── Tickets (legacy "HelpDesk") ─────────────────────────────────────────
+
+export interface CrmTicket {
+  id: string
+  legacyId: string | null
+  ticketNo: string | null
+  title: string
+  organizationId: string | null
+  organizationName: string | null
+  contactId: string | null
+  contactName: string | null
+  productId: string | null
+  productName: string | null
+  assetId: string | null
+  assetName: string | null
+  serviceContractId: string | null
+  serviceContractNo: string | null
+  status: string | null
+  priority: string | null
+  severity: string | null
+  category: string | null
+  description: string | null
+  solution: string | null
+  hours: number | null
+  days: number | null
+  /** Set once, on the ticket's first comment - never moved by any comment after that. */
+  firstResponseAt: string | null
+  /** Computed on every read from created_at + the tenant's SLA policy for this priority - never stored, never trusted from a payload. */
+  slaDueAt: string | null
+  slaStatus: 'no_policy' | 'within_sla' | 'breached' | 'met'
+  slaResponseHours: number | null
+  /** Sales & Marketing gap-closure, Wave 6: set once by the hourly sweep the moment this ticket's SLA breaches unanswered - never cleared, never guessed. */
+  slaEscalatedAt: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmTicketPayload = Partial<
+  Omit<
+    CrmTicket,
+    'id' | 'legacyId' | 'ticketNo' | 'organizationName' | 'contactName' | 'productName'
+    | 'assetName' | 'serviceContractNo' | 'assignedToName' | 'firstResponseAt' | 'slaDueAt' | 'slaStatus' | 'slaResponseHours'
+    | 'slaEscalatedAt' | 'createdAt' | 'updatedAt'
+  >
+>
+
+// ── Support SLA policies (Sales & Marketing gap-closure, Wave 4) ─────────
+
+export interface CrmSlaPolicy {
+  id: string
+  priority: string
+  responseHours: number
+  /** Sales & Marketing gap-closure, Wave 6: who, besides the ticket's own assignee, gets told on breach. */
+  escalateToUserId: string | null
+  escalateToName: string | null
+  /** Opt-in: when true AND an escalation contact is set, a breach reassigns the ticket to them, not just notifies them. */
+  autoReassignOnBreach: boolean
+}
+
+export interface CrmSlaPoliciesResponse {
+  status: number
+  message: string
+  data: { policies: CrmSlaPolicy[]; priorities: string[] }
+}
+
+export interface CrmTicketListResponse {
+  status: number
+  message: string
+  data: { items: CrmTicket[]; pagination: CrmPagination }
+}
+
+export interface CrmTicketResponse {
+  status: number
+  message: string
+  data: CrmTicket
+}
+
+export interface CrmTicketListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  priority?: string
+  severity?: string
+  category?: string
+  organizationId?: string
+  contactId?: string
+  assetId?: string
+  serviceContractId?: string
+  assignedTo?: string
+}
+
+export interface CrmTicketStatusChangePayload {
+  status: string
+}
+
+export interface CrmTicketComment {
+  id: string
+  comment: string
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmTicketCommentsResponse {
+  status: number
+  message: string
+  data: CrmTicketComment[]
+}
+
+export interface CrmTicketStatusHistoryEntry {
+  id: string
+  fromStatus: string | null
+  toStatus: string | null
+  changedBy: string | null
+  changedByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmTicketStatusHistoryResponse {
+  status: number
+  message: string
+  data: CrmTicketStatusHistoryEntry[]
+}
+
+// ── FAQ ──────────────────────────────────────────────────────────────────
+
+export interface CrmFaq {
+  id: string
+  legacyId: string | null
+  faqNo: string | null
+  question: string
+  answer: string | null
+  category: string | null
+  status: string | null
+  productId: string | null
+  productName: string | null
+  assignedTo: string | null
+  assignedToName: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmFaqPayload = Partial<
+  Omit<CrmFaq, 'id' | 'legacyId' | 'faqNo' | 'productName' | 'assignedToName' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmFaqListResponse {
+  status: number
+  message: string
+  data: { items: CrmFaq[]; pagination: CrmPagination }
+}
+
+export interface CrmFaqResponse {
+  status: number
+  message: string
+  data: CrmFaq
+}
+
+export interface CrmFaqListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  category?: string
+  status?: string
+  productId?: string
+}
+
+// ── SMS Notifier ───────────────────────────────────────────────────────────
+
+export type CrmSmsStatus = 'queued' | 'sent' | 'failed'
+
+export interface CrmSmsLogEntry {
+  id: string
+  toNumber: string
+  message: string
+  status: CrmSmsStatus
+  errorReason: string | null
+  relatedType: string | null
+  relatedId: string | null
+  sentBy: string | null
+  createdAt: string | null
+}
+
+export interface CrmSmsLogListResponse {
+  status: number
+  message: string
+  data: { items: CrmSmsLogEntry[]; pagination: CrmPagination }
+}
+
+export interface CrmSendSmsPayload {
+  toNumber: string
+  message: string
+  relatedType?: string
+  relatedId?: string
+}
+
+export interface CrmSendSmsResponse {
+  status: number
+  message: string
+  data: CrmSmsLogEntry
+}
+
+export interface CrmBulkSendSmsResponse {
+  status: number
+  message: string
+  data: {
+    sent: number
+    failed: number
+    results: Array<{ id: string; ok: boolean; reason?: string }>
+  }
+}
+
+// ── Comments (Lead/Contact/Organization/Opportunity) ───────────────────────
+// Ticket keeps its own CrmTicketComment above - these 4 entities share one
+// identical row shape instead of 4 near-duplicate types.
+
+export interface CrmComment {
+  id: string
+  comment: string
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmCommentsResponse {
+  status: number
+  message: string
+  data: CrmComment[]
+}
+
+export interface CrmAddCommentResponse {
+  status: number
+  message: string
+  data: CrmComment
+}
+
+// ── Linked Documents (Lead/Contact/Organization/Opportunity/Ticket) ────────
+
+export interface CrmLinkedDocument {
+  id: string
+  title: string | null
+  originalFileName: string | null
+  mimeType: string | null
+  size: number | null
+  uploadedBy: string | null
+  uploadedByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmLinkedDocumentsResponse {
+  status: number
+  message: string
+  data: CrmLinkedDocument[]
+}
+
+export interface CrmLinkedDocumentResponse {
+  status: number
+  message: string
+  data: CrmLinkedDocument
+}
+
+// ── Emails ───────────────────────────────────────────────────────────────
+
+export type CrmEmailLinkedType = 'LEAD' | 'CONTACT' | 'ORGANIZATION' | 'OPPORTUNITY' | 'TICKET' | 'INVOICE'
+
+export interface CrmEmail {
+  id: string
+  legacyId: string | null
+  subject: string
+  body: string
+  toAddress: string
+  templateId: string | null
+  templateName: string | null
+  status: string | null
+  sentAt: string | null
+  failureReason: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmEmailPayload = {
+  subject: string
+  body: string
+  toAddress: string
+  templateId?: string
+  assignedTo?: string
+  linkedType: CrmEmailLinkedType
+  linkedId: string
+}
+
+export interface CrmEmailListResponse {
+  status: number
+  message: string
+  data: { items: CrmEmail[]; pagination: CrmPagination }
+}
+
+export interface CrmEmailResponse {
+  status: number
+  message: string
+  data: CrmEmail
+}
+
+export interface CrmEmailListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  status?: string
+  linkedType?: CrmEmailLinkedType
+  linkedId?: string
+}
+
+/** What `HasCrmEmailLinks::getEmails()` returns for one record's own Emails tab - same fields as CrmEmail plus the sender's display name. */
+export interface CrmEmailLinkEntry {
+  id: string
+  subject: string
+  body: string
+  toAddress: string
+  fromAddress?: string | null
+  direction?: 'inbound' | 'outbound' | string | null
+  templateId: string | null
+  templateName: string | null
+  status: string | null
+  sentAt: string | null
+  failureReason: string | null
+  assignedTo: string | null
+  createdBy: string | null
+  createdByName: string | null
+  createdAt: string | null
+}
+
+export interface CrmEmailLinkEntriesResponse {
+  status: number
+  message: string
+  data: CrmEmailLinkEntry[]
+}
+
+// ── Email Templates ──────────────────────────────────────────────────────
+
+export interface CrmEmailTemplate {
+  id: string
+  legacyId: string | null
+  name: string
+  folder: string | null
+  subject: string
+  body: string
+  assignedTo: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type CrmEmailTemplatePayload = Partial<
+  Omit<CrmEmailTemplate, 'id' | 'legacyId' | 'createdBy' | 'createdAt' | 'updatedAt'>
+>
+
+export interface CrmEmailTemplateListResponse {
+  status: number
+  message: string
+  data: { items: CrmEmailTemplate[]; pagination: CrmPagination }
+}
+
+export interface CrmEmailTemplateResponse {
+  status: number
+  message: string
+  data: CrmEmailTemplate
+}
+
+export interface CrmEmailTemplateListQuery {
+  page?: number
+  perPage?: number
+  search?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  folder?: string
+}
+
+// ── Audit Trail (generic, cross-entity) ─────────────────────────────────
+
+export interface CrmAuditEntry {
+  id: string
+  type: string
+  changes: { field: string; oldValue: unknown; newValue: unknown }[]
+  actorId: string | null
+  actorName: string | null
+  occurredAt: string | null
+}
+
+export interface CrmAuditEntryResponse {
+  status: number
+  message: string
+  data: CrmAuditEntry[]
+}
+
+// ── Phase 2: Signal Inbox ─────────────────────────────────────────────────
+
+export type SignalClassification =
+  | 'unclassified'
+  | 'buying_signal'
+  | 'brand_mention'
+  | 'competitor_move'
+  | 'industry_trend'
+  | 'irrelevant'
+
+export type SignalStatus = 'pending' | 'accepted' | 'rejected' | 'dismissed' | 'promoted'
+
+export interface SignalInboxItem {
+  id: string
+  signalKey: string
+  sourceName: string | null
+  sourceUrl: string | null
+  title: string
+  body: string | null
+  publishedAt: string | null
+  ingestedAt: string
+  classification: SignalClassification
+  classificationConfidence: number | null
+  classificationReason: string | null
+  relevanceScore: number | null
+  linkedAccountId: string | null
+  linkedAccountName: string | null
+  linkedAccountConfidence: number | null
+  status: SignalStatus
+  reviewedAt: string | null
+  promotedTo: string | null
+  assignedTo: string | null
+  tags: string[]
+}
+
+export interface SignalInboxListResponse {
+  status: number
+  message: string
+  data: {
+    items: SignalInboxItem[]
+    pagination: CrmPagination
+  }
+}
+
+export interface SignalInboxItemResponse {
+  status: number
+  message: string
+  data: SignalInboxItem
+}
+
+export interface SignalTopic {
+  id: string
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+  status: boolean
+}
+
+export interface SignalTopicPayload {
+  name: string
+  keywords: string[]
+  topicType: 'brand' | 'competitor' | 'industry' | 'buying_intent' | 'custom'
+}
+
+export interface SignalTopicsResponse {
+  status: number
+  message: string
+  data: SignalTopic[]
+}
+
+// ── Phase 3: Knowledge Graph ──────────────────────────────────────────────────
+
+export interface EntityRelationship {
+  id: string
+  fromType: string
+  fromId: string
+  toType: string
+  toId: string
+  relationshipType: string
+  confidence: number | null
+  source: string | null
+  sourceUrl: string | null
+  evidence: string | null
+  verified: boolean
+  createdAt: string | null
+}
+
+export interface EntityRelationshipPayload {
+  fromType: string
+  fromId: string
+  toType: string
+  toId: string
+  relationshipType: string
+  confidence?: number | null
+  source?: string
+  sourceUrl?: string
+  evidence?: string
+}
+
+export interface EntityRelationshipListResponse {
+  status: number
+  message: string
+  data: { items: EntityRelationship[]; pagination: CrmPagination }
+}
+
+export interface KnowledgeSource {
+  id: string
+  entityType: string
+  entityId: string
+  sourceType: 'web_scrape' | 'linkedin' | 'news' | 'document' | 'manual' | 'api'
+  title: string | null
+  url: string | null
+  content: string | null
+  confidence: number | null
+  verified: boolean
+  collectedAt: string | null
+}
+
+export interface KnowledgeSourcePayload {
+  entityType: string
+  entityId: string
+  sourceType: KnowledgeSource['sourceType']
+  title?: string
+  url?: string
+  content?: string
+  confidence?: number
+}
+
+export interface KnowledgeSourceListResponse {
+  status: number
+  message: string
+  data: { items: KnowledgeSource[]; pagination: CrmPagination }
+}
+
+export interface Account360CampaignEntry {
+  campaignId: string
+  campaignName: string
+  responseStatus: string
+  sentAt: string | null
+}
+
+export interface Account360 {
+  organization: Organization
+  contacts: Contact[]
+  leads: Lead[]
+  opportunities: CrmOpportunity[]
+  signals: SignalInboxItem[]
+  campaigns: Account360CampaignEntry[]
+  relationships: EntityRelationship[]
+  knowledgeSources: KnowledgeSource[]
+}
+
+export interface Account360Response {
+  status: number
+  message: string
+  data: Account360
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — AI Agents & Automation
+// ---------------------------------------------------------------------------
+
+export interface AgentRun {
+  id: string
+  agentType: 'prospecting' | 'outreach' | 'deal_coach' | 'workflow'
+  agentName: string
+  triggerType: string
+  triggerContext: Record<string, unknown> | null
+  inputData: Record<string, unknown> | null
+  outputData: Record<string, unknown> | null
+  status: 'running' | 'completed' | 'failed' | 'cancelled' | 'awaiting_approval'
+  errorMessage: string | null
+  tokensUsed: number | null
+  costUsd: number | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string | null
+}
+
+export interface AgentRunListResponse {
+  status: number
+  message: string
+  data: {
+    items: AgentRun[]
+    pagination: CrmPagination
+  }
+}
+
+export interface AgentRunResponse {
+  status: number
+  message: string
+  data: AgentRun
+}
+
+export interface AutomationRule {
+  id: string
+  name: string
+  description: string | null
+  triggerModule: 'lead' | 'contact' | 'opportunity' | 'signal' | 'campaign'
+  triggerEvent: string
+  triggerConditions: Array<{ field: string; operator: string; value: string }> | null
+  actions: Array<{ actionType: string; params: Record<string, unknown> }>
+  isActive: boolean
+  runCount: number
+  lastRunAt: string | null
+}
+
+export interface AutomationRuleListResponse {
+  status: number
+  message: string
+  data: AutomationRule[]
+}
+
+export interface AutomationRuleResponse {
+  status: number
+  message: string
+  data: AutomationRule
+}
+
+export interface AutomationRulePayload {
+  name: string
+  description?: string
+  triggerModule: string
+  triggerEvent: string
+  triggerConditions?: Array<{ field: string; operator: string; value: string }>
+  actions: Array<{ actionType: string; params: Record<string, unknown> }>
+}
+
+export interface ProspectingResult {
+  runId: number
+  icpFitScore: number
+  icpFitReason: string
+  suggestedContacts: unknown[]
+  signals: unknown[]
+  recommendation: string
+}
+
+export interface OutreachDraft {
+  runId: number
+  subject: string
+  body: string
+  tone: string
+  confidence: number
+}
+
+export interface DealCoachResult {
+  runId: number
+  nextBestAction: string
+  reason: string
+  riskLevel: 'low' | 'medium' | 'high'
+  suggestions: string[]
+}
+
+export interface ProspectingResponse {
+  status: number
+  message: string
+  data: ProspectingResult
+}
+
+export interface OutreachDraftResponse {
+  status: number
+  message: string
+  data: OutreachDraft
+}
+
+export interface DealCoachResponse {
+  status: number
+  message: string
+  data: DealCoachResult
+}

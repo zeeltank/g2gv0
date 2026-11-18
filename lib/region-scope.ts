@@ -1,0 +1,160 @@
+/*
+ * The geography one Generate Signals request is limited to. [] means "All Regions" (the existing behaviour, nothing is sent). The server validates
+ * and normalises every selection again and is the authority; these checks only stop an obviously unusable choice before a request is made.
+ * Nothing here is saved on a product or its ICP.
+ */
+
+export interface RegionSelection {
+  country: string
+  state?: string
+  city?: string
+  /**
+   * The location catalogue's own codes, present when the place was picked from the Country > State > City lists. The backend validates them and
+   * completes them for older places that have only names. A place without them (an older saved one) is still valid and is never changed to another.
+   */
+  country_code?: string
+  state_code?: string
+  city_id?: number
+}
+
+export const MAX_REGIONS = 5
+const NAME = /^[\p{L}\p{M}0-9][\p{L}\p{M}0-9 .,'’()-]*$/u
+
+const clean = (v: string | undefined): string | undefined => {
+  const t = (v ?? '').replace(/\s+/g, ' ').trim()
+  return t === '' ? undefined : t
+}
+
+/** The country names the browser knows, from its own locale data (no list is built into the app, and no country is favoured). */
+export function countryOptions(locale = 'en'): { code: string; name: string }[] {
+  let names: Intl.DisplayNames
+  try {
+    names = new Intl.DisplayNames([locale], { type: 'region' })
+  } catch {
+    return []
+  }
+  const out: { code: string; name: string }[] = []
+  for (let a = 65; a <= 90; a++) {
+    for (let b = 65; b <= 90; b++) {
+      const code = String.fromCharCode(a, b)
+      let name: string | undefined
+      try { name = names.of(code) } catch { name = undefined }
+      // An unassigned code comes back as itself; a few are not countries at all.
+      if (name && name !== code && !/^Unknown/i.test(name)) out.push({ code, name })
+    }
+  }
+  const sorted = out.sort((x, y) => x.name.localeCompare(y.name))
+  const india = sorted.find((c) => c.name.toLowerCase() === 'india')
+  if (india) {
+    return [india, ...sorted.filter((c) => c.name.toLowerCase() !== 'india')]
+  }
+  return sorted
+}
+
+/** What the person has picked in the control but not added yet. The codes come from the lists; `countryHasStates` is false for a country the data has no states for. */
+export interface RegionDraft {
+  country: string
+  state: string
+  city: string
+  countryCode?: string
+  stateCode?: string
+  cityId?: number
+  countryHasStates?: boolean
+}
+
+export const emptyDraft = (): RegionDraft => ({ country: '', state: '', city: '' })
+
+export const draftIsEmpty = (d: RegionDraft): boolean => d.country.trim() === '' && d.state.trim() === '' && d.city.trim() === ''
+
+/**
+ * The places a run will really use: the added ones plus a pending draft, if there is one. A draft that cannot be used (for example a state with
+ * no country, or a city with no state) is NOT turned into something else: it is reported and generation waits for the person to fix it.
+ * An empty draft changes nothing, so All Regions stays All Regions.
+ */
+export function commitPending(list: RegionSelection[], draft: RegionDraft): { list: RegionSelection[]; problems: string[] } {
+  if (draftIsEmpty(draft)) return { list, problems: [] }
+  const r = addSelection(list, draftSelection(draft), { cityWithoutState: draft.countryHasStates === false })
+  return r.problems.length > 0 ? { list, problems: r.problems.map((p) => `Region: ${p}`) } : r
+}
+
+/** The same, for showing what will be used before anything is sent: an unusable draft is left out of the preview (and reported by commitPending). */
+export const previewRegions = (list: RegionSelection[], draft: RegionDraft): RegionSelection[] => {
+  const c = commitPending(list, draft)
+  return c.problems.length > 0 ? list : c.list
+}
+
+/** The selection a draft stands for: its names, and the codes only for the levels still chosen (a cleared level never keeps a stale code). */
+export function draftSelection(draft: RegionDraft): RegionSelection {
+  const state = draft.state.trim()
+  const city = draft.city.trim()
+  return {
+    country: draft.country,
+    state: draft.state,
+    city: draft.city,
+    ...(draft.countryCode ? { country_code: draft.countryCode } : {}),
+    ...(state && draft.stateCode ? { state_code: draft.stateCode } : {}),
+    ...(city && draft.cityId !== undefined ? { city_id: draft.cityId } : {}),
+  }
+}
+
+/** What is wrong with a selection (empty when it can be added). Country, then state/province, then city: a city needs its state, unless the country has none. */
+export function problemsWith(sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): string[] {
+  const out: string[] = []
+  const country = clean(sel.country)
+  const state = clean(sel.state)
+  const city = clean(sel.city)
+  if (!country) out.push('Choose a country.')
+  for (const [label, v] of [['Country', country], ['State / province', state], ['City', city]] as const) {
+    if (v !== undefined && (v.length < 2 || v.length > 80 || !NAME.test(v))) out.push(`${label}: 2 to 80 characters; letters, digits, spaces and . , ' ( ) - only.`)
+  }
+  // State and city are free text and both optional: a city may be given without a state.
+  return out
+}
+
+const key = (s: RegionSelection) => [s.country, s.state ?? '', s.city ?? ''].map((x) => x.toLowerCase()).join('|')
+
+/** The selection with spaces tidied and empty levels removed. The codes stay with the levels that remain: a removed level takes its code with it. */
+export function normalise(sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): RegionSelection {
+  const country = clean(sel.country) as string
+  const state = clean(sel.state)
+  const city = clean(sel.city)
+  const keepCity = Boolean(city)
+  return {
+    country,
+    ...(state ? { state } : {}),
+    ...(keepCity ? { city } : {}),
+    ...(sel.country_code ? { country_code: sel.country_code } : {}),
+    ...(state && sel.state_code ? { state_code: sel.state_code } : {}),
+    ...(keepCity && sel.city_id !== undefined ? { city_id: sel.city_id } : {}),
+  }
+}
+
+/** Adds one selection (unless it is unusable, already chosen, or the list is full). Returns the new list and why nothing was added. */
+export function addSelection(list: RegionSelection[], sel: RegionSelection, options: { cityWithoutState?: boolean } = {}): { list: RegionSelection[]; problems: string[] } {
+  const problems = problemsWith(sel, options)
+  if (problems.length > 0) return { list, problems }
+  if (list.length >= MAX_REGIONS) return { list, problems: [`Choose at most ${MAX_REGIONS} places.`] }
+  const next = normalise(sel, options)
+  if (list.some((x) => key(x) === key(next))) return { list, problems: [] }
+  return { list: [...list, next], problems: [] }
+}
+
+export const removeSelection = (list: RegionSelection[], index: number): RegionSelection[] => list.filter((_, i) => i !== index)
+
+/** "Surat, Gujarat, India" or "All Regions". */
+export function regionLabel(list: RegionSelection[]): string {
+  if (list.length === 0) return 'All Regions'
+  return list.map((s) => [s.city, s.state, s.country].filter(Boolean).join(', ')).join('; ')
+}
+
+/** A short form for the control itself: the first place, and how many more. */
+export function regionShortLabel(list: RegionSelection[]): string {
+  if (list.length === 0) return 'All Regions'
+  const first = [list[0].city, list[0].state, list[0].country].filter(Boolean)[0] as string
+  return list.length === 1 ? first : `${first} +${list.length - 1}`
+}
+
+/** The request body part: nothing at all for All Regions, so an unchanged request is byte-for-byte the one that was always sent. */
+export function regionsPayload(list: RegionSelection[]): { regions?: RegionSelection[] } {
+  return list.length === 0 ? {} : { regions: list.map((s) => normalise(s, { cityWithoutState: true })) }   // the list was already checked when each place was added
+}

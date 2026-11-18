@@ -37,6 +37,9 @@ import { Gauge, TriangleAlert } from 'lucide-react';
 import { fetchRuns } from '@/lib/agents/client';
 import { fetchModuleUsage, type AiModuleTokens, type AiModuleUsage } from '@/lib/intelligence/ai-module';
 import type { AgentRun } from '@/lib/agents/types';
+// One money formatter for rupees and dollars (the Runs tab of Signal Review uses it too). Each figure is shown in the currency the server reports for it and
+// is never converted: there is no exchange rate in this system, and inventing one would make a provider bill unreconcilable with this screen.
+import { formatMoney } from '@/lib/signal-review/format';
 
 import {
   AiStackCard,
@@ -69,7 +72,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchModuleUsage(module.key)
+    fetchModuleUsage(module.key, { rollup: true })
       .then((next) => {
         if (cancelled) return;
         setUsage(next);
@@ -82,7 +85,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
         setLoading(false);
       });
 
-    fetchRuns({ module: module.key, limit: 200 })
+    fetchRuns({ module: module.key, limit: 200, rollup: true })
       .then((next) => {
         if (!cancelled) setRuns(next);
       })
@@ -132,7 +135,7 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           {
             key: 'questions',
             label: `${module.label} questions`,
-            value: conversations?.available ? (conversations.turn_detail.total ?? 0) : '—',
+            value: conversations?.available && conversations.turn_detail.total !== undefined ? conversations.turn_detail.total : '—',
             hint: conversations?.available
               ? `across ${conversations.total.toLocaleString('en-IN')} conversations`
               : 'unavailable',
@@ -150,18 +153,21 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
               conversations?.available && conversations.turn_detail.avg_duration_ms
                 ? `${(conversations.turn_detail.avg_duration_ms / 1000).toFixed(1)}s`
                 : '—',
-            hint: 'per question',
+            hint:
+              conversations?.available && conversations.turn_detail.latency_samples !== undefined
+                ? `per question, over ${conversations.turn_detail.latency_samples} timed answer${conversations.turn_detail.latency_samples === 1 ? '' : 's'}`
+                : 'per question',
           },
           {
             key: 'agent-runs',
             label: 'Tool-agent runs',
-            value: runs ? runs.length : '—',
+            value: runs ? (runs.length >= 200 ? '200+' : runs.length) : '—',
             hint: runsError ? 'store unreachable' : `${module.label} tool agents`,
           },
           {
             key: 'cost',
             label: 'Cost',
-            value: tokens?.cost !== null && tokens?.cost !== undefined ? formatUsd(tokens.cost) : '—',
+            value: tokens?.cost !== null && tokens?.cost !== undefined ? formatMoney(tokens.cost, tokens.cost_currency ?? 'USD') : '—',
             hint: tokens?.cost_source === 'unavailable' ? 'no rate or tokens' : (tokens?.cost_source ?? 'unavailable'),
           },
         ]}
@@ -186,7 +192,10 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           ) : (
             <dl className="divide-y divide-slate-100">
               <Row label="Conversations" value={conversations.total.toLocaleString('en-IN')} />
-              <Row label="Questions asked" value={(conversations.turn_detail.total ?? 0).toLocaleString('en-IN')} />
+              <Row
+                label="Questions asked"
+                value={conversations.turn_detail.total === undefined ? 'not recorded' : conversations.turn_detail.total.toLocaleString('en-IN')}
+              />
               <Row label="Distinct people" value={conversations.distinct_users.toLocaleString('en-IN')} />
               <Row label="First activity" value={formatWhen(conversations.first_activity)} />
               <Row label="Last activity" value={formatWhen(conversations.last_activity)} />
@@ -210,7 +219,9 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
           />
           {!conversations?.available || !(conversations.turn_detail.by_intent ?? []).length ? (
             <p className="px-5 py-6 text-sm text-slate-500">
-              No questions have been classified for {module.label} yet.
+              {conversations?.available
+                ? 'The intent of a question is not recorded for this estate, so there is no breakdown to show.'
+                : 'Conversation records could not be read, so no breakdown is shown.'}
             </p>
           ) : (
             <ul className="divide-y divide-slate-100">
@@ -266,8 +277,11 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
                   label="Generations"
                   value={(generation?.available ? generation.total : 0).toLocaleString('en-IN')}
                 />
-                <Row label="Outputs produced" value={tokens.outputs.toLocaleString('en-IN')} />
-                <Row label="Reviewed by a person" value={tokens.reviewed.toLocaleString('en-IN')} />
+                <Row label="Outputs produced" value={tokens.outputs === null ? 'not metered' : tokens.outputs.toLocaleString('en-IN')} />
+                <Row
+                  label="Reviewed by a person"
+                  value={tokens.reviewed === null ? 'not tracked' : tokens.reviewed.toLocaleString('en-IN')}
+                />
                 <Row
                   label="Prompt tokens"
                   value={tokens.prompt_tokens === null ? 'not recorded' : tokens.prompt_tokens.toLocaleString('en-IN')}
@@ -287,14 +301,16 @@ export function AiStackUsageCostScreen({ module }: { module: AiStackModule }) {
                       ? `no model bound to ${module.label}`
                       : tokens.rate.input_per_1k === null && tokens.rate.output_per_1k === null
                         ? `${tokens.rate.label} — no price published`
-                        : `${tokens.rate.label} — ${formatUsd(tokens.rate.input_per_1k ?? 0)} in / ${formatUsd(
-                            tokens.rate.output_per_1k ?? 0,
-                          )} out per 1k`
+                        : `${tokens.rate.label} — ${
+                            tokens.rate.input_per_1k === null ? 'no input price' : formatMoney(tokens.rate.input_per_1k, tokens.rate.currency ?? 'USD')
+                          } in / ${
+                            tokens.rate.output_per_1k === null ? 'no output price' : formatMoney(tokens.rate.output_per_1k, tokens.rate.currency ?? 'USD')
+                          } out per 1k`
                   }
                 />
                 <Row
                   label="Cost"
-                  value={tokens.cost === null ? 'not calculable' : `${formatUsd(tokens.cost)} (${tokens.cost_source})`}
+                  value={tokens.cost === null ? 'not calculable' : `${formatMoney(tokens.cost, tokens.cost_currency ?? 'USD')} (${tokens.cost_source})`}
                 />
               </dl>
               {generation?.available && Object.keys(generation.by_status).length > 0 && (
@@ -480,19 +496,4 @@ function Row({ label, value }: { label: string; value: string }) {
       <dd className="text-sm tabular-nums text-slate-900">{value}</dd>
     </div>
   );
-}
-
-/**
- * Rates and costs are published in USD per 1,000 tokens, so they are shown in USD.
- *
- * Deliberately not converted to rupees: there is no exchange rate in this system, and
- * inventing one would make a provider bill unreconcilable with this screen.
- */
-function formatUsd(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: value > 0 && value < 0.01 ? 6 : 2,
-    maximumFractionDigits: 6,
-  }).format(value);
 }

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Lock, Pencil, Plus, Settings2, ShieldAlert, Trash2, X } from 'lucide-react'
+import { Lock, Pencil, Plus, Settings2, ShieldAlert, Trash2, X, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -31,6 +31,11 @@ export function TmPriorityManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [slaHours, setSlaHours] = useState('')
+  // '' means "no custom color" - omitted from the save payload, same
+  // untouched-field idiom slaHours already uses. A native color input
+  // cannot itself represent empty, so the swatch falls back to a neutral
+  // display-only placeholder while this stays ''.
+  const [color, setColor] = useState('')
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -60,6 +65,7 @@ export function TmPriorityManagement() {
     setEditingId(option.id)
     setName(option.name)
     setSlaHours(option.sla_hours !== null ? String(option.sla_hours) : '')
+    setColor(option.color ?? '')
     setMessage('')
   }
 
@@ -67,6 +73,7 @@ export function TmPriorityManagement() {
     setEditingId(null)
     setName('')
     setSlaHours('')
+    setColor('')
   }
 
   const save = async () => {
@@ -77,6 +84,7 @@ export function TmPriorityManagement() {
       const payload = {
         name: name.trim(),
         ...(slaHours.trim() ? { sla_hours: Number(slaHours) } : {}),
+        ...(color ? { color } : {}),
       }
       const response = editingId
         ? await taskService.updatePriorityOption(context, editingId, payload)
@@ -146,6 +154,29 @@ export function TmPriorityManagement() {
             className="h-10 w-full rounded-lg border px-3 text-sm"
           />
         </label>
+        <label>
+          <span className="mb-1 block text-xs font-semibold">Color (optional)</span>
+          <div className="flex h-10 items-center gap-1.5">
+            <input
+              type="color"
+              value={color || '#94A3B8'}
+              onChange={(event) => setColor(event.target.value)}
+              aria-label="Priority color"
+              className="h-10 w-12 rounded-lg border p-1"
+            />
+            {color && (
+              <button
+                type="button"
+                onClick={() => setColor('')}
+                title="Clear color"
+                aria-label="Clear color"
+                className="text-muted-foreground transition-colors hover:text-destructive"
+              >
+                <XCircle className="size-4" />
+              </button>
+            )}
+          </div>
+        </label>
         <Button onClick={() => void save()} disabled={busy || !name.trim()}>
           {editingId ? <Pencil className="mr-2 size-4" /> : <Plus className="mr-2 size-4" />}
           {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add Priority'}
@@ -171,6 +202,12 @@ export function TmPriorityManagement() {
               )}
             >
               <ShieldAlert className="h-5 w-5 shrink-0 text-primary" />
+              <span
+                className="size-5 shrink-0 rounded-full border border-border"
+                style={{ background: option.color ?? 'var(--muted)' }}
+                title={option.color ?? 'No color set'}
+                aria-hidden="true"
+              />
               <div className="min-w-28">
                 <PriorityBadge priority={option.name} />
               </div>

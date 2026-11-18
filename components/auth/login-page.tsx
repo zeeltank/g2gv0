@@ -66,9 +66,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (!isAuthLoading && isAuthenticated) {
-      window.location.href = '/dashboard'
+      router.replace('/dashboard')
     }
-  }, [isAuthLoading, isAuthenticated])
+  }, [isAuthLoading, isAuthenticated, router])
 
   /*
    * ALWAYS LIGHT — see the file header for why this needs two mechanisms.
@@ -126,42 +126,22 @@ export function LoginPage() {
    * provider mounted in the layout cannot answer it (it runs before anybody
    * has signed in).
    */
-  const getRedirectTarget = async () => {
+  const getRedirectTarget = () => {
     const redirect = searchParams.get('redirect')
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
       return redirect
     }
 
     try {
-      const context = getLaravelContext(null)
-
-      if (!isLaravelContextReady(context)) return '/dashboard'
-
-      /*
-       * A SLOW RESPONSE MUST NOT BE THE REASON SOMEBODY CANNOT GET IN.
-       *
-       * The comment below already covers this call REJECTING (network error,
-       * 4xx/5xx) — the catch swallows it and falls back to '/dashboard'. It
-       * did nothing for this call simply never SETTLING: the session is
-       * already fully committed by this point (login() has stored the token
-       * and set the auth cookie), but router.push below is only reached once
-       * this promise resolves, and apiClient's fetch carries no timeout of
-       * its own. A stalled response here left the screen looking stuck on
-       * /login with a spinning button, even though a manual refresh proved
-       * the sign-in had already succeeded. Racing it against a short timeout
-       * — falling into the same existing fallback below — closes that gap
-       * without changing what this call is for.
-       */
-      const me = await Promise.race([
-        accountService.me(context),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timed out reading landing page preference.')), 2500)),
-      ])
-
-      if (me.data.preferences.landing_page === 'last-visited') {
-        return readLastVisited() ?? '/dashboard'
+      const preferred = window.localStorage.getItem('gtg-landing-page')
+      if (preferred === 'last-visited') {
+        const last = readLastVisited()
+        if (last && last.startsWith('/') && !last.startsWith('//')) {
+          return last
+        }
       }
     } catch {
-      // A preference lookup must never be the reason somebody cannot get in.
+      // Storage unavailable
     }
 
     return '/dashboard'
@@ -276,7 +256,7 @@ export function LoginPage() {
       // whether the session survives the browser closing — see
       // setSessionCookie() in gtg-auth.tsx.
       await login(email, password, second, rememberMe)
-      router.push(await getRedirectTarget())
+      router.push(getRedirectTarget())
     } catch (err) {
       if (err instanceof TwoFactorRequiredError) {
         /*

@@ -3,68 +3,138 @@
 /**
  * Capability Explorer — the competency graph.
  *
- * The graph itself is a separate Neo4j-backed service, so this embeds it
- * scoped to the current organisation rather than reimplementing a graph
- * renderer. That service owns the data; this owns the framing, the tenant
- * scope and the failure state.
+ * Was an embedded third-party demo (skill-ontology-neo4j.vercel.app),
+ * flagged on-screen as "not built from your organisation's own role and
+ * competency mapping." Replaced with a real reader of
+ * `JobRoleGraphController::show()` — this organisation's own Neo4j graph:
+ * REQUIRES_SKILL/KNOWLEDGE/ABILITY/ATTITUDE edges (plus REQUIRES_BEHAVIOUR,
+ * one hop further, off each skill). That endpoint existed with zero
+ * frontend callers — orphaned because its original query crashed on any
+ * well-populated role (a cartesian product across every relationship
+ * family at once); fixed server-side as decorrelated per-relationship
+ * queries, so this is the first real caller.
  *
- * An iframe cannot report a failed load cross-origin, so there is no way to
- * distinguish "still loading" from "the service is down" by listening. Instead
- * the frame is given a grace period and, once elapsed, an escape hatch appears
- * alongside it — the user is never left staring at a blank rectangle with no
- * way forward.
+ * Job-role search reuses `competencyLibrariesService.list(..., 'jobrole')`
+ * — the same endpoint the Competency Library's own Job Role tab already
+ * calls — rather than building a second job-role search.
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Network, RefreshCw, Info } from 'lucide-react'
+import { Network, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { useAuth } from '@/hooks/use-auth'
+import { competencyLibrariesService, type JobroleRow } from '@/services/competency/libraries'
+import { graphService, type GraphNode } from '@/services/competency/graph'
 
-/** The hosted graph explorer. */
-const ONTOLOGY_ORIGIN = 'https://skill-ontology-neo4j.vercel.app'
+/** A node, grouped under the relationship type that reached it. */
+type GroupedEdges = Record<string, GraphNode[]>
 
-/** How long to show the loading state before offering a way out. */
-const LOAD_GRACE_MS = 6000
+const RELATIONSHIP_GROUPS: Array<{ type: string; heading: string }> = [
+  { type: 'REQUIRES_SKILL', heading: 'Skills required' },
+  { type: 'REQUIRES_KNOWLEDGE', heading: 'Knowledge required' },
+  { type: 'REQUIRES_ABILITY', heading: 'Abilities required' },
+  // Not a typo: the graph itself stores this relationship type without the
+  // final D (confirmed against live data — 984 real edges, all spelled
+  // this way). See JobRoleGraphController::show() on the backend.
+  { type: 'REQUIRES_ATTITUTE', heading: 'Attitudes required' },
+  { type: 'REQUIRES_BEHAVIOUR', heading: 'Behaviours' },
+]
+
+function labelOf(node: GraphNode): string {
+  const p = node.properties || {}
+  const name = p.jobrole ?? p.title ?? p.name ?? p.displayLabel ?? p.label
+  return name !== undefined && name !== null && name !== ''
+    ? String(name)
+    : `${node.labels[0] ?? 'Node'} ${node.id}`
+}
 
 export function CmTaxonomyOntology() {
   const { user } = useAuth()
   const context = getLaravelContext(user)
   const subInstituteId = context.subInstituteId
 
-  // Bumped to force the iframe to remount on Reload.
-  const [nonce, setNonce] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roles, setRoles] = useState<JobroleRow[]>([])
+  const [rolesLoading, setRolesLoading] = useState(false)
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null)
 
-  // Both flags are tracked as "which attempt did this happen on" rather than
-  // booleans that an effect has to reset. A new attempt makes them false by
-  // derivation, so nothing has to be un-set when the source changes.
-  const [loadedNonce, setLoadedNonce] = useState(-1)
-  const [graceNonce, setGraceNonce] = useState(-1)
-
-  const loaded = loadedNonce === nonce
-  const graceElapsed = graceNonce === nonce
-
-  const src = useMemo(
-    () => (subInstituteId ? `${ONTOLOGY_ORIGIN}/?sub_institute_id=${encodeURIComponent(subInstituteId)}` : ''),
-    [subInstituteId],
-  )
+  const [rootLabel, setRootLabel] = useState<string | null>(null)
+  const [grouped, setGrouped] = useState<GroupedEdges>({})
+  const [graphLoading, setGraphLoading] = useState(false)
+  const [graphError, setGraphError] = useState<string | null>(null)
 
   useEffect(() => {
-    // The only state change here happens later, in the timer callback, so
-    // nothing cascades out of the effect body.
-    const timer = setTimeout(() => setGraceNonce(nonce), LOAD_GRACE_MS)
-    return () => clearTimeout(timer)
-  }, [src, nonce])
+    if (!subInstituteId) return
+    let cancelled = false
+    setRolesLoading(true)
+
+    competencyLibrariesService
+      .list<JobroleRow>(context, 'jobrole', searchTerm ? { search: searchTerm } : undefined)
+      .then((res) => {
+        if (!cancelled) setRoles(res.data ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setRoles([])
+      })
+      .finally(() => {
+        if (!cancelled) setRolesLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subInstituteId, searchTerm])
+
+  const loadGraph = async (roleId: number) => {
+    setSelectedRoleId(roleId)
+    setGraphLoading(true)
+    setGraphError(null)
+
+    try {
+      const result = await graphService.jobRole(context, roleId)
+
+      if (!result.rootNode) {
+        setRootLabel(null)
+        setGrouped({})
+        setGraphError("This role has no taxonomy edges in the graph yet.")
+        return
+      }
+
+      setRootLabel(labelOf(result.rootNode))
+
+      const nodesById = new Map<number, GraphNode>()
+      result.nodes.forEach((n) => nodesById.set(n.id, n))
+      nodesById.set(result.rootNode.id, result.rootNode)
+
+      const next: GroupedEdges = {}
+      result.relationships.forEach((rel) => {
+        const target = nodesById.get(rel.endNode)
+        if (!target) return
+        next[rel.type] = next[rel.type] ?? []
+        if (!next[rel.type].some((n) => n.id === target.id)) next[rel.type].push(target)
+      })
+      setGrouped(next)
+    } catch (e: unknown) {
+      setGraphError(e instanceof Error ? e.message : "Couldn't load that role's graph.")
+      setGrouped({})
+    } finally {
+      setGraphLoading(false)
+    }
+  }
+
+  const hasAnyEdges = useMemo(() => Object.keys(grouped).length > 0, [grouped])
 
   if (!subInstituteId) {
     return (
       <EmptyState
         icon={<Network className="h-8 w-8" />}
         title="No organisation selected"
-        description="The ontology is scoped to one organisation, so it needs an active session to load."
+        description="The competency graph is scoped to one organisation, so it needs an active session to load."
       />
     )
   }
@@ -79,97 +149,113 @@ export function CmTaxonomyOntology() {
           <div className="min-w-0">
             <h2 className="text-lg font-bold tracking-tight text-foreground">Capability Explorer</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              How this organisation&apos;s competencies, job roles and taxonomies connect to each other, as a graph.
-              Useful for spotting orphaned competencies and roles that share more than they appear to.
+              This organisation&apos;s own competency graph — search a job role to see what it
+              actually requires, read live from Neo4j.
             </p>
           </div>
         </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setNonce((value) => value + 1)}
-              className="h-9 gap-2 rounded-lg font-semibold"
-            >
-              <RefreshCw className="h-4 w-4" /> Reload
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
-              className="h-9 gap-2 rounded-lg font-semibold"
-            >
-              <ExternalLink className="h-4 w-4" /> Open full screen
-            </Button>
-          </>
-        </div>
       </div>
 
-      <>
-      {/* The graph is a REFERENCE view: its adjacency comes from a hosted
-          example dataset, not from this organisation's own role/competency
-          mapping. Unlabelled, a user may reasonably read it as organisational
-          fact. C-T3-ONT replaces it with adjacency computed from
-          jobrole_competency_map, at which point this notice comes out. */}
-      <div
-        role="note"
-        className="mb-3 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2"
-      >
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-        <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
-          <span className="font-semibold">Reference view.</span> This graph shows an
-          example competency ontology to illustrate how skills relate. It is{' '}
-          <span className="font-semibold">not built from your organisation&rsquo;s
-          own role and competency mapping</span>, so it should not be used to draw
-          conclusions about your employees or roles.
-        </p>
-      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card/40">
+          <div className="border-b border-border/60 p-3">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-1.5">
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search job roles"
+                className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
 
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card/40">
-        {!loaded && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-card/80 p-6 backdrop-blur-sm">
-            <Skeleton className="h-40 w-full max-w-2xl rounded-xl" />
-            <p className="text-sm text-muted-foreground">Loading the competency graph…</p>
-
-            {/* Cross-origin frames cannot report failure, so after the grace
-                period the user gets a way forward instead of a blank panel. */}
-            {graceElapsed && (
-              <div className="flex flex-wrap items-center justify-center gap-2 text-center">
-                <p className="w-full text-xs text-muted-foreground">
-                  Still loading. The graph service may be waking up.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setNonce((value) => value + 1)}
-                  className="h-8 gap-1.5 rounded-lg text-xs font-semibold"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Retry
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(src, '_blank', 'noopener,noreferrer')}
-                  className="h-8 gap-1.5 rounded-lg text-xs font-semibold"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" /> Open in a new tab
-                </Button>
+          <div className="max-h-[34rem] divide-y divide-border/60 overflow-auto">
+            {rolesLoading ? (
+              <div className="space-y-3 p-4">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                ))}
               </div>
+            ) : roles.length === 0 ? (
+              <p className="px-4 py-8 text-xs text-muted-foreground">Nothing matches that search.</p>
+            ) : (
+              roles.map((role) => (
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => void loadGraph(role.id)}
+                  className={`flex w-full flex-col gap-1 px-4 py-2.5 text-left transition-colors hover:bg-muted/60 ${
+                    selectedRoleId === role.id ? 'bg-primary/5' : ''
+                  }`}
+                >
+                  <span className="truncate text-sm font-medium text-foreground">{role.jobrole}</span>
+                  {role.department && (
+                    <span className="truncate text-[11px] text-muted-foreground">{role.department}</span>
+                  )}
+                </button>
+              ))
             )}
           </div>
-        )}
+        </div>
 
-        <iframe
-          key={nonce}
-          src={src}
-          title="Competency ontology graph"
-          onLoad={() => setLoadedNonce(nonce)}
-          // The graph is read-only and third-party: no same-origin access, no
-          // top-level navigation, no downloads.
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
-          referrerPolicy="no-referrer"
-          className="h-[calc(100vh-19rem)] min-h-[520px] w-full border-0"
-        />
+        <div className="space-y-4">
+          {graphLoading ? (
+            <div className="rounded-2xl border border-border bg-card/40 p-5">
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          ) : !selectedRoleId ? (
+            <div className="flex min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-border bg-card/40 p-8 text-center">
+              <Network className="mb-3 h-7 w-7 text-muted-foreground/60" />
+              <p className="text-sm text-muted-foreground">Pick a job role on the left to explore it.</p>
+            </div>
+          ) : graphError ? (
+            <div className="flex min-h-[16rem] flex-col items-center justify-center rounded-2xl border border-border bg-card/40 p-8 text-center">
+              <Network className="mb-3 h-7 w-7 text-muted-foreground/60" />
+              <p className="text-sm text-muted-foreground">{graphError}</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-border bg-card/40 p-5">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Job role
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-foreground">{rootLabel}</h2>
+              </div>
+
+              {!hasAnyEdges ? (
+                <div className="rounded-2xl border border-border bg-card/40 p-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    This job role has no taxonomy edges in the graph yet.
+                  </p>
+                </div>
+              ) : (
+                RELATIONSHIP_GROUPS.map(({ type, heading }) => {
+                  const items = grouped[type]
+                  if (!items?.length) return null
+                  return (
+                    <div key={type} className="overflow-hidden rounded-2xl border border-border bg-card/40">
+                      <div className="border-b border-border/60 px-5 py-3">
+                        <p className="text-sm font-semibold text-foreground">{heading}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 p-5">
+                        {items.map((node) => (
+                          <span
+                            key={node.id}
+                            className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                          >
+                            {labelOf(node)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </>
+          )}
+        </div>
       </div>
-      </>
     </div>
   )
 }

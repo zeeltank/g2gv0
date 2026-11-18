@@ -501,7 +501,7 @@ export function AiStackModelsScreen({ module }: { module: AiStackModelsModule })
                   <option value="">Choose a provider…</option>
                   {providers.map((option: AiModuleProviderOption) => (
                     <option key={option.key} value={option.key}>
-                      {option.label}
+                      {option.label}{option.has_credential === false ? " — no credential" : ""}
                     </option>
                   ))}
                 </select>
@@ -692,7 +692,7 @@ export function AiStackModelsScreen({ module }: { module: AiStackModelsModule })
                       <option value="">Choose a provider…</option>
                       {providers.map((option: AiModuleProviderOption) => (
                         <option key={option.key} value={option.key}>
-                          {option.label}
+                          {option.label}{option.has_credential === false ? " — no credential" : ""}
                         </option>
                       ))}
                     </select>

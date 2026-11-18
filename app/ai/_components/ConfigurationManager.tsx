@@ -50,6 +50,8 @@ interface FormState {
   account_email: string;
   api_limit: string;
   status: number;
+  /** Add as a further failover credential instead of being refused as a duplicate. */
+  additional: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -61,6 +63,7 @@ const EMPTY_FORM: FormState = {
   account_email: '',
   api_limit: '',
   status: 1,
+  additional: false,
 };
 
 export function ConfigurationManager() {
@@ -143,6 +146,7 @@ export function ConfigurationManager() {
       account_email: row.account_email ?? '',
       api_limit: row.api_limit ?? '',
       status: row.status,
+      additional: false,
     });
     setFormError(null);
     setFieldErrors({});
@@ -170,6 +174,7 @@ export function ConfigurationManager() {
       account_email: form.account_email.trim() === '' ? null : form.account_email.trim(),
       api_limit: form.api_limit.trim() === '' ? null : Number(form.api_limit),
       status: form.status,
+      ...(form.id === null && form.additional ? { additional_credential: true } : {}),
       // Omitted entirely on an edit with no new key, so the server leaves the stored
       // credential alone rather than being sent an empty string to store.
       ...(form.api_key.trim() === '' ? {} : { api_key: form.api_key.trim() }),
@@ -487,6 +492,23 @@ function ConfigurationForm({
         Active
       </label>
 
+      {form.id === null && (
+        <label className="mt-2 flex items-start gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={form.additional}
+            onChange={(e) => setForm({ ...form, additional: e.target.checked })}
+            className="mt-0.5 size-4 rounded border-border"
+          />
+          <span>
+            Add as an additional credential for this module and provider
+            <span className="block text-xs text-muted-foreground">
+              Extra keys are used automatically when another one hits its quota or rate limit.
+            </span>
+          </span>
+        </label>
+      )}
+
       {error && (
         <p className="mt-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
           <AlertTriangle className="size-3.5" />
@@ -577,6 +599,19 @@ function SavedConfigurations({
                   >
                     {row.status === 1 ? 'Active' : 'Retired'}
                   </span>
+                  {row.status === 1 && row.health === 'cooldown' && (
+                    <span
+                      className="ml-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
+                      title={row.cooldown_until ? `Resting until ${new Date(row.cooldown_until).toLocaleTimeString()}` : undefined}
+                    >
+                      Cooldown
+                    </span>
+                  )}
+                  {row.status === 1 && row.health === 'invalid' && (
+                    <span className="ml-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                      Key rejected
+                    </span>
+                  )}
                 </Td>
                 <Td>
                   {row.editable ? (

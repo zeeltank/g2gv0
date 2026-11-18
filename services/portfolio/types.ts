@@ -1,3 +1,12 @@
+export interface ReadinessLogEntry {
+  id: number
+  action: 'confirmed' | 'unconfirmed'
+  readiness_status: string | null
+  actor_id: number | null
+  note: string | null
+  created_at: string
+}
+
 export interface ProductOffer {
   id: number
   sub_institute_id?: number | null
@@ -12,6 +21,9 @@ export interface ProductOffer {
   deployment_model?: string | null
   readiness_status: string
   readiness_confirmed: boolean
+  /** Who confirmed readiness and when. Set only by the audited administrator action. */
+  readiness_confirmed_by?: number | null
+  readiness_confirmed_at?: string | null
   typical_deal_band?: string | null
   pricing_model?: string | null
   implementation_effort?: string | null
@@ -21,6 +33,8 @@ export interface ProductOffer {
   partner_sellable: boolean
   notes?: string | null
   is_user_edited?: boolean
+  individual_icp?: Record<string, unknown> | null
+  icp_config?: Record<string, unknown> | null
   bundled_offer_details?: {
     id: number
     offer_id: string
@@ -76,6 +90,8 @@ export interface TaxonomyData {
   needs: Record<string, string>
   segments: Record<string, string>
   signals: Record<string, string>
+  /** The ten signal families (what kind of event a signal is about): label, what it covers, and why it matters. */
+  signal_families?: Record<string, { label: string; examples: string; relevance: string }>
   parent_products: Record<string, string>
   readiness_statuses: Record<string, string>
   partner_sellable_readiness: string[]
@@ -103,6 +119,10 @@ export interface PartnerEvaluation {
 export interface OfferMatchResult {
   offer: ProductOffer
   match_score: number
+  /** Need codes an imported signal carried that this offer solves (each adds to the score). */
+  matched_need_codes?: string[]
+  /** Readiness is reported, never scored. `is_deliverable` = confirmed by an administrator. */
+  is_deliverable?: boolean
   matched_needs: string[]
   matched_segments: string[]
   matched_signals: string[]
@@ -123,5 +143,91 @@ export interface SignalMatchingResponse {
     geography: string
   }
   offer_matches: OfferMatchResult[]
+}
+
+/** A sub-product with no usable ICP, and what it lacks. */
+export interface SubProductWithoutIcp { offer_id: string; name: string; problems: string[] }
+
+/** One product as stored: its portfolio offers, the ICP derived from its sub-products' ICPs, and what is still missing for discovery. */
+export interface ProductInfo {
+  key: string
+  label: string
+  status?: string | null
+  description?: string | null
+  category?: string | null
+  logo?: string | null
+  /** True for a product this organisation created itself (not one of the built-in products). */
+  custom?: boolean
+  /** Why signals cannot be generated for this product yet (an own product whose generation is not switched on), or null. */
+  generation_note?: string | null
+  business_fit: string
+  /** The name the Product Portfolio uses for this product (its `parent_product`). */
+  portfolio_name: string | null
+  icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null; without_icp?: SubProductWithoutIcp[] }>
+  /** A product has no ICP of its own: this lists its sub-products that have no usable ICP (for B2B), which a whole-product run does not search. */
+  sub_products_without_icp?: SubProductWithoutIcp[]
+  offers: Array<{
+    id: number
+    offer_id: string
+    name: string
+    what_it_does: string | null
+    readiness_status: string | null
+    needs_solved: string[] | null
+    primary_segments: string[] | null
+    trigger_signals: string[] | null
+    pricing_model: string | null
+    typical_deal_band: string | null
+    /** Whether this sub-product's own Individual ICP is complete enough for a run about it alone, and what is missing if not. */
+    icp_ready?: boolean
+    icp_missing?: string[]
+    icp_models?: Record<'b2b' | 'b2c' | 'b2g', { ready: boolean; missing: string[]; configured: boolean; source?: string | null }>
+  }>
+  icp: null | {
+    profile_id: number | null
+    source: 'database' | 'template' | 'sub_products' | null
+    name: string | null
+    customer_model?: 'b2b' | 'b2c' | 'b2g' | 'both' | string | null
+    pitch: string | null
+    ideal_customer: string | null
+    buyer_types: string[]
+    regions: string[]
+    triggers: string[]
+    parts: Record<string, string>
+    searches: number
+    /** The portfolio products this ICP lists, by Offer ID (null for an older ICP that has no list). */
+    offer_ids?: string[] | null
+  }
+  target_accounts: number
+  contacts: number
+  ready: boolean
+  /** ready | needs_setup (no usable active ICP, or parts missing) | invalid (a saved ICP fails validation) */
+  state: 'ready' | 'needs_setup' | 'invalid'
+  next_step: string | null
+  draft_icp: { id: number; name: string } | null
+  missing: string[]
+  opportunities_count: number
+  research_runs_count: number
+}
+
+/** What a run for one product will be built from: which saved product details and ICP fields exist, what each is used for, and what is missing. */
+export interface ResearchContext {
+  /** The geography the next run will use and where it comes from: the request, the ICP's saved regions (the default), or no region. */
+  region?: { source: 'request' | 'saved ICP' | 'All Regions'; label: string; places: number; saved_regions: string[]; note: string }
+  product: { key: string | null; label: string | null; custom: boolean }
+  icp: { source: 'database' | 'template' | null; profile_id: number | null; name: string | null; version: number | null; regions: string[]; saved: boolean } | null
+  product_fields: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  icp_fields: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  /** Saved on the product but not read by research (pricing, deal size, deployment, delivery owner, notes, company profile). */
+  kept_for_people?: { field: string; saved: boolean; used_for: string; stages?: string[] }[]
+  offer_count: number
+  warnings: string[]
+}
+
+export interface ProductsResponse {
+  status: number
+  data: {
+    products: ProductInfo[]
+    company_profile: { name: string | null; description: string | null; target_industries: string[] | null; target_markets: string[] | null } | null
+  }
 }
 

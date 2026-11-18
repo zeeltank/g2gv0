@@ -35,7 +35,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowDown, ArrowUp, GripVertical, Inbox, Pencil, Plus, Send, Trash2,
+  ArrowDown, ArrowUp, CheckCircle2, Eye, GripVertical, Inbox, Pencil, Plus, Send, Trash2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -47,6 +47,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
 import { cn } from '@/lib/utils'
@@ -73,6 +74,25 @@ const SORTS = [
 
 const PRIORITY_WEIGHT: Record<string, number> = { High: 0, Medium: 1, Low: 2 }
 
+/** Mirrors BacklogController::RANK_STEP — the optimistic local reorder below
+ *  computes the same midpoint the backend will, so the one display re-sort
+ *  this triggers already matches what the server is about to confirm. */
+const RANK_STEP = 1000
+
+type SubTab = 'open' | 'assigned' | 'closed'
+
+const SUB_TABS: Array<{ key: SubTab; label: string; icon: typeof Inbox }> = [
+  { key: 'open', label: 'Open', icon: Inbox },
+  { key: 'assigned', label: 'Assigned', icon: Send },
+  { key: 'closed', label: 'Closed', icon: CheckCircle2 },
+]
+
+const EMPTY_FOR_TAB: Record<SubTab, string> = {
+  open: 'Nothing open right now — the backlog is clear.',
+  assigned: 'Nothing assigned yet. Use Assign on an open item to hand it to someone.',
+  closed: 'Nothing closed yet.',
+}
+
 export interface BacklogBoardHandle {
   refresh: () => void
 }
@@ -93,8 +113,10 @@ export function BacklogBoard({
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [dialog, setDialog] = useState<{ open: boolean; item: BacklogItem | null }>({ open: false, item: null })
+  const [viewing, setViewing] = useState<BacklogItem | null>(null)
   const [sort, setSort] = useState<(typeof SORTS)[number]['value']>('rank')
   const [dragging, setDragging] = useState<string | null>(null)
+  const [subTab, setSubTab] = useState<SubTab>('open')
 
   const load = useCallback(async () => {
     const context = getLaravelContext()
@@ -174,11 +196,32 @@ export function BacklogBoard({
     await run(() => taskService.deleteBacklogItem(getLaravelContext(), item.id))
   }
 
-  /** Both the drag and the up/down buttons land here. One endpoint, one row. */
+  /*
+   * Both the drag and the up/down buttons land here. One endpoint, one row.
+   *
+   * This reorders LOCALLY first — the new rank is the same midpoint the
+   * backend computes (rankBetween, RANK_STEP=1000) — rather than going
+   * through run()/load(), which flips `loading` true and swaps the whole
+   * board for a spinner on every single drop. The API call still happens;
+   * it only resyncs with a full reload if the server disagreed.
+   */
   const move = async (id: string, beforeId: string | null, afterId: string | null) => {
-    await run(() => taskService.rankBacklogItem(getLaravelContext(), id, {
-      before_id: beforeId, after_id: afterId,
-    }))
+    const before = beforeId ? items.find((i) => i.id === beforeId) : null
+    const after = afterId ? items.find((i) => i.id === afterId) : null
+    const newRank = before && after
+      ? Math.floor((before.rank + after.rank) / 2)
+      : after
+        ? after.rank - RANK_STEP
+        : before
+          ? before.rank + RANK_STEP
+          : 0
+    setItems((current) => current.map((i) => (i.id === id ? { ...i, rank: newRank } : i)))
+    try {
+      await taskService.rankBacklogItem(getLaravelContext(), id, { before_id: beforeId, after_id: afterId })
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reorder.')
+      await load()
+    }
   }
 
   const sorted = useMemo(() => {
@@ -194,20 +237,27 @@ export function BacklogBoard({
   }, [items, sort])
 
   /*
-   * Status first, because "what is still open" is the question a backlog is
-   * asked. Within a status the chosen sort applies. On the dashboard an extra
-   * split by project sits inside Open, since that is where filing happens.
+   * Counted on ALL of `items`, not the sub-tab's own rows — a tab's own count
+   * must stay visible while another tab is the one on screen, or the pill
+   * bar can't show someone what's waiting in the tab they are not looking
+   * at.
    */
-  const groups = useMemo(() => {
-    const open = sorted.filter((i) => i.status === 'OPEN')
-    const assigned = sorted.filter((i) => i.status === 'ASSIGNED')
-    const done = sorted.filter((i) => i.status === 'DONE' || i.status === 'DROPPED')
-    return [
-      { key: 'OPEN' as const, label: 'Open', rows: open },
-      { key: 'ASSIGNED' as const, label: 'Assigned', rows: assigned },
-      { key: 'DONE' as const, label: 'Closed', rows: done },
-    ].filter((g) => g.rows.length > 0)
-  }, [sorted])
+  const counts: Record<SubTab, number> = useMemo(() => ({
+    open: items.filter((i) => i.status === 'OPEN').length,
+    assigned: items.filter((i) => i.status === 'ASSIGNED').length,
+    closed: items.filter((i) => i.status === 'DONE' || i.status === 'DROPPED').length,
+  }), [items])
+
+  /*
+   * Fully separated by status — an assigned item no longer appears anywhere
+   * in the Open tab. Each tab is its own flat list rather than a grouped one,
+   * since the group label would otherwise just repeat the tab's own name.
+   */
+  const visible = useMemo(() => sorted.filter((i) => (
+    subTab === 'open' ? i.status === 'OPEN'
+      : subTab === 'assigned' ? i.status === 'ASSIGNED'
+        : i.status === 'DONE' || i.status === 'DROPPED'
+  )), [sorted, subTab])
 
   if (loading) return <div className="flex h-40 items-center justify-center"><Spinner /></div>
 
@@ -215,9 +265,9 @@ export function BacklogBoard({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-sm font-semibold tracking-tight text-foreground">
             Backlog
-            <span className="ml-1.5 tabular-nums">{items.length}</span>
+            <span className="ml-1.5 text-[11px] font-normal tabular-nums text-muted-foreground">{items.length}</span>
           </span>
           <div className="w-40 min-w-0">
             {/* Sized wrapper, not className — Select's root is hardcoded
@@ -236,6 +286,22 @@ export function BacklogBoard({
         <Button size="sm" onClick={() => setDialog({ open: true, item: null })}>
           <Plus className="mr-1 size-3.5" /> Add item
         </Button>
+      </div>
+
+      {/* Open / Assigned / Closed — a segmented control, not three sections
+          in one scroll. An assigned item is never visible from here while
+          the Open tab is the one showing. */}
+      <div role="tablist" aria-label="Backlog status" className="inline-flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5 text-xs font-medium">
+        {SUB_TABS.map(({ key, label, icon: Icon }) => (
+          <button key={key} type="button" role="tab" aria-selected={subTab === key}
+            onClick={() => setSubTab(key)}
+            className={cn('flex items-center gap-1.5 rounded-md px-3 py-1.5 transition',
+              subTab === key ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+            <Icon className="size-3.5" aria-hidden="true" />
+            {label}
+            <span className="tabular-nums">{counts[key]}</span>
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -259,40 +325,32 @@ export function BacklogBoard({
             Nothing in the backlog yet. Write down work you want done later — it needs a title and nothing else.
           </p>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="text-sm text-muted-foreground">{EMPTY_FOR_TAB[subTab]}</p>
+        </div>
       ) : (
-        groups.map((group) => (
-          <section key={group.key} className="space-y-1">
-            <h3 className="flex items-center gap-2">
-              <span className={cn('size-2 shrink-0 rounded-full',
-                group.key === 'OPEN' ? 'bg-primary'
-                  : group.key === 'ASSIGNED' ? 'bg-success' : 'bg-muted-foreground/40')}
-                aria-hidden="true" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{group.label}</span>
-              <span className="text-[11px] tabular-nums text-muted-foreground">{group.rows.length}</span>
-            </h3>
-
-            <ul className="divide-y divide-border rounded-lg border">
-              {group.rows.map((item, index) => (
-                <BacklogRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  siblings={group.rows}
-                  reorderable={sort === 'rank' && group.key === 'OPEN'}
-                  showProject={projectId === null}
-                  dragging={dragging}
-                  saving={saving}
-                  onDragStart={setDragging}
-                  onDragEnd={() => setDragging(null)}
-                  onMove={move}
-                  onEdit={() => setDialog({ open: true, item })}
-                  onDelete={() => void remove(item)}
-                  onAssign={onAssign}
-                />
-              ))}
-            </ul>
-          </section>
-        ))
+        <ul className="space-y-1.5">
+          {visible.map((item, index) => (
+            <BacklogRow
+              key={item.id}
+              item={item}
+              index={index}
+              siblings={visible}
+              reorderable={sort === 'rank' && subTab === 'open'}
+              showProject={projectId === null}
+              dragging={dragging}
+              saving={saving}
+              onDragStart={setDragging}
+              onDragEnd={() => setDragging(null)}
+              onMove={move}
+              onView={() => setViewing(item)}
+              onEdit={() => setDialog({ open: true, item })}
+              onDelete={() => void remove(item)}
+              onAssign={onAssign}
+            />
+          ))}
+        </ul>
       )}
 
       <BacklogDialog
@@ -303,6 +361,13 @@ export function BacklogBoard({
         onClose={() => setDialog({ open: false, item: null })}
         onSave={save}
       />
+
+      <BacklogDetailsDrawer
+        item={viewing}
+        open={viewing !== null}
+        onClose={() => setViewing(null)}
+        onEdit={() => { setDialog({ open: true, item: viewing }); setViewing(null) }}
+      />
     </div>
   )
 }
@@ -311,7 +376,7 @@ export function BacklogBoard({
 
 function BacklogRow({
   item, index, siblings, reorderable, showProject, dragging, saving,
-  onDragStart, onDragEnd, onMove, onEdit, onDelete, onAssign,
+  onDragStart, onDragEnd, onMove, onView, onEdit, onDelete, onAssign,
 }: {
   item: BacklogItem
   index: number
@@ -323,6 +388,7 @@ function BacklogRow({
   onDragStart: (id: string) => void
   onDragEnd: () => void
   onMove: (id: string, beforeId: string | null, afterId: string | null) => void
+  onView: () => void
   onEdit: () => void
   onDelete: () => void
   onAssign?: (item: BacklogItem) => void
@@ -351,7 +417,7 @@ function BacklogRow({
         onDragEnd()
       }}
       className={cn(
-        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2',
+        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors hover:bg-accent/40',
         reorderable && 'cursor-grab active:cursor-grabbing',
         dragging === item.id && 'opacity-40',
       )}
@@ -406,6 +472,9 @@ function BacklogRow({
             <Send className="mr-1 size-3.5" /> Assign
           </Button>
         )}
+        <Button size="icon-sm" variant="ghost" aria-label={`View ${item.title}`} onClick={onView}>
+          <Eye className="size-3.5" />
+        </Button>
         <Button size="icon-sm" variant="ghost" aria-label={`Edit ${item.title}`} onClick={onEdit}>
           <Pencil className="size-3.5" />
         </Button>
@@ -508,6 +577,77 @@ function BacklogDialog({
 
 function empty() {
   return { title: '', notes: '', type: 'REQUEST' as BacklogType, priority: 'Medium', workstream_id: '' }
+}
+
+/** Read-only, with an Edit button that overlays BacklogDialog on top of it —
+ *  one edit surface, not a second form written for the drawer. */
+function BacklogDetailsDrawer({
+  item, open, onClose, onEdit,
+}: {
+  item: BacklogItem | null
+  open: boolean
+  onClose: () => void
+  onEdit: () => void
+}) {
+  return (
+    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <SheetContent side="right" className="w-full p-0 sm:max-w-[480px]">
+        <SheetHeader className="border-b p-6">
+          <SheetTitle>{item?.title ?? 'Backlog item'}</SheetTitle>
+        </SheetHeader>
+
+        {item && (
+          <div className="g2g-scrollbar overflow-y-auto p-6" style={{ maxHeight: 'calc(100vh - 92px)' }}>
+            <div className="space-y-6">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={item.status} size="sm">{item.status}</StatusBadge>
+                <PriorityBadge priority={item.priority} />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DetailField label="Type" value={TYPE_LABEL[item.type] ?? item.type} />
+                <DetailField label="Created" value={item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'} />
+                <DetailField label="Project" value={item.project_name ?? 'Not filed'} />
+                <DetailField label="Workstream" value={item.workstream_name ?? '—'} />
+              </div>
+
+              <section>
+                <h3 className="mb-2 text-sm font-semibold">Notes</h3>
+                <p className="rounded-xl bg-muted/30 p-4 text-sm leading-6 text-foreground/80">
+                  {item.notes || 'No notes.'}
+                </p>
+              </section>
+
+              {item.task_title && (
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Linked task</h3>
+                  <div className="flex items-center justify-between gap-2 rounded-xl border p-4 text-sm">
+                    <span className="truncate font-medium">{item.task_title}</span>
+                    {item.task_status && <StatusBadge status={item.task_status} size="sm">{item.task_status}</StatusBadge>}
+                  </div>
+                </section>
+              )}
+
+              <div className="flex justify-end border-t pt-4">
+                <Button variant="outline" onClick={onEdit}>
+                  <Pencil className="mr-1.5 size-3.5" /> Edit
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium">{value}</div>
+    </div>
+  )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

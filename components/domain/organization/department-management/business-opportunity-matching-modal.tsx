@@ -18,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { ReadinessBadge } from './market-evidence'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -289,6 +290,9 @@ export function BusinessOpportunityMatchingModal({
                       <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
                         {m.offer.parent_product} · {m.offer.deployment_model || 'SaaS'}
                       </div>
+                      <div className="mt-1">
+                        <ReadinessBadge offer={{ is_deliverable: Boolean(m.offer.readiness_confirmed), readiness_status: m.offer.readiness_status }} />
+                      </div>
                       <div className="mt-2 flex items-center justify-between text-[11px]">
                         <span className="text-xs font-medium text-primary flex items-center gap-0.5">
                           {m.partner_evaluations.filter((p) => p.eligibility_status === 'eligible').length} eligible partners
@@ -326,6 +330,7 @@ export function BusinessOpportunityMatchingModal({
                           {currentMatch.offer.readiness_status}
                         </Badge>
                       )}
+                      <ReadinessBadge offer={{ is_deliverable: Boolean(currentMatch.offer.readiness_confirmed), readiness_status: currentMatch.offer.readiness_status }} />
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground max-w-2xl">
                       {currentMatch.offer.what_it_does}

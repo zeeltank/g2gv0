@@ -1,0 +1,44 @@
+[
+  {
+    "id": "scenario-1", "forModules": ["scenario"], "use": "scenario", "kind": "photo", "primary": true,
+    "file": "img/scenario-1.jpg",
+    "title": "Pexels-photo-1181717.jpg (two women in a meeting by a window)",
+    "creator": "Christina Morillo",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Pexels-photo-1181717.jpg",
+    "download_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Pexels-photo-1181717.jpg?width=1600",
+    "license": "CC0 1.0", "license_url": "https://creativecommons.org/publicdomain/zero/1.0/", "attribution_required": false,
+    "attribution_text": "Christina Morillo, via Wikimedia Commons, CC0 (credit optional)",
+    "width": 1920, "height": 1280, "retrieved": "2026-11-17",
+    "description": "Two professionals talking across a small table by a window.",
+    "why_relevant": "Illustrates a one-to-one customer conversation for the sales-conversation practice slide.",
+    "caution": "Stock photo of unrelated people; used only as a generic illustration, not as the fictional customer."
+  },
+  {
+    "id": "problems-1", "forModules": ["problems"], "use": "problems", "kind": "photo", "primary": true,
+    "file": "img/problems-1.jpg",
+    "title": "Archive storage (Unsplash).jpg (shelves of files and boxes)",
+    "creator": "Samuel Zeller",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Archive_storage_(Unsplash).jpg",
+    "download_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Archive%20storage%20(Unsplash).jpg?width=1600",
+    "license": "CC0 1.0", "license_url": "https://creativecommons.org/publicdomain/zero/1.0/", "attribution_required": false,
+    "attribution_text": "Samuel Zeller, via Wikimedia Commons, CC0 (credit optional)",
+    "width": 1920, "height": 1280, "retrieved": "2026-11-17",
+    "description": "Rows of shelves holding binders and archive boxes.",
+    "why_relevant": "Shows the paper-records starting point that attendance registers and salary files replace.",
+    "caution": "Generic archive photo; does not show G2G."
+  },
+  {
+    "id": "ai-1", "forModules": ["ai"], "use": "module", "kind": "illustration", "primary": true,
+    "file": "img/ai-1.jpg",
+    "title": "Artificial-Intelligence.jpg (circuit board and brain graphic)",
+    "creator": "Pixabay contributor (original author named on the Commons page)",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Artificial-Intelligence.jpg",
+    "download_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Artificial-Intelligence.jpg?width=1600",
+    "license": "CC0 1.0", "license_url": "https://creativecommons.org/publicdomain/zero/1.0/", "attribution_required": false,
+    "attribution_text": "Pixabay contributor, via Wikimedia Commons, CC0 (credit optional)",
+    "width": 1920, "height": 1280, "retrieved": "2026-11-17",
+    "description": "Abstract blue circuit-board graphic around a head outline.",
+    "why_relevant": "A neutral technology illustration for the Workforce AI assistant, which is still in development; it does not show a product screen or a specific AI feature.",
+    "caution": "Decorative only. The module is in development, so the slide status chip says so."
+  }
+]

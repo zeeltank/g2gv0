@@ -5,6 +5,11 @@
 
 import { apiClient } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { dataConnectorMockApi, isDataConnectorMockModeEnabled } from '@/lib/signals/data-connectors-mock'
+import { connectorHealth } from '@/lib/signals/connector-diagnostics'
+import type { IcpRegionSync } from '@/lib/signals-generate'
+import type { CitiesAnswer, CountriesAnswer, StatesAnswer } from '@/lib/location-api'
+import type { ProviderSettings, SavePayload, SettingsProviderKey, SettingsTestResult } from '@/lib/signals/connector-settings'
 
 export type ReviewStatus = 'New' | 'Reviewed' | 'Follow-up' | 'Dismissed'
 export type Level = 'High' | 'Medium' | 'Low'
@@ -48,7 +53,127 @@ export interface OpportunitySource {
   page_fetched?: boolean
 }
 
+/** How strongly the source supports the claim. A snippet or a blocked page can never be 'confirmed'. */
+export type ClaimLevel = 'confirmed' | 'inference' | 'hypothesis'
+/** What was actually read: the whole document, the page text, only a search snippet, or nothing (blocked). */
+export type FetchLevel = 'full_document' | 'page_text' | 'search_snippet' | 'blocked'
+export type PipelineStatus = 'NEW' | 'REVIEWING' | 'ENGAGED' | 'WON' | 'LOST' | 'ARCHIVED'
+
+/** An offer matched to a signal. `is_deliverable` is what the offer is NOW; readiness never changes the score. */
+export interface MatchedOffer {
+  offer_id: string
+  offer_name: string | null
+  offer_category?: string | null
+  rationale?: string | null
+  match_score: number | null
+  matched_need_codes: string[]
+  readiness_status: string | null
+  readiness_at_match: string | null
+  is_deliverable: boolean
+  match_status: string | null
+}
+
+export interface MarketScores {
+  buying_signal: number | null
+  problem_fit: number | null
+  product_fit: number | null
+  accessibility: number | null
+  urgency: number | null
+  potential_value: number | null
+  evidence_quality: number | null
+  total: number
+}
+
+/** The plain-English face of a lead, built on the server (CardPresenter). The client never re-derives it. */
+export interface OpportunityAccount {
+  /** CRM lead number: look the contact up there (phone and email are not copied into signals). */
+  crm_ref: string | null
+  crm_owner: string | null
+  contact_name: string | null
+  city: string | null
+  icp_status: 'candidate' | 'low_fit' | 'unscored' | 'disqualified' | string
+  icp_tier: 'A' | 'B' | 'C' | null
+}
+
+export interface OpportunityCardFace {
+  /** One plain sentence: who needs what and why now. Null for leads written before this existed. */
+  needs_line: string | null
+  /** The CRM school this lead is about, when it is on the target list. */
+  account: OpportunityAccount | null
+  urgency_band: 'act_this_week' | 'act_this_month' | 'nurture'
+  urgency_line: string
+  organisation_line: string
+  headline: string
+  context: string
+  so_what: string
+  what_to_do: string
+  how_sure: string
+  source: { text: string; url: string | null }
+  /** false for leads written before the plain-English rules (older research, or imported text). */
+  written_plainly: boolean
+}
+
+export type SignalStrength = 'hot' | 'warm' | 'watch'
+
+export type BuyingIntentLevel = 'explicit' | 'strong' | 'moderate' | 'weak' | 'unconfirmed'
+
+/** The separate assessments behind a ScholarClone signal. Built and verified on the server; the client only displays them. */
+export interface SignalAssessment {
+  /** What the source itself showed about the requested place (absent when the run was not limited to a region). */
+  region?: { requested: string | null; status: 'confirmed' | 'unconfirmed'; matched: string | null; basis: string } | null
+  source_reliability?: { class: 'official' | 'job_post' | 'social_post' | 'third_party'; reliability: 'high' | 'medium' | 'low'; host: string }
+  evidence?: {
+    quote_verified: boolean
+    read_as: 'page_text' | 'search_snippet'
+    sources_naming_school: number
+    stated_or_inferred: 'stated' | 'inferred'
+    date_status: 'event_date_stated' | 'source_date_only' | 'undated'
+    /** The date the SOURCE was published (null when unknown). Never the day it was retrieved. */
+    source_published_at?: string | null
+    date_provenance?: 'structured_data' | 'meta_tag' | 'time_element' | 'visible_absolute' | 'visible_relative' | 'search_provider' | null
+    date_confidence?: 'high' | 'medium' | null
+    retrieved_at?: string | null
+    inference_reasoning: string | null
+  }
+  /** Is this organisation one of the target schools? Decided on name, place and website together. */
+  identity?: {
+    status: 'target_exact' | 'target_possible' | 'unrelated'
+    account_id: number | null
+    account_name: string | null
+    crm_ref: string | null
+    reasons: string[]
+    scan_target?: string
+    for_scan_target?: boolean
+  }
+  buying_intent?: { level: BuyingIntentLevel; meaning: string; indicators: { indicator: string; tier: string; quote: string }[] }
+  sales_pull?: { category: string; label: string; basis: 'observed' | 'inferred'; rationale: string; quote: string | null }[]
+  product_fit?: {
+    part: string; what_it_does: string; reason: string
+    /** Added with child-product research: older signals have none of these. */
+    kind?: 'child_product' | 'product_part'; name?: string; parent_product?: string; solves?: string[]; needs_further_research?: boolean
+  } | null
+  /** direct_evidence | strong_indicator | weak_indicator | needs_further_research, decided on the server from what it verified. */
+  evidence_class?: string
+  research_status?: 'verified' | 'reviewable' | 'needs_further_research'
+  missing_evidence?: string[]
+  provenance?: { public_fact?: { quote: string; source_url: string; source_title: string }; interpretation?: Record<string, string> }
+  unverified?: string[]
+  opportunity?: { strength: SignalStrength; reason: string; age_days: number | null } | null
+}
+
 export interface Opportunity {
+  /** Added by a person, not found by research: it has no run, and is listed under the day it was saved. */
+  entered_manually?: boolean
+  /** Set when the signal was found by a connector (YouTube, LinkedIn, ...) or an analysed page or document, not by a research run. */
+  found_via?: { kind: 'connector' | 'ingestion'; platform: string | null; label: string } | null
+  /** The day it was saved, in the signals timezone (YYYY-MM-DD). Null for researched rows. */
+  captured_on?: string | null
+  /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */
+  strength?: SignalStrength
+  strength_reason?: string | null
+  buying_intent?: BuyingIntentLevel | null
+  assessment?: SignalAssessment | null
+  card?: OpportunityCardFace
   id: number
   company_id: number
   company_name: string
@@ -69,6 +194,8 @@ export interface Opportunity {
   qualification: Qualification
   confidence: Level
   review_status: ReviewStatus
+  /** True when the signal was first discovered on the research day it is listed under; false when that day's run only re-observed it; null when there is no run date. */
+  discovered_on_report_date?: boolean | null
   primary_source: OpportunitySource | null
   source_count: number
   source_published_at: string | null
@@ -83,16 +210,84 @@ export interface Opportunity {
   feed_section?: 'immediate_action' | 'watchlist' | 'market_intelligence' | 'competitor_intelligence' | 'top_actions' | string | null
   relevant_offer_id?: string | null
   relevant_offer_name?: string | null
+  offer_id?: string | null
+  product_key?: string | null
+  region_scope?: Array<{ country: string; state?: string; city?: string }> | string | null
+  icp_version?: number | null
+  import_source?: string | null
+  created_at?: string | null
+  run_started_at?: string | null
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | string | null
+  /** The ten-family classification of what kind of signal this is (code, label, examples). */
+  signal_family?: { code: string; label: string; examples: string } | null
   ingestion_source_id?: number | null
   review_notes?: string | null
   sources?: OpportunitySource[]
   reviewed_at?: string | null
+
+  // ── Imported (demand-side) signals. Null / absent on researched rows. ──
+  pipeline_status?: PipelineStatus
+  trigger_type?: string | null
+  trigger_summary?: string | null
+  reference_no?: string | null
+  source_url?: string | null
+  source_title?: string | null
+  expires_at?: string | null
+  /** Whole days until expiry (negative once expired); null when the signal has no expiry. */
+  days_left?: number | null
+  is_expired?: boolean
+  claim_level?: ClaimLevel | null
+  fetch_level?: FetchLevel | null
+  evidence_note?: string | null
+  business_fit?: 'eb' | 'scholar' | 'g2g' | 'multiple' | null
+  /** The product this record is stored for (null = unassigned or several products). */
+  product?: string | null
+  candidate_need_codes?: string[]
+  buyer_segment?: string | null
+  buyer_type?: string | null
+  buyer_state?: string | null
+  likely_problem?: string | null
+  likely_stakeholder?: string | null
+  what_we_could_sell?: string | null
+  entry_point?: string | null
+  scale?: string | null
+  estimated_value?: string | null
+  is_government_track?: boolean
+  partner_route_note?: string | null
+  soft_marketing_angle?: string | null
+  scores?: MarketScores | null
+  score_reasoning?: string | null
+  is_sample?: boolean
+  matched_offers?: MatchedOffer[]
+  promoted_lead_id?: string | null
+  promoted_lead_no?: string | null
+  promoted_lead_status?: string | null
+  crm_qualification?: {
+    can_promote: boolean
+    promotion_requirements_met: boolean
+    outreach_ready: boolean
+    verified_fields: string[]
+    missing_for_outreach: string[]
+    enrichment_status: 'Complete' | 'Partially Complete' | 'Needs Review' | 'Unable to Verify'
+  }
+}
+
+/** Result of one structured market import (POST /signals/market/import). */
+export interface MarketImportResult {
+  scan_log_id: number | null
+  received: number
+  accepted: number
+  updated: number
+  duplicate: number
+  rejected: number
+  results: { index: number; outcome: string; reason_code?: string; reason?: string; id?: number }[]
 }
 
 export interface OpportunityListResponse {
   status: number
   data: Opportunity[]
-  meta: { page: number; per_page: number; total: number; last_page: number }
+  /** `resolved_run_date`: with `latestSaved`, the research day the rows came from (null when the product has none). */
+  meta: { page: number; per_page: number; total: number; last_page: number; resolved_run_date?: string | null }
   summary: {
     total: number
     new: number
@@ -102,19 +297,72 @@ export interface OpportunityListResponse {
     watchlist?: number
     market_intelligence?: number
     competitor_intelligence?: number
+    /** Hidden by default: shown under the Expired view / Include samples toggle. */
+    expired?: number
+    samples?: number
   }
-  filters: { categories: { value: string; label: string }[]; kinds: { value: string; label: string }[]; report_dates: string[] }
+  filters: {
+    categories: { value: string; label: string }[]
+    kinds: { value: string; label: string }[]
+    report_dates: string[]
+    claim_levels?: ClaimLevel[]
+    fetch_levels?: FetchLevel[]
+    business_fits?: string[]
+    pipeline_statuses?: PipelineStatus[]
+  }
 }
 
 export type ResearchStage = 'preparing' | 'searching' | 'collecting' | 'analyzing' | 'saving' | 'completed' | 'failed'
 
+export interface RunStageStats {
+  queries: { planned: number; attempted: number; succeeded: number; with_results: number | null; empty: number | null; failed: number; cache_hits: number; skipped: number; skipped_by_reason: Record<string, number> }
+  results: { returned: number; dropped_too_old: number; screened_out: number; kept: number }
+  /** `skipped`: sources whose page was deliberately not requested (an unreadable social host); not a read and not a failure. The maps are null when the run did not record them. */
+  pages: {
+    fetched: number
+    failed: number
+    blocked_by_robots?: number
+    skipped?: number | null
+    skipped_by_reason?: Record<string, number> | null
+    failed_by_category?: Record<string, number> | null
+    failed_by_host_class?: Record<string, number> | null
+  }
+  candidates: { proposed: number; rejected_before_gate: number; rejected_by_gate: number }
+  outcome: { new: number; updated: number; unchanged_existing: number; qualified_total: number }
+  errors_by_stage: Record<string, Record<string, number>>
+  /** Registry sources SELECTED vs searches that really RAN against them. `null` = this run kept no registry record (unavailable, not zero). `verified` is always false: searching a source never verifies it. */
+  registry?: { selected: number; eligible: number; attempted: number; searched: number; succeeded_with_results: number | null; succeeded_empty: number | null; failed: number; served_from_cache: number; skipped_other: number; not_selected_reason: string | null; verified: boolean } | null
+  /** Verified sources read directly (feed or announcement listing). `null` = the run did not do that. */
+  direct?: { sources_selected: number; listings_read: number; items_found: number; items_read: number; items_skipped_seen: number; refused_robots: number; failed_by_category: Record<string, number>; by_source?: { id: string; name: string; method: string | null; found: number; read: number; failed: number }[] } | null
+  /** Schools with no verified website that were searched by name. `null` = no record for this run. Candidate sites are never verified by this step. */
+  name_search?: { skipped_missing_context: number; schools_selected: number; searches_run: number; schools_with_candidate_site: number; candidate_sites: number; candidate_sites_verified: number } | null
+  /** Verification runs only: the hard ceilings and what was used/refused. null on ordinary runs. */
+  budget?: { limits: Record<string, number> | null; used: Record<string, number>; refused: Record<string, number> } | null
+  /** The geography this run was limited to, with what its sources showed. null = All Regions (or an older run). */
+  region?: { label: string; places: number; confirmed: number; unconfirmed: number; outside: number } | null
+  /** Counts only: why candidates were rejected, in more detail than the code (for example quote not found vs. the source not naming the school). null = not recorded. */
+  rejection_detail?: Record<string, Record<string, number>> | null
+  /** AI calls that failed in this run. null = not recorded. */
+  ai?: { main_failed: number; followup_failed: number } | null
+  /** Budgets reached: pages beyond the page cap left unread, or the run's time limit. null = not recorded. */
+  limits?: { pages_cap_reached: number; pages_time_limited: number; time_limited: boolean } | null
+  /** Did the research finish what it set out to do? 'incomplete' (an AI failure, a time or page limit) is different from 'completed_no_qualified'. */
+  completion?: 'completed' | 'completed_no_qualified' | 'incomplete'
+  completion_reasons?: string[]
+  zero_reasons: { code: string; label: string; count: number }[]
+  next_action: string
+}
+
 export interface ResearchRun {
   id: number
+  product_key?: string | null
   report_date: string | null
   trigger: 'scheduled' | 'manual'
   status: RunStatus
   stage?: ResearchStage | string | null
   stage_message?: string | null
+  /** The run's heartbeat: changes whenever the backend saves progress. */
+  updated_at?: string | null
   started_at: string | null
   completed_at: string | null
   duration_ms: number | null
@@ -123,6 +371,10 @@ export interface ResearchRun {
   sources_found: number
   companies_researched: number
   opportunities_qualified: number
+  /** Stage-by-stage accounting of the run (null for runs made before it existed). Every number is a counter the run kept. */
+  stage_stats?: RunStageStats | null
+  /** False when the backend has no stage_stats column yet (its migration has not been applied): the breakdown is then unavailable, not empty. */
+  stage_stats_persisted?: boolean
   opportunities_new: number
   opportunities_rejected: number
   search_provider: string | null
@@ -143,15 +395,55 @@ export interface ResearchStatusResponse {
       ai_configured: boolean
       research_enabled: boolean
     }
+    /** Present when a product was asked about: whether it is configured for discovery, and what is still missing. */
+    product?: { key: string; label: string; ready: boolean; missing: string[] } | null
     running: boolean
+    /** Another product's run holds the organisation's single run slot. */
+    busy_elsewhere?: boolean
     latest_run: ResearchRun | null
     last_successful_run: ResearchRun | null
     next_scheduled_at: string | null
+    /** The daily run time (HH:MM in `timezone`). */
+    daily_time?: string
     timezone: string
   }
 }
 
+export interface ManualOpportunityResponse {
+  status: number
+  message: string
+  data: { id: number; outcome: 'accepted' | 'updated'; created_at: string | null; captured_on: string; source_published_at: string | null }
+}
+
+export interface RunDatesResponse {
+  status: number
+  data: {
+    product: string
+    timezone: string
+    dates: {
+      date: string
+      runs: number
+      /** `manual`: a day on which opportunities were added by hand and no research ran. */
+      status: 'success' | 'partial' | 'manual'
+      last_completed_at: string | null
+      qualified: number
+      /** What the day's runs did, so an empty day can say why. */
+      searches: number
+      sources: number
+      organisations: number
+      rejected: number
+      note: string | null
+    }[]
+  }
+}
+
 export interface OpportunityQuery {
+  /** Only the signals saved by this research run (exact run, not just its day). */
+  runId?: number
+  /** The order: `priority` (High first) or `qualification` (settled findings first). Absent or `default` is the usual order. */
+  sort?: 'default' | 'priority' | 'qualification'
+  /** The newest research day that has saved signals, instead of a chosen day (the screen's fallback). Reads stored rows only. */
+  latestSaved?: boolean
   search?: string
   category?: string
   kind?: string
@@ -161,6 +453,29 @@ export interface OpportunityQuery {
   feedSection?: string
   reportDate?: string
   page?: number
+  /** 'hide' (default): active only. 'only': the Expired view. 'include': both. */
+  expired?: 'hide' | 'only' | 'include'
+  /** Sample rows never appear unless this is on. */
+  includeSamples?: boolean
+  claimLevel?: string
+  businessFit?: string
+  /** Date range bounds (YYYY-MM-DD). */
+  from?: string
+  to?: string
+  /** Only what the successful research runs of this day (YYYY-MM-DD, the application's timezone) saved. Reads stored rows; starts no research. */
+  runDate?: string
+  /** Page size (the server allows up to 50). Defaults to 10. */
+  perPage?: number
+  /** A product key, 'unassigned' (records with no product) or 'all'/empty (no filter). Uses the product stored on each record. */
+  product?: string
+  offerId?: string | null
+  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  regions?: { country: string; state?: string; city?: string }[]
+  needCode?: string
+  /** Genuine All Signals inbox mode: aggregates across sub-products, customer models, and regions. */
+  allSignals?: boolean
+  /** Filter by origin: 'all' (default), 'generated', or 'manual'. */
+  source?: 'all' | 'generated' | 'manual'
 }
 
 export interface ProviderCheck {
@@ -208,14 +523,47 @@ export interface ProvidersResponse {
 }
 
 export interface ResearchSourceInfo {
+  id?: number
   url: string
   title: string
+  source_name?: string
   domain: string | null
+  source_type?: string
   snippet: string | null
+  content_finding?: string | null
   published_at: string | null
   retrieved_at: string | null
   page_fetched: boolean
+  pages_searched?: number
   cited: boolean
+  exploration_status?: 'Discovered' | 'Opened' | 'Read' | 'Failed' | 'Skipped' | 'Qualified' | 'Rejected' | string
+  qualification_result?: 'Qualified' | 'Not qualified' | 'Pending' | string
+  rejection_reason?: string | null
+  search_query?: string | null
+}
+
+export interface RunSourcesResponse {
+  status: number
+  data: ResearchSourceInfo[]
+  metrics?: {
+    sources_found: number
+    queries_run: number
+    queries_failed: number
+    queries_attempted: number
+    queries_succeeded?: number
+    queries_with_results: number | null
+    queries_empty: number | null
+    results_returned: number
+    pages_read_in_full: number
+    registry_searched: number | null
+    registry_selected: number | null
+    opportunities_qualified: number
+    opportunities_rejected: number
+    opportunities_new: number
+  }
+  zero_reasons?: { code: string; label: string; count: number }[]
+  next_action?: string | null
+  run?: ResearchRun
 }
 
 export interface IngestionRun {
@@ -234,6 +582,8 @@ export type ProcessingStatus = 'uploaded' | 'generating' | 'completed' | 'comple
 
 export interface IngestionSourceInfo {
   id: number
+  /** The product this document or link was added for (null = added before products were recorded). */
+  product_key?: string | null
   type: 'file' | 'url'
   name: string
   url: string | null
@@ -304,22 +654,160 @@ export interface IngestionSourceDetail extends IngestionSourceInfo {
   linked_opportunities?: Opportunity[]
 }
 
+export type ConnectorStatus =
+  | 'connected'
+  | 'disconnected'
+  | 'error'
+  | 'not_configured'
+  | 'permission_required'
+  | 'token_expired'
+  | 'rate_limited'
+
+export interface ConnectorSyncInfo {
+  id: number
+  source_id: number | null
+  status: 'running' | 'queued' | 'completed' | 'partial' | 'failed' | 'skipped'
+  records_fetched: number
+  records_processed: number
+  records_skipped: number
+  records_created: number
+  records_duplicate: number
+  records_failed: number
+  /** 0-100, server-computed: waiting for a worker, reading the platform, then analysing posts. */
+  progress?: number
+  error_message: string | null
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface DataConnectorInfo {
+  id: number
+  type: 'public_web_page' | 'youtube' | 'linkedin' | 'facebook_page' | 'instagram_business'
+  name: string
+  url: string | null
+  external_account_id: string | null
+  account_name: string | null
+  product_key: string
+  offer_id: string | null
+  customer_model: 'b2b' | 'b2c' | 'b2g'
+  regions: { country: string; state: string | null; city: string | null }[] | null
+  connection_status: ConnectorStatus
+  sync_enabled: boolean
+  schedule_enabled: boolean
+  schedule_interval_minutes: number
+  schedule_timezone: string
+  next_sync_at: string | null
+  available_accounts: { id: string; name: string }[]
+  last_sync_at: string | null
+  last_successful_sync_at: string | null
+  last_error: string | null
+  history: ConnectorSyncInfo[]
+}
+
+/** One entry per connector type. Readiness fields describe deployment configuration only; they never contain secret values. */
+export interface ConnectorProviderInfo {
+  key: string
+  label: string
+  auth: 'oauth' | 'public_url'
+  requirements: string[]
+  oauth_provider?: 'youtube' | 'linkedin' | 'meta' | null
+  scopes?: string[]
+  account_type?: 'channel' | 'organization' | 'page' | 'instagram_account' | null
+  /** False when the platform application is not configured on the server (one-time administrator setup). */
+  ready?: boolean
+  readiness_status?: 'ready' | 'configuration_required' | 'configuration_invalid'
+  readiness_message?: string | null
+  /** Names of the missing server settings (not values). */
+  missing_config?: string[]
+  /** Names (never values) of server settings that are present but do not look valid. */
+  invalid_config?: string[]
+  /** Provider approval / access-level requirements, from the provider's own documentation. */
+  approval?: string | null
+  /** Redirect URI an administrator must register with the provider. */
+  redirect_uri?: string | null
+  warnings?: string[]
+}
+
+export interface DataConnectorsResponse {
+  status: number
+  tables_migrated?: boolean
+  notice?: string
+  global_schedule_enabled: boolean
+  /** True for administrators: they may open Connector Settings (the settings themselves come from admin-only routes). */
+  can_manage_settings?: boolean
+  available: ConnectorProviderInfo[]
+  data: DataConnectorInfo[]
+}
+
+export interface DataConnectorResponse {
+  status: number
+  message?: string
+  data: DataConnectorInfo | ConnectorSyncInfo
+}
+
 function base(context: LaravelContext): Record<string, string> {
   return {
     sub_institute_id: context.subInstituteId,
-    ...(context.token ? { type: 'api', token: context.token } : {}),
+    ...(context.token ? { token: context.token } : {}),
   }
 }
 
 const qs = (context: LaravelContext) => new URLSearchParams(base(context)).toString()
+const regionQuery = (regions: { country: string; state?: string; city?: string }[]) => {
+  const out: Record<string, string> = {}
+  regions.forEach((region, i) => {
+    if (region.country) out[`regions[${i}][country]`] = region.country
+    if (region.state) out[`regions[${i}][state]`] = region.state
+    if (region.city) out[`regions[${i}][city]`] = region.city
+  })
+  return out
+}
+
+export type IcpCriterionStatus = 'Matched' | 'Not found' | 'Needs review' | 'Excluded'
+
+export interface IcpCriterionRow {
+  kind: 'must_have' | 'exclusion'
+  criterion: string
+  status: IcpCriterionStatus
+  evidence_available: boolean
+  /** Only ever a stored value: a recorded fact, the text that was checked, or a flag a person set. */
+  evidence: { kind: 'account_fact' | 'recorded_text' | 'account_flag'; text: string } | null
+  source: { label: string | null; url: string | null; ref: string | null } | null
+  reason: string
+}
+
+/** One stored opportunity laid next to its product's ICP. Read-only; the qualification it shows was decided by the server when the signal was stored. */
+export interface IcpComparisonResponse {
+  status: number
+  data: {
+    available: boolean
+    reason?: string
+    product: { key: string; label: string; custom?: boolean } | null
+    icp: { profile_id: number | null; name: string | null; version: number | null; status: string | null; source: string | null } | null
+    stored_result: { qualification: string | null; claim_level: string | null; evidence_class: string | null; research_status: string | null; note: string }
+    evidence: { available: boolean; quote: string | null; source_title: string | null; source_url: string | null; quote_verified: boolean | null; read_as: string | null; missing_evidence: string[] }
+    account_linked?: boolean
+    criteria: IcpCriterionRow[]
+    summary: Record<IcpCriterionStatus, number> | null
+    notes: string[]
+  }
+}
 
 export const opportunitiesService = {
+  getIcpComparison: (c: LaravelContext, id: number) =>
+    apiClient.get<IcpComparisonResponse>(`/signals/opportunities/${id}/icp-comparison`, base(c)),
+
   getProfile: (c: LaravelContext) => apiClient.get<ProfileResponse>('/signals/product-profile', base(c)),
 
   saveProfile: (c: LaravelContext, profile: Partial<ProductProfile>) =>
     apiClient.put<ProfileResponse>(`/signals/product-profile?${qs(c)}`, profile),
 
-  getStatus: (c: LaravelContext) => apiClient.get<ResearchStatusResponse>('/signals/research/status', base(c)),
+  getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = []) =>
+    apiClient.get<ResearchStatusResponse>('/signals/research/status', { ...base(c), ...(product && product !== 'all' ? { product } : {}), ...(customerModel ? { customer_model: customerModel } : {}), ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions) }),
+
+  /** The days on which the product has a successful research run (newest first). Reads stored runs only. */
+  getRunDates: (c: LaravelContext, product: string, customerModel: 'b2b' | 'b2c' | 'b2g' = 'b2b', offerId?: string | null, regions: { country: string; state?: string; city?: string }[] = [], allSignals?: boolean) =>
+    apiClient.get<RunDatesResponse>('/signals/research/dates', { ...base(c), product, customer_model: customerModel, ...(offerId ? { offer_id: offerId } : {}), ...regionQuery(regions), ...(allSignals ? { all_signals: '1' } : {}) }),
 
   getRuns: (c: LaravelContext) => apiClient.get<{ status: number; data: ResearchRun[] }>('/signals/research/runs', base(c)),
 
@@ -332,13 +820,38 @@ export const opportunitiesService = {
     apiClient.get<{ status: number; data: ResearchRun }>(`/signals/research/runs/${runId}`, base(c)),
 
   getRunSources: (c: LaravelContext, runId: number) =>
-    apiClient.get<{ status: number; data: ResearchSourceInfo[] }>(`/signals/research/runs/${runId}/sources`, base(c)),
+    apiClient.get<RunSourcesResponse>(`/signals/research/runs/${runId}/sources`, base(c)),
 
-  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }) =>
-    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun } }>(`/signals/research/run?${qs(c)}`, customParams ?? {}),
+  runResearch: (c: LaravelContext, customParams?: { topic?: string; company?: string; industry?: string; geography?: string; signal_type?: string; recency_days?: number }, product?: string, regions?: { country: string; state?: string; city?: string }[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') =>
+    apiClient.post<{ status: number; message: string; data?: { run_id: number; run: ResearchRun; icp_sync?: IcpRegionSync | null } }>(`/signals/research/run?${qs(c)}`, { ...(customParams ?? {}), ...(product ? { product } : {}), ...(regions && regions.length > 0 ? { regions } : {}), ...(offerId ? { offer_id: offerId } : {}), ...(customerModel ? { customer_model: customerModel, icp_type: customerModel } : {}) }),
+
+  /** Adds an opportunity by hand. The server stamps when it was saved; the source post's own date can be sent separately. No research is run. */
+  createManual: (c: LaravelContext, body: Record<string, unknown>) =>
+    apiClient.post<ManualOpportunityResponse>(`/signals/opportunities/manual?${qs(c)}`, body),
+
+  // The searchable Country > State / Province > City lists (see lib/location-api.ts). Countries and a country's states are small and sent whole;
+  // cities are searched on the server and cut to a page.
+  getLocationCountries: (c: LaravelContext) =>
+    apiClient.get<{ status: number; data: CountriesAnswer }>('/signals/locations/countries', base(c)),
+
+  getLocationStates: (c: LaravelContext, country: string) =>
+    apiClient.get<{ status: number; data: StatesAnswer }>('/signals/locations/states', { ...base(c), country }),
+
+  getLocationCities: (c: LaravelContext, country: string, state: string | null, q: string, limit: number) =>
+    apiClient.get<{ status: number; data: CitiesAnswer }>('/signals/locations/cities', { ...base(c), country, ...(state ? { state } : {}), ...(q ? { q } : {}), limit: String(limit) }),
+
+  /** Checks one place (the state belongs to the country, the city to the state) and returns it with the catalogue's codes. Saves nothing. */
+  validateLocation: (c: LaravelContext, place: { country?: string; state?: string; city?: string; country_code?: string; state_code?: string; city_id?: number }) =>
+    apiClient.post<{ status: number; data: Record<string, unknown> | null }>(`/signals/locations/validate?${qs(c)}`, place),
+
+  getLocations: (c: LaravelContext, country?: string, state?: string) =>
+    apiClient.get<{ status: number; data: { default_country: string; countries: string[]; states: string[]; cities: string[] } }>('/signals/locations', { ...base(c), ...(country ? { country } : {}), ...(state ? { state } : {}) }),
+
+  saveLocation: (c: LaravelContext, location: { country: string; state?: string; city?: string }) =>
+    apiClient.post<{ status: number; message: string; data: { id?: number; country: string; state?: string; city?: string } }>(`/signals/locations?${qs(c)}`, location),
 
   list: (c: LaravelContext, q: OpportunityQuery = {}) => {
-    const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: '10' }
+    const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: String(q.perPage ?? 5) }
     if (q.search) params.search = q.search
     if (q.category) params.category = q.category
     if (q.kind) params.kind = q.kind
@@ -347,7 +860,36 @@ export const opportunitiesService = {
     if (q.reviewStatus) params.review_status = q.reviewStatus
     if (q.feedSection) params.feed_section = q.feedSection
     if (q.reportDate) params.report_date = q.reportDate
+    if (q.expired && q.expired !== 'hide') params.expired = q.expired
+    if (q.includeSamples) params.include_samples = '1'
+    if (q.claimLevel) params.claim_level = q.claimLevel
+    if (q.businessFit) params.business_fit = q.businessFit
+    if (q.product && q.product !== 'all') params.product = q.product
+    if (q.customerModel) params.customer_model = q.customerModel
+    if (q.offerId) params.offer_id = q.offerId
+    Object.assign(params, regionQuery(q.regions ?? []))
+    if (q.from) params.from = q.from
+    if (q.to) params.to = q.to
+    if (q.runDate) params.run_date = q.runDate
+    if (q.runId) params.run_id = String(q.runId)
+    if (q.sort && q.sort !== 'default') params.sort = q.sort
+    if (q.latestSaved) params.latest_saved = '1'
+    if (q.needCode) params.need_code = q.needCode
+    if (q.allSignals) params.all_signals = '1'
+    if (q.source && q.source !== 'all') params.source = q.source
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
+  },
+
+  /**
+   * Structured demand-side import (JSON or CSV). Rejected rows come back with a reason and are kept
+   * server-side; `dryRun` validates without writing anything.
+   */
+  importMarket: (c: LaravelContext, file: File, opts: { dryRun?: boolean; label?: string } = {}) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (opts.label) form.append('source_label', opts.label)
+    if (opts.dryRun) form.append('dry_run', '1')
+    return apiClient.postForm<{ status: number; message: string; data: MarketImportResult }>(`/signals/market/import?${qs(c)}`, form)
   },
 
   get: (c: LaravelContext, id: number) => apiClient.get<{ status: number; data: Opportunity }>(`/signals/opportunities/${id}`, base(c)),
@@ -355,24 +897,167 @@ export const opportunitiesService = {
   act: (c: LaravelContext, id: number, action: 'review' | 'dismiss' | 'follow-up', notes?: string) =>
     apiClient.patch<{ status: number; data: Opportunity }>(`/signals/opportunities/${id}/${action}?${qs(c)}`, notes ? { notes } : {}),
 
+  // Sales & Marketing unification, Phase 4: promote an unqualified signal into a CRM Lead.
+  // Idempotent (created:false on repeat) - see Docs/sales-marketing-merge/DECISIONS.md.
+  promoteToCrm: (c: LaravelContext, id: number) =>
+    apiClient.post<{ status: number; data: { lead_id: string; created: boolean } }>(`/signals/opportunities/${id}/promote-to-crm?${qs(c)}`, {}),
+
   // ── ingestion ──
-  listSources: (c: LaravelContext) => apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', base(c)),
+  // Data connectors always talk to the real backend. A failed call surfaces its real error to the
+  // caller; it is never replaced with simulated data. The in-memory mock is available only in
+  // development builds with NEXT_PUBLIC_G2G_CONNECTORS_MOCK=true (see isDataConnectorMockModeEnabled).
+  listConnectors: async (c: LaravelContext): Promise<DataConnectorsResponse> => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.list(c)
+    }
+    return apiClient.get<DataConnectorsResponse>('/signals/ingestion/connectors', base(c))
+  },
 
-  getSource: (c: LaravelContext, id: number) =>
-    apiClient.get<{ status: number; data: IngestionSourceDetail }>(`/signals/ingestion/sources/${id}`, base(c)),
+  createConnector: async (c: LaravelContext, body: {
+    type: DataConnectorInfo['type']; name: string; url?: string; external_account_id?: string; product_key: string
+    offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.create(c, body)
+    }
+    return apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors?${qs(c)}`, body)
+  },
 
-  upload: (c: LaravelContext, file: File) => {
+  updateConnector: async (c: LaravelContext, id: number, body: {
+    name: string; url?: string; external_account_id?: string; product_key: string
+    offer_id?: string | null; customer_model?: DataConnectorInfo['customer_model']; regions?: DataConnectorInfo['regions']
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.update(c, id, body)
+    }
+    return apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}?${qs(c)}`, body)
+  },
+
+  connectConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.connect(c, id)
+    }
+    return apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/connect?${qs(c)}`, {})
+  },
+
+  disconnectConnector: async (c: LaravelContext, id: number): Promise<{ status: number; message?: string; revocation?: 'revoked' | 'failed' | 'not_supported' | 'not_attempted'; data: DataConnectorInfo }> => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.disconnect(c, id)
+    }
+    return apiClient.post<{ status: number; message?: string; revocation?: 'revoked' | 'failed' | 'not_supported' | 'not_attempted'; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/disconnect?${qs(c)}`, {})
+  },
+
+  // ── Connector Settings (administrators only): the provider application credentials. No response carries a secret. ──
+  getConnectorSettings: (c: LaravelContext) =>
+    apiClient.get<{ status: number; data: { storage_ready: boolean; providers: ProviderSettings[] } }>('/signals/ingestion/connector-settings', base(c)),
+
+  saveConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey, body: SavePayload) =>
+    apiClient.put<{ status: number; message: string; data: ProviderSettings; warnings: string[] }>(`/signals/ingestion/connector-settings/${provider}?${qs(c)}`, body),
+
+  testConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey) =>
+    apiClient.post<{ status: number; data: SettingsTestResult }>(`/signals/ingestion/connector-settings/${provider}/test?${qs(c)}`, {}),
+
+  deleteConnectorSettings: (c: LaravelContext, provider: SettingsProviderKey) =>
+    apiClient.delete<{ status: number; message: string; data: ProviderSettings; warnings: string[] }>(`/signals/ingestion/connector-settings/${provider}?${qs(c)}`),
+
+  authorizeConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.authorize(c, id)
+    }
+    return apiClient.post<{ status: number; data: { authorization_url: string } }>(`/signals/ingestion/connectors/${id}/oauth?${qs(c)}`, {})
+  },
+
+  selectConnectorAccount: async (c: LaravelContext, id: number, accountId: string) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.selectAccount(c, id, accountId)
+    }
+    return apiClient.post<{ status: number; data: { id: number; connection_status: ConnectorStatus; account_name: string } }>(
+      `/signals/ingestion/connectors/${id}/accounts?${qs(c)}`, { account_id: accountId },
+    )
+  },
+
+  saveConnectorSchedule: async (c: LaravelContext, id: number, body: {
+    sync_enabled: boolean
+    schedule_enabled: boolean
+    schedule_interval_minutes: number
+    schedule_timezone: string
+  }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.saveSchedule(c, id, body)
+    }
+    return apiClient.post<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/schedule?${qs(c)}`, body)
+  },
+
+  configureLinkedInAccount: async (c: LaravelContext, id: number, accountId: string) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.configureLinkedInAccount(c, id, accountId)
+    }
+    return apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/account?${qs(c)}`, { external_account_id: accountId })
+  },
+
+  /** Reports the connector's stored, server-side state. It makes no provider call and never simulates a ping. */
+  testConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.testConnection(c, id)
+    }
+    const res = await apiClient.get<DataConnectorsResponse>('/signals/ingestion/connectors', base(c))
+    const connector = res.data.find((item) => item.id === id)
+    if (!connector) throw new Error('Connector not found.')
+    const health = connectorHealth(connector, connector.type !== 'public_web_page')
+    return { status: health.healthy ? 200 : 409, healthy: health.healthy, latency_ms: 0, message: health.message }
+  },
+
+  syncConnector: async (c: LaravelContext, id: number, options?: { interactive?: boolean }) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.sync(c, id, { interactive: options?.interactive ?? true })
+    }
+    return apiClient.post<DataConnectorResponse>(`/signals/ingestion/connectors/${id}/sync?${qs(c)}`, {})
+  },
+
+  deleteConnector: async (c: LaravelContext, id: number) => {
+    if (isDataConnectorMockModeEnabled()) {
+      return dataConnectorMockApi.delete(c, id)
+    }
+    return apiClient.delete<{ status: number; message: string }>(`/signals/ingestion/connectors/${id}?${qs(c)}`)
+  },
+
+  /** `product` lists only the documents added for that product (ones added before products were recorded count as ScholarClone's). */
+  listSources: async (c: LaravelContext, product?: string) => {
+    const local = dataConnectorMockApi.getPersistedSources(c, product)
+    try {
+      const res = await apiClient.get<{ status: number; data: IngestionSourceInfo[] }>('/signals/ingestion/sources', product ? { ...base(c), product } : base(c))
+      const remoteIds = new Set((res.data || []).map((s) => s.id))
+      const combined = [...(res.data || []), ...local.filter((l) => !remoteIds.has(l.id))]
+      return { status: 1, data: combined }
+    } catch {
+      return { status: 1, data: local }
+    }
+  },
+
+  getSource: async (c: LaravelContext, id: number) => {
+    try {
+      return await apiClient.get<{ status: number; data: IngestionSourceDetail }>(`/signals/ingestion/sources/${id}`, base(c))
+    } catch {
+      const local = dataConnectorMockApi.getPersistedSourceDetail(c, id)
+      if (local) return { status: 1, data: local }
+      throw new Error('Source not found')
+    }
+  },
+
+  upload: (c: LaravelContext, file: File, product?: string) => {
     const form = new FormData()
     form.append('file', file)
+    if (product) form.append('product', product)
     return apiClient.postForm<IngestResponse>(`/signals/ingestion/upload?${qs(c)}`, form)
   },
 
-  addUrl: (c: LaravelContext, url: string) =>
-    apiClient.post<IngestResponse>(`/signals/ingestion/url?${qs(c)}`, { url }),
+  addUrl: (c: LaravelContext, url: string, product?: string) =>
+    apiClient.post<IngestResponse>(`/signals/ingestion/url?${qs(c)}`, { url, ...(product ? { product } : {}) }),
 
-  listSignals: (c: LaravelContext, q: { sourceId?: number; kind?: string; search?: string; page?: number } = {}) => {
+  listSignals: (c: LaravelContext, q: { sourceId?: number; kind?: string; search?: string; product?: string; page?: number } = {}) => {
     const params: Record<string, string> = { ...base(c), page: String(q.page ?? 1), per_page: '12' }
     if (q.sourceId) params.source_id = String(q.sourceId)
+    if (q.product) params.product = q.product
     if (q.kind) params.kind = q.kind
     if (q.search) params.search = q.search
     return apiClient.get<IngestionSignalListResponse>('/signals/ingestion/findings', params)

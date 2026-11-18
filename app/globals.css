@@ -60,6 +60,8 @@
 
 :root {
   --radius: 0.5rem;
+  /* Same accent as the LMS K12 assistant (chat avatar, send button, header icon). */
+  --accent-gradient: linear-gradient(135deg, #0D6EFD 0%, #7ED957 100%);
 
   --background: hsl(210 40% 98%);
   --foreground: hsl(222 47% 11%);
@@ -434,6 +436,226 @@
   }
 }
 
+/* A moving highlight sweeping across the document-upload progress bar's
+   fill, so it reads as "actively working" even between real backend polls —
+   not just a static block that happens to be wider than before. Applied via
+   an arbitrary Tailwind value on the fill itself. */
+@keyframes g2g-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* A soft pulsing glow on whichever step of the upload pipeline is currently
+   running, so the active step reads as "live" at a glance, not just via its
+   spinner icon. */
+@keyframes g2g-step-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * THE "BIG STREAMING" UPLOAD TREATMENT
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Three layers, each doing one job, all CSS-only (no animation library - the
+ * existing shimmer/glow above already prove this stack doesn't need one, and
+ * research into current upload-UI patterns turned up nothing a dependency
+ * would buy here that a wider gradient and a couple more keyframes don't):
+ *
+ *  1. g2g-stream-flow  - the fill itself: a wide diagonal multi-band gradient
+ *     that scrolls continuously, so a bar reads as "data is moving through
+ *     this" rather than "a block that happens to be getting wider."
+ *  2. g2g-particle-drift - small bright flecks riding the leading edge of an
+ *     active bar, moving faster than the stripe band for a layered sense of
+ *     motion rather than one flat sweep.
+ *  3. g2g-row-enter - batch-upload rows stagger in (via animation-delay set
+ *     per-row from its index) instead of all snapping into place at once.
+ *
+ * None of this touches WHAT is shown, only how it moves - the percentage
+ * driving these bars is still the same backend-confirmed-floor-plus-bounded-
+ * creep value from DocumentProcessingProgress's docblock, never a fake timer.
+ */
+@keyframes g2g-stream-flow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: -200% 0%;
+  }
+}
+
+@keyframes g2g-particle-drift {
+  /* `left`, not `transform: translateX()` - a percentage transform is
+     relative to the particle's OWN width, which wouldn't sweep it across the
+     bar at all. `left` is relative to the positioned parent, which is what
+     "drift across the whole bar" actually needs. */
+  0% {
+    left: -8%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 104%;
+    opacity: 0;
+  }
+}
+
+@keyframes g2g-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The big aggregate ring/number on the batch upload header - a slow, steady
+   breathing scale so the whole summary reads as alive while files are still
+   in flight, settling the instant the batch finishes (driven by the `done`
+   class, not a timeout). */
+@keyframes g2g-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * THE GENERATING ORB — components/ui/generating-orb.tsx
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Same "a few layers, each doing one job, CSS-only" approach as the
+ * streaming-bar treatment above, not a new animation dependency. Three
+ * layers on the orb itself:
+ *  1. g2g-orb-pulse - the core-to-halo radial gradient breathing in place.
+ *  2. g2g-orb-drift-rotate - a second gradient layer, in the alt color,
+ *     counter-rotating underneath it so the two continuously cross-fade
+ *     rather than the orb ever reading as one static blob.
+ *  3. g2g-orb-rim-spin - a thin highlight ring rotating around the edge.
+ *
+ * generating-orb.tsx simply doesn't attach these when `active` is false
+ * (done/failed) - freezing the orb needs no separate "stopped" keyframe.
+ */
+@keyframes g2g-orb-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes g2g-orb-drift-rotate {
+  0% {
+    transform: rotate(0deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.15);
+  }
+}
+
+@keyframes g2g-orb-rim-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* The active processing-step label beneath the orb (and, at a smaller size,
+   the checklist's own active row) rolling down into its centered resting
+   spot - see document-processing-steps.tsx's own docblock for why. Starts
+   above and slightly shrunk, overshoots past full size on the way down,
+   then settles - the overshoot is what reads as "becomes bigger" as it
+   lands, not just a static bigger/bolder resting style. */
+@keyframes g2g-step-roll-in {
+  0% {
+    transform: translateY(-70%) scale(0.7);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(8%) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* The active step label's resting-state color (document-processing-steps.tsx)
+   - a continuous loop through the gradient's own repeated color sequence via
+   background-position, not a one-shot reveal. Paired with g2g-step-roll-in
+   above on the same element: the roll-in plays once per label change, this
+   keeps looping underneath it for as long as that label stays on screen. */
+@keyframes g2g-step-color-loop {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* The checklist's own "still coming up" cue (document-processing-progress.tsx)
+   lives on each not-yet-reached row's text itself now, not a separate sweep
+   overlaid across the whole list - a highlight band travels through the
+   label via an animated background-position on a gradient clipped to the
+   text (`background-clip: text`), the same skeleton-shimmer technique
+   dozens of loading UIs use. The gradient's two colors are `--muted-foreground`
+   and `--foreground` - the exact tokens every other label in this checklist
+   already reads its color from - so the shimmer band itself stays correctly
+   dim-on-light / dim-on-dark with no separate color branch to maintain. */
+@keyframes g2g-text-shimmer {
+  0% {
+    background-position: 160% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+/* A gentle continuous bob on each not-yet-finished checklist row as a
+   whole line (document-processing-progress.tsx), on top of whatever that
+   row's own text is doing (the active label's roll-in, or a pending row's
+   text-shimmer) - staggered per row via each row's own animation-delay (set
+   inline from its index) so the list reads as a soft wave passing through
+   it rather than every row bobbing in lockstep. */
+@keyframes g2g-row-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 /*
  * ════════════════════════════════════════════════════════════════════════════
  * AUTOFILL, WHICH CHROME PAINTS ITSELF AND WON'T LET YOU STYLE NORMALLY
@@ -462,4 +684,99 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
   caret-color: var(--foreground);
   transition: background-color 9999s ease-in-out 0s;
+}
+
+/*
+ * ── PREMIUM WORKSPACE (Signals modules only) ────────────────────────────────
+ *
+ * Company Opportunities, Ingestion Engine, Product Portfolio and Partner Network share one clean, light look: white ground, white cards,
+ * a restrained blue accent. It is SCOPED to `.g2g-premium` and to light mode, so no other module and no dark-mode colour changes. Only
+ * surfaces, hairlines and decoration move; text colours, the primary blue and every status colour keep the contrast they were checked at.
+ * Motion is short and purposeful and is switched off for people who ask for reduced motion.
+ */
+.g2g-premium {
+  --premium-gold: hsl(221 83% 53%);
+  --premium-gold-soft: hsl(214 95% 96%);
+  --premium-gold-line: hsl(217 85% 70%);
+  min-height: 100%;
+  animation: g2g-premium-enter 220ms ease-out both;
+}
+
+:root:not(.dark) .g2g-premium {
+  --background: hsl(0 0% 100%);
+  --surface-muted: hsl(214 40% 96%);
+  --muted: hsl(214 40% 96%);
+  --secondary: hsl(214 40% 96%);
+  --accent: hsl(214 45% 95%);
+  --border: hsl(214 32% 80%);
+  background: linear-gradient(180deg, hsl(214 80% 97%) 0, hsl(0 0% 100%) 220px, hsl(0 0% 100%) 100%);
+}
+
+/* A card that responds to the pointer: a small lift and a blue edge. */
+.g2g-premium .premium-card {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.g2g-premium .premium-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -8px hsl(221 60% 35% / 0.22), 0 1px 3px hsl(221 40% 30% / 0.08);
+  border-color: var(--premium-gold-line);
+}
+
+/* The blue hairline under a page title. */
+.g2g-premium .premium-rule {
+  height: 2px;
+  width: 3rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--premium-gold), transparent);
+}
+
+/* The header block of a page: soft blue wash and blue edge in light mode; a dark panel in dark mode (the title text turns light there). */
+.g2g-premium .premium-hero {
+  border-radius: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+:root:not(.dark) .g2g-premium .premium-hero {
+  background: linear-gradient(120deg, hsl(214 95% 97%), hsl(0 0% 100%) 60%, hsl(214 70% 97%));
+  border-color: hsl(214 60% 86%);
+  box-shadow: 0 1px 0 hsl(0 0% 100%) inset, 0 8px 24px -16px hsl(221 60% 35% / 0.25);
+}
+.dark .g2g-premium .premium-hero {
+  background: linear-gradient(120deg, hsl(222 40% 11%), hsl(222 47% 8%) 60%, hsl(240 30% 11%));
+  border-color: hsl(215 28% 24%);
+}
+
+/* Items entering a list: a short rise and fade, staggered by the order they were given. */
+.g2g-premium .premium-rise {
+  animation: g2g-premium-rise 260ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+/* Disclosure bodies open smoothly. */
+.g2g-premium details[open] > :not(summary) {
+  animation: g2g-premium-enter 180ms ease-out both;
+}
+
+@keyframes g2g-premium-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes g2g-premium-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g2g-premium,
+  .g2g-premium .premium-rise,
+  .g2g-premium details[open] > :not(summary) {
+    animation: none;
+  }
+  .g2g-premium .premium-card {
+    transition: none;
+  }
+  .g2g-premium .premium-card:hover {
+    transform: none;
+  }
 }

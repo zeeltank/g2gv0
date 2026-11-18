@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,6 +19,7 @@ import {
   GraduationCap,
   Image as ImageIcon,
   Loader2,
+  Maximize2,
   Pencil,
   Plus,
   Lock,
@@ -39,17 +41,20 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
+import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
+import { SalesTrainingLauncher } from '@/components/domain/lms/sales-training/sales-training-launcher'
+import { SalesTrainingCards, SalesTrainingCourseView } from '@/components/domain/lms/sales-training/sales-training-course'
+import { SALES_PRODUCTS, salesTrainingKeyOf, type SalesProductKey } from '@/lib/sales-training/deck'
 import {
   AuthoringDeleteDialog,
   ChapterFormSheet,
   type AuthoringTarget,
 } from './course-authoring'
-import { CourseQuizPanel } from './course-quiz-panel'
-import type {
-  Discussion,
-  LearningAssessment,
-  LearningCertificate,
+import {
+  lmsCertificateService,
+  type Discussion,
+  type LearningAssessment,
   LearningCourseSummary,
   LearningNote,
 } from '@/services/lms'
@@ -78,8 +83,10 @@ function formatDate(value: string | null) {
 function lessonKind(
   fileType: string | null,
   src?: string | null,
-): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'unknown' {
+): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'sales' | 'unknown' {
   const type = (fileType ?? '').toLowerCase()
+  // A link to the sales-training player plays inside the lesson, whatever type the lesson was saved as.
+  if (salesTrainingKeyOf(src)) return 'sales'
   if (type === 'mp4' || type === 'video') return 'video'
   if (type === 'pdf') return 'pdf'
   if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
@@ -113,37 +120,6 @@ function officeViewerUrl(src: string) {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(src)}`
 }
 
-function RadialProgress({ value, size = 80 }: { value: number; size?: number }) {
-  const strokeWidth = 7
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (value / 100) * circumference
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-muted/60" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="text-primary transition-all duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-black leading-none tracking-tight text-foreground">{value}%</span>
-        <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Completed</span>
-      </div>
-    </div>
-  )
-}
-
 const STATUS_ICON: Record<string, React.ReactNode> = {
   completed: <CheckCircle2 className="size-4 text-success" />,
   'in-progress': <PlayCircle className="size-4 text-primary" />,
@@ -158,19 +134,22 @@ function CoursePicker({
   error,
   onSelect,
   onRetry,
+  extraCards,
 }: {
   courses: LearningCourseSummary[]
   loading: boolean
   error: string | null
   onSelect: (id: number) => void
   onRetry: () => void
+  /** More course cards shown after the enrolled courses (the sales-training scenarios). */
+  extraCards?: React.ReactNode
 }) {
-  if (error && !loading && courses.length === 0) {
+  if (error && !loading && courses.length === 0 && !extraCards) {
     return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">My Learning</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -179,19 +158,19 @@ function CoursePicker({
       </div>
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-40 rounded-xl" />
           ))}
         </div>
-      ) : courses.length === 0 ? (
+      ) : courses.length === 0 && !extraCards ? (
         <EmptyState
           icon={<GraduationCap className="size-8" />}
           title="No enrolled courses"
           description="Enrol from the learning catalogue to start learning."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {courses.map((course) => {
             const due = formatDate(course.end_date)
             const overdue =
@@ -261,6 +240,7 @@ function CoursePicker({
               </button>
             )
           })}
+          {extraCards}
         </div>
       )}
     </div>
@@ -268,6 +248,127 @@ function CoursePicker({
 }
 
 /* ─── Lesson viewer ────────────────────────────────────────────────────────── */
+
+/*
+ * The full-screen interactive course (deck, videos, checklist, resources) is a page on the course storage that opens in its own tab.
+ * It is opened WITH its opener link on purpose: that page reports how far the learner got (postMessage), and this tab saves it through the
+ * same progress call every other lesson uses, so a learner who finishes the course in the other tab finds this lesson ticked without pressing
+ * anything. Only the course storage host is trusted for this; any other link keeps the plain "opens in a new tab" card.
+ */
+const COURSE_PLAYER_HOSTS = ['s3-triz.fra1.digitaloceanspaces.com']
+const COURSE_PLAYER_PATH = '/interactive/_player/course.html'
+
+function interactiveCourseOrigin(src: string): string | null {
+  try {
+    const url = new URL(src)
+    const trusted = url.protocol === 'https:' && COURSE_PLAYER_HOSTS.includes(url.hostname)
+    return trusted && url.pathname.endsWith(COURSE_PLAYER_PATH) ? url.origin : null
+  } catch {
+    return null
+  }
+}
+
+function InteractiveCourseLauncher({
+  lesson,
+  src,
+  origin,
+  onProgress,
+  onComplete,
+}: {
+  lesson: FlatLesson
+  src: string
+  origin: string
+  onProgress: () => void
+  onComplete: () => void
+}) {
+  const [percent, setPercent] = useState<number | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const lastStep = useRef(-1)
+  const box = useRef<HTMLDivElement>(null)
+  const completed = lesson.status === 'completed'
+
+  // The player is told which lesson it belongs to and where to report; it only ever reports to this page's own address.
+  const withContext = React.useCallback(
+    (embed: boolean) => {
+      const url = new URL(src)
+      url.searchParams.set('lesson', String(lesson.id))
+      url.searchParams.set('from', window.location.origin)
+      if (embed) url.searchParams.set('embed', '1')
+      return url.toString()
+    },
+    [src, lesson.id],
+  )
+
+  const frameSrc = typeof window === 'undefined' ? null : withContext(true)
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== origin) return
+      const data = event.data as { src?: string; lesson?: string | number; type?: string; percent?: number; step?: number } | null
+      if (!data || data.src !== 'g2g-course' || String(data.lesson) !== String(lesson.id)) return
+      if (typeof data.percent === 'number') setPercent(data.percent)
+      if (data.type === 'completed') {
+        if (!completed) onComplete()
+        return
+      }
+      // One save per step, and never once the lesson is already complete (it must not slip back to "in progress").
+      if (data.type === 'progress' && !completed && typeof data.step === 'number' && data.step !== lastStep.current) {
+        lastStep.current = data.step
+        onProgress()
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [origin, lesson.id, completed, onProgress, onComplete])
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === box.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void box.current?.requestFullscreen?.()
+  }
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          {completed ? <CheckCircle2 className="size-4 text-emerald-500" /> : <PlayCircle className="size-4 text-primary" />}
+          Interactive course
+          {percent !== null && !completed ? <span className="text-xs font-normal text-muted-foreground">{percent}% done</span> : null}
+          {completed ? <span className="text-xs font-normal text-emerald-600">Completed</span> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={toggleFullscreen}>
+            <Maximize2 className="size-3.5" /> Full screen
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(withContext(false), '_blank')}>
+            <ExternalLink className="size-3.5" /> New tab
+          </Button>
+        </div>
+      </div>
+      <div ref={box} className="w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
+        {frameSrc ? (
+          <iframe
+            title={lesson.title ?? 'Interactive course'}
+            src={frameSrc}
+            allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+            className={fullscreen ? 'h-screen w-screen' : 'h-[74vh] min-h-[540px] w-full'}
+          />
+        ) : (
+          <Skeleton className="h-[74vh] min-h-[540px] w-full" />
+        )}
+      </div>
+      {percent !== null && !completed ? <Progress value={percent} className="h-1.5" /> : null}
+      <p className="text-xs text-muted-foreground">
+        Learn here or in full screen. Your place is saved, and the lesson is marked complete for you when you finish.
+      </p>
+    </div>
+  )
+}
 
 function LessonViewer({
   lesson,
@@ -359,6 +460,33 @@ function LessonViewer({
     )
   }
 
+  const salesKey = salesTrainingKeyOf(src)
+  if (kind === 'sales' && salesKey) {
+    return (
+      <SalesTrainingLauncher
+        key={lesson.id}
+        productKey={salesKey}
+        title={lesson.title}
+        completed={lesson.status === 'completed'}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
+    )
+  }
+
+  const courseOrigin = interactiveCourseOrigin(src)
+  if (courseOrigin) {
+    return (
+      <InteractiveCourseLauncher
+        lesson={lesson}
+        src={src}
+        origin={courseOrigin}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
+    )
+  }
+
   // `link` covers externally hosted files - the CDN stores some PDFs this way.
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-10">
@@ -395,7 +523,7 @@ function NotesTab({
   const [editDraft, setEditDraft] = useState('')
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4">
         <label htmlFor="new-note" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
           New note{currentLesson ? ` on "${currentLesson.title}"` : ''}
@@ -433,7 +561,7 @@ function NotesTab({
           description="Notes you take while learning are saved to your account."
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3">
           {notes.map((note) => (
             <div key={note.id} className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
               <div className="flex items-start justify-between gap-3">
@@ -505,18 +633,14 @@ function AssessmentsTab({
   assessments,
   loading,
   onTakeQuiz,
+  onDownloadCertificate,
+  downloadingCert,
 }: {
   assessments: LearningAssessment[]
   loading: boolean
-  /**
-   * Take the learner to the quiz.
-   *
-   * This tab listed every paper with a "Not started" badge and NO action of any
-   * kind, so a learner looking at the screen named Assessments had no way to
-   * start one from it — the only working control was in the right rail, which
-   * is not where you look when you have clicked "Assessments".
-   */
   onTakeQuiz: () => void
+  onDownloadCertificate?: () => void
+  downloadingCert?: boolean
 }) {
   if (loading) {
     return (
@@ -539,7 +663,7 @@ function AssessmentsTab({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex w-full min-w-0 flex-col gap-3">
       {assessments.map((assessment) => (
         <div key={assessment.id} className="flex flex-col gap-3 rounded-lg border border-border/60 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -588,19 +712,33 @@ function AssessmentsTab({
             )}
           </div>
 
-          <Button
-            size="sm"
-            variant={assessment.passed ? 'outline' : 'default'}
-            className="w-fit gap-2"
-            onClick={onTakeQuiz}
-          >
-            <ClipboardCheck className="size-3.5" />
-            {assessment.passed
-              ? 'Review your result'
-              : assessment.attempt_count > 0
-                ? 'Try again'
-                : 'Take this assessment'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={assessment.passed ? 'outline' : 'default'}
+              className="w-fit gap-2"
+              onClick={onTakeQuiz}
+            >
+              <ClipboardCheck className="size-3.5" />
+              {assessment.passed
+                ? 'Review your result'
+                : assessment.attempt_count > 0
+                  ? 'Try again'
+                  : 'Take this assessment'}
+            </Button>
+            {assessment.passed && onDownloadCertificate && (
+              <Button
+                size="sm"
+                variant="default"
+                className="w-fit gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={downloadingCert}
+                onClick={onDownloadCertificate}
+              >
+                {downloadingCert ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                Download certificate
+              </Button>
+            )}
+          </div>
 
           {assessment.attempts.length > 0 && (
             <div className="flex flex-col gap-1 rounded-md bg-muted/30 p-2">
@@ -644,66 +782,6 @@ function AssessmentsTab({
  * A certificate is earned by completing every lesson. The server enforces that
  * too, so the button is a convenience rather than the gate.
  */
-function CertificatePanel({
-  certificate,
-  complete,
-  claiming,
-  onClaim,
-}: {
-  certificate: LearningCertificate | null
-  complete: boolean
-  claiming: boolean
-  onClaim: () => void
-}) {
-  return (
-    <Card className="rounded-xl border-border/80 shadow-sm">
-      <CardContent className="flex flex-col gap-3 p-5">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Certificate
-        </h3>
-
-        {certificate ? (
-          <>
-            <div className="flex items-start gap-2.5 rounded-lg border border-success/30 bg-success/5 p-3">
-              <Award className="mt-0.5 size-5 shrink-0 text-success" />
-              <div className="flex min-w-0 flex-col">
-                <span className="text-xs font-bold text-foreground">Earned</span>
-                <span className="truncate font-mono text-[11px] text-muted-foreground">
-                  {certificate.certificate_number}
-                </span>
-                {certificate.issued_at && (
-                  <span className="text-[11px] text-muted-foreground">
-                    Issued {formatDate(certificate.issued_at)}
-                  </span>
-                )}
-              </div>
-            </div>
-            {certificate.skill_title && (
-              <p className="text-[11px] text-muted-foreground">
-                Counts towards <span className="font-semibold text-foreground">{certificate.skill_title}</span>
-              </p>
-            )}
-          </>
-        ) : complete ? (
-          <>
-            <p className="text-xs text-muted-foreground">
-              You have finished every lesson. Claim your certificate.
-            </p>
-            <Button size="sm" className="gap-2" disabled={claiming} onClick={onClaim}>
-              {claiming ? <Loader2 className="size-4 animate-spin" /> : <Award className="size-4" />}
-              Claim certificate
-            </Button>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Complete every lesson in this course to earn a certificate.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 /* ─── Discussions tab ──────────────────────────────────────────────────────── */
 
 function DiscussionsTab({
@@ -766,7 +844,7 @@ function DiscussionsTab({
           description="Be the first to ask a question about this course."
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3">
           {discussions.map((thread) => {
             const isAuthor = String(thread.user_id) === String(currentUserId)
 
@@ -885,53 +963,142 @@ export function LearningDeliveryWorkspace() {
     savingProgress, markLesson,
     assessments, assessmentsLoading,
     notes, notesLoading, createNote, updateNote, deleteNote,
-    certificates, courseCertificate, claimCertificate, claimingCertificate,
-    markCourseComplete, markingComplete,
     discussions, discussionsLoading, postDiscussion, replyToDiscussion, deleteDiscussion,
     authoringSaving, saveChapter, saveContent, removeChapter, removeContent,
+    certificates, courseCertificate, claimCertificate, claimingCertificate,
     message, error, dismiss,
   } = useMyLearning()
-
   const { user } = useAuth()
+  const [downloadingCert, setDownloadingCert] = useState(false)
+
+  const handleDownloadCertificate = async () => {
+    if (!courseId) return
+    const context = getLaravelContext(user)
+    if (!isLaravelContextReady(context)) return
+
+    setDownloadingCert(true)
+    try {
+      let targetId = courseCertificate?.id
+      if (!targetId) {
+        const claimRes = await claimCertificate()
+        if (!claimRes.ok) return
+        const listRes = await lmsCertificateService.list(context, { courseId })
+        const found = listRes.data?.find((c) => c.course_id === courseId)
+        targetId = found?.id
+      }
+      if (targetId) {
+        window.open(lmsCertificateService.downloadUrl(context, targetId), '_blank', 'noopener')
+      }
+    } finally {
+      setDownloadingCert(false)
+    }
+  }
 
   /*
-   * Enrolment status lives on the course SUMMARY, not the detail payload -
-   * the detail describes the course, the summary describes this learner's
-   * relationship to it.
+   * ?course_id=N opens a specific course directly, bypassing the picker.
+   *
+   * Deep-linked from two places that cannot assume the learner would ever
+   * find it by browsing: the notification bell's `action_url` on
+   * `learning.auto_assigned` (services/notifications.ts already turns that
+   * into a router.push with the query string intact), and the capability-gap
+   * learning panel's "Open course" button
+   * (cm-gap-learning-panel.tsx). Only acts once, and only while nothing is
+   * selected yet — it must not fight a learner who has since picked a
+   * different course from the list.
    */
-  const enrolmentStatus = courses.find((entry) => entry.id === courseId)?.enrollment_status ?? null
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    if (courseId) return
+    const requested = Number(searchParams.get('course_id'))
+    if (Number.isInteger(requested) && requested > 0) {
+      selectCourse(requested)
+    }
+    // Intentionally only re-runs when the param itself changes - selectCourse
+    // and courseId are read, not depended on, so picking a DIFFERENT course
+    // manually afterwards does not get silently overridden on a re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  const router = useRouter()
+
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = isHrAdmin(user?.role)
-  const canAuthor = canModerate
+  // The learning screen is view-only for everyone: chapters and lessons are edited in the Course Builder, not while someone is learning.
+  const canAuthor = false
   const [activeTab, setActiveTab] = useState('learn')
 
-  /**
-   * The quiz panel, so the Assessments tab can take the learner to it.
-   *
-   * The tab is where somebody looks for an assessment; the panel is where the
-   * working control lives. Rather than duplicating the panel's state machine
-   * (start / resume / submit / review / lock reasons) into the tab, the tab
-   * sends them to the one implementation.
-   */
-  const quizPanelRef = React.useRef<HTMLDivElement | null>(null)
+  // When a lesson is completed while the learner is on it, show a clear Next button and move on after a short countdown.
+  const [advance, setAdvance] = useState<{ lessonId: number; secs: number } | null>(null)
+  const advanceIn = advance && currentLesson && advance.lessonId === currentLesson.id ? advance.secs : null
+  const goNextRef = useRef(goNext)
+  const currentIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    goNextRef.current = goNext
+    currentIdRef.current = currentLesson?.id ?? null
+  })
+  useEffect(() => {
+    if (!advance) return
+    const timer = setTimeout(() => {
+      if (advance.secs <= 1) {
+        setAdvance(null)
+        // Only move on if the learner is still on the lesson that just finished.
+        if (advance.lessonId === currentIdRef.current) goNextRef.current()
+      } else {
+        setAdvance({ ...advance, secs: advance.secs - 1 })
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [advance])
+  const completeLesson = async (lesson: FlatLesson) => {
+    const saved = await markLesson(lesson, 'completed')
+    if (!saved) return
+    if (hasNext) setAdvance({ lessonId: lesson.id, secs: 5 })
+    // The quiz is a focused next step after the last lesson, rather than a
+    // competing card beside the course player. The server still enforces this
+    // completion gate when the dedicated page starts an attempt.
+    else if ((assessments?.length ?? 0) > 0) {
+      router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
+    }
+  }
 
   const goToQuiz = React.useCallback(() => {
-    quizPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [])
+    router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
+  }, [courseId, router])
+  /*
+   * Sales-training scenarios are listed as courses but are not database courses: they are generated decks served from
+   * /sales-training. Opening one swaps in its own course page; ?sales=<sc|g2g|eb> keeps it open across a reload.
+   */
+  const [salesKey, setSalesKey] = useState<SalesProductKey | null>(() => {
+    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('sales')
+    return SALES_PRODUCTS.find((p) => p.key === requested)?.key ?? null
+  })
+  const openSales = (key: SalesProductKey | null) => {
+    setSalesKey(key)
+    const url = new URL(window.location.href)
+    if (key) url.searchParams.set('sales', key)
+    else url.searchParams.delete('sales')
+    window.history.replaceState(null, '', url.toString())
+  }
+
   const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'chapter' | 'content'; id: number; label: string } | null
   >(null)
 
+  if (salesKey) {
+    return <SalesTrainingCourseView productKey={salesKey} onBack={() => openSales(null)} />
+  }
+
   if (!courseId) {
     return (
-      <div className="p-6">
+      <div className="w-full min-w-0 pt-2">
         <CoursePicker
           courses={courses}
           loading={coursesLoading}
           error={coursesError}
           onSelect={selectCourse}
           onRetry={reload}
+          extraCards={<SalesTrainingCards onOpen={openSales} />}
         />
       </div>
     )
@@ -939,26 +1106,16 @@ export function LearningDeliveryWorkspace() {
 
   if (detailError && !detailLoading) {
     return (
-      <div className="p-6">
+      <div className="w-full min-w-0 pt-2">
         <ErrorState title="Couldn't load this course" description={detailError} retry={reload} />
       </div>
     )
   }
 
   const course = detail?.course
-  /*
-   * Downloadable material, resolved the SAME way the player resolves a lesson.
-   *
-   * This called `lessonKind(lesson.file_type)` with no `src`, which defeats the
-   * extension fallback the function exists for - so a PDF stored with a blank
-   * or unrecognised `file_type` played correctly in the viewer and then
-   * vanished from "Course materials", because the two calls disagreed about
-   * what it was.
-   */
-  const materials = lessons.filter((lesson) =>
-    ['pdf', 'office', 'link'].includes(lessonKind(lesson.file_type, lesson.url ?? lesson.filename)),
-  )
   const due = formatDate(detail?.enrollment?.end_date ?? null)
+  const courseComplete =
+    (detail?.total_content ?? 0) > 0 && (detail?.completed_content ?? 0) === (detail?.total_content ?? 0)
 
   const tabs = [
     { id: 'learn', label: 'Learn', icon: PlayCircle },
@@ -969,8 +1126,8 @@ export function LearningDeliveryWorkspace() {
   ]
 
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex w-full min-w-0 flex-col gap-5 pt-2">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button
             variant="ghost"
@@ -996,11 +1153,29 @@ export function LearningDeliveryWorkspace() {
             </p>
           </div>
         </div>
-        {due && (
-          <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <Clock className="size-3.5" /> Due {due}
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {(courseCertificate || courseComplete || detail?.certificate_available) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/50"
+              disabled={downloadingCert || claimingCertificate}
+              onClick={() => void handleDownloadCertificate()}
+            >
+              {downloadingCert || claimingCertificate ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Award className="size-3.5 text-emerald-600" />
+              )}
+              {courseCertificate ? 'Download certificate' : 'Claim certificate'}
+            </Button>
+          )}
+          {due && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Clock className="size-3.5" /> Due {due}
+            </div>
+          )}
+        </div>
       </div>
 
       {message && (
@@ -1016,9 +1191,8 @@ export function LearningDeliveryWorkspace() {
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex items-center gap-6 border-b border-border/60">
+      <div className="flex w-full min-w-0 flex-col gap-4">
+          <div className="flex w-full min-w-0 items-center gap-6 overflow-x-auto border-b border-border/60">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1048,14 +1222,72 @@ export function LearningDeliveryWorkspace() {
           ) : (
             <>
               {activeTab === 'learn' && currentLesson && (
-                <div className="flex flex-col gap-4">
+                <div className="flex w-full min-w-0 flex-col gap-4">
                   <LessonViewer
                     lesson={currentLesson}
-                    onComplete={() => void markLesson(currentLesson, 'completed')}
+                    onComplete={() => void completeLesson(currentLesson)}
                     onPositionSave={(seconds) => void markLesson(currentLesson, 'in-progress', seconds)}
                   />
 
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  {courseComplete && (
+                    <Card className="w-full min-w-0 overflow-hidden border-emerald-500/20 bg-gradient-to-r from-emerald-500/[0.08] via-card to-card shadow-sm">
+                      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm">
+                            <Award className="size-4" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">Course complete</p>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                              {courseCertificate
+                                ? 'Congratulations! Your certificate of completion has been issued and is available for download.'
+                                : 'You have completed all lessons in this course. You can now download your certificate of completion.'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            className="shrink-0 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            disabled={downloadingCert || claimingCertificate}
+                            onClick={() => void handleDownloadCertificate()}
+                          >
+                            {downloadingCert || claimingCertificate ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Download className="size-4" />
+                            )}
+                            Download certificate
+                          </Button>
+                          {(assessments?.length ?? 0) > 0 && (
+                            <Button variant="outline" className="shrink-0 gap-2" onClick={goToQuiz}>
+                              {courseCertificate ? 'Review assessment' : 'Start assessment'} <ChevronRight className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {currentLesson.status === 'completed' && hasNext && (
+                    <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                      <div className="flex items-center gap-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                        <CheckCircle2 className="size-4 text-emerald-600" />
+                        Lesson complete{advanceIn !== null ? `. The next lesson starts in ${advanceIn}s` : ''}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {advanceIn !== null && (
+                          <Button variant="ghost" size="sm" onClick={() => setAdvance(null)}>
+                            Stay here
+                          </Button>
+                        )}
+                        <Button size="sm" className="gap-1" onClick={() => { setAdvance(null); goNext() }}>
+                          Next lesson <ChevronRight className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                         {currentLesson.chapterName}
@@ -1083,7 +1315,7 @@ export function LearningDeliveryWorkspace() {
                     variant={currentLesson.status === 'completed' ? 'outline' : 'default'}
                     className="gap-2 self-start"
                     disabled={savingProgress || currentLesson.status === 'completed'}
-                    onClick={() => void markLesson(currentLesson, 'completed')}
+                    onClick={() => void completeLesson(currentLesson)}
                   >
                     {savingProgress ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                     {currentLesson.status === 'completed' ? 'Completed' : 'Mark as complete'}
@@ -1092,7 +1324,7 @@ export function LearningDeliveryWorkspace() {
               )}
 
               {activeTab === 'contents' && (
-                <div className="flex flex-col gap-4">
+                <div className="flex w-full min-w-0 flex-col gap-4">
                   {canAuthor && (
                     <Button
                       variant="outline"
@@ -1251,6 +1483,8 @@ export function LearningDeliveryWorkspace() {
                   assessments={assessments}
                   loading={assessmentsLoading}
                   onTakeQuiz={goToQuiz}
+                  onDownloadCertificate={() => void handleDownloadCertificate()}
+                  downloadingCert={downloadingCert || claimingCertificate}
                 />
               )}
 
@@ -1280,110 +1514,6 @@ export function LearningDeliveryWorkspace() {
               )}
             </>
           )}
-        </div>
-
-        <aside className="flex flex-col gap-4">
-          <Card className="rounded-xl border-border/80 shadow-sm">
-            <CardContent className="flex items-center gap-4 p-5">
-              <RadialProgress value={detail?.progress_percent ?? 0} />
-              <div className="flex flex-col gap-1 text-sm">
-                <span className="font-semibold text-foreground">
-                  {detail?.completed_content ?? 0} of {detail?.total_content ?? 0} lessons
-                </span>
-                {/*
-                  * Sessions are counted separately, and shown separately.
-                  *
-                  * The percentage above covers lessons AND the sessions this
-                  * learner is registered on, so without this line a learner who
-                  * had opened every lesson would see "6 of 6 lessons" beside a
-                  * ring reading 86% and have no way to find the missing 14%.
-                  */}
-                {(detail?.total_sessions ?? 0) > 0 && (
-                  <span className="font-semibold text-foreground">
-                    {detail?.attended_sessions ?? 0} of {detail?.total_sessions ?? 0} sessions
-                    attended
-                  </span>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {Math.round((detail?.time_spent_seconds ?? 0) / 60)} min spent
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/*
-            The quiz sits between the lessons and the certificate, which is the
-            order it gates in: finish the lessons, pass the quiz, then claim.
-            Renders nothing at all for a course with no quiz.
-          */}
-          <div ref={quizPanelRef}>
-            <CourseQuizPanel courseId={courseId} onPassed={() => void reload()} />
-          </div>
-
-          {/*
-            THE LEARNER SAYS WHEN THEY ARE FINISHED.
-            Separate from the certificate below, which still requires every
-            lesson. Some of what a course asks for happens away from the screen,
-            so a system that only counts opened lessons cannot see all the work
-            — but it can, and does, record the gap alongside the declaration.
-          */}
-          {enrolmentStatus !== 'completed' && (
-            <Card className="rounded-xl border-border/80 shadow-sm">
-              <CardContent className="flex flex-col gap-2 p-5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Finished this course?
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {(detail?.completed_content ?? 0) < (detail?.total_content ?? 0)
-                    ? `You have opened ${detail?.completed_content ?? 0} of ${detail?.total_content ?? 0} lessons. Marking it complete records both.`
-                    : 'All lessons opened.'}
-                </p>
-                <Button
-                  variant="outline"
-                  className="w-fit"
-                  disabled={markingComplete}
-                  onClick={() => void markCourseComplete()}
-                >
-                  {markingComplete ? 'Saving…' : 'Mark as complete'}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <CertificatePanel
-            certificate={courseCertificate}
-            complete={(detail?.total_content ?? 0) > 0 && detail?.progress_percent === 100}
-            claiming={claimingCertificate}
-            onClaim={() => void claimCertificate()}
-          />
-
-          <Card className="rounded-xl border-border/80 shadow-sm">
-            <CardContent className="flex flex-col gap-3 p-5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Course materials
-              </h3>
-              {materials.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No downloadable materials.</p>
-              ) : (
-                materials.map((item) => (
-                  <a
-                    key={item.id}
-                    href={item.filename ?? item.url ?? '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 rounded-md border border-border/50 p-2.5 transition-colors hover:bg-muted/40"
-                  >
-                    <FileText className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-                      {item.title ?? 'Material'}
-                    </span>
-                    <Download className="size-3.5 shrink-0 text-muted-foreground" />
-                  </a>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </aside>
       </div>
 
       <ChapterFormSheet

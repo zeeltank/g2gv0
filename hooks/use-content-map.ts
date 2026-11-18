@@ -20,6 +20,10 @@ const CONTENT_MAP_LOADERS: Record<string, () => Promise<ContentRoute[]>> = {
   '6': () => import('./content-map-reports').then((module) => module.REPORTS_CONTENT), // Reports
   '204': () => import('./content-map-m6').then((module) => module.M6_CONTENT), // Task Management
   '186': () => import('./content-map-m7').then((module) => module.M7_CONTENT), // Agentic AI
+  // CRM. Id 199 is safe to hardcode here (unlike a brand-new root would be):
+  // this is a reactivated row, confirmed identical on both the local and
+  // live databases, not one this migration created fresh.
+  '199': () => import('./content-map-crm').then((module) => module.CRM_CONTENT),
 }
 
 export async function loadContentRoutes(moduleId: string): Promise<ContentRoute[] | undefined> {
@@ -32,7 +36,16 @@ export async function loadContentRoute(
   active: { moduleId: string; menuId: string; submenuId: string },
   accessLink?: string,
 ): Promise<ContentRoute | undefined> {
-  const routes = await loadContentRoutes(active.moduleId)
+  let routes = await loadContentRoutes(active.moduleId)
+
+  // Support is a separate top-level row on the live database (rather than a
+  // child of CRM), so its module id is not CRM's stable id 199.  The pages are
+  // still CRM screens: access_link is the database contract and must win over
+  // a deployment-specific tree shape.
+  if (!routes && accessLink?.startsWith('/module/crm/')) {
+    routes = (await import('./content-map-crm')).CRM_CONTENT
+  }
+
   if (!routes) return undefined
 
   // accessLink is the stable tblmenumaster_g2g column; submenuId/menuId are

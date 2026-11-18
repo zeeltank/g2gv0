@@ -126,6 +126,7 @@ export interface LearningCourseDetail {
   progress_percent: number
   time_spent_seconds: number
   content_categories: string[]
+  certificate_available?: boolean
 }
 
 export interface CompleteCourseResult {

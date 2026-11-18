@@ -191,9 +191,16 @@ export function subscribeToLaravelSession(listener: () => void): () => void {
  * Note what is absent: "Deparment Administrator" is NOT mapped to administrator.
  * It used to pass an admin gate purely because its name contains "admin", which
  * is the collision being removed here.
+ *
+ * `administrator` ITSELF WAS MISSING UNTIL NOW — only the short "admin" was
+ * recognised, so a profile literally named "Administrator" fell through to
+ * `employee` wherever `role_key` was unset (true for most tenants). Added here
+ * and in `RoleKey::LEGACY_NAMES` together, for the reason stated above: they
+ * must agree.
  */
 const LEGACY_PROFILE_NAMES: Record<string, Role> = {
   admin: 'administrator',
+  administrator: 'administrator',
   'organization administrator': 'administrator',
   hr: 'hr_manager',
 }

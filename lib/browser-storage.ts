@@ -84,6 +84,9 @@ export const CLEARED_ON_SIGN_OUT: BrowserKey[] = [
     where: 'This browser',
   },
   { key: 'gtg-sidebar-expand-on-first-open', where: 'Sidebar' },
+  { key: 'gtg-sidebar-cache:', prefix: true, where: 'Sidebar' },
+  { key: 'gtg-account-me:', prefix: true, where: 'Account' },
+  { key: 'gtg-next-steps:', prefix: true, where: 'Onboarding' },
 
   /* ── where you were and how it looked ──────────────────────────────────── */
   { key: 'gtg-last-visited', label: 'Last page you were on', where: 'Navigation' },
