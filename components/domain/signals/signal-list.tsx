@@ -80,7 +80,7 @@ export function SignalList({
   timezone?: string | null
   onAddManual?: () => void
 }) {
-  const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'manual'>('all')
+  const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'connectors' | 'manual'>('all')
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(1)
@@ -156,8 +156,8 @@ export function SignalList({
     const total = data.meta.total
     const todayStr = today || (timezone ? todayIn(timezone) : null)
 
-    const gen = items.filter((o) => !o.entered_manually && o.research_run_id !== null).length
-    const man = items.filter((o) => o.entered_manually || !o.research_run_id).length
+    const gen = items.filter((o) => !o.entered_manually && !o.found_via && o.research_run_id !== null).length
+    const man = items.filter((o) => o.entered_manually || (!o.research_run_id && !o.found_via)).length
     const newTod = items.filter((o) => {
       const d = o.captured_on || o.report_date || o.first_discovered_at?.slice(0, 10)
       return todayStr ? d === todayStr : false
@@ -187,10 +187,13 @@ export function SignalList({
   const items = useMemo(() => {
     if (!data) return []
     if (sourceTab === 'generated') {
-      return data.data.filter((o) => !o.entered_manually && o.research_run_id !== null)
+      return data.data.filter((o) => !o.entered_manually && !o.found_via && o.research_run_id !== null)
+    }
+    if (sourceTab === 'connectors') {
+      return data.data.filter((o) => Boolean(o.found_via))
     }
     if (sourceTab === 'manual') {
-      return data.data.filter((o) => o.entered_manually || !o.research_run_id)
+      return data.data.filter((o) => o.entered_manually || (!o.research_run_id && !o.found_via))
     }
     return data.data
   }, [data, sourceTab])
@@ -299,6 +302,19 @@ export function SignalList({
             }`}
           >
             Generated
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sourceTab === 'connectors'}
+            onClick={() => { setSourceTab('connectors'); setPage(1) }}
+            className={`rounded-lg px-3 py-1.5 transition-all ${
+              sourceTab === 'connectors'
+                ? 'bg-card text-foreground font-semibold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Connectors
           </button>
           <button
             type="button"

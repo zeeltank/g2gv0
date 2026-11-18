@@ -282,3 +282,23 @@ export function syncStageCounts(run: SyncCountsLike | null | undefined): { fetch
   const done = !['queued', 'running'].includes(run.status)
   return { fetched: run.records_fetched, analysed: run.records_processed, signals: run.records_created, done }
 }
+
+
+/**
+ * A technical connector message in plain words, with what to do next. The original text is never lost: unknown messages are shown as they are,
+ * and callers keep the raw text as a tooltip.
+ */
+export function friendlyConnectorMessage(raw: string | null | undefined): string {
+  const text = (raw ?? '').trim()
+  if (!text) return ''
+  if (/HTTP (401|403)\b/.test(text)) {
+    return 'This website does not allow automated reading right now. Click Sync Now to try again, or use Page or document to upload the page as a file.'
+  }
+  if (/HTTP 429\b/.test(text)) return 'This website is asking us to slow down. Try again in a few minutes.'
+  if (/HTTP 404\b|HTTP 410\b/.test(text)) return 'That page was not found. Check the link under Edit, then sync again.'
+  if (/HTTP 5\d\d\b/.test(text)) return 'The website is having trouble at the moment. Try again later.'
+  if (/robots\.txt/i.test(text)) return 'This website asks automated tools not to read that page, so it was skipped. Try another page, or upload the document.'
+  if (/stopped responding|queue worker/i.test(text)) return 'The last sync was interrupted before it finished. Click Sync Now to run it again; nothing was lost.'
+  if (/timed out|could not be reached/i.test(text)) return 'The platform could not be reached just now. Click Sync Now to try again.'
+  return text
+}

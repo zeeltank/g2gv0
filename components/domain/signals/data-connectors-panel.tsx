@@ -22,6 +22,7 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  MoreHorizontal,
 } from 'lucide-react'
 import {
   PlatformWebIcon,
@@ -33,6 +34,13 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { apiErrorText } from '@/lib/api-messages'
 import type { ProductInfo } from '@/services/portfolio/types'
@@ -43,6 +51,7 @@ import {
 } from '@/services/signals/opportunities'
 import {
   connectorStage,
+  friendlyConnectorMessage,
   finishedSyncs,
   latestStatuses,
   oauthReturnMessage,
@@ -171,6 +180,8 @@ export function DataConnectorsPanel({
 
   // History expanded state
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({})
+  // The connector list is open when you pick Connectors; the bar folds it. It re-opens by itself while a sync runs, so progress is never hidden.
+  const [listOpen, setListOpen] = useState(true)
 
   // Test connection feedback per connector
   const [testResults, setTestResults] = useState<Record<number, { healthy: boolean; latency: number; message: string }>>({})
@@ -224,7 +235,9 @@ export function DataConnectorsPanel({
       c.history.some((h) => h.status === 'running' || h.status === 'queued'),
     )
     if (!hasRunning) return
-    const interval = setInterval(() => { void load(true) }, 2500)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setListOpen(true)
+    const interval = setInterval(() => { void load(true) }, 1500)
     return () => clearInterval(interval)
   }, [connectors, load])
 
@@ -374,6 +387,23 @@ export function DataConnectorsPanel({
     }
   }
 
+  // Connectors belong to a product: everything on this screen (the bar, its counts, the list) is the selected product's own.
+  const productConnectors = useMemo(
+    () => connectors.filter((c) => !(productKey && c.product_key && c.product_key !== productKey)),
+    [connectors, productKey],
+  )
+  const productLabel = products?.find((p) => p.key === productKey)?.label ?? 'this product'
+  // Where the connectors that are NOT on this product live, so the empty state can say so instead of looking like nothing was saved.
+  const otherProductNames = useMemo(() => {
+    const names = new Set<string>()
+    connectors.forEach((c) => {
+      if (productKey && c.product_key && c.product_key !== productKey) {
+        names.add(products?.find((p) => p.key === c.product_key)?.label ?? c.product_key)
+      }
+    })
+    return Array.from(names)
+  }, [connectors, productKey, products])
+
   // Filtered connectors
   const filteredConnectors = useMemo(() => {
     return connectors.filter((c) => {
@@ -395,44 +425,20 @@ export function DataConnectorsPanel({
     })
   }, [connectors, productKey, platformFilter, searchQuery])
 
-  // Overview metrics
-  const metrics = useMemo(() => {
-    const total = connectors.length
-    const active = connectors.filter((c) => c.connection_status === 'connected' && c.sync_enabled).length
-    let totalIngested = 0
-    connectors.forEach((c) => {
-      c.history.forEach((h) => {
-        totalIngested += h.records_created || 0
-      })
-    })
-    return {
-      total,
-      active,
-      totalIngested,
-    }
-  }, [connectors])
-
   return (
     <section aria-labelledby="connectors-heading" className="space-y-4">
-      {/* Executive Card Header & Overview */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+      {/* Header: what this is, and the two things you can do */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                <Globe className="size-5" />
-              </div>
-              <div>
-                <h2 id="connectors-heading" className="text-base font-bold text-foreground flex items-center gap-2">
-                  Data Connectors & Automated Ingestion
-                  <Badge variant="outline" className="text-[10px] font-semibold border-primary/40 text-primary">
-                    Enterprise
-                  </Badge>
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Connect official APIs, RSS streams, and public pages to monitor high-intent buying signals in real time.
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Globe className="size-5" />
+            </div>
+            <div>
+              <h2 id="connectors-heading" className="text-base font-bold text-foreground">Sources (connectors)</h2>
+              <p className="text-xs text-muted-foreground">
+                Connect a platform or page once, then click Sync now to find buying signals.
+              </p>
             </div>
           </div>
 
@@ -440,13 +446,14 @@ export function DataConnectorsPanel({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={handleManualRefresh}
               disabled={refreshing || loading}
-              className="gap-1.5"
+              aria-label="Refresh sources"
+              title="Refresh"
+              className="size-8"
             >
               <RefreshCw className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
             </Button>
             <Button
               type="button"
@@ -455,7 +462,7 @@ export function DataConnectorsPanel({
               className="gap-1.5 font-semibold shadow-xs"
             >
               <Plus className="size-3.5" />
-              Add Connector
+              Add connector
             </Button>
           </div>
         </div>
@@ -483,9 +490,9 @@ export function DataConnectorsPanel({
 
         {/* A platform application that is not configured: administrators are pointed to Add Connector, which holds the credentials; everyone else is told plainly */}
         {catalog.some((entry) => entry.auth === 'oauth' && entry.ready === false) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-xs text-foreground">
             <div className="flex min-w-0 items-center gap-2">
-              <ShieldCheck className="size-4 shrink-0 text-warning" aria-hidden />
+              <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
               <span>
                 <span className="font-semibold">{catalog.filter((entry) => entry.auth === 'oauth' && entry.ready === false).map((entry) => entry.label).join(', ')}</span>
                 {(() => {
@@ -517,53 +524,21 @@ export function DataConnectorsPanel({
 
         {/* Deployment warnings that would break the OAuth round trip (e.g. localhost redirect in production) */}
         {Array.from(new Set(catalog.flatMap((entry) => entry.warnings ?? []))).map((warning) => (
-          <div key={warning} className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
-            <AlertCircle className="mt-0.5 size-4 text-warning shrink-0" />
+          <div key={warning} className="flex items-start gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-xs text-foreground">
+            <AlertCircle className="mt-0.5 size-4 text-primary shrink-0" />
             <span>{warning}</span>
           </div>
         ))}
 
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-            <AlertCircle className="size-4 shrink-0" />
-            <span>{error}</span>
+          <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-2.5 text-xs text-foreground">
+            <AlertCircle className="size-4 shrink-0 text-primary" />
+            <span title={error}>{friendlyConnectorMessage(error)}</span>
           </div>
         )}
 
-        {/* KPI Metrics Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-          <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Connectors</div>
-            <div className="text-xl font-bold text-foreground mt-0.5">{metrics.total}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Configured pipelines</div>
-          </div>
-
-          <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              Active & Synced
-            </div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{metrics.active}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Live monitoring</div>
-          </div>
-
-          <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Signals Ingested</div>
-            <div className="text-xl font-bold text-primary mt-0.5">{metrics.totalIngested}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">High-intent findings</div>
-          </div>
-
-          <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Ingestion Engine</div>
-            <div className="text-sm font-bold text-foreground mt-1 flex items-center gap-1.5">
-              <ShieldCheck className="size-4 text-emerald-500" />
-              Automated
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Policy & ICP aligned</div>
-          </div>
-        </div>
-
-        {/* Search & Platform Filter Toolbar */}
+        {/* Search & Platform Filter Toolbar: only worth showing once there are many sources */}
+        {productConnectors.length > 6 && listOpen && (
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-border/60">
           <div className="flex items-center gap-1.5 overflow-x-auto py-1">
             <button
@@ -575,10 +550,10 @@ export function DataConnectorsPanel({
                   : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
-              All Platforms ({connectors.length})
+              All Platforms ({productConnectors.length})
             </button>
             {Object.entries(PLATFORM_CONFIG).map(([typeKey, cfg]) => {
-              const count = connectors.filter((c) => c.type === typeKey).length
+              const count = productConnectors.filter((c) => c.type === typeKey).length
               return (
                 <button
                   key={typeKey}
@@ -609,9 +584,32 @@ export function DataConnectorsPanel({
             />
           </div>
         </div>
+        )}
+
+        {/* The connector list bar: one line, folded; the arrow shows every connector so you can set them up */}
+        {!loading && productConnectors.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setListOpen((open) => !open)}
+            aria-expanded={listOpen}
+            aria-controls="connector-list"
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
+          >
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <span className="font-semibold text-foreground">Connector list ({productConnectors.length})</span>
+              <span className="text-xs text-muted-foreground">
+                {productConnectors.filter((c) => c.connection_status === 'connected').length} connected
+                {' · '}
+                {productConnectors.filter((c) => c.connection_status !== 'connected').length} to set up
+              </span>
+            </span>
+            {listOpen ? <ChevronUp className="size-4 shrink-0 text-primary" /> : <ChevronDown className="size-4 shrink-0 text-primary" />}
+          </button>
+        )}
       </div>
 
-      {/* Connectors List / Cards */}
+      {/* Connectors List / Cards (folded until the bar above is opened) */}
+      <div id="connector-list" hidden={!(listOpen || (!loading && productConnectors.length === 0))}>
       {loading ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-center text-xs text-muted-foreground space-y-2">
           <Loader2 className="size-6 animate-spin mx-auto text-primary" />
@@ -623,11 +621,11 @@ export function DataConnectorsPanel({
             <Globe className="size-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-sm font-bold text-foreground">No data connectors found</h3>
+            <h3 className="text-sm font-bold text-foreground">No connectors for {productLabel} yet</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               {searchQuery || platformFilter !== 'all'
                 ? 'No connectors match your current filters. Try resetting the search or platform tab.'
-                : 'Connect your corporate website, procurement portals, LinkedIn, YouTube or news channels to start ingesting buying signals.'}
+                : `Connectors belong to a product.${otherProductNames.length > 0 ? ` Your existing connectors are on ${otherProductNames.join(', ')}; switch product above to see them.` : ''} Add one for ${productLabel} to start finding its buying signals.`}
             </p>
           </div>
           <Button
@@ -637,7 +635,7 @@ export function DataConnectorsPanel({
             className="gap-1.5 font-semibold"
           >
             <Plus className="size-3.5" />
-            Add First Connector
+            Add a connector for {productLabel}
           </Button>
         </div>
       ) : (
@@ -654,6 +652,8 @@ export function DataConnectorsPanel({
 
             const isConnected = connector.connection_status === 'connected'
             const isOauth = connector.type !== 'public_web_page'
+            // A website needs no sign-in: it can be synced from its first moment (status "not configured") and after an error, just not once disconnected.
+            const canSync = isConnected || connector.connection_status === 'rate_limited' || (!isOauth && connector.connection_status !== 'disconnected')
             const provider = catalog.find((entry) => entry.key === connector.type)
             const providerReady = provider?.ready !== false
             const needsAccount = connector.available_accounts.length > 0 && !isConnected
@@ -680,12 +680,12 @@ export function DataConnectorsPanel({
 
                         {/* Connection Status Badge (always the server's state) */}
                         <Badge
-                          variant={statusInfo.tone === 'success' ? 'success' : statusInfo.tone === 'warning' ? 'warning' : statusInfo.tone === 'danger' ? 'destructive' : 'outline'}
+                          variant={statusInfo.tone === 'success' ? 'success' : statusInfo.tone === 'warning' || statusInfo.tone === 'danger' ? 'navy' : 'outline'}
                           className="text-[10px] gap-1 px-2 py-0.5"
                           title={statusInfo.action ?? undefined}
                         >
                           {isConnected && <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-                          {statusInfo.label}
+                          {statusInfo.label === 'Failed' ? 'Needs attention' : statusInfo.label}
                         </Badge>
 
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${platform.badgeClass}`}>
@@ -718,107 +718,68 @@ export function DataConnectorsPanel({
                     </div>
                   </div>
 
-                  {/* Top-Right Action Controls */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {/* Sync Now */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={isBusy || !connector.sync_enabled || syncButton.disabled}
-                      title={syncButton.hint ?? undefined}
-                      onClick={() => void handleSyncNow(connector)}
-                      className="gap-1.5 text-xs font-semibold"
-                    >
-                      {isBusy || syncButton.disabled ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="size-3.5" />
-                      )}
-                      {syncButton.label}
-                    </Button>
-
-                    {/* Test Connection */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isTesting || isBusy}
-                      onClick={() => void handleTestConnection(connector)}
-                      title="Check the connector's stored connection status"
-                      className="gap-1.5 text-xs"
-                    >
-                      {isTesting ? <Loader2 className="size-3.5 animate-spin" /> : <Wifi className="size-3.5" />}
-                      Test
-                    </Button>
-
-                    {/* Connect / Disconnect */}
-                    {!isConnected ? (
+                  {/* One main action, and everything else in the menu */}
+                  <div className="flex items-center gap-1.5">
+                    {canSync ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        size="sm"
+                        disabled={isBusy || !connector.sync_enabled || syncButton.disabled}
+                        title={syncButton.hint ?? undefined}
+                        onClick={() => void handleSyncNow(connector)}
+                        className="gap-1.5 text-xs font-semibold"
+                      >
+                        {isBusy || syncButton.disabled ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                        {syncButton.label}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
                         size="sm"
                         disabled={isBusy || (isOauth && !providerReady)}
                         onClick={() => void handleConnect(connector)}
                         title={isOauth && !providerReady ? 'An administrator must complete platform setup first.' : undefined}
-                        className="text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                        className="text-xs font-semibold"
                       >
                         {!isOauth
                           ? 'Enable'
                           : ['token_expired', 'permission_required', 'error', 'rate_limited'].includes(connector.connection_status)
                             ? 'Reconnect'
-                            : 'Connect Account'}
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() => void handleDisconnect(connector)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Disconnect
+                            : 'Connect account'}
                       </Button>
                     )}
 
-                    {/* Schedule */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setScheduleConnector(connector)}
-                      title="Configure auto-sync schedule"
-                      className="text-xs"
-                    >
-                      <Clock3 className="size-3.5 mr-1" />
-                      Schedule
-                    </Button>
-
-                    {/* Configure */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditConnector(connector)}
-                      title="Edit connector details"
-                      className="text-xs"
-                    >
-                      <Settings2 className="size-3.5 mr-1" />
-                      Edit
-                    </Button>
-
-                    {/* Delete */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={() => void handleDelete(connector)}
-                      title={`Delete ${connector.name}`}
-                      className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="outline" size="icon" className="size-8" aria-label={`More actions for ${connector.name}`}>
+                          {isTesting ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem disabled={isTesting || isBusy} onSelect={() => void handleTestConnection(connector)}>
+                          <Wifi className="size-3.5" /> Test connection
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setScheduleConnector(connector)}>
+                          <Clock3 className="size-3.5" /> Schedule
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setEditConnector(connector)}>
+                          <Settings2 className="size-3.5" /> Edit
+                        </DropdownMenuItem>
+                        {canSync && (
+                          <DropdownMenuItem disabled={isBusy} onSelect={() => void handleDisconnect(connector)}>
+                            <XCircle className="size-3.5" /> Disconnect
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem disabled={isBusy} onSelect={() => void handleDelete(connector)} className="text-destructive focus:text-destructive">
+                          <Trash2 className="size-3.5" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
@@ -828,16 +789,16 @@ export function DataConnectorsPanel({
                     className={`rounded-xl border px-3 py-2 text-xs flex items-center justify-between ${
                       testResult.healthy
                         ? 'border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300'
-                        : 'border-destructive/30 bg-destructive/5 text-destructive'
+                        : 'border-primary/25 bg-primary/5 text-foreground'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       {testResult.healthy ? (
                         <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
                       ) : (
-                        <XCircle className="size-4 shrink-0 text-destructive" />
+                        <AlertCircle className="size-4 shrink-0 text-primary" />
                       )}
-                      <span>{testResult.message}</span>
+                      <span title={testResult.message}>{friendlyConnectorMessage(testResult.message)}</span>
                     </div>
                     <button
                       type="button"
@@ -855,7 +816,7 @@ export function DataConnectorsPanel({
 
                 {/* Account selection after OAuth (Facebook Page / Instagram account) */}
                 {needsAccount && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-xs">
                     <span className="font-medium text-foreground">Choose the account to monitor:</span>
                     <select
                       value={chosenAccount}
@@ -880,7 +841,7 @@ export function DataConnectorsPanel({
                 )}
 
                 {/* What to do next, when the connector is not working */}
-                {!isConnected && statusInfo.action && !needsAccount && (
+                {!isConnected && statusInfo.action && !needsAccount && !connector.last_error && (
                   <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                     <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
                     <span>{statusInfo.action}</span>
@@ -889,64 +850,82 @@ export function DataConnectorsPanel({
 
                 {/* Last Error banner */}
                 {connector.last_error && (
-                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
-                    <AlertCircle className="size-4 shrink-0" />
-                    <span className="flex-1">{connector.last_error}</span>
+                  <div className="rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
+                    <AlertCircle className="size-4 shrink-0 text-primary" />
+                    <span className="flex-1" title={connector.last_error}>{friendlyConnectorMessage(connector.last_error)}</span>
                   </div>
                 )}
 
-                {/* The newest sync, as three separate numbers: fetched from the platform, analysed, and signals created */}
-                {counts && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Latest sync counts">
-                    <span><strong className="text-foreground">{counts.fetched}</strong> fetched</span>
-                    <span><strong className="text-foreground">{counts.analysed}</strong> analysed</span>
-                    <span><strong className="text-foreground">{counts.signals}</strong> signals created</span>
-                    {!counts.done && <span className="italic">in progress: numbers are not final</span>}
-                  </div>
-                )}
+                {/* Live progress while a sync runs: waiting for a worker, reading the platform, analysing posts */}
+                {!counts?.done && connector.history[0] && (() => {
+                  const run = connector.history[0]
+                  const pct = Math.max(2, Math.min(100, run.progress ?? 5))
+                  const stage = run.status === 'queued'
+                    ? 'Starting sync…'
+                    : run.records_fetched === 0
+                      ? 'Reading the platform (channels, videos, Shorts, comments)…'
+                      : `Finding signals in ${run.records_fetched} items…`
+                  return (
+                    <div className="space-y-1" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Sync progress">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>{stage}</span>
+                        <span className="font-semibold text-foreground">{pct}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })()}
 
-                {/* Metadata & Stats Strip */}
+                {/* One summary line: when it last ran, what it found, when it runs next */}
                 <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 pt-2 border-t border-border/60 text-xs text-muted-foreground">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span>
-                      <strong className="text-foreground">Product:</strong> {connector.product_key.toUpperCase()}
-                      {connector.offer_id ? ` · Offer: ${connector.offer_id}` : ' · Whole Product'}
-                    </span>
-                    <span>
-                      <strong className="text-foreground">Region:</strong>{' '}
-                      {connector.regions && connector.regions.length > 0
-                        ? connector.regions.map((r) => [r.country, r.state].filter(Boolean).join('/')).join(', ')
-                        : 'Pan-India'}
-                    </span>
-                    <span>
-                      <strong className="text-foreground">Last Sync:</strong> {formatDate(connector.last_sync_at)}
-                    </span>
-                    <span>
-                      <strong className="text-foreground">Next:</strong> {formatNextDate(connector.next_sync_at)}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Latest sync summary">
+                    <span>Last sync <strong className="text-foreground">{formatDate(connector.last_sync_at)}</strong></span>
+                    {counts && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span><strong className="text-foreground">{counts.fetched}</strong> items read</span>
+                        <span aria-hidden>·</span>
+                        <span><strong className="text-primary">{counts.signals}</strong> signals found</span>
+                        {!counts.done && <span className="italic">(in progress)</span>}
+                      </>
+                    )}
+                    <span aria-hidden>·</span>
+                    <span>Next: {formatNextDate(connector.next_sync_at)}</span>
                   </div>
 
-                  {/* History Toggle */}
-                  {connector.history.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setExpandedHistory((prev) => ({ ...prev, [connector.id]: !prev[connector.id] }))}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline ml-auto"
-                    >
-                      <Activity className="size-3" />
-                      <span>{connector.history.length} Sync Runs</span>
-                      {historyOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedHistory((prev) => ({ ...prev, [connector.id]: !prev[connector.id] }))}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline ml-auto"
+                  >
+                    <Activity className="size-3" />
+                    <span>Details</span>
+                    {historyOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                  </button>
                 </div>
 
                 {/* Collapsible Sync History Table */}
-                {historyOpen && connector.history.length > 0 && (
+                {historyOpen && (
                   <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-2 pt-2.5">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        <strong className="text-foreground">Product:</strong> {connector.product_key.toUpperCase()}
+                        {connector.offer_id ? ` · Offer: ${connector.offer_id}` : ' · Whole product'}
+                      </span>
+                      <span>
+                        <strong className="text-foreground">Region:</strong>{' '}
+                        {connector.regions && connector.regions.length > 0
+                          ? connector.regions.map((r) => [r.country, r.state].filter(Boolean).join('/')).join(', ')
+                          : 'Pan-India'}
+                      </span>
+                    </div>
+                    {connector.history.length === 0 && <p className="text-xs text-muted-foreground">No syncs yet.</p>}
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                         <Clock3 className="size-3.5 text-primary" />
-                        Recent Sync Activity
+                        Recent syncs
                       </span>
                       <span className="text-[10px] text-muted-foreground">Latest 5 runs</span>
                     </div>
@@ -958,15 +937,15 @@ export function DataConnectorsPanel({
                             {run.status === 'completed' ? (
                               <CheckCircle2 className="size-3.5 text-emerald-500" />
                             ) : run.status === 'failed' ? (
-                              <XCircle className="size-3.5 text-destructive" />
+                              <AlertCircle className="size-3.5 text-primary" />
                             ) : run.status === 'partial' ? (
-                              <AlertCircle className="size-3.5 text-amber-500" />
+                              <AlertCircle className="size-3.5 text-primary" />
                             ) : run.status === 'skipped' ? (
                               <CheckCircle2 className="size-3.5 text-muted-foreground" />
                             ) : (
-                              <Clock3 className="size-3.5 text-amber-500" />
+                              <Clock3 className="size-3.5 text-primary" />
                             )}
-                            <span className="font-semibold text-foreground">{syncRunDisplay(run.status).label}</span>
+                            <span className="font-semibold text-foreground">{run.status === 'failed' ? 'Needs attention' : syncRunDisplay(run.status).label}</span>
                             <span className="text-[11px] text-muted-foreground">{formatDate(run.started_at)}</span>
                           </div>
 
@@ -975,8 +954,8 @@ export function DataConnectorsPanel({
                             <span>{run.records_processed} processed</span>
                             <span className="font-semibold text-primary">{run.records_created} signals created</span>
                             {run.error_message && (
-                              <span className="text-destructive max-w-xs truncate" title={run.error_message}>
-                                {run.error_message}
+                              <span className="text-primary max-w-xs truncate" title={run.error_message}>
+                                {friendlyConnectorMessage(run.error_message)}
                               </span>
                             )}
                           </div>
@@ -990,6 +969,7 @@ export function DataConnectorsPanel({
           })}
         </div>
       )}
+      </div>
 
       {/* Add / Edit Dialog */}
       <ConnectorFormDialog
