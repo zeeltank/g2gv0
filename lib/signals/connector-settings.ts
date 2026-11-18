@@ -21,6 +21,8 @@ export interface ProviderSettings {
   client_id: string | null
   secret_saved: boolean
   secret_mask: string | null
+  /** Meta only: the Facebook Login for Business Configuration ID saved here (not secret). */
+  login_config_id?: string | null
   updated_at: string | null
   missing_config: string[]
   invalid_config: string[]
@@ -98,11 +100,14 @@ export function overallStatus(cards: ProviderCard[]): { label: string; tone: Ton
 export interface SettingsForm {
   clientId: string
   clientSecret: string
+  /** Meta only. */
+  loginConfigId?: string
 }
 
 export interface SavePayload {
   client_id?: string
   client_secret?: string
+  login_config_id?: string
 }
 
 /**
@@ -112,7 +117,7 @@ export interface SavePayload {
  *  - The secret is sent only when something was typed, and the mask is never a secret.
  *  - A first save needs both.
  */
-export function buildSavePayload(form: SettingsForm, current: Pick<ProviderSettings, 'client_id' | 'secret_saved' | 'secret_mask' | 'source'>): { payload: SavePayload; problems: string[] } {
+export function buildSavePayload(form: SettingsForm, current: Pick<ProviderSettings, 'client_id' | 'secret_saved' | 'secret_mask' | 'source'> & { login_config_id?: string | null }): { payload: SavePayload; problems: string[] } {
   const id = form.clientId.trim()
   const secret = form.clientSecret.trim()
   const typedSecret = secret !== '' && secret !== (current.secret_mask ?? '')
@@ -120,6 +125,8 @@ export function buildSavePayload(form: SettingsForm, current: Pick<ProviderSetti
   const payload: SavePayload = {}
   if (id !== '' && (!savedHere || id !== (current.client_id ?? ''))) payload.client_id = id
   if (typedSecret) payload.client_secret = secret
+  const configId = (form.loginConfigId ?? '').trim()
+  if (configId !== '' && configId !== (current.login_config_id ?? '')) payload.login_config_id = configId
 
   const problems: string[] = []
   if (!savedHere) {
@@ -132,8 +139,9 @@ export function buildSavePayload(form: SettingsForm, current: Pick<ProviderSetti
   return { payload, problems }
 }
 
-export function formFor(current: Pick<ProviderSettings, 'client_id'> | null): SettingsForm {
-  return { clientId: current?.client_id ?? '', clientSecret: '' }
+export function formFor(current: (Pick<ProviderSettings, 'client_id'> & { login_config_id?: string | null }) | null): SettingsForm {
+  const configId = current?.login_config_id ?? ''
+  return { clientId: current?.client_id ?? '', clientSecret: '', ...(configId !== '' ? { loginConfigId: configId } : {}) }
 }
 
 /** "Updated 12 Nov 2026" or null. Never throws on a bad date. */
