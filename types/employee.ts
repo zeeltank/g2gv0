@@ -36,4 +36,7 @@ export interface Employee {
   jobrole_id: number | null;
   user_profile_id: number | null;
   employee_no: string | null;
+  reporting_manager_id?: number | null;
+  shift_id?: number | null;
+  shift_name?: string | null;
 }
