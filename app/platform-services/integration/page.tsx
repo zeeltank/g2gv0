@@ -14,15 +14,12 @@
  * place that answers it — real status for what already exists, and real save +
  * test for the two providers this round adds.
  *
- * ── SMTP AND WEBHOOK ARE THE ONLY TWO YOU CAN CONFIGURE HERE ────────────────
+ * ── CONFIGURABLE PROVIDERS BACKED BY ENCRYPTED VAULT ──────────────────────
  *
- * Deliberately. "Test connection" opens an actual SMTP handshake or sends an
- * actual signed HTTP POST — see `SmtpIntegrationTester` / `WebhookIntegrationTester`
- * on the server. K12's equivalent has two providers that save to an in-memory array
- * and always report success without opening a socket; nothing here works that way,
- * which is also why there is no Razorpay/WhatsApp-style provider — those need a
- * vendor account this environment does not have, and faking one would be exactly
- * the K12 defect this project has spent this whole engagement removing.
+ * Configurable credential providers (SMTP Email, Outbound Webhook, SMS Gateway,
+ * and WhatsApp Business Cloud API) save to `g2g_integration_credentials`.
+ * "Test connection" opens an actual SMTP handshake, dispatches a signed HTTP POST,
+ * performs an SMS gateway check, or validates credentials against Meta's Graph API.
  */
 
 import { Suspense, useEffect, useState } from 'react'

@@ -13,6 +13,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { buildLinks } from '@/lib/org-accounts/links'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Organization } from '@/types/crm'
+import { BulkSendMessageDialog, type MessageChannel } from './bulk-send-message-dialog'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateOrganizationModal } from './create-organization-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
@@ -127,6 +128,7 @@ export function OrganizationListView() {
 
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
+  const [bulkMessageChannel, setBulkMessageChannel] = useState<MessageChannel>('email')
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
@@ -295,15 +297,31 @@ export function OrganizationListView() {
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
         cascadeLabel="Also transfer contacts"
-        onSendSms={() => setBulkSmsOpen(true)}
+        onSendMessage={(channel) => {
+          setBulkMessageChannel(channel)
+          setBulkSmsOpen(true)
+        }}
+        onSendSms={() => {
+          setBulkMessageChannel('sms')
+          setBulkSmsOpen(true)
+        }}
       />
 
-      <BulkSendSmsDialog
+      <BulkSendMessageDialog
         isOpen={bulkSmsOpen}
         onClose={() => setBulkSmsOpen(false)}
         onSent={(message) => { setNotice(message); clearSelection(); void load() }}
         relatedType="organization"
         ids={Array.from(selectedIds)}
+        recipients={organizations
+          .filter((o) => selectedIds.has(o.id))
+          .map((o) => ({
+            id: o.id,
+            name: o.name || undefined,
+            email: o.email || null,
+            phone: o.phone || null,
+          }))}
+        initialChannel={bulkMessageChannel}
       />
     </div>
   )
