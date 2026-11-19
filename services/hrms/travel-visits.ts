@@ -42,6 +42,8 @@ export type TravelVisit = {
   /** Kilometres the phone reported. */
   app_distance: number | null
   amount: number
+  /** A selfie was taken when the trip started. Fetch it with travelVisitService.selfie. */
+  has_selfie: boolean
   /** Only on a single visit. */
   points?: TravelPoint[]
 }
@@ -77,6 +79,10 @@ export const travelVisitService = {
       ...(filters.from ? { from: filters.from } : {}),
       ...(filters.to ? { to: filters.to } : {}),
     }),
+
+  /** The start selfie as a file. Needs the auth header, so it is fetched as a blob, never linked. */
+  selfie: (context: LaravelContext, id: number) =>
+    apiClient.getBlob(`/travel-visits/${id}/selfie`, baseParams(context) as Record<string, string>),
 
   get: (context: LaravelContext, id: number) =>
     apiClient.get<{ status: number; message?: string; data: TravelVisit }>(`/travel-visits/${id}`, baseParams(context)),

@@ -234,6 +234,67 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** The selfie taken at the start. Fetched with the auth header and shown from a blob URL. */
+function SelfiePhoto({ visitId, available }: { visitId: number; available: boolean }) {
+  const context = React.useMemo(() => getLaravelContext(), [])
+  const [url, setUrl] = React.useState<string | null>(null)
+  const [failed, setFailed] = React.useState(false)
+  const [open, setOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    let alive = true
+    let created: string | null = null
+    setUrl(null)
+    setFailed(false)
+    if (!available) return
+    travelVisitService
+      .selfie(context, visitId)
+      .then((blob) => {
+        if (!alive) return
+        created = URL.createObjectURL(blob)
+        setUrl(created)
+      })
+      .catch(() => alive && setFailed(true))
+    return () => {
+      alive = false
+      if (created) URL.revokeObjectURL(created)
+    }
+  }, [visitId, available, context])
+
+  return (
+    <div className="shrink-0 space-y-1">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Start selfie</p>
+      {!available ? (
+        <div className="flex h-28 w-28 items-center justify-center rounded-xl border border-dashed border-border px-2 text-center text-xs text-muted-foreground">
+          No selfie for this trip
+        </div>
+      ) : failed ? (
+        <p className="text-sm text-muted-foreground">The selfie could not be loaded.</p>
+      ) : url ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt="Selfie taken at the start of the trip"
+            onClick={() => setOpen(true)}
+            className="h-28 w-28 cursor-zoom-in rounded-xl border border-border object-cover"
+          />
+          {open && (
+            <div className="fixed inset-0 z-[1000] flex cursor-zoom-out items-center justify-center bg-black/80 p-6" onClick={() => setOpen(false)}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="Selfie" className="max-h-full max-w-full rounded-lg" />
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex h-28 w-28 items-center justify-center rounded-xl border border-border text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Travel Route History: every recorded location fix, in time order. */
 function RouteHistoryTable({ points }: { points: TravelPoint[] }) {
   const [filter, setFilter] = React.useState('')
@@ -324,7 +385,9 @@ function TravelVisitDetail({ visitId, onClose }: { visitId: number | null; onClo
 
         {visit && !loading && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="flex flex-col gap-5 sm:flex-row">
+              <SelfiePhoto visitId={visit.id} available={visit.has_selfie} />
+              <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-4">
               <Field label="Employee">
                 {visit.employee_name}
                 {visit.employee_code ? ` (${visit.employee_code})` : ''}
@@ -336,6 +399,7 @@ function TravelVisitDetail({ visitId, onClose }: { visitId: number | null; onClo
               <Field label="Ended">{formatDateTime(visit.end_at)}</Field>
               <Field label="Distance">{formatKm(visit.distance)}</Field>
               <Field label="App distance">{visit.app_distance !== null ? formatKm(visit.app_distance) : '—'}</Field>
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="From">{visit.from?.address || (visit.from ? `${visit.from.lat}, ${visit.from.lng}` : '')}</Field>
