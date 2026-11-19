@@ -443,7 +443,7 @@ export function ProductFormDialog({
               {[
                 { key: 'b2b' as const, label: 'B2B Customer Acquisition', icon: '🏢', title: 'Business & Organisations' },
                 { key: 'b2g' as const, label: 'B2G ICP', icon: '🏛️', title: 'Government & Public Sector' },
-                { key: 'b2c' as const, label: 'B2B Partner Acquisition', icon: '👨‍👩‍👧', title: 'Direct Consumers' },
+                { key: 'b2c' as const, label: 'B2B Partner Acquisition', icon: '👨‍👩‍👧', title: 'Partners & Resellers' },
               ].map((tab) => {
                 const isSelected = activeIcpTab === tab.key
                 const isTouched = icpTouched(icps[tab.key], icpLinesMap[tab.key])

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { gtmService, importService, type GtmAccount, type ImportPreview, type ImportResult } from '@/services/gtm/gtm'
 import { errMsg } from './gtm-shared'
+import { scopeIsComplete, type ProspectScopeValue } from './prospecting-scope'
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 const FIELD_LABEL: Record<string, string> = {
@@ -19,7 +20,7 @@ const FIELD_LABEL: Record<string, string> = {
  * file -> map columns and check it (a dry run that runs the same validation as the import) ->
  * import. Duplicates by email are skipped, never overwritten.
  */
-export function ImportContactsDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }: { open: boolean; onClose: () => void; onDone: () => void; scope: ProspectScopeValue; scopeText: string }) {
   const [csv, setCsv] = useState('')
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -33,8 +34,9 @@ export function ImportContactsDialog({ open, onClose, onDone }: { open: boolean;
 
   useEffect(() => {
     if (!open) return
-    void gtmService.listAccounts({}).then((r) => setAccounts(r.data.items)).catch(() => setAccounts([]))
-  }, [open])
+    // Only the accounts on this product and customer type list can receive contacts from this import.
+    void gtmService.listAccounts({ product: scope.product, customer_model: scope.customerModel }).then((r) => setAccounts(r.data.items)).catch(() => setAccounts([]))
+  }, [open, scope.product, scope.customerModel])
 
   const reset = () => { setCsv(''); setFileName(''); setPreview(null); setMapping({}); setResult(null); setError(null); setDefaultAccount(''); setCreateMissing(false) }
   const close = () => { reset(); onClose() }
@@ -61,6 +63,7 @@ export function ImportContactsDialog({ open, onClose, onDone }: { open: boolean;
 
   const args = (dry: boolean) => ({
     csv, mapping, dry_run: dry, create_missing_accounts: createMissing,
+    product: scope.product, customer_model: scope.customerModel,
     default_account_id: defaultAccount ? Number(defaultAccount) : null,
   })
 
@@ -92,6 +95,9 @@ export function ImportContactsDialog({ open, onClose, onDone }: { open: boolean;
       <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
         <DialogHeader><DialogTitle>Import contacts from CSV</DialogTitle><DialogDescription>Check the file first; nothing is saved until you choose Import.</DialogDescription></DialogHeader>
         <div className="space-y-4">
+          {scopeIsComplete(scope) && (
+            <p className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-sm">Adding to: <strong>{scopeText}</strong>. Accounts are matched, and new ones created, on this list only.</p>
+          )}
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border p-3 text-sm">
             <Upload className="size-4" /><span>{fileName || 'Choose a .csv file'}</span>
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => void choose(e.target.files?.[0])} />

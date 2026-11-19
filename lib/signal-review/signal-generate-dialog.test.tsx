@@ -96,7 +96,7 @@ describe('the form', () => {
 
     assert.deepEqual(Array.from(field('Product')!.options).map((o) => o.textContent), ['Choose a product…', 'Scholar', 'G2G — B2B ICP not set up'])
     assert.equal(field('Product')!.value, '', 'a product is never chosen for the person')
-    assert.deepEqual(Array.from(field('Customer model')!.options).map((o) => o.textContent), ['B2B — Business', 'B2C — Consumer', 'B2G — Government'])
+    assert.deepEqual(Array.from(field('Customer model')!.options).map((o) => o.textContent), ['B2B — Business', 'B2C — Partner acquisition', 'B2G — Government'])
     assert.equal(field('Customer model')!.value, 'b2b')
 
     const sentence = 'A run uses search and AI quota, so start one only when you need new signals.'

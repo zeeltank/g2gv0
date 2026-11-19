@@ -81,7 +81,7 @@ export function failedRunText(run: RunSnapshot): string {
 
 export const CUSTOMER_MODELS: ReadonlyArray<{ value: CustomerModel; label: string }> = [
   { value: 'b2b', label: 'B2B — Business' },
-  { value: 'b2c', label: 'B2C — Consumer' },
+  { value: 'b2c', label: 'B2C — Partner acquisition' },
   { value: 'b2g', label: 'B2G — Government' },
 ]
 

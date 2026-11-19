@@ -57,6 +57,12 @@ const nextConfig = {
         source: '/sim-runtime/index.html',
         headers: [{ key: 'Cache-Control', value: 'no-cache' }],
       },
+      {
+        // The two product websites are served exactly as authored (public/learning/product-learning). They are for signed-in learners, so
+        // keep them out of search results by header rather than by editing the documents.
+        source: '/learning/product-learning/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
     ]
   },
   async redirects() {

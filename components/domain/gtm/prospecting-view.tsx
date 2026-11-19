@@ -11,6 +11,10 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { useProducts } from '@/components/domain/signals/product-selector'
+import type { ProductInfo } from '@/services/portfolio/types'
 import {
   ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, CONTACT_STATUSES, gtmService, isMasked,
   type AccountDetail, type ContactPatch, type GtmAccount, type GtmCandidate, type GtmContact, type GtmDirectory,
@@ -18,6 +22,10 @@ import {
 import type { CrossLinkedCrmOrganization } from '@/components/domain/crm/crm-cross-links-tab'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 import { ImportContactsDialog } from './import-contacts-dialog'
+import {
+  ProspectScopeBar, customerTypeLabel, productLabel, scopeIsComplete, scopeSentence, useStoredScope,
+  type ProspectScopeValue,
+} from './prospecting-scope'
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 
@@ -30,6 +38,13 @@ type Tab = 'accounts' | 'research'
  */
 export function ProspectingView() {
   const ready = useGtmReady()
+  const { user } = useAuth()
+  const context = getLaravelContext(user)
+  const { products } = useProducts(context)
+  const [scope, setScope] = useStoredScope(`g2g_prospect_scope_${context.organizationId || context.subInstituteId || 'default'}`)
+  const complete = scopeIsComplete(scope)
+  const scopeText = scopeSentence(products, scope)
+  const needScope = 'Choose a product and a customer type first.'
   const [tab, setTab] = useState<Tab>('accounts')
   const [openId, setOpenId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
@@ -41,9 +56,10 @@ export function ProspectingView() {
     <div className="p-6">
       <GtmPageHeader
         title="Prospecting"
-        description="Your working list of target accounts, the people at them, and the buying signals your research found."
-        actions={<><Button variant="outline" onClick={() => setImporting(true)}><Upload className="mr-1 size-4" />Import contacts</Button><Button onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button></>}
+        description="Your working list of target accounts for each product and customer type, the people at them, and the buying signals your research found."
+        actions={<><Button variant="outline" disabled={!complete} title={complete ? undefined : needScope} onClick={() => setImporting(true)}><Upload className="mr-1 size-4" />Import contacts</Button><Button disabled={!complete} title={complete ? undefined : needScope} onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button></>}
       />
+      <ProspectScopeBar products={products} scope={scope} onChange={(next) => { setScope(next); setOpenId(null) }} />
       <div className="mb-4 flex gap-1 border-b border-border">
         {([['accounts', 'Target accounts'], ['research', 'From research']] as const).map(([key, label]) => (
           <button
@@ -54,17 +70,17 @@ export function ProspectingView() {
         ))}
       </div>
 
-      {ready && tab === 'accounts' && <AccountsTab refresh={refresh} onOpen={setOpenId} />}
-      {ready && tab === 'research' && <ResearchTab refresh={refresh} onPromoted={(id) => { bump(); setOpenId(id) }} />}
+      {ready && tab === 'accounts' && <AccountsTab key={`${scope.product}|${scope.customerModel}`} refresh={refresh} onOpen={setOpenId} scope={scope} products={products} />}
+      {ready && tab === 'research' && <ResearchTab refresh={refresh} scope={scope} onPromoted={(id) => { bump(); setOpenId(id) }} />}
 
-      <ImportContactsDialog open={importing} onClose={() => setImporting(false)} onDone={bump} />
-      <AddAccountDialog open={adding} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); bump(); setOpenId(id) }} />
+      <ImportContactsDialog open={importing} onClose={() => setImporting(false)} onDone={bump} scope={scope} scopeText={scopeText} />
+      <AddAccountDialog open={adding} scope={scope} scopeText={scopeText} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); bump(); setOpenId(id) }} />
       <AccountDialog key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} onChanged={bump} />
     </div>
   )
 }
 
-function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number) => void }) {
+function AccountsTab({ refresh, onOpen, scope, products }: { refresh: number; onOpen: (id: number) => void; scope: ProspectScopeValue; products: ProductInfo[] | null }) {
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('')
   const [page, setPage] = useState(1)
@@ -75,14 +91,15 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setData((await gtmService.listAccounts({ q, stage, page })).data)
+      setData((await gtmService.listAccounts({ q, stage, page, product: scope.product, customer_model: scope.customerModel })).data)
       setError(null)
     } catch (e) {
       setError(errMsg(e, 'Unable to load accounts'))
     } finally {
       setLoading(false)
     }
-  }, [q, stage, page])
+  }, [q, stage, page, scope.product, scope.customerModel])
+
 
   useEffect(() => { queueMicrotask(() => void load()) }, [load, refresh])
 
@@ -102,7 +119,7 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
       {loading && !data ? <Skeleton className="h-40" /> : error ? (
         <ErrorState title="Could not load accounts" description={error} retry={load} />
       ) : !data || data.items.length === 0 ? (
-        <EmptyState title={q || stage ? 'No accounts match' : 'No accounts yet'} description={q || stage ? 'Try clearing the filters.' : 'Add an account, or promote a company from the "From research" tab.'} />
+        <EmptyState title={q || stage ? 'No accounts match' : 'No accounts yet'} description={q || stage ? 'Try clearing the filters.' : scopeIsComplete(scope) ? `Nothing on the ${scopeSentence(products, scope)} list yet. Add an account, import contacts, or promote a company from the "From research" tab.` : 'Add an account, or promote a company from the "From research" tab.'} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -113,7 +130,7 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
               <tbody>
                 {data.items.map((a) => (
                   <tr key={a.id} className="cursor-pointer border-t border-border hover:bg-muted/30" onClick={() => onOpen(a.id)}>
-                    <td className="p-3"><div className="font-medium">{a.name}</div><div className="text-xs text-muted-foreground">{[a.industry, a.location].filter(Boolean).join(' · ') || a.domain || '—'}</div></td>
+                    <td className="p-3"><div className="font-medium">{a.name}</div><div className="text-xs text-muted-foreground">{[a.industry, a.location].filter(Boolean).join(' · ') || a.domain || '—'}</div>{!scopeIsComplete(scope) && a.product_key && <div className="mt-0.5 text-[11px] text-primary">{productLabel(products, a.product_key)} · {customerTypeLabel(a.customer_model).split(' · ')[1] ?? a.customer_model}</div>}</td>
                     <td className="p-3"><Badge variant="outline">{a.stage}</Badge></td>
                     <td className="p-3">{a.contacts_count ?? 0}</td>
                     <td className="p-3">{a.signals_count ?? 0}</td>
@@ -137,25 +154,29 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
   )
 }
 
-function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (accountId: number) => void }) {
+function ResearchTab({ refresh, onPromoted, scope }: { refresh: number; onPromoted: (accountId: number) => void; scope: ProspectScopeValue }) {
   const [items, setItems] = useState<GtmCandidate[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     try {
-      setItems((await gtmService.candidates()).data.items)
+      setItems((await gtmService.candidates({ product: scope.product, customer_model: scope.customerModel })).data.items)
       setError(null)
     } catch (e) {
       setError(errMsg(e, 'Unable to load researched companies'))
     }
-  }, [])
+  }, [scope.product, scope.customerModel])
   useEffect(() => { queueMicrotask(() => void load()) }, [load, refresh])
 
   const promote = async (c: GtmCandidate) => {
     setBusy(c.id)
     try {
-      const res = await gtmService.promoteCompany(c.id)
+      // Filed under the list you are looking at; from an all-products view, under the product and type of its own strongest signal.
+      const res = await gtmService.promoteCompany(c.id, {
+        product: scope.product !== 'all' ? scope.product : (c.product_key ?? undefined),
+        customer_model: scope.customerModel !== 'all' ? scope.customerModel : (c.customer_model ?? undefined),
+      })
       onPromoted(res.data.account.id)
     } catch (e) {
       setError(errMsg(e, 'Could not add this company'))
@@ -167,7 +188,7 @@ function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (ac
   if (error) return <ErrorState title="Could not load" description={error} retry={load} />
   if (!items) return <Skeleton className="h-40" />
   if (items.length === 0) {
-    return <EmptyState title="Nothing waiting" description="Every researched company is already an account. New companies appear here after the next signal research run." />
+    return <EmptyState title="Nothing waiting" description={scope.product !== 'all' || scope.customerModel !== 'all' ? 'No researched company with a signal for this product and customer type is waiting. New ones appear after the next signal run or connector sync.' : 'Every researched company is already an account. New companies appear here after the next signal research run.'} />
   }
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -197,7 +218,7 @@ function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (ac
   )
 }
 
-function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
+function AddAccountDialog({ open, onClose, onCreated, scope, scopeText }: { open: boolean; onClose: () => void; onCreated: (id: number) => void; scope: ProspectScopeValue; scopeText: string }) {
   const [form, setForm] = useState({ name: '', domain: '', industry: '', location: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -209,6 +230,7 @@ function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose
       const res = await gtmService.createAccount({
         name: form.name.trim(), domain: form.domain.trim() || null,
         industry: form.industry.trim() || null, location: form.location.trim() || null,
+        product: scope.product, customer_model: scope.customerModel,
       })
       setForm({ name: '', domain: '', industry: '', location: '' })
       onCreated(res.data.account.id)
@@ -222,7 +244,7 @@ function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add account</DialogTitle><DialogDescription>A company you want to sell to.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Add account</DialogTitle><DialogDescription>{scopeText ? `Adding to the ${scopeText} list.` : 'A company you want to sell to.'}</DialogDescription></DialogHeader>
         <div className="space-y-3">
           <Input placeholder="Company name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input placeholder="Website or domain" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} />
