@@ -128,7 +128,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     whyCentral:
       'Credentials and connection state are the same problem for every provider, and a per-module answer means a per-module place to leak one.',
     todayInG2g:
-      'One console over every declared provider: real env-backed status for Gemini/n8n/FCM, the honest Google OAuth stub, a summary of and link to LMS Administration & Governance (which still owns lms_integrations), and two genuinely new, configurable providers — SMTP email and an outbound webhook — backed by g2g_integration_credentials, an encrypted vault. "Test connection" makes a real SMTP handshake or a real signed HTTP POST; there is no provider here that fakes a result.',
+      'One console over every declared provider: real env-backed status for Gemini/n8n/FCM, the honest Google OAuth stub, a summary of and link to LMS Administration & Governance (which still owns lms_integrations), and configurable providers — SMTP email, outbound webhook, SMS gateway and WhatsApp Business (Cloud API) — backed by g2g_integration_credentials, an encrypted vault. "Test connection" makes a real SMTP handshake, signed HTTP POST, SMS reachability check or Meta Graph API validation; there is no provider here that fakes a result.',
     toBuild: [],
     status: 'live',
     destination: { kind: 'own-route', href: '/platform-services/integration' },

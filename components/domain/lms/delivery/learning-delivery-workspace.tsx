@@ -1110,7 +1110,7 @@ export function LearningDeliveryWorkspace() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {(courseCertificate || courseComplete || detail?.certificate_available) && (
+          {(courseCertificate || courseComplete || (detail as any)?.certificate_available) && (
             <Button
               size="sm"
               variant="outline"
