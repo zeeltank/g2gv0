@@ -235,7 +235,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** The selfie taken at the start. Fetched with the auth header and shown from a blob URL. */
-function SelfiePhoto({ visitId, available }: { visitId: number; available: boolean }) {
+function SelfiePhoto({ visitId, available, which }: { visitId: number; available: boolean; which: 'start' | 'end' }) {
   const context = React.useMemo(() => getLaravelContext(), [])
   const [url, setUrl] = React.useState<string | null>(null)
   const [failed, setFailed] = React.useState(false)
@@ -248,7 +248,7 @@ function SelfiePhoto({ visitId, available }: { visitId: number; available: boole
     setFailed(false)
     if (!available) return
     travelVisitService
-      .selfie(context, visitId)
+      .selfie(context, visitId, which)
       .then((blob) => {
         if (!alive) return
         created = URL.createObjectURL(blob)
@@ -259,11 +259,11 @@ function SelfiePhoto({ visitId, available }: { visitId: number; available: boole
       alive = false
       if (created) URL.revokeObjectURL(created)
     }
-  }, [visitId, available, context])
+  }, [visitId, available, which, context])
 
   return (
     <div className="shrink-0 space-y-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Start selfie</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{which === 'end' ? 'End selfie' : 'Start selfie'}</p>
       {!available ? (
         <div className="flex h-28 w-28 items-center justify-center rounded-xl border border-dashed border-border px-2 text-center text-xs text-muted-foreground">
           No selfie for this trip
@@ -275,7 +275,7 @@ function SelfiePhoto({ visitId, available }: { visitId: number; available: boole
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
-            alt="Selfie taken at the start of the trip"
+            alt={`Selfie taken at the ${which} of the trip`}
             onClick={() => setOpen(true)}
             className="h-28 w-28 cursor-zoom-in rounded-xl border border-border object-cover"
           />
@@ -386,7 +386,10 @@ function TravelVisitDetail({ visitId, onClose }: { visitId: number | null; onClo
         {visit && !loading && (
           <div className="space-y-5">
             <div className="flex flex-col gap-5 sm:flex-row">
-              <SelfiePhoto visitId={visit.id} available={visit.has_selfie} />
+              <div className="flex shrink-0 gap-4">
+                {visit.has_selfie && <SelfiePhoto visitId={visit.id} available which="start" />}
+                <SelfiePhoto visitId={visit.id} available={visit.has_end_selfie} which="end" />
+              </div>
               <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-4">
               <Field label="Employee">
                 {visit.employee_name}
@@ -405,7 +408,12 @@ function TravelVisitDetail({ visitId, onClose }: { visitId: number | null; onClo
               <Field label="From">{visit.from?.address || (visit.from ? `${visit.from.lat}, ${visit.from.lng}` : '')}</Field>
               <Field label="To">{visit.to?.address || (visit.to ? `${visit.to.lat}, ${visit.to.lng}` : '')}</Field>
             </div>
-            {visit.remarks && <Field label="Remarks">{visit.remarks}</Field>}
+            {(visit.remarks || visit.end_remarks) && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {visit.remarks && <Field label="Start remarks">{visit.remarks}</Field>}
+                <Field label="End remarks">{visit.end_remarks}</Field>
+              </div>
+            )}
 
             <div>
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
