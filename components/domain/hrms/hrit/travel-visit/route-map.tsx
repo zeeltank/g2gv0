@@ -61,7 +61,7 @@ export function RouteMap({ points, ongoing }: { points: TravelPoint[]; ongoing: 
       // Intermediate fixes: small dots with their time.
       points.slice(1, -1).forEach((p) => {
         L.circleMarker([p.lat, p.lng], { radius: 3, color: '#2563eb', fillColor: '#fff', fillOpacity: 1, weight: 2 })
-          .bindTooltip(p.recorded_at.slice(11, 19))
+          .bindTooltip(new Date(p.recorded_at).toLocaleTimeString('en-IN'))
           .addTo(map)
       })
 
@@ -73,7 +73,27 @@ export function RouteMap({ points, ongoing }: { points: TravelPoint[]; ongoing: 
       }
 
       walker.current = L.marker(coords[0], { icon: dot('#7c3aed'), opacity: 0 }).addTo(map)
-      map.fitBounds(line.current.getBounds().pad(0.15), { maxZoom: 17 })
+
+      // Zoom to the trip. Identical points (a phone that never moved) give a
+      // zero-size area, which fitBounds turns into a world view, so zoom to the
+      // spot instead.
+      const fit = () => {
+        const bounds = line.current?.getBounds()
+        if (!bounds) return
+        if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
+          map.setView(coords[0], 16)
+        } else {
+          map.fitBounds(bounds.pad(0.15), { maxZoom: 17 })
+        }
+      }
+      fit()
+      // The dialog is still animating open when this runs, so the map may have been
+      // measured at the wrong size. Re-measure once it has settled, then fit again.
+      setTimeout(() => {
+        if (cancelled || mapRef.current !== map) return
+        map.invalidateSize()
+        fit()
+      }, 300)
     })
 
     return () => {
