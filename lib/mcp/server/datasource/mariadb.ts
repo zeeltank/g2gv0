@@ -9,7 +9,7 @@ function loadEnvFile(filePath: string) {
     return false;
   }
 
-  const result = dotenv.config({ path: filePath });
+  const result = dotenv.config({ path: filePath, quiet: true });
   if (result.error) {
     console.warn("[mariadb] Failed to load env file:", filePath, result.error);
     return false;
@@ -143,19 +143,17 @@ function buildPoolConfig() {
   } as const;
 }
 
+/**
+ * One readable line instead of a dumped object. Connection details only: the password is never
+ * part of it, and the pool tuning values are left out because they are noise on every start.
+ */
 function logDbConfig(prefix: string, dbConfig: ReturnType<typeof getDbConfig>, poolConfig: ReturnType<typeof buildPoolConfig>) {
-  console.info(prefix, {
-    host: dbConfig.host,
-    port: dbConfig.port,
-    user: dbConfig.user,
-    database: dbConfig.database,
-    connectionLimit: poolConfig.connectionLimit,
-    acquireTimeout: poolConfig.acquireTimeout,
-    connectTimeout: poolConfig.connectTimeout,
-    sslEnabled: Boolean(poolConfig.ssl),
-    socketPath: Boolean(poolConfig.socketPath),
-    nodeEnv: process.env.NODE_ENV,
-  });
+  const target = poolConfig.socketPath
+    ? `socket ${poolConfig.socketPath}`
+    : `${dbConfig.host}:${dbConfig.port}`;
+  const tls = poolConfig.ssl ? "ssl on" : "ssl off";
+
+  console.info(`${prefix} ${dbConfig.user}@${target}/${dbConfig.database} (${tls}, pool ${poolConfig.connectionLimit})`);
 }
 
 /*
@@ -191,7 +189,7 @@ function getPool() {
     const poolConfig = resolvePoolConfig();
 
     if (process.env.NODE_ENV !== "production") {
-      logDbConfig("[mariadb] Using database config:", dbConfig, poolConfig);
+      logDbConfig("[mariadb] connected to", dbConfig, poolConfig);
     }
 
     cachedPool = mariadb.createPool({
