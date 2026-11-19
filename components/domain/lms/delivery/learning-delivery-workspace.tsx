@@ -43,6 +43,9 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
+import { SalesTrainingLauncher } from '@/components/domain/lms/sales-training/sales-training-launcher'
+import { SalesTrainingCards, SalesTrainingCourseView } from '@/components/domain/lms/sales-training/sales-training-course'
+import { SALES_PRODUCTS, salesTrainingKeyOf, type SalesProductKey } from '@/lib/sales-training/deck'
 import {
   AuthoringDeleteDialog,
   ChapterFormSheet,
@@ -80,8 +83,10 @@ function formatDate(value: string | null) {
 function lessonKind(
   fileType: string | null,
   src?: string | null,
-): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'unknown' {
+): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'sales' | 'unknown' {
   const type = (fileType ?? '').toLowerCase()
+  // A link to the sales-training player plays inside the lesson, whatever type the lesson was saved as.
+  if (salesTrainingKeyOf(src)) return 'sales'
   if (type === 'mp4' || type === 'video') return 'video'
   if (type === 'pdf') return 'pdf'
   if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
@@ -255,14 +260,17 @@ function CoursePicker({
   error,
   onSelect,
   onRetry,
+  extraCards,
 }: {
   courses: LearningCourseSummary[]
   loading: boolean
   error: string | null
   onSelect: (id: number) => void
   onRetry: () => void
+  /** More course cards shown after the enrolled courses (the sales-training scenarios). */
+  extraCards?: React.ReactNode
 }) {
-  if (error && !loading && courses.length === 0) {
+  if (error && !loading && courses.length === 0 && !extraCards) {
     return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
 
@@ -284,7 +292,7 @@ function CoursePicker({
             <Skeleton key={index} className="h-40 rounded-xl" />
           ))}
         </div>
-      ) : courses.length === 0 ? (
+      ) : courses.length === 0 && !extraCards ? (
         <EmptyState
           icon={<GraduationCap className="size-8" />}
           title="No enrolled courses"
@@ -292,11 +300,12 @@ function CoursePicker({
         />
       ) : (
         <>
-          {regularCourses.length > 0 && (
+          {(regularCourses.length > 0 || extraCards) && (
             <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {regularCourses.map((course) => (
                 <CourseCard key={course.id} course={course} onSelect={onSelect} />
               ))}
+              {extraCards}
             </div>
           )}
 
@@ -533,6 +542,20 @@ function LessonViewer({
           </Button>
         </a>
       </div>
+    )
+  }
+
+  const salesKey = salesTrainingKeyOf(src)
+  if (kind === 'sales' && salesKey) {
+    return (
+      <SalesTrainingLauncher
+        key={lesson.id}
+        productKey={salesKey}
+        title={lesson.title}
+        completed={lesson.status === 'completed'}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
     )
   }
 
@@ -1114,12 +1137,32 @@ export function LearningDeliveryWorkspace() {
   const goToQuiz = React.useCallback(() => {
     router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
   }, [courseId, router])
+  /*
+   * Sales-training scenarios are listed as courses but are not database courses: they are generated decks served from
+   * /sales-training. Opening one swaps in its own course page; ?sales=<sc|g2g|eb> keeps it open across a reload.
+   */
+  const [salesKey, setSalesKey] = useState<SalesProductKey | null>(() => {
+    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('sales')
+    return SALES_PRODUCTS.find((p) => p.key === requested)?.key ?? null
+  })
+  const openSales = (key: SalesProductKey | null) => {
+    setSalesKey(key)
+    const url = new URL(window.location.href)
+    if (key) url.searchParams.set('sales', key)
+    else url.searchParams.delete('sales')
+    window.history.replaceState(null, '', url.toString())
+  }
+
   const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'chapter' | 'content'; id: number; label: string } | null
   >(null)
 
   if (productSite) return null
+
+  if (salesKey) {
+    return <SalesTrainingCourseView productKey={salesKey} onBack={() => openSales(null)} />
+  }
 
   if (!courseId) {
     return (
@@ -1130,6 +1173,7 @@ export function LearningDeliveryWorkspace() {
           error={coursesError}
           onSelect={selectCourse}
           onRetry={reload}
+          extraCards={<SalesTrainingCards onOpen={openSales} />}
         />
       </div>
     )
@@ -1185,7 +1229,7 @@ export function LearningDeliveryWorkspace() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {(courseCertificate || courseComplete || detail?.certificate_available) && (
+          {(courseCertificate || courseComplete || (detail as any)?.certificate_available) && (
             <Button
               size="sm"
               variant="outline"

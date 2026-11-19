@@ -1,0 +1,2121 @@
+[
+ {
+  "num": 1,
+  "id": "title",
+  "type": "title",
+  "title": "G2G",
+  "links": [
+   {
+    "label": "Start",
+    "to": 2,
+    "role": "start"
+   },
+   {
+    "label": "Customer questions",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Practise",
+    "to": 41,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 2,
+  "id": "home",
+  "type": "home",
+  "title": "What matters most to you?",
+  "links": [
+   {
+    "label": "Run HR day to day",
+    "to": 5,
+    "role": "journey"
+   },
+   {
+    "label": "Grow skills and learning",
+    "to": 13,
+    "role": "journey"
+   },
+   {
+    "label": "Manage talent",
+    "to": 11,
+    "role": "journey"
+   },
+   {
+    "label": "Keep work on track",
+    "to": 21,
+    "role": "journey"
+   },
+   {
+    "label": "Control who sees what",
+    "to": 27,
+    "role": "journey"
+   },
+   {
+    "label": "G2G at a glance",
+    "to": 3,
+    "role": "journey"
+   },
+   {
+    "label": "Customer questions",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Where G2G is today",
+    "to": 29,
+    "role": "nav"
+   },
+   {
+    "label": "Practise",
+    "to": 41,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 3,
+  "id": "overview",
+  "type": "overview",
+  "title": "G2G at a glance",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 5,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 9,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 7,
+    "role": "module"
+   },
+   {
+    "label": "Competency management",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "KASBA framework",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 17,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 11,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   },
+   {
+    "label": "Workforce AI assistant",
+    "to": 23,
+    "role": "module"
+   },
+   {
+    "label": "Reports",
+    "to": 25,
+    "role": "module"
+   },
+   {
+    "label": "Organisation",
+    "to": 27,
+    "role": "module"
+   },
+   {
+    "label": "All modules",
+    "to": 4,
+    "role": "nav"
+   },
+   {
+    "label": "Questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 4,
+  "id": "modules",
+  "type": "modules",
+  "title": "The G2G modules",
+  "links": [
+   {
+    "label": "Attendance",
+    "to": 5,
+    "role": "module"
+   },
+   {
+    "label": "Leave",
+    "to": 7,
+    "role": "module"
+   },
+   {
+    "label": "Payroll",
+    "to": 9,
+    "role": "module"
+   },
+   {
+    "label": "Talent",
+    "to": 11,
+    "role": "module"
+   },
+   {
+    "label": "Competency management",
+    "to": 13,
+    "role": "module"
+   },
+   {
+    "label": "KASBA framework",
+    "to": 15,
+    "role": "module"
+   },
+   {
+    "label": "Gap assessment",
+    "to": 17,
+    "role": "module"
+   },
+   {
+    "label": "Learning (LMS)",
+    "to": 19,
+    "role": "module"
+   },
+   {
+    "label": "Tasks",
+    "to": 21,
+    "role": "module"
+   },
+   {
+    "label": "Workforce AI assistant",
+    "to": 23,
+    "role": "module"
+   },
+   {
+    "label": "Reports and analytics",
+    "to": 25,
+    "role": "module"
+   },
+   {
+    "label": "Organisation and access",
+    "to": 27,
+    "role": "module"
+   }
+  ]
+ },
+ {
+  "num": 5,
+  "id": "m:attendance",
+  "type": "module",
+  "title": "Attendance",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 6,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 7,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 6,
+  "id": "m:attendance:roles",
+  "type": "roles",
+  "title": "Attendance: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 5,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 7,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 7,
+  "id": "m:leave",
+  "type": "module",
+  "title": "Leave",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 8,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 9,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 8,
+  "id": "m:leave:roles",
+  "type": "roles",
+  "title": "Leave: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 7,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 9,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 9,
+  "id": "m:payroll",
+  "type": "module",
+  "title": "Payroll",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 10,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 11,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 10,
+  "id": "m:payroll:roles",
+  "type": "roles",
+  "title": "Payroll: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 9,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 11,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 11,
+  "id": "m:talent",
+  "type": "module",
+  "title": "Talent",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 12,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 13,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 12,
+  "id": "m:talent:roles",
+  "type": "roles",
+  "title": "Talent: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 11,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 13,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 13,
+  "id": "m:competency",
+  "type": "module",
+  "title": "Competency management",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 14,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 15,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 14,
+  "id": "m:competency:roles",
+  "type": "roles",
+  "title": "Competency management: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 13,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 15,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 15,
+  "id": "m:kasba",
+  "type": "module",
+  "title": "KASBA framework",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 16,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 17,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 16,
+  "id": "m:kasba:roles",
+  "type": "roles",
+  "title": "KASBA framework: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 15,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 17,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 17,
+  "id": "m:gap",
+  "type": "module",
+  "title": "Gap assessment",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 18,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 19,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 18,
+  "id": "m:gap:roles",
+  "type": "roles",
+  "title": "Gap assessment: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 17,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 19,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 19,
+  "id": "m:lms",
+  "type": "module",
+  "title": "Learning (LMS)",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 20,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 21,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 20,
+  "id": "m:lms:roles",
+  "type": "roles",
+  "title": "Learning (LMS): who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 19,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 21,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 21,
+  "id": "m:tasks",
+  "type": "module",
+  "title": "Tasks",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 22,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 23,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 22,
+  "id": "m:tasks:roles",
+  "type": "roles",
+  "title": "Tasks: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 21,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 23,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 23,
+  "id": "m:ai",
+  "type": "module",
+  "title": "Workforce AI assistant",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 24,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 25,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 24,
+  "id": "m:ai:roles",
+  "type": "roles",
+  "title": "Workforce AI assistant: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 23,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 25,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 25,
+  "id": "m:reports",
+  "type": "module",
+  "title": "Reports and analytics",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 26,
+    "role": "roles"
+   },
+   {
+    "label": "Next",
+    "to": 27,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 26,
+  "id": "m:reports:roles",
+  "type": "roles",
+  "title": "Reports and analytics: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 25,
+    "role": "nav"
+   },
+   {
+    "label": "Next",
+    "to": 27,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 27,
+  "id": "m:org",
+  "type": "module",
+  "title": "Organisation and access",
+  "links": [
+   {
+    "label": "Roles",
+    "to": 28,
+    "role": "roles"
+   }
+  ]
+ },
+ {
+  "num": 28,
+  "id": "m:org:roles",
+  "type": "roles",
+  "title": "Organisation and access: who gets what",
+  "links": [
+   {
+    "label": "Back",
+    "to": 27,
+    "role": "nav"
+   },
+   {
+    "label": "Questions",
+    "to": 30,
+    "role": "next"
+   }
+  ]
+ },
+ {
+  "num": 29,
+  "id": "status",
+  "type": "status",
+  "title": "Where G2G is today",
+  "links": []
+ },
+ {
+  "num": 30,
+  "id": "faq",
+  "type": "faq",
+  "title": "Customer questions",
+  "links": [
+   {
+    "label": "What exactly is G2G?",
+    "to": 31,
+    "role": "question"
+   },
+   {
+    "label": "Is it built for a company like ours?",
+    "to": 32,
+    "role": "question"
+   },
+   {
+    "label": "Which other companies use it?",
+    "to": 33,
+    "role": "question"
+   },
+   {
+    "label": "Does it replace our spreadsheets and paper registers?",
+    "to": 34,
+    "role": "question"
+   },
+   {
+    "label": "Does attendance connect to payroll?",
+    "to": 35,
+    "role": "question"
+   },
+   {
+    "label": "Can different people see different things?",
+    "to": 36,
+    "role": "question"
+   },
+   {
+    "label": "What is not ready yet?",
+    "to": 37,
+    "role": "question"
+   },
+   {
+    "label": "How is it different from other HR tools?",
+    "to": 38,
+    "role": "question"
+   },
+   {
+    "label": "What will it cost?",
+    "to": 39,
+    "role": "question"
+   },
+   {
+    "label": "Can we start small?",
+    "to": 40,
+    "role": "question"
+   }
+  ]
+ },
+ {
+  "num": 31,
+  "id": "q0",
+  "type": "answer",
+  "title": "What exactly is G2G?",
+  "links": [
+   {
+    "label": "Next question",
+    "to": 32,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 32,
+  "id": "q1",
+  "type": "answer",
+  "title": "Is it built for a company like ours?",
+  "links": [
+   {
+    "label": "Next question",
+    "to": 33,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 33,
+  "id": "q2",
+  "type": "answer",
+  "title": "Which other companies use it?",
+  "links": [
+   {
+    "label": "Next question",
+    "to": 34,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 34,
+  "id": "q3",
+  "type": "answer",
+  "title": "Does it replace our spreadsheets and paper registers?",
+  "links": [
+   {
+    "label": "Show the module",
+    "to": 5,
+    "role": "show"
+   },
+   {
+    "label": "Next question",
+    "to": 35,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 35,
+  "id": "q4",
+  "type": "answer",
+  "title": "Does attendance connect to payroll?",
+  "links": [
+   {
+    "label": "Show the module",
+    "to": 9,
+    "role": "show"
+   },
+   {
+    "label": "Next question",
+    "to": 36,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 36,
+  "id": "q5",
+  "type": "answer",
+  "title": "Can different people see different things?",
+  "links": [
+   {
+    "label": "Show the module",
+    "to": 27,
+    "role": "show"
+   },
+   {
+    "label": "Next question",
+    "to": 37,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 37,
+  "id": "q6",
+  "type": "answer",
+  "title": "What is not ready yet?",
+  "links": [
+   {
+    "label": "Status",
+    "to": 29,
+    "role": "show"
+   },
+   {
+    "label": "Next question",
+    "to": 38,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 38,
+  "id": "q7",
+  "type": "answer",
+  "title": "How is it different from other HR tools?",
+  "links": [
+   {
+    "label": "Show the module",
+    "to": 13,
+    "role": "show"
+   },
+   {
+    "label": "Next question",
+    "to": 39,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 39,
+  "id": "q8",
+  "type": "answer",
+  "title": "What will it cost?",
+  "links": [
+   {
+    "label": "Next question",
+    "to": 40,
+    "role": "next"
+   },
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 40,
+  "id": "q9",
+  "type": "answer",
+  "title": "Can we start small?",
+  "links": [
+   {
+    "label": "All questions",
+    "to": 30,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 41,
+  "id": "sim",
+  "type": "sim",
+  "title": "Practise the sales conversation",
+  "links": [
+   {
+    "label": "Start",
+    "to": 42,
+    "role": "start"
+   }
+  ]
+ },
+ {
+  "num": 42,
+  "id": "d0S",
+  "type": "dec",
+  "title": "Decision 1",
+  "links": [
+   {
+    "label": "Walk through every module and the AI agents roadmap in one go.",
+    "to": 43,
+    "role": "poor"
+   },
+   {
+    "label": "Ask about team size, how attendance, leave and payroll run today, whether capability or training is a priority, and what he wants to fix first.",
+    "to": 44,
+    "role": "best"
+   },
+   {
+    "label": "Give a one-line description (\"capability and competency workflows\") and ask what he is looking for.",
+    "to": 45,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 43,
+  "id": "d0S:fb0",
+  "type": "fb",
+  "title": "D1 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 46,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 42,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 44,
+  "id": "d0S:fb1",
+  "type": "fb",
+  "title": "D1 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 48,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 42,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 45,
+  "id": "d0S:fb2",
+  "type": "fb",
+  "title": "D1 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 53,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 42,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 46,
+  "id": "d0S:rec",
+  "type": "rec",
+  "title": "D1 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 53,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 47,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 42,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 47,
+  "id": "lost0",
+  "type": "lost",
+  "title": "Deal lost at decision 1",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 48,
+  "id": "d1S",
+  "type": "dec",
+  "title": "Decision 2",
+  "links": [
+   {
+    "label": "Say G2G solves both, immediately.",
+    "to": 49,
+    "role": "partial"
+   },
+   {
+    "label": "Promise payroll prep time will drop by half.",
+    "to": 50,
+    "role": "poor"
+   },
+   {
+    "label": "Separate operations (attendance-to-payroll) from capability (skill gaps), ask which costs more and how he measures it, then agree a first focus.",
+    "to": 51,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 49,
+  "id": "d1S:fb0",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 63,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 50,
+  "id": "d1S:fb1",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 52,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 51,
+  "id": "d1S:fb2",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 58,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 52,
+  "id": "d1S:rec",
+  "type": "rec",
+  "title": "D2 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 63,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 57,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 48,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 53,
+  "id": "d1M",
+  "type": "dec",
+  "title": "Decision 2 (wavering)",
+  "links": [
+   {
+    "label": "Say G2G solves both, immediately.",
+    "to": 54,
+    "role": "partial"
+   },
+   {
+    "label": "Promise payroll prep time will drop by half.",
+    "to": 55,
+    "role": "poor"
+   },
+   {
+    "label": "Separate operations (attendance-to-payroll) from capability (skill gaps), ask which costs more and how he measures it, then agree a first focus.",
+    "to": 56,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 54,
+  "id": "d1M:fb0",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 63,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 55,
+  "id": "d1M:fb1",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 57,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 56,
+  "id": "d1M:fb2",
+  "type": "fb",
+  "title": "D2 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 58,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 53,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 57,
+  "id": "lost1",
+  "type": "lost",
+  "title": "Deal lost at decision 2",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 48,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 58,
+  "id": "d2S",
+  "type": "dec",
+  "title": "Decision 3",
+  "links": [
+   {
+    "label": "Say several companies in his industry already run G2G.",
+    "to": 59,
+    "role": "poor"
+   },
+   {
+    "label": "Say G2G works for any organisation.",
+    "to": 60,
+    "role": "partial"
+   },
+   {
+    "label": "Acknowledge that v1 docs describe educational organisations and no G2G offer has a production client yet, then propose a scoped pilot to validate fit on his own data with clear success criteria.",
+    "to": 61,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 59,
+  "id": "d2S:fb0",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 62,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 60,
+  "id": "d2S:fb1",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 73,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 61,
+  "id": "d2S:fb2",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 68,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 62,
+  "id": "d2S:rec",
+  "type": "rec",
+  "title": "D3 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 73,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 67,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 58,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 63,
+  "id": "d2M",
+  "type": "dec",
+  "title": "Decision 3 (wavering)",
+  "links": [
+   {
+    "label": "Say several companies in his industry already run G2G.",
+    "to": 64,
+    "role": "poor"
+   },
+   {
+    "label": "Say G2G works for any organisation.",
+    "to": 65,
+    "role": "partial"
+   },
+   {
+    "label": "Acknowledge that v1 docs describe educational organisations and no G2G offer has a production client yet, then propose a scoped pilot to validate fit on his own data with clear success criteria.",
+    "to": 66,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 64,
+  "id": "d2M:fb0",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 67,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 65,
+  "id": "d2M:fb1",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 73,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 66,
+  "id": "d2M:fb2",
+  "type": "fb",
+  "title": "D3 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 68,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 63,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 67,
+  "id": "lost2",
+  "type": "lost",
+  "title": "Deal lost at decision 3",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 58,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 68,
+  "id": "d3S",
+  "type": "dec",
+  "title": "Decision 4",
+  "links": [
+   {
+    "label": "Emphasise the AI assistant and agentic library as what competitors lack.",
+    "to": 69,
+    "role": "partial"
+   },
+   {
+    "label": "Ask which tools and what criteria matter, then position on what is documented: attendance linked to payroll, plus a competency and capability layer in the same platform. Avoid feature claims about rivals.",
+    "to": 70,
+    "role": "best"
+   },
+   {
+    "label": "Say established HRMS tools do not have any competency library.",
+    "to": 71,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 69,
+  "id": "d3S:fb0",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 83,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 70,
+  "id": "d3S:fb1",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 78,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 71,
+  "id": "d3S:fb2",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 72,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 72,
+  "id": "d3S:rec",
+  "type": "rec",
+  "title": "D4 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 83,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 77,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 68,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 73,
+  "id": "d3M",
+  "type": "dec",
+  "title": "Decision 4 (wavering)",
+  "links": [
+   {
+    "label": "Emphasise the AI assistant and agentic library as what competitors lack.",
+    "to": 74,
+    "role": "partial"
+   },
+   {
+    "label": "Ask which tools and what criteria matter, then position on what is documented: attendance linked to payroll, plus a competency and capability layer in the same platform. Avoid feature claims about rivals.",
+    "to": 75,
+    "role": "best"
+   },
+   {
+    "label": "Say established HRMS tools do not have any competency library.",
+    "to": 76,
+    "role": "poor"
+   }
+  ]
+ },
+ {
+  "num": 74,
+  "id": "d3M:fb0",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 83,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 75,
+  "id": "d3M:fb1",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 78,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 76,
+  "id": "d3M:fb2",
+  "type": "fb",
+  "title": "D4 result",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 77,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 73,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 77,
+  "id": "lost3",
+  "type": "lost",
+  "title": "Deal lost at decision 4",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 68,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 78,
+  "id": "d4S",
+  "type": "dec",
+  "title": "Decision 5",
+  "links": [
+   {
+    "label": "Quote a per-employee monthly price to keep momentum.",
+    "to": 79,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing has not been defined yet. Agree pilot scope, duration and success criteria, and commit to a written proposal by a date. Negotiate scope, not an unapproved price.",
+    "to": 80,
+    "role": "best"
+   },
+   {
+    "label": "Offer the pilot free of charge to win the deal.",
+    "to": 81,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 79,
+  "id": "d4S:fb0",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 82,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 80,
+  "id": "d4S:fb1",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 88,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 81,
+  "id": "d4S:fb2",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 93,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 82,
+  "id": "d4S:rec",
+  "type": "rec",
+  "title": "D5 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 93,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 87,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 78,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 83,
+  "id": "d4M",
+  "type": "dec",
+  "title": "Decision 5 (wavering)",
+  "links": [
+   {
+    "label": "Quote a per-employee monthly price to keep momentum.",
+    "to": 84,
+    "role": "poor"
+   },
+   {
+    "label": "Say pricing has not been defined yet. Agree pilot scope, duration and success criteria, and commit to a written proposal by a date. Negotiate scope, not an unapproved price.",
+    "to": 85,
+    "role": "best"
+   },
+   {
+    "label": "Offer the pilot free of charge to win the deal.",
+    "to": 86,
+    "role": "partial"
+   }
+  ]
+ },
+ {
+  "num": 84,
+  "id": "d4M:fb0",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 87,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 85,
+  "id": "d4M:fb1",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 88,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 86,
+  "id": "d4M:fb2",
+  "type": "fb",
+  "title": "D5 result",
+  "links": [
+   {
+    "label": "Continue  >",
+    "to": 93,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 83,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 87,
+  "id": "lost4",
+  "type": "lost",
+  "title": "Deal lost at decision 5",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 78,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 88,
+  "id": "d5S",
+  "type": "dec",
+  "title": "Decision 6",
+  "links": [
+   {
+    "label": "Ask \"are we good to go?\" and wait for him to revert.",
+    "to": 89,
+    "role": "partial"
+   },
+   {
+    "label": "Tell him the pilot slot is limited and ask him to commit today.",
+    "to": 90,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed pilot scope and success criteria, send a written recap within a day with an executive summary for the CEO, book a review date, and name who owns each next step.",
+    "to": 91,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 89,
+  "id": "d5S:fb0",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 99,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 90,
+  "id": "d5S:fb1",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See the customer's response  >",
+    "to": 92,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 91,
+  "id": "d5S:fb2",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 98,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 92,
+  "id": "d5S:rec",
+  "type": "rec",
+  "title": "D6 recovery",
+  "links": [
+   {
+    "label": "Recover",
+    "to": 100,
+    "role": "recover"
+   },
+   {
+    "label": "Double down",
+    "to": 97,
+    "role": "double-down"
+   },
+   {
+    "label": "Return",
+    "to": 88,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 93,
+  "id": "d5M",
+  "type": "dec",
+  "title": "Decision 6 (wavering)",
+  "links": [
+   {
+    "label": "Ask \"are we good to go?\" and wait for him to revert.",
+    "to": 94,
+    "role": "partial"
+   },
+   {
+    "label": "Tell him the pilot slot is limited and ask him to commit today.",
+    "to": 95,
+    "role": "poor"
+   },
+   {
+    "label": "Recap agreed pilot scope and success criteria, send a written recap within a day with an executive summary for the CEO, book a review date, and name who owns each next step.",
+    "to": 96,
+    "role": "best"
+   }
+  ]
+ },
+ {
+  "num": 94,
+  "id": "d5M:fb0",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 100,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 93,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 95,
+  "id": "d5M:fb1",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See what happens  >",
+    "to": 97,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 93,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 96,
+  "id": "d5M:fb2",
+  "type": "fb",
+  "title": "D6 result",
+  "links": [
+   {
+    "label": "See the outcome  >",
+    "to": 99,
+    "role": "continue"
+   },
+   {
+    "label": "Return",
+    "to": 93,
+    "role": "return"
+   }
+  ]
+ },
+ {
+  "num": 97,
+  "id": "lost5",
+  "type": "lost",
+  "title": "Deal lost at decision 6",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 88,
+    "role": "replay"
+   },
+   {
+    "label": "Start over",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 98,
+  "id": "out:won",
+  "type": "out",
+  "title": "Deal won: scoped pilot agreed",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Questions",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 99,
+  "id": "out:wonConc",
+  "type": "out",
+  "title": "Deal won, with concessions",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Questions",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ },
+ {
+  "num": 100,
+  "id": "out:stalled",
+  "type": "out",
+  "title": "Deal stalled: not lost, not won",
+  "links": [
+   {
+    "label": "Replay",
+    "to": 42,
+    "role": "replay"
+   },
+   {
+    "label": "Questions",
+    "to": 30,
+    "role": "nav"
+   },
+   {
+    "label": "Presentation",
+    "to": 2,
+    "role": "nav"
+   }
+  ]
+ }
+]

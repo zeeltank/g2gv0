@@ -20,6 +20,7 @@ import { crmService } from '@/services/crm'
 import { productMasterService } from '@/services/product-master/product-master-service'
 import type { PmOption } from '@/services/product-master/types'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
+import { BulkSendMessageDialog, type MessageChannel } from './bulk-send-message-dialog'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateLeadModal } from './create-lead-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
@@ -197,6 +198,7 @@ export function LeadListView() {
 
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
+  const [bulkMessageChannel, setBulkMessageChannel] = useState<MessageChannel>('email')
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
@@ -401,15 +403,31 @@ export function LeadListView() {
         onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
-        onSendSms={() => setBulkSmsOpen(true)}
+        onSendMessage={(channel) => {
+          setBulkMessageChannel(channel)
+          setBulkSmsOpen(true)
+        }}
+        onSendSms={() => {
+          setBulkMessageChannel('sms')
+          setBulkSmsOpen(true)
+        }}
       />
 
-      <BulkSendSmsDialog
+      <BulkSendMessageDialog
         isOpen={bulkSmsOpen}
         onClose={() => setBulkSmsOpen(false)}
         onSent={(message) => { setNotice(message); clearSelection(); void load() }}
         relatedType="lead"
         ids={Array.from(selectedIds)}
+        recipients={leads
+          .filter((l) => selectedIds.has(l.id))
+          .map((l) => ({
+            id: l.id,
+            name: `${l.firstName || ''} ${l.lastName || ''}`.trim() || undefined,
+            email: l.email || null,
+            phone: l.mobile || l.phone || null,
+          }))}
+        initialChannel={bulkMessageChannel}
       />
     </div>
   )

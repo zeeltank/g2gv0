@@ -2,8 +2,14 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Send, Trash2, UserCog, X } from 'lucide-react'
+import { ChevronDown, Mail, MessageCircle, MessageSquare, Send, Trash2, UserCog, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select'
 import { Spinner } from '@/components/ui/spinner'
 import { toastSlideUp } from '@/lib/motion/variants'
@@ -19,6 +25,8 @@ interface Props {
   cascadeLabel?: string
   /** When set, shows a "Send SMS" button - omit for a module with no phone-bearing records (e.g. Campaigns). */
   onSendSms?: () => void
+  /** Multi-channel messaging: Email, SMS, WhatsApp */
+  onSendMessage?: (channel: 'email' | 'sms' | 'whatsapp') => void
 }
 
 /**
@@ -28,7 +36,7 @@ interface Props {
  * that bar is still hand-rolled per its own two callers too, so there's no
  * existing generic actions-array convention in this app to adopt instead.
  */
-export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms }: Props) {
+export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms, onSendMessage }: Props) {
   const [assigneeId, setAssigneeId] = useState('')
   const [cascade, setCascade] = useState(false)
 
@@ -72,10 +80,38 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
             </label>
           )}
 
-          {onSendSms && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={onSendSms}>
-              <Send className="mr-2 size-4" />Send SMS
-            </Button>
+          {(onSendMessage || onSendSms) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={busy}>
+                  <Send className="mr-2 size-4" />Send Message
+                  <ChevronDown className="ml-1.5 size-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-44">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => (onSendMessage ? onSendMessage('email') : onSendSms?.())}
+                >
+                  <Mail className="mr-2 size-4 text-blue-600" />
+                  <span>Email</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => (onSendMessage ? onSendMessage('sms') : onSendSms?.())}
+                >
+                  <MessageSquare className="mr-2 size-4 text-purple-600" />
+                  <span>SMS</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => (onSendMessage ? onSendMessage('whatsapp') : onSendSms?.())}
+                >
+                  <MessageCircle className="mr-2 size-4 text-emerald-600" />
+                  <span>WhatsApp</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>

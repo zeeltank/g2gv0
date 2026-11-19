@@ -122,8 +122,8 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     id: 'delivery',
-    label: 'Email & SMS',
-    blurb: 'How this organisation sends anything at all',
+    label: 'Email, SMS & WhatsApp',
+    blurb: 'Mailboxes, SMS gateway and WhatsApp Business API',
     icon: Send,
     group: 'Organisation',
     roles: ADMIN,

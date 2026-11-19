@@ -48,9 +48,32 @@ const PayrollRegisterPage = createLazyComponent(() => import('@/domain/hrms/hrit
 // Salary Structure Report - impossible before F-160 fixed its tenant resolution.
 const SalaryStructureReportPage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/salary-structure-report/page').then((m) => ({ default: m.default })))
 
+// Expense Management. Matched by accessLink ONLY - no submenuId. The menu rows
+// come from 2026_11_19_100100_add_expense_management_menu.php with auto-increment
+// ids that differ per database, so an id here would resolve to a different (or
+// no) screen on some hosts. Do not add one.
+const TravelVisitPage = createLazyComponent(() => import('@/domain/hrms/hrit/travel-visit/page').then((m) => ({ default: m.default })))
+const MyExpensesPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/my-expenses/page').then((m) => ({ default: m.default })))
+const ExpenseApprovalsPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/expense-approvals/page').then((m) => ({ default: m.default })))
+const ExpenseCategoriesPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/expense-categories/page').then((m) => ({ default: m.default })))
+
+const EmployeeLedgerPage = createLazyComponent(() => import('@/domain/hrms/hrit/payroll-management/employee-ledger/page').then((m) => ({ default: m.default })))
+const ExpenseDashboardPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/expense-dashboard/page').then((m) => ({ default: m.default })))
+const EmployeeAdvancesPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/employee-advances/page').then((m) => ({ default: m.default })))
+const AdvanceSummaryPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/advance-summary/page').then((m) => ({ default: m.default })))
+const UnpaidExpenseClaimsPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/unpaid-expense-claims/page').then((m) => ({ default: m.default })))
+
 // accessLink is the stable tblmenumaster_g2g column (HRIT Solutions, module
 // id 5); submenuId is kept as a fallback.
 export const M5_CONTENT: ContentRoute[] = [
+  { accessLink: '/module/hrit-solutions/payroll-management/employee-ledger', component: EmployeeLedgerPage }, // Employee Ledger (no submenuId: see the Expense Management note above)
+  { accessLink: '/module/hrit-solutions/expense-management/expense-dashboard', component: ExpenseDashboardPage }, // Expense Dashboard
+  { accessLink: '/module/hrit-solutions/expense-management/my-expenses', component: MyExpensesPage }, // My Expenses
+  { accessLink: '/module/hrit-solutions/expense-management/employee-advances', component: EmployeeAdvancesPage }, // Employee Advances
+  { accessLink: '/module/hrit-solutions/expense-management/advance-summary', component: AdvanceSummaryPage }, // Advance Summary
+  { accessLink: '/module/hrit-solutions/expense-management/unpaid-expense-claims', component: UnpaidExpenseClaimsPage }, // Unpaid Expense Claims
+  { accessLink: '/module/hrit-solutions/expense-management/expense-approvals', component: ExpenseApprovalsPage }, // Expense Approvals
+  { accessLink: '/module/hrit-solutions/expense-management/expense-categories', component: ExpenseCategoriesPage }, // Expense Categories
   { accessLink: '/module/hrit-solutions/attendance-management/attendance-tracking', submenuId: '100', component: AttendanceDashboard }, // Attendance Tracking
   { accessLink: '/module/hrit-solutions/attendance-management/attendance-reports', submenuId: '101', component: AttendanceReportsPage }, // Attendance Reports
   { accessLink: '/module/hrit-solutions/attendance-management/monthly-attendance-report', submenuId: '309', component: MonthlyAttendanceReportPage }, // Monthly Attendance Report (F-171)
@@ -75,4 +98,5 @@ export const M5_CONTENT: ContentRoute[] = [
   { accessLink: '/module/hrit-solutions/payroll-management/payroll-register', submenuId: '310', component: PayrollRegisterPage }, // Payroll Register (F-172)
   { accessLink: '/module/hrit-solutions/payroll-management/salary-structure-report', submenuId: '311', component: SalaryStructureReportPage }, // Salary Structure Report
   { accessLink: '/module/hrit-solutions/my-hr', component: MyHrPage }, // My HR (F-130) - every role, own data only
+  { accessLink: '/module/hrit-solutions/travel-visit', component: TravelVisitPage }, // Travel Visit (no submenuId: see the Expense Management note above)
 ]

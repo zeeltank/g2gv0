@@ -25,10 +25,12 @@ interface PersonalInfoTabProps {
   jobRoles: any[];
   userProfiles?: any[];
   employeesList?: any[];
+  /** Active shifts from Shift Master, for the Shift picker. */
+  shifts?: { id: number; name: string; start_time: string; end_time: string }[];
   onSave: (data: any) => Promise<void> | void;
 }
 
-export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles = [], employeesList = [], onSave }: PersonalInfoTabProps) {
+export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles = [], employeesList = [], shifts = [], onSave }: PersonalInfoTabProps) {
   const [activeSection, setActiveSection] = useState('personal');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,6 +55,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
     pincode: '',
     reporting_manager_id: '',
     reporting_method: '',
+    shift_id: '',
     bank_name: '',
     branch_name: '',
     account_no: '',
@@ -93,6 +96,7 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
         // `employee_name` was in this object and posted on every save, but no
         // input rendered it and tbluser has no such column - it was a dead key.
         reporting_method: employee.reporting_method || '',
+        shift_id: String(employee.shift_id || ''),
         bank_name: employee.bank_name || '',
         branch_name: employee.branch_name || '',
         account_no: employee.account_no || employee.account || '',
@@ -307,7 +311,28 @@ export function PersonalInfoTab({ employee, departments, jobRoles, userProfiles 
                     options={[
                       {label: "Active", value: "1"},
                       {label: "Inactive", value: "0"}
-                    ]} 
+                    ]}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Shift</Label>
+                  <Select
+                    placeholder="Select Shift"
+                    value={formData.shift_id}
+                    onChange={(val) => handleChange('shift_id', val)}
+                    options={[
+                      { label: 'No shift', value: '' },
+                      ...shifts.map((s: any) => ({
+                        label: `${s.name} (${s.start_time}–${s.end_time})`,
+                        value: String(s.id),
+                      })),
+                      // A shift since set to Inactive is not in the picker list, but
+                      // the employee is still on it. Without this the select would show
+                      // empty and saving would quietly clear it.
+                      ...(formData.shift_id && !shifts.some((s) => String(s.id) === formData.shift_id)
+                        ? [{ label: `${employee?.shift_name || 'Current shift'} (inactive)`, value: formData.shift_id }]
+                        : []),
+                    ]}
                   />
                 </div>
               </div>

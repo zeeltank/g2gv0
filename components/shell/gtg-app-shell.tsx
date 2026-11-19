@@ -542,14 +542,19 @@ export function GtgAppShell({
 
   const refreshApprovals = useCallback(async () => {
     if (!moduleChatKey) return
+    const userRole = (user?.role || '').toLowerCase()
+    const profileName = (user?.profileName || '').toLowerCase()
+    const isAdmin = userRole === 'administrator' || userRole === 'admin' || profileName.includes('admin')
+
     const [mine, pending] = await Promise.all([
       listActionRequests('mine', null).catch(() => [] as ActionRequest[]),
-      // A refusal here just means "not an administrator" - there is nothing to decide.
-      listActionRequests('pending', null).catch(() => [] as ActionRequest[]),
+      isAdmin
+        ? listActionRequests('pending', null).catch(() => [] as ActionRequest[])
+        : Promise.resolve([] as ActionRequest[]),
     ])
     setMyRequests(mine)
     setPendingApprovals(pending)
-  }, [moduleChatKey])
+  }, [moduleChatKey, user])
 
   /**
    * Run an approved proposal: claim it on the server (approved -> executing, once - a second tab

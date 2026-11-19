@@ -1,0 +1,8 @@
+{ "name": "sales-training-generator", "private": true, "version": "1.0.0", "type": "commonjs",
+  "scripts": {
+    "images": "node fetch-images.js",
+    "build:ppt": "node fetch-images.js && node build-sales-story.js",
+    "export:deck": "node fetch-images.js && node export-story-deck.js",
+    "stage:assets": "node stage-assets.js",
+    "build": "node build.js", "validate": "node validate.js" },
+  "dependencies": { "pptxgenjs": "3.12.0", "jszip": "3.10.1" } }

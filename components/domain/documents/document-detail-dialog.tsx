@@ -687,7 +687,7 @@ function VersionsTab({
                   <FileClock className="size-3.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-sm text-foreground">
+                  <div className="flex items-center gap-1.5 text-sm text-foreground">
                     Version {entry.version_number ?? '—'}
                     {isCurrent && (
                       <Badge variant="muted" className="text-[10px] uppercase tracking-wide">
@@ -699,7 +699,7 @@ function VersionsTab({
                         ↩ Restored from v{restoredFrom}
                       </Badge>
                     )}
-                  </p>
+                  </div>
                   <p className="truncate text-xs text-muted-foreground">
                     {[entry.original_file_name, size, restoredFrom ? null : entry.change_note].filter(Boolean).join(' · ')}
                   </p>
