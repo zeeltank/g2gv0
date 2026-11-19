@@ -52,6 +52,7 @@ const SalaryStructureReportPage = createLazyComponent(() => import('@/domain/hrm
 // come from 2026_11_19_100100_add_expense_management_menu.php with auto-increment
 // ids that differ per database, so an id here would resolve to a different (or
 // no) screen on some hosts. Do not add one.
+const TravelVisitPage = createLazyComponent(() => import('@/domain/hrms/hrit/travel-visit/page').then((m) => ({ default: m.default })))
 const MyExpensesPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/my-expenses/page').then((m) => ({ default: m.default })))
 const ExpenseApprovalsPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/expense-approvals/page').then((m) => ({ default: m.default })))
 const ExpenseCategoriesPage = createLazyComponent(() => import('@/domain/hrms/hrit/expense-management/expense-categories/page').then((m) => ({ default: m.default })))
@@ -97,4 +98,5 @@ export const M5_CONTENT: ContentRoute[] = [
   { accessLink: '/module/hrit-solutions/payroll-management/payroll-register', submenuId: '310', component: PayrollRegisterPage }, // Payroll Register (F-172)
   { accessLink: '/module/hrit-solutions/payroll-management/salary-structure-report', submenuId: '311', component: SalaryStructureReportPage }, // Salary Structure Report
   { accessLink: '/module/hrit-solutions/my-hr', component: MyHrPage }, // My HR (F-130) - every role, own data only
+  { accessLink: '/module/hrit-solutions/travel-visit', component: TravelVisitPage }, // Travel Visit (no submenuId: see the Expense Management note above)
 ]
