@@ -47,6 +47,9 @@ export interface GtmOverview {
 
 export interface GtmAccount {
   id: number
+  /** The product and customer type (b2b customers, b2c partners, b2g government) this account was added for. */
+  product_key?: string | null
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | null
   company_id: number | null
   name: string
   domain: string | null
@@ -116,6 +119,9 @@ export interface GtmSignal {
 
 export interface GtmCandidate {
   id: number
+  /** The scope of its strongest signal: where it is filed when promoted from an all-products view. */
+  product_key?: string | null
+  customer_model?: 'b2b' | 'b2c' | 'b2g' | null
   name: string
   website: string | null
   industry: string | null
@@ -134,7 +140,16 @@ export interface AccountDetail {
 
 type Env<T> = { status: number; data: T; message?: string }
 
+/** The product and customer type a list is for. 'all' (or empty) means no filter. */
+export interface ProspectScopeQuery {
+  product?: string
+  customer_model?: string
+}
+
 export interface AccountInput {
+  /** Product key and customer type the account is added under. */
+  product?: string | null
+  customer_model?: string | null
   name: string
   domain?: string | null
   website?: string | null
@@ -176,15 +191,22 @@ export const gtmService = {
 
   overview: () => apiClient.get<Env<GtmOverview>>('/gtm/overview'),
 
-  listAccounts: (q: { q?: string; stage?: string; page?: number; sort?: string } = {}) => {
+  listAccounts: (q: { q?: string; stage?: string; page?: number; sort?: string } & ProspectScopeQuery = {}) => {
     const params: Record<string, string> = { page: String(q.page ?? 1) }
+    if (q.product && q.product !== 'all') params.product = q.product
+    if (q.customer_model && q.customer_model !== 'all') params.customer_model = q.customer_model
     if (q.q) params.q = q.q
     if (q.stage) params.stage = q.stage
     if (q.sort) params.sort = q.sort
     return apiClient.get<Env<{ items: GtmAccount[]; total: number; page: number; per_page: number }>>('/gtm/accounts', params)
   },
 
-  candidates: () => apiClient.get<Env<{ items: GtmCandidate[] }>>('/gtm/accounts/candidates'),
+  candidates: (scope: ProspectScopeQuery = {}) => {
+    const params: Record<string, string> = {}
+    if (scope.product && scope.product !== 'all') params.product = scope.product
+    if (scope.customer_model && scope.customer_model !== 'all') params.customer_model = scope.customer_model
+    return apiClient.get<Env<{ items: GtmCandidate[] }>>('/gtm/accounts/candidates', params)
+  },
 
   getAccount: (id: number) => apiClient.get<Env<AccountDetail>>(`/gtm/accounts/${id}`),
 
@@ -193,8 +215,8 @@ export const gtmService = {
 
   createAccount: (input: AccountInput) => apiClient.post<Env<{ account: GtmAccount }>>('/gtm/accounts', input),
 
-  promoteCompany: (companyId: number) =>
-    apiClient.post<Env<{ account: GtmAccount; created: boolean }>>(`/gtm/accounts/from-company/${companyId}`, {}),
+  promoteCompany: (companyId: number, scope: ProspectScopeQuery = {}) =>
+    apiClient.post<Env<{ account: GtmAccount; created: boolean }>>(`/gtm/accounts/from-company/${companyId}`, scope),
 
   updateAccount: (id: number, input: Partial<AccountInput>) =>
     apiClient.patch<Env<{ account: GtmAccount }>>(`/gtm/accounts/${id}`, input),
@@ -534,6 +556,6 @@ export interface ImportResult {
 
 export const importService = {
   preview: (csv: string) => apiClient.post<Env<ImportPreview>>('/gtm/contacts/import/preview', { csv }),
-  run: (input: { csv: string; mapping: Record<string, number | null>; default_account_id?: number | null; create_missing_accounts?: boolean; dry_run: boolean }) =>
+  run: (input: { csv: string; mapping: Record<string, number | null>; default_account_id?: number | null; create_missing_accounts?: boolean; dry_run: boolean } & ProspectScopeQuery) =>
     apiClient.post<Env<ImportResult>>('/gtm/contacts/import', input),
 }

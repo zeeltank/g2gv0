@@ -123,6 +123,132 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 /* ─── Course picker ────────────────────────────────────────────────────────── */
 
+/**
+ * The two product websites (G2G, ScholarClone).
+ *
+ * They are NOT courses to be taught: there are no lessons, no progress and no completion. A card is an entry point that opens the
+ * ORIGINAL product page, untouched, as a normal browser page - so its fixed nav, scroll-driven effects, 100vh hero and animations
+ * behave exactly as when the file is opened on a desktop. (Inside a frame they cannot: a frame sized to the whole page makes 100vh
+ * mean "the whole page", and the hero stretches to match.)
+ *
+ * The card still comes from an enrolment, so who can see it is decided the way every other course is. It is recognised by the
+ * category the seeder gives it, and the page is chosen by the product named in its title - a title that names both, or neither,
+ * is not a product website and is shown as an ordinary course.
+ */
+const PRODUCT_LEARNING_CATEGORY = 'Product Learning'
+const PRODUCT_SITES = [
+  { match: /scholarclone/i, href: '/learning/product-learning/scholarclone.html' },
+  { match: /g2g/i, href: '/learning/product-learning/g2g.html' },
+] as const
+
+function productSiteFor(course: Pick<LearningCourseSummary, 'subject_category' | 'display_name'> | null | undefined): string | null {
+  if (!course || course.subject_category !== PRODUCT_LEARNING_CATEGORY) return null
+  const name = course.display_name ?? ''
+  const hits = PRODUCT_SITES.filter((site) => site.match.test(name))
+  return hits.length === 1 ? hits[0].href : null
+}
+
+/** Same card shape as every course, minus lessons, progress and status: it only opens the site. */
+function ProductSiteCard({ course, href }: { course: LearningCourseSummary; href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
+          {course.display_image && course.display_image !== '/' ? (
+             
+            <img src={course.display_image} alt="" className="size-full object-cover" />
+          ) : (
+            <ImageIcon className="size-5 text-muted-foreground/40" />
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+            {course.display_name ?? 'Product website'}
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">Product website</p>
+        </div>
+      </div>
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
+        Open website <ExternalLink className="size-3.5" />
+      </span>
+    </a>
+  )
+}
+
+function CourseCard({ course, onSelect }: { course: LearningCourseSummary; onSelect: (id: number) => void }) {
+  const due = formatDate(course.end_date)
+  const overdue =
+    course.end_date &&
+    new Date(course.end_date) < new Date() &&
+    course.enrollment_status !== 'completed'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(course.id)}
+      className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
+          {course.display_image && course.display_image !== '/' ? (
+
+            <img src={course.display_image} alt="" className="size-full object-cover" />
+          ) : (
+            <ImageIcon className="size-5 text-muted-foreground/40" />
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+            {course.display_name ?? 'Untitled course'}
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {[course.subject_type, course.standard_name].filter(Boolean).join(' · ') || '—'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-[11px] font-semibold">
+          <span className="text-muted-foreground">
+            {course.completed_content}/{course.total_content} lessons
+          </span>
+          <span className="text-foreground">{course.progress_percent}%</span>
+        </div>
+        <Progress
+          value={course.progress_percent}
+          className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <StatusBadge
+          variant={
+            course.enrollment_status === 'completed'
+              ? 'success'
+              : overdue
+                ? 'error'
+                : 'processing'
+          }
+          size="sm"
+          className="text-[10px] font-bold uppercase tracking-wider"
+        >
+          {course.enrollment_status === 'completed'
+            ? 'Completed'
+            : overdue
+              ? 'Overdue'
+              : 'In Progress'}
+        </StatusBadge>
+        {due && <span className="text-[11px] text-muted-foreground">Due {due}</span>}
+      </div>
+    </button>
+  )
+}
+
 function CoursePicker({
   courses,
   loading,
@@ -139,6 +265,9 @@ function CoursePicker({
   if (error && !loading && courses.length === 0) {
     return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
+
+  const productCourses = courses.filter((course) => productSiteFor(course))
+  const regularCourses = courses.filter((course) => !productSiteFor(course))
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6">
@@ -162,77 +291,33 @@ function CoursePicker({
           description="Enrol from the learning catalogue to start learning."
         />
       ) : (
-        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {courses.map((course) => {
-            const due = formatDate(course.end_date)
-            const overdue =
-              course.end_date &&
-              new Date(course.end_date) < new Date() &&
-              course.enrollment_status !== 'completed'
+        <>
+          {regularCourses.length > 0 && (
+            <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {regularCourses.map((course) => (
+                <CourseCard key={course.id} course={course} onSelect={onSelect} />
+              ))}
+            </div>
+          )}
 
-            return (
-              <button
-                key={course.id}
-                type="button"
-                onClick={() => onSelect(course.id)}
-                className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
-                    {course.display_image && course.display_image !== '/' ? (
-                       
-                      <img src={course.display_image} alt="" className="size-full object-cover" />
-                    ) : (
-                      <ImageIcon className="size-5 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-                      {course.display_name ?? 'Untitled course'}
-                    </h3>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {[course.subject_type, course.standard_name].filter(Boolean).join(' · ') || '—'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-semibold">
-                    <span className="text-muted-foreground">
-                      {course.completed_content}/{course.total_content} lessons
-                    </span>
-                    <span className="text-foreground">{course.progress_percent}%</span>
-                  </div>
-                  <Progress
-                    value={course.progress_percent}
-                    className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <StatusBadge
-                    variant={
-                      course.enrollment_status === 'completed'
-                        ? 'success'
-                        : overdue
-                          ? 'error'
-                          : 'processing'
-                    }
-                    size="sm"
-                    className="text-[10px] font-bold uppercase tracking-wider"
-                  >
-                    {course.enrollment_status === 'completed'
-                      ? 'Completed'
-                      : overdue
-                        ? 'Overdue'
-                        : 'In Progress'}
-                  </StatusBadge>
-                  {due && <span className="text-[11px] text-muted-foreground">Due {due}</span>}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+          {productCourses.length > 0 && (
+            <section aria-labelledby="product-learning-heading" className="flex w-full min-w-0 flex-col gap-3">
+              <div>
+                <h2 id="product-learning-heading" className="text-base font-semibold tracking-tight text-foreground">
+                  Sales
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Each card opens the complete original product website.
+                </p>
+              </div>
+              <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {productCourses.map((course) => (
+                  <ProductSiteCard key={course.id} course={course} href={productSiteFor(course) ?? '#'} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   )
@@ -998,42 +1083,30 @@ export function LearningDeliveryWorkspace() {
 
   const router = useRouter()
 
+  // A deep link (?course_id=N, or a notification) to a product website goes to the website. There is no player for these.
+  const productSite = courseId ? productSiteFor(courses.find((course) => course.id === courseId)) : null
+  useEffect(() => {
+    if (!productSite) return
+    selectCourse(null)
+    // A full page load, not router.push: the target is a static file in /public, not a Next route, so the rule's advice does not apply.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = productSite
+  }, [productSite, selectCourse])
+
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = isHrAdmin(user?.role)
   // The learning screen is view-only for everyone: chapters and lessons are edited in the Course Builder, not while someone is learning.
   const canAuthor = false
   const [activeTab, setActiveTab] = useState('learn')
 
-  // When a lesson is completed while the learner is on it, show a clear Next button and move on after a short countdown.
-  const [advance, setAdvance] = useState<{ lessonId: number; secs: number } | null>(null)
-  const advanceIn = advance && currentLesson && advance.lessonId === currentLesson.id ? advance.secs : null
-  const goNextRef = useRef(goNext)
-  const currentIdRef = useRef<number | null>(null)
-  useEffect(() => {
-    goNextRef.current = goNext
-    currentIdRef.current = currentLesson?.id ?? null
-  })
-  useEffect(() => {
-    if (!advance) return
-    const timer = setTimeout(() => {
-      if (advance.secs <= 1) {
-        setAdvance(null)
-        // Only move on if the learner is still on the lesson that just finished.
-        if (advance.lessonId === currentIdRef.current) goNextRef.current()
-      } else {
-        setAdvance({ ...advance, secs: advance.secs - 1 })
-      }
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [advance])
   const completeLesson = async (lesson: FlatLesson) => {
     const saved = await markLesson(lesson, 'completed')
     if (!saved) return
-    if (hasNext) setAdvance({ lessonId: lesson.id, secs: 5 })
-    // The quiz is a focused next step after the last lesson, rather than a
+    // Completing a lesson never moves the learner on: they stay until they press Next or pick another lesson. No timer, no countdown.
+    // The quiz is a focused next step after the LAST lesson, rather than a
     // competing card beside the course player. The server still enforces this
     // completion gate when the dedicated page starts an attempt.
-    else if ((assessments?.length ?? 0) > 0) {
+    if (!hasNext && (assessments?.length ?? 0) > 0) {
       router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
     }
   }
@@ -1045,6 +1118,8 @@ export function LearningDeliveryWorkspace() {
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'chapter' | 'content'; id: number; label: string } | null
   >(null)
+
+  if (productSite) return null
 
   if (!courseId) {
     return (
@@ -1228,15 +1303,10 @@ export function LearningDeliveryWorkspace() {
                     <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                       <div className="flex items-center gap-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
                         <CheckCircle2 className="size-4 text-emerald-600" />
-                        Lesson complete{advanceIn !== null ? `. The next lesson starts in ${advanceIn}s` : ''}
+                        Lesson complete
                       </div>
                       <div className="flex items-center gap-2">
-                        {advanceIn !== null && (
-                          <Button variant="ghost" size="sm" onClick={() => setAdvance(null)}>
-                            Stay here
-                          </Button>
-                        )}
-                        <Button size="sm" className="gap-1" onClick={() => { setAdvance(null); goNext() }}>
+                        <Button size="sm" className="gap-1" onClick={goNext}>
                           Next lesson <ChevronRight className="size-3.5" />
                         </Button>
                       </div>

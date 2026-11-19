@@ -13,7 +13,7 @@ import { opportunitiesService, type ManualOpportunityResponse } from '@/services
 import { emptyManualForm, toManualPayload, validateManual, type ManualForm } from '@/lib/manual-opportunity'
 import { sourcePlatform } from '@/lib/source-link'
 
-const CUSTOMER_LABEL = { b2b: 'B2B', b2c: 'B2C', b2g: 'B2G' } as const
+const CUSTOMER_LABEL = { b2b: 'B2B', b2c: 'Partner', b2g: 'B2G' } as const
 
 /**
  * Add an opportunity you found yourself (a post on any platform, an article, a company page) to the product, sub-product and customer type the screen is on. No research
