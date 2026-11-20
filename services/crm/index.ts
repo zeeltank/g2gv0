@@ -1235,7 +1235,7 @@ export const crmService = {
 
   bulkSendSms: async (
     context: LaravelContext,
-    relatedType: 'lead' | 'organization' | 'contact',
+    relatedType: 'lead' | 'organization' | 'contact' | 'communication',
     ids: string[],
     message: string,
     recipients?: Array<{ id: string; email?: string | null; name?: string; phone?: string | null }>,
@@ -1281,7 +1281,7 @@ export const crmService = {
 
   bulkSendWhatsapp: async (
     context: LaravelContext,
-    relatedType: 'lead' | 'organization' | 'contact',
+    relatedType: 'lead' | 'organization' | 'contact' | 'communication',
     ids: string[],
     message: string,
     recipients?: Array<{ id: string; email?: string | null; name?: string; phone?: string | null }>,
@@ -1347,7 +1347,7 @@ export const crmService = {
   bulkSendEmail: async (
     context: LaravelContext,
     payload: {
-      relatedType: 'lead' | 'organization' | 'contact'
+      relatedType: 'lead' | 'organization' | 'contact' | 'communication'
       ids: string[]
       subject: string
       body: string
