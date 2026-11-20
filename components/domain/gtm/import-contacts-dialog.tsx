@@ -141,21 +141,24 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
                 {!defaultAccount && result.summary.companies !== undefined && result.summary.companies > 0 && (
                   <Badge variant="outline">{result.summary.companies} {result.summary.companies === 1 ? 'company' : 'companies'}: {result.summary.accounts_created} {result.committed ? 'created' : 'new'}, {result.summary.accounts_updated ?? 0} {result.committed ? 'updated' : 'to update'}</Badge>
                 )}
-                <Badge>{result.summary.valid} {result.committed ? 'contacts ready' : 'contacts ready'}</Badge>
-                <Badge variant="outline">{result.summary.duplicate} duplicate (skipped)</Badge>
-                <Badge variant="outline">{result.summary.invalid} invalid (skipped)</Badge>
+                <Badge>{result.summary.valid} {result.committed ? 'new contacts' : 'new contacts ready'}</Badge>
+                {(result.summary.contacts_updated ?? 0) > 0 && <Badge variant="outline">{result.summary.contacts_updated} existing contact(s) {result.committed ? 'completed' : 'to complete'}</Badge>}
+                {(result.summary.accounts_merged ?? 0) > 0 && <Badge variant="outline">{result.summary.accounts_merged} duplicate {result.summary.accounts_merged === 1 ? 'company' : 'companies'} {result.committed ? 'merged' : 'to merge'}</Badge>}
+                <Badge variant="outline">{result.summary.duplicate} repeated (nothing new)</Badge>
+                <Badge variant="outline">{result.summary.invalid} not usable</Badge>
                 {result.accounts_to_create.length > 0 && !result.committed && <span className="text-xs text-muted-foreground">Will create: {result.accounts_to_create.slice(0, 12).join(', ')}{result.accounts_to_create.length > 12 ? ` and ${result.accounts_to_create.length - 12} more` : ''}</span>}
+                {(result.accounts_to_merge?.length ?? 0) > 0 && !result.committed && <span className="text-xs text-muted-foreground">Duplicates that will be merged into one company: {result.accounts_to_merge!.join(', ')}</span>}
                 {(result.accounts_to_update?.length ?? 0) > 0 && !result.committed && <span className="text-xs text-muted-foreground">Will fill in missing details of: {result.accounts_to_update!.slice(0, 8).join(', ')}{result.accounts_to_update!.length > 8 ? ` and ${result.accounts_to_update!.length - 8} more` : ''}</span>}
               </div>
               {result.committed ? (
-                <p className="rounded bg-green-50 p-2 text-sm text-green-900">Imported {result.summary.imported} contact(s){result.summary.accounts_created ? `, created ${result.summary.accounts_created} company account(s)` : ''}{result.summary.accounts_updated ? ` and filled in details of ${result.summary.accounts_updated} existing one(s)` : ''}.</p>
+                <p className="rounded bg-green-50 p-2 text-sm text-green-900">Imported {result.summary.imported} contact(s){result.summary.accounts_created ? `, created ${result.summary.accounts_created} company account(s)` : ''}{result.summary.accounts_updated ? `, filled in details of ${result.summary.accounts_updated} existing one(s)` : ''}{result.summary.accounts_merged ? `, merged ${result.summary.accounts_merged} duplicate(s)` : ''}{result.summary.contacts_updated ? ` and completed ${result.summary.contacts_updated} existing contact(s)` : ''}.</p>
               ) : (
-                <Button size="sm" disabled={busy || (result.summary.valid === 0 && (result.summary.accounts_created + (result.summary.accounts_updated ?? 0)) === 0)} onClick={commit}>{busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Import {result.summary.companies ? `${result.summary.companies} companies and ` : ''}{result.summary.valid} contact(s)</Button>
+                <Button size="sm" disabled={busy || (result.summary.valid === 0 && (result.summary.contacts_updated ?? 0) === 0 && (result.summary.accounts_created + (result.summary.accounts_updated ?? 0) + (result.summary.accounts_merged ?? 0)) === 0)} onClick={commit}>{busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Import {result.summary.companies ? `${result.summary.companies} companies and ` : ''}{result.summary.valid} contact(s)</Button>
               )}
               {problems.length > 0 && (
                 <div className="max-h-56 overflow-y-auto rounded-md border border-border">
                   <table className="w-full text-xs">
-                    <thead className="bg-muted/50 text-left text-muted-foreground"><tr><th className="p-2">Row</th><th className="p-2">Contact</th><th className="p-2">Result</th></tr></thead>
+                    <thead className="bg-muted/50 text-left text-muted-foreground"><tr><th className="p-2">Row</th><th className="p-2">Contact</th><th className="p-2">What happens</th></tr></thead>
                     <tbody>{problems.map((r) => (
                       <tr key={r.line} className="border-t border-border"><td className="p-2">{r.line}</td><td className="p-2">{r.name || '—'}{r.email ? ` · ${r.email}` : ''}</td>
                         <td className="p-2">{r.errors.map((x) => <div key={x} className="text-destructive">{x}</div>)}{r.warnings.map((x) => <div key={x} className="text-amber-700">{x}</div>)}</td></tr>
