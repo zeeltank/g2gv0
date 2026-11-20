@@ -129,7 +129,8 @@ export function SignalList({
         perPage: SIGNALS_PER_PAGE,
         expired: 'include',
         allSignals: Boolean(allSignals),
-        source: sourceTab,
+        // "From connectors" is narrowed on this screen (by found_via); the server only knows all, generated and manual.
+        source: sourceTab === 'connectors' ? 'all' : sourceTab,
       })
       if (!latest.current.isLatest(ticket)) return
       setData(res)

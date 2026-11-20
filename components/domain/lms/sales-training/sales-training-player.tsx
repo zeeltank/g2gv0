@@ -353,7 +353,7 @@ function InfoScreen({ slide, accent, onGoto }: { slide: SalesSlide; accent: stri
   const verified = (slide.section ?? '').includes('Verified product facts')
   // Talk-track slides: the key points become tabs, one at a time, so the slide fits without scrolling.
   const tabOf = (label: string): string | null =>
-    /^Problem/.test(label) ? 'The problem' : /^Why the customer/.test(label) ? 'Why needed' : /^How G2G/.test(label) ? 'How G2G helps' : / needs$/.test(label) ? 'What each role needs' : /^Business value/.test(label) ? 'Business value' : /^Ask$/.test(label) ? 'ask' : /^Status$/.test(label) ? 'status' : null
+    /^Problem/.test(label) ? 'The problem' : /^Why the customer/.test(label) ? 'Why needed' : /^How G2G/.test(label) ? 'How G2G helps' : /^How ScholarClone/.test(label) ? 'How ScholarClone helps' : / needs$/.test(label) ? 'What each role needs' : /^Business value/.test(label) ? 'Business value' : /^Ask$/.test(label) ? 'ask' : /^Status$/.test(label) ? 'status' : null
   const parsed = slide.content.bullets.map((b) => { const m = /^([^:]{2,40}): ([\s\S]*)$/.exec(b); return { b, label: m ? m[1] : '', text: m ? m[2] : b } })
   const tabNames = groupNames.length > 0 ? [...new Set(parsed.map((p) => tabOf(p.label)).filter((x): x is string => !!x && x !== 'ask' && x !== 'status'))] : []
   const tabbable = tabNames.length > 1

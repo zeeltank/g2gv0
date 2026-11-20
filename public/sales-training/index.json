@@ -5,5 +5,17 @@
   "products": [
    "G2G"
   ]
+ },
+ "scholarclone": {
+  "slides": 37,
+  "name": "ScholarClone Sales Training",
+  "products": [
+   "Scholar One",
+   "Scholar Core",
+   "Scholar Learn",
+   "Scholar CCB",
+   "Scholar Insight",
+   "Scholar Compass"
+  ]
  }
 }

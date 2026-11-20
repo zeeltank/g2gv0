@@ -1,0 +1,719 @@
+{
+ "source": "Extracted from the ScholarClone product page (product_details_ScholarClone.html): the P, ROLES, SHIFTS, WHY and FAQS tables.",
+ "products": [
+  {
+   "key": "one",
+   "no": "S1",
+   "name": "Scholar One",
+   "sub": "Integrated Intelligent School Platform",
+   "short": "All five layers, one loop",
+   "color": "0A6AD0",
+   "message": "One intelligent platform connecting the entire school",
+   "before": "Disconnected school information",
+   "after": "Connected school information",
+   "pitch": "Your school already runs on five separate things: the office, the classroom, the staffroom, the principal’s notebook and the counsellor’s file. Scholar One connects them into one intelligent school, so what happens in each room informs every decision.",
+   "benefits": [
+    "One login, one set of records, no re-entering data",
+    "Leaders see learning, staff and operations together",
+    "A single rollout and a single partner instead of five vendors",
+    "Every product gets better because it shares data with the others"
+   ],
+   "fit": "Schools that want the full loop and a single partner. Others can start with one product and add the rest.",
+   "problems": [
+    [
+     "Schools run five disconnected systems",
+     "One platform, one login, shared records"
+    ],
+    [
+     "Leaders can’t connect learning, staff and operations",
+     "Insight reads all of them; Learn and CCB share teacher data"
+    ],
+    [
+     "Each rollout restarts from zero",
+     "Single rollout, one training, one support"
+    ]
+   ],
+   "modules": [
+    [
+     "Shared platform",
+     "One login, role-based menus, rights per school"
+    ],
+    [
+     "Platform services",
+     "Event bus, notifications, audit, scheduler, files, workflow"
+    ],
+    [
+     "Integrations",
+     "SMS, WhatsApp, email, push, biometric, fee gateway"
+    ],
+    [
+     "Role dashboards",
+     "Admin, teacher and student dashboards"
+    ]
+   ],
+   "workflows": {
+    "The intelligent-school loop": [
+     "Core records the day-to-day work",
+     "Learn shows how students are learning",
+     "CCB shows how teachers grow",
+     "Insight connects everything for leaders",
+     "Compass guides student futures"
+    ]
+   },
+   "faqs": [
+    [
+     "Do we need all five products?",
+     "No. Start with what fits and add more later; Scholar One is for schools that want the full loop."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  },
+  {
+   "key": "core",
+   "no": "S2",
+   "name": "Scholar Core",
+   "sub": "Intelligent School Operations",
+   "short": "Runs the school",
+   "color": "4C9A14",
+   "message": "Simplify and intelligently manage school operations",
+   "before": "Manual administrative processes",
+   "after": "Digitally managed workflows",
+   "pitch": "Scholar Core takes the paperwork out of running a school. Admissions, fees, attendance, exams, transport, library and parent communication live in one system, so your office team spends time on people, not registers.",
+   "benefits": [
+    "Fewer missed fees and faster collection follow-up",
+    "Admission enquiries tracked from first call to confirmation",
+    "Report cards and results prepared in one flow",
+    "Parents get notices and updates without calling the office",
+    "Principal sees the day’s school on one dashboard"
+   ],
+   "fit": "Start here if your biggest pain is operations. Add Learn, CCB, Insight and Compass later on the same records.",
+   "problems": [
+    [
+     "Fee collection and follow-up is manual and leaks money",
+     "Fee collection, cancel/refund, audit trail, online payment and scheduled reminders"
+    ],
+    [
+     "Admission enquiries get lost between phone calls and registers",
+     "Enquiry, follow-up, registration, form and confirmation in one flow"
+    ],
+    [
+     "Result and report-card preparation takes weeks",
+     "Marks entry, report cards, templates, mobile result approval, HPC entry"
+    ],
+    [
+     "Parents keep calling the office for information",
+     "SMS, WhatsApp, email and notifications to parents; circulars and calendar"
+    ],
+    [
+     "Transport, hostel, library and inventory run on paper",
+     "Dedicated modules with dashboards and reports"
+    ],
+    [
+     "Principal cannot see the whole school at a glance",
+     "Role dashboards plus module dashboards and intelligence pages"
+    ]
+   ],
+   "modules": [
+    [
+     "Admissions",
+     "Enquiry, follow-up, registration, form, confirmation, reports, dashboard"
+    ],
+    [
+     "Students",
+     "Documents, certificates, ICard, house, health, optional subjects, discipline, leave"
+    ],
+    [
+     "Fees",
+     "Master setup, collection, refund, NACH, online payment, audit trail, scheduler"
+    ],
+    [
+     "Attendance",
+     "Daily and monthly attendance, regularisation, reports, biometric integration"
+    ],
+    [
+     "Exams and Results",
+     "Marks entry, report cards, co-scholastic and HPC, templates, mobile approval"
+    ],
+    [
+     "Timetable, Calendar, Circulars",
+     "Class and faculty timetable, calendar, exam schedule, circulars, gallery"
+    ],
+    [
+     "Communication",
+     "SMS, WhatsApp, email and push notification with delivery reports"
+    ],
+    [
+     "Transport, Hostel, Library",
+     "Routes and vehicles; rooms and visitors; books, barcode, issue and return"
+    ],
+    [
+     "Inventory and Admin Services",
+     "Requisition to purchase orders; complaints, PTM, petty cash, visitors, front desk"
+    ],
+    [
+     "Alumni, Users and Rights",
+     "Alumni directory and events; user master, group and individual rights, user log"
+    ]
+   ],
+   "workflows": {
+    "Admission to confirmation": [
+     "Record the enquiry",
+     "Follow up with the parent",
+     "Register and fill the admission form",
+     "Confirm admission and create the student"
+    ],
+    "Collect fees": [
+     "Pick the student",
+     "Select fee heads",
+     "Collect (cash, cheque or online)",
+     "Receipt and dues update automatically"
+    ],
+    "Prepare report cards": [
+     "Enter marks",
+     "Enter co-scholastic and HPC grades",
+     "Principal approves",
+     "Publish and print or share the report card"
+    ]
+   },
+   "faqs": [
+    [
+     "Can parents pay fees online?",
+     "Yes. Online fee payment is available through your school’s payment gateway."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  },
+  {
+   "key": "learn",
+   "no": "S3",
+   "name": "Scholar Learn",
+   "sub": "AI-Powered Personalised Learning",
+   "short": "Teaches and personalises",
+   "color": "0A6AD0",
+   "message": "Make learning more personalised, measurable and adaptive",
+   "before": "Same learning approach for everyone",
+   "after": "Personalised learning pathways",
+   "pitch": "Scholar Learn gives every student a personal learning path. It finds the exact concepts a child is missing, explains why, and gives practice that adapts, while teachers plan lessons, set homework and see who needs help.",
+   "benefits": [
+    "Gaps found early, concept by concept, not after the exam",
+    "Teachers see why a student is stuck, not just the marks",
+    "Interactive practice keeps students engaged",
+    "Less time on lesson plans, worksheets and question papers with AI help",
+    "Parents can follow their child’s progress"
+   ],
+   "fit": "Start here if your focus is learning outcomes. In Scholar One, Learn also feeds Insight, Compass and CCB.",
+   "problems": [
+    [
+     "The whole class is taught at one speed, so some are lost and some are bored",
+     "Adaptive quiz and concept-level mastery show each student’s level"
+    ],
+    [
+     "We only find learning gaps after the exam",
+     "Chapter diagnostic and concept-level results show gaps early"
+    ],
+    [
+     "Teachers don’t know why a student keeps getting a topic wrong",
+     "Misconception detection with a recommended fix per concept"
+    ],
+    [
+     "Lesson planning, homework and worksheets take too much time",
+     "Lesson plans, homework, worksheets and syllabus planning in one place"
+    ],
+    [
+     "Students are not engaged with practice",
+     "Interactive content plus streaks, badges and personal bests"
+    ],
+    [
+     "We can’t see which students are at risk of dropping off",
+     "Risk cards for disengagement, failure and burnout per student"
+    ]
+   ],
+   "modules": [
+    [
+     "Adaptive Practice",
+     "Timed adaptive quiz, per-concept mastery (mastered, developing, needs practice), retake"
+    ],
+    [
+     "Chapter Diagnostic",
+     "Checks what a student already knows before a chapter"
+    ],
+    [
+     "Learning Intelligence",
+     "Mastery view, risk cards, learning speed, plateau flags, misconception and fix per concept"
+    ],
+    [
+     "Learning Path and Mastery",
+     "Learning path, knowledge map and mastery pages per concept and chapter"
+    ],
+    [
+     "Pedagogy Engine",
+     "Recommends the right kind of practice for a student’s weak points"
+    ],
+    [
+     "Content Review and Approval",
+     "AI-tagged questions are reviewed and approved before students see them"
+    ],
+    [
+     "Interactive Content",
+     "14 types incl. flashcards, interactive video, drag and drop, branching scenario, question bank"
+    ],
+    [
+     "Gamification",
+     "Streaks, badges, personal bests, class team challenges, opt-in leaderboard (grade 4+)"
+    ],
+    [
+     "Teacher Planning, Homework, Online Exams",
+     "Lesson plans, syllabus plan, homework, worksheets, exams and evaluation"
+    ],
+    [
+     "Learn Reports",
+     "Attempts, attainment, class activity, homework and question-wise reports"
+    ]
+   ],
+   "workflows": {
+    "Student: find gaps and fix them": [
+     "Pick a subject, then a chapter",
+     "Take the timed adaptive quiz",
+     "See which concepts are mastered, developing or need practice",
+     "See the misunderstanding behind a wrong answer",
+     "Practise with flashcards, interactive video, quiz or scenario",
+     "Retake the concept and raise mastery",
+     "See streak, personal best and badges earned"
+    ],
+    "Teacher: check on a student": [
+     "Open Learn and pick a student",
+     "Open the learning journey and intelligence",
+     "See weak concepts and misunderstandings",
+     "Assign homework or a worksheet for the gap"
+    ],
+    "Admin: approve content": [
+     "Open Content Review",
+     "Edit tags or misconceptions if needed",
+     "Approve in bulk; approved items reach students"
+    ]
+   },
+   "faqs": [
+    [
+     "Is the content checked before students see it?",
+     "Yes. AI-tagged questions go through a review and approval step before they reach students."
+    ],
+    [
+     "Is it the official H5P system?",
+     "It offers interactive content compatible with H5P tools."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  },
+  {
+   "key": "ccb",
+   "no": "S4",
+   "name": "Scholar CCB",
+   "sub": "Competence and Capability Intelligence",
+   "short": "Builds the people",
+   "color": "4C9A14",
+   "message": "Understand and improve teacher and staff capabilities",
+   "before": "Limited visibility into teacher capabilities",
+   "after": "Evidence-based capability intelligence",
+   "pitch": "Scholar CCB shows what each teacher and staff member can do, where the gaps are, and the right training to close them. Hiring, appraisal and growth paths run from evidence instead of impressions.",
+   "benefits": [
+    "Real skill gaps for each role, not guesses",
+    "Training matched to the gap and tracked to completion",
+    "Fairer, structured appraisals",
+    "Clear career and succession paths for good staff",
+    "Leave, payroll and tasks in the same place"
+   ],
+   "fit": "Start here if teacher quality is your priority. It works for all staff roles, and in Scholar One connects with Learn and Insight.",
+   "problems": [
+    [
+     "We don’t know the real skill gaps in our teaching staff",
+     "Competency framework, capability library and gap view per role"
+    ],
+    [
+     "Training is generic and not tracked",
+     "Learning catalogue, courses, sessions, assessments and certifications"
+    ],
+    [
+     "Appraisals are subjective",
+     "Performance reviews and appraisals module"
+    ],
+    [
+     "Hiring and onboarding are ad hoc",
+     "Recruitment, onboarding, offboarding"
+    ],
+    [
+     "No succession or career path for good staff",
+     "Mobility, succession, development and career paths"
+    ],
+    [
+     "Tasks and projects slip",
+     "Task and project management with dashboards"
+    ]
+   ],
+   "modules": [
+    [
+     "Capability Intelligence",
+     "Competency framework, library, capability explorer, mentor-skill mapping, dashboard"
+    ],
+    [
+     "People Learning",
+     "Learning catalogue, course builder, assessments, certifications, sessions calendar"
+    ],
+    [
+     "Talent Management",
+     "Recruitment, onboarding, performance reviews, career paths, succession, compensation, offboarding"
+    ],
+    [
+     "Organization Management",
+     "Employee directory, roles and permissions, compliance and disciplinary library"
+    ],
+    [
+     "Task and Project Management",
+     "My tasks, projects, dependencies, calendar, reports, permissions matrix"
+    ],
+    [
+     "HR, Leave and Payroll",
+     "Leave, attendance policy, salary structure, monthly payroll"
+    ]
+   ],
+   "workflows": {
+    "Find a teacher’s skill gaps": [
+     "Open the capability dashboard",
+     "Pick a role or teacher",
+     "See competencies against the required level",
+     "Assign a course"
+    ],
+    "Run an appraisal cycle": [
+     "Open performance reviews",
+     "Set the cycle and criteria",
+     "Staff and reviewers complete it",
+     "See results and the development plan"
+    ]
+   },
+   "faqs": [
+    [
+     "Is it only for teachers?",
+     "No. It works for all staff roles."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  },
+  {
+   "key": "insight",
+   "no": "S5",
+   "name": "Scholar Insight",
+   "sub": "School Intelligence",
+   "short": "The brain on top",
+   "color": "0B3C73",
+   "message": "Turn school information into better institutional decisions",
+   "before": "Reports without connected insights",
+   "after": "Better institutional intelligence",
+   "pitch": "Scholar Insight is your school’s brain. It connects student, learning, staff and operations data into one knowledge graph and helps leaders trace a problem to its root and decide with evidence.",
+   "benefits": [
+    "One connected view across the whole school",
+    "Trace weak results back to the root concept",
+    "Decisions recorded with their evidence",
+    "Ask questions in plain language",
+    "Knowledge stays with the school when people leave"
+   ],
+   "fit": "Insight is strongest on top of Core, Learn and CCB data, so it is the natural centre of Scholar One.",
+   "problems": [
+    [
+     "Data sits in separate systems and nobody sees the whole picture",
+     "Foundation data plus a graph that links students, people, curriculum and results"
+    ],
+    [
+     "Leaders decide on gut feel",
+     "Executive analytics, decision intelligence and signals with evidence"
+    ],
+    [
+     "Knowledge leaves with people",
+     "Knowledge library, memory and AI assistant"
+    ],
+    [
+     "Hard to find the root cause of weak results",
+     "Prerequisite chains trace a struggling student back to the root concept"
+    ],
+    [
+     "Routine follow-ups are manual",
+     "Automation: tasks, policies and agents"
+    ]
+   ],
+   "modules": [
+    [
+     "Foundation",
+     "Departments, people and student data"
+    ],
+    [
+     "Knowledge",
+     "Library, graph, memory, AI assistant"
+    ],
+    [
+     "Analytics",
+     "Executive view, decisions, decision intelligence"
+    ],
+    [
+     "Intelligence Loop",
+     "Signals, workspace, deliberation, evidence, executions"
+    ],
+    [
+     "Automation",
+     "Tasks, policies, agents, conversational AI"
+    ],
+    [
+     "Governance and Capabilities",
+     "Governance, settings, capability registry"
+    ],
+    [
+     "Coherence Map",
+     "Prerequisite chain between concepts"
+    ],
+    [
+     "Knowledge Graph",
+     "Links school data into one graph"
+    ]
+   ],
+   "workflows": {
+    "Ask the school a question": [
+     "Open the AI assistant",
+     "Ask in plain language",
+     "See the answer with evidence"
+    ],
+    "Trace a weak result to its root": [
+     "Open the coherence map",
+     "Pick the concept",
+     "See prerequisites and where the student is stuck"
+    ]
+   },
+   "faqs": [
+    [
+     "Where does the data live?",
+     "Your main school database stays the source of truth. The knowledge graph is a copy kept fresh automatically."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  },
+  {
+   "key": "compass",
+   "no": "S6",
+   "name": "Scholar Compass",
+   "sub": "Student Career Intelligence",
+   "short": "Guides the student",
+   "color": "0A6AD0",
+   "message": "Help students explore strengths and future career pathways",
+   "before": "Limited career guidance",
+   "after": "Structured career intelligence",
+   "pitch": "Scholar Compass helps every student discover their interests and strengths and see real career and course paths, so choices of stream and career rest on evidence, not peer pressure.",
+   "benefits": [
+    "Students understand their interests and strengths",
+    "Careers, sectors, courses and colleges to explore",
+    "Counsellors get structured profiles",
+    "Parents join the conversation with information",
+    "Career guidance connected to academic progress"
+   ],
+   "fit": "Start here if guidance is your gap. In Scholar One, Compass uses learning progress from Learn.",
+   "problems": [
+    [
+     "Students choose streams and careers on peer pressure",
+     "Interest and personality profile with matched careers"
+    ],
+    [
+     "School has no scalable counselling",
+     "Counselling exams, question master and reports"
+    ],
+    [
+     "Parents lack information on colleges and courses",
+     "Career explorer: sectors, courses, colleges, employers, expert advice"
+    ],
+    [
+     "Career guidance is separate from academics",
+     "Career quest inside Learn connects pathway to learning"
+    ]
+   ],
+   "modules": [
+    [
+     "Knowing Yourself",
+     "Student interest and personality profile"
+    ],
+    [
+     "Career Awareness",
+     "Four-lens reflection: ambition, alignment, certainty, originality"
+    ],
+    [
+     "Career Explorer",
+     "Sectors, courses, colleges, employers, expert advice"
+    ],
+    [
+     "Career Intelligence Hub",
+     "Overall intelligence view"
+    ],
+    [
+     "Counselling exams",
+     "MBTI and counselling exam, question master"
+    ],
+    [
+     "Career Quest",
+     "Pathway quest in Learn"
+    ]
+   ],
+   "workflows": {
+    "Student discovers a pathway": [
+     "Take the interest and personality assessments",
+     "See the profile",
+     "Explore matched sectors and courses",
+     "Save the pathway"
+    ],
+    "Counsellor guides a student": [
+     "Open the student’s profile",
+     "Review results",
+     "Discuss the pathway",
+     "Record notes"
+    ]
+   },
+   "faqs": [
+    [
+     "Does the profile label my child?",
+     "No. It is a guidance profile for a conversation with a counsellor, not a verdict."
+    ],
+    [
+     "What does it cost?",
+     "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+    ],
+    [
+     "How is rollout done?",
+     "A forward-deployed team works with your school through implementation. We do not install and leave."
+    ]
+   ]
+  }
+ ],
+ "roles": [
+  {
+   "name": "Trustee / Principal",
+   "summary": "Institutional visibility, decision support and school performance."
+  },
+  {
+   "name": "Teacher",
+   "summary": "Teaching support, assessment and capability development."
+  },
+  {
+   "name": "Student",
+   "summary": "Personalised learning, progress and career development."
+  },
+  {
+   "name": "Parent",
+   "summary": "Fees, results, notices and attendance for their child."
+  }
+ ],
+ "shifts": [
+  [
+   "Disconnected school information",
+   "Connected school information"
+  ],
+  [
+   "Manual administrative processes",
+   "Digitally managed workflows"
+  ],
+  [
+   "Same learning approach for everyone",
+   "Personalised learning pathways"
+  ],
+  [
+   "Limited visibility into teacher capabilities",
+   "Evidence-based capability intelligence"
+  ],
+  [
+   "Reports without connected insights",
+   "Better institutional intelligence"
+  ],
+  [
+   "Limited career guidance",
+   "Structured career intelligence"
+  ]
+ ],
+ "why": [
+  {
+   "title": "One connected school",
+   "text": "One login and shared records across operations, learning, people and careers, so nothing is entered twice."
+  },
+  {
+   "title": "Find gaps early",
+   "text": "Concept-level learning gaps and teacher capability gaps surface before the exam, not after it."
+  },
+  {
+   "title": "Personal learning for every child",
+   "text": "Adaptive practice and misconception detection give each student a path of their own."
+  },
+  {
+   "title": "Parents in the loop",
+   "text": "Fees, results, notices and attendance reach parents without a call to the office."
+  },
+  {
+   "title": "Time back for staff",
+   "text": "Admissions, fees, report cards and lesson planning move from registers to workflows."
+  },
+  {
+   "title": "Leaders who can decide",
+   "text": "Insight connects the whole school and traces weak results to their root."
+  }
+ ],
+ "faqs": [
+  [
+   "What does it cost?",
+   "Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review."
+  ],
+  [
+   "Do we need all five products?",
+   "No. Start with the layer that fits your biggest problem and add more later. Scholar One is for schools that want the full loop on one platform."
+  ],
+  [
+   "How is rollout done?",
+   "A forward-deployed team works with your school through implementation. We do not install and leave."
+  ],
+  [
+   "Can parents pay fees online?",
+   "Yes. Online fee payment is available through your school’s payment gateway."
+  ],
+  [
+   "Is the content checked before students see it?",
+   "Yes. AI-tagged questions go through a review and approval step before they reach students."
+  ],
+  [
+   "How is our data protected?",
+   "We walk you through the data-protection controls in a personal conversation during the fit review."
+  ]
+ ]
+}

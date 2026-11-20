@@ -7,11 +7,37 @@
  * is served from /sales-training/<key>/deck.json.
  */
 
-/** There is one course, "G2G Sales Training" for now (more products can be added to the same deck). */
-export type SalesProductKey = 'sales'
+/**
+ * The sales-training products. Each has its own deck (public/sales-training/<key>/deck.json) and its own progress, and they all
+ * play in the same player. 'sales' is G2G (its key predates the second product, so existing progress and links keep working).
+ */
+export type SalesProductKey = 'sales' | 'scholarclone'
 
-export const SALES_PRODUCTS: ReadonlyArray<{ key: SalesProductKey; name: string; tagline: string; accent: string }> = [
-  { key: 'sales', name: 'G2G Sales Training', tagline: 'Every G2G module, what each role does in it, and a branching sales scenario.', accent: '#0E9F8E' },
+export interface SalesProduct {
+  key: SalesProductKey
+  /** The course title, as shown on its page and in the player header. */
+  name: string
+  /** The card title in the Sales row of My Learning. */
+  cardName: string
+  tagline: string
+  accent: string
+  /** The line under the course title: what the learner is about to work through. */
+  subtitle: string
+  /** The product the facts are about, for the Contents tab. */
+  about: string
+}
+
+export const SALES_PRODUCTS: ReadonlyArray<SalesProduct> = [
+  {
+    key: 'sales', name: 'G2G Sales Training', cardName: 'G2G Sales', accent: '#0E9F8E',
+    tagline: 'Every G2G module, what each role does in it, and a branching sales scenario.',
+    subtitle: 'Sales · G2G modules, roles and a branching scenario', about: 'G2G',
+  },
+  {
+    key: 'scholarclone', name: 'ScholarClone Sales Training', cardName: 'ScholarClone Sales', accent: '#0A6AD0',
+    tagline: 'Every Scholar product, who in a school uses it, and a branching sales scenario.',
+    subtitle: 'Sales · ScholarClone products, roles and a branching scenario', about: 'ScholarClone',
+  },
 ]
 
 export interface DecisionOption { id: string; text: string; goto: number }
@@ -105,11 +131,12 @@ export function continueTarget(deck: SalesDeck, slide: SalesSlide): number | nul
 
 /**
  * Which sales-training product a lesson link points at, or null. A lesson's link may be a path or a full address on any host
- * (the host differs between development and production), so only the path is read: .../sales-training/<sc|g2g|eb>[/...].
+ * (the host differs between development and production), so only the path is read: .../sales-training/<product>[/...].
  */
 export function salesTrainingKeyOf(src: string | null | undefined): SalesProductKey | null {
   if (!src) return null
   const path = src.split(/[?#]/)[0]
-  // The earlier per-product addresses (sc, g2g, eb) open the same single course.
+  if (/\/sales-training\/scholarclone(?:\/|$)/.test(path)) return 'scholarclone'
+  // The earlier per-product addresses (sc, g2g, eb) open the G2G course.
   return /\/sales-training\/(sales|sc|g2g|eb)(?:\/|$)/.test(path) ? 'sales' : null
 }

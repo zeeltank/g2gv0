@@ -221,6 +221,12 @@ fs.mkdirSync(OUT, { recursive: true })
 // the old local copies are removed: pictures are served from the database
 fs.rmSync(path.join(OUT, 'images'), { recursive: true, force: true })
 fs.writeFileSync(path.join(OUT, 'deck.json'), JSON.stringify(deck, null, 1))
-fs.writeFileSync(path.join(ROOT, 'public', 'sales-training', 'index.json'), JSON.stringify({ sales: { slides: slides.length, name: title, products: ['G2G'] } }, null, 1))
+{
+  // merged, so the other products' entries (ScholarClone) survive
+  const indexFile = path.join(ROOT, 'public', 'sales-training', 'index.json')
+  const index = fs.existsSync(indexFile) ? JSON.parse(fs.readFileSync(indexFile, 'utf8')) : {}
+  index.sales = { slides: slides.length, name: title, products: ['G2G'] }
+  fs.writeFileSync(indexFile, JSON.stringify(index, null, 1))
+}
 console.log(`${title}: ${slides.length} slides -> ${OUT}`)
 console.log(`${MANIFEST.length} pictures staged in ${imgDir} (load them with: php artisan sales-training:import-images "${imgDir}")`)

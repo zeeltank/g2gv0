@@ -34,6 +34,7 @@ export function RegionSelector({
   onDraft = () => {},
   disabled,
   context,
+  single = false,
 }: {
   value: RegionSelection[]
   onChange: (next: RegionSelection[]) => void
@@ -45,6 +46,8 @@ export function RegionSelector({
   disabled?: boolean
   /** The signed-in organisation, for the location lists. */
   context?: LaravelContext
+  /** One place at a time (a list that belongs to one region, such as Prospecting). Adding a place replaces the one before it. */
+  single?: boolean
 }) {
   const [problems, setProblems] = useState<string[]>([])
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
@@ -65,7 +68,7 @@ export function RegionSelector({
     // An untouched form adds what it shows (the saved country, or India for a new selection); the picked codes go with the names.
     const seed: RegionDraft = draft.country.trim() ? draft : { ...draft, country: effectiveCountry, ...(value[0]?.country_code && !draft.countryCode ? { countryCode: value[0].country_code } : {}) }
     const place = draftSelection(seed)
-    const r = addSelection(value, place, { cityWithoutState: draft.countryHasStates === false })
+    const r = addSelection(single ? [] : value, place, { cityWithoutState: draft.countryHasStates === false })
     setProblems(r.problems)
     if (r.problems.length === 0) {
       onChange(r.list)
@@ -103,7 +106,7 @@ export function RegionSelector({
           <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
             <div>
               <p className="text-sm font-bold text-foreground">Where to look</p>
-              <p className="text-[11px] text-muted-foreground">Filter buying signals by geographical location</p>
+              <p className="text-[11px] text-muted-foreground">{single ? 'Choose the place for this list' : 'Filter buying signals by geographical location'}</p>
             </div>
             <Button
               type="button"
@@ -124,11 +127,11 @@ export function RegionSelector({
           {/* Active selections */}
           {value.length === 0 ? (
             <p className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
-              All Regions: research is not limited to a place.
+              {single ? 'All Regions: accounts from every place are shown. Choose a place to add accounts.' : 'All Regions: research is not limited to a place.'}
             </p>
           ) : (
             <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">Active Locations ({value.length}/5):</span>
+              <span className="text-[11px] font-medium text-muted-foreground">{single ? 'Selected place:' : `Active Locations (${value.length}/5):`}</span>
               <ul aria-label="Selected regions" className="flex flex-wrap gap-1.5">
                 {value.map((s, i) => (
                   <li
@@ -153,7 +156,7 @@ export function RegionSelector({
           {/* Location form: Country, State / Province / Region, City */}
           <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">Add Location</span>
+              <span className="text-xs font-semibold text-foreground">{single ? 'Choose place' : 'Add Location'}</span>
               {startsOnDefault && (
                 <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                   India Selected by Default
@@ -180,13 +183,14 @@ export function RegionSelector({
 
             <Button type="button" size="sm" variant="default" onClick={add} className="w-full text-xs font-semibold">
               <Plus className="mr-1.5 size-3.5" />
-              Add place
+              {single ? 'Use this place' : 'Add place'}
             </Button>
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            A chosen location is used when you press Generate Signals. For one sub-product it is also saved to that sub-product&apos;s ICP; for Whole Product it
-            is used for this run only. A city or state must be named in the source itself for a signal to qualify.
+            {single
+              ? 'Accounts and contacts you add or import are saved under this place, and only the list of this place is shown. A country shows all of its states; a state shows only itself.'
+              : 'A chosen location is used when you press Generate Signals. For one sub-product it is also saved to that sub-product’s ICP; for Whole Product it is used for this run only. A city or state must be named in the source itself for a signal to qualify.'}
           </p>
         </PopoverContent>
       </Popover>
