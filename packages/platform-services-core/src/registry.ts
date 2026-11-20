@@ -136,6 +136,23 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     phase: 3,
   },
   {
+    id: 'platform.communication',
+    slug: 'communication',
+    name: 'Communication',
+    section: 'services',
+    icon: 'MessageSquareText',
+    purpose: 'Send and monitor multi-channel communication — Email, SMS and WhatsApp — across the organisation.',
+    whyCentral:
+      'Delivery channels and outbound dispatch logs belong to the platform, so every module communicates through one shared, auditable gateway.',
+    todayInG2g:
+      'Multi-channel communication console backed by G2G’s Email (SMTP), SMS Gateway, and WhatsApp Business (Meta Cloud API) integrations. Supports broadcast notices, message composition, recipient validation, and real-time delivery logs with audit metrics.',
+    toBuild: [],
+    status: 'live',
+    destination: { kind: 'own-route', href: '/platform-services/communication' },
+    decentralizedModules: DECENTRALIZED_MODULES,
+    phase: 2,
+  },
+  {
     id: 'platform.ai-stack',
     slug: 'ai-stack',
     name: 'AI Stack',

@@ -8,7 +8,7 @@ export const runtime = 'nodejs'
 
 interface BulkMessagePayload {
   channel: 'email' | 'sms' | 'whatsapp'
-  relatedType: 'lead' | 'contact' | 'organization'
+  relatedType?: 'lead' | 'contact' | 'organization' | 'communication'
   ids: (string | number)[]
   recipients?: Array<{
     id: string | number
@@ -91,7 +91,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const cleanIds = ids.map(Number).filter((id) => !isNaN(id) && id > 0)
+    const cleanIds = ids
+      .map((id, index) => {
+        const num = Number(id)
+        return !isNaN(num) && num > 0 ? num : index + 1
+      })
+      .filter((id) => id > 0)
     if (cleanIds.length === 0) {
       return NextResponse.json(
         { success: false, message: 'Invalid record IDs provided.' },
@@ -154,6 +159,7 @@ export async function POST(request: NextRequest) {
     // 2. Fetch actual records from database
     let tableName = 'crm_leads'
     let linkedType = 'LEAD'
+    const isCrmEntity = relatedType === 'lead' || relatedType === 'contact' || relatedType === 'organization'
     if (relatedType === 'contact') {
       tableName = 'crm_contacts'
       linkedType = 'CONTACT'
@@ -162,17 +168,19 @@ export async function POST(request: NextRequest) {
       linkedType = 'ORGANIZATION'
     }
 
-    const placeholders = cleanIds.map(() => '?').join(',')
-    const querySql = `
-      SELECT id, first_name, last_name, company, email, mobile, phone, sub_institute_id
-      FROM ${tableName}
-      WHERE id IN (${placeholders}) AND sub_institute_id = ?
-    `
-    const rows = (await dbQuery<any[]>(querySql, [...cleanIds, tenantId])) || []
     const recordMap = new Map<number, any>()
-    rows.forEach((r) => {
-      recordMap.set(Number(r.id), r)
-    })
+    if (isCrmEntity && cleanIds.length > 0) {
+      const placeholders = cleanIds.map(() => '?').join(',')
+      const querySql = `
+        SELECT id, first_name, last_name, company, email, mobile, phone, sub_institute_id
+        FROM ${tableName}
+        WHERE id IN (${placeholders}) AND sub_institute_id = ?
+      `
+      const rows = (await dbQuery<any[]>(querySql, [...cleanIds, tenantId])) || []
+      rows.forEach((r) => {
+        recordMap.set(Number(r.id), r)
+      })
+    }
 
     const results: RecipientResult[] = []
     let sentCount = 0
@@ -274,10 +282,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Iterate each requested ID and deliver
-    for (const recordId of cleanIds) {
+    for (let i = 0; i < cleanIds.length; i++) {
+      const recordId = cleanIds[i]
       const idKey = String(recordId)
       const record = recordMap.get(recordId)
-      const recPayload = payloadRecMap.get(idKey)
+      const recPayload = payloadRecMap.get(idKey) || (Array.isArray(payload.recipients) ? payload.recipients[i] : undefined)
 
       // This recipient's reviewed message if there is one, otherwise the shared text.
       const own = overrides.get(recordId)
@@ -287,12 +296,12 @@ export async function POST(request: NextRequest) {
       const textMessage = channel === 'whatsapp' ? toWhatsappTemplateText(own?.body || sharedText) : own?.body || sharedText
 
       const recipientName =
-        (record ? `${record.first_name || ''} ${record.last_name || record.company || ''}`.trim() : null) ||
         recPayload?.name ||
-        `Lead #${recordId}`
+        (record ? `${record.first_name || ''} ${record.last_name || record.company || ''}`.trim() : null) ||
+        (relatedType === 'communication' ? `Recipient #${recordId}` : `Lead #${recordId}`)
 
-      const rawEmail = (record?.email || recPayload?.email || '').trim()
-      const rawPhone = (record?.mobile || record?.phone || recPayload?.phone || '').trim()
+      const rawEmail = (recPayload?.email || record?.email || '').trim()
+      const rawPhone = (recPayload?.phone || record?.mobile || record?.phone || '').trim()
 
       if (!record && !recPayload) {
         skippedCount++
@@ -353,7 +362,7 @@ export async function POST(request: NextRequest) {
               [emailSubject, emailBody, email, userId, tenantId, fromEmail, info.messageId || ''],
             )
             const emailId = insertResult.insertId
-            if (emailId) {
+            if (emailId && isCrmEntity) {
               await dbQuery(
                 `INSERT INTO crm_email_links (email_id, linked_type, linked_id, sub_institute_id, created_by, created_at)
                  VALUES (?, ?, ?, ?, ?, NOW())`,

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveWebBaseUrl } from '@/lib/api-config'
 
 export const runtime = 'nodejs'
 
@@ -84,116 +83,46 @@ export async function POST(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization') || ''
     const cookieHeader = request.headers.get('cookie') || ''
-    const base = resolveWebBaseUrl().replace(/\/$/, '')
 
-    // Convert numbers array to the indexed map expected by teacherSendSmsParentsAPI and add_adminSendSmsAPI
-    const mobileMap: Record<string, string> = {}
-    cleanNumbers.forEach((num, index) => {
-      mobileMap[String(index)] = num
+    // Delegate directly to G2G's existing CRM bulk-message SMS integration
+    const recipients = cleanNumbers.map((num, index) => ({
+      id: index + 1,
+      phone: num,
+      name: `Recipient ${index + 1}`,
+    }))
+
+    const crmBulkUrl = new URL('/api/crm/bulk-message', request.nextUrl.origin)
+    const resp = await fetch(crmBulkUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      body: JSON.stringify({
+        channel: 'sms',
+        relatedType: 'communication',
+        ids: recipients.map((r) => r.id),
+        recipients,
+        message,
+      }),
+      cache: 'no-store',
     })
 
-    const subInstituteId = body.sub_institute_id || '1'
-    const syear = body.syear || String(new Date().getFullYear())
-    const userId = body.user_id || '1'
-
-    // 1. Try teacherSendSmsParentsAPI (which executes send_sms_parents_controller::sendSMS)
-    const teacherPayload = {
-      type: 'API',
-      teacher_id: userId,
-      sub_institute_id: subInstituteId,
-      syear,
-      sms_text: message,
-      mobile_number: mobileMap,
-    }
-
-    let backendResult: any = null
-    let endpointUsed = 'teacherSendSmsParentsAPI'
-
-    try {
-      const resp = await fetch(`${base}/teacherSendSmsParentsAPI`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...(authHeader ? { Authorization: authHeader } : {}),
-          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-        },
-        body: JSON.stringify(teacherPayload),
-        cache: 'no-store',
-      })
-
-      const text = await resp.text()
-      try {
-        backendResult = text ? JSON.parse(text) : null
-      } catch {
-        backendResult = { raw: text }
-      }
-    } catch {
-      // If direct call fails, try admin send SMS
-    }
-
-    // 2. If teacherSendSmsParentsAPI returned failure or 404, try add_adminSendSmsAPI
-    if (
-      !backendResult ||
-      backendResult.status === '2' ||
-      backendResult.status_code === 0 ||
-      backendResult.status_code === '0'
-    ) {
-      const adminPayload = {
-        admin_id: userId,
-        sub_institute_id: subInstituteId,
-        syear,
-        sms_text: message,
-        mobile_number: mobileMap,
-      }
-
-      try {
-        const respAdmin = await fetch(`${base}/add_adminSendSmsAPI`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            ...(authHeader ? { Authorization: authHeader } : {}),
-            ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-          },
-          body: JSON.stringify(adminPayload),
-          cache: 'no-store',
-        })
-        const textAdmin = await respAdmin.text()
-        const parsedAdmin = textAdmin ? JSON.parse(textAdmin) : null
-        if (parsedAdmin && (parsedAdmin.status_code === 1 || parsedAdmin.status_code === '1')) {
-          backendResult = parsedAdmin
-          endpointUsed = 'add_adminSendSmsAPI'
-        } else if (parsedAdmin && parsedAdmin.message) {
-          backendResult = parsedAdmin
-          endpointUsed = 'add_adminSendSmsAPI'
-        }
-      } catch {
-        // keep prior result
-      }
-    }
-
-    const statusCode = backendResult?.status_code ?? backendResult?.status ?? 0
-    const isSuccess =
-      statusCode === 1 ||
-      statusCode === '1' ||
-      backendResult?.message === 'Successfully sent SMS' ||
-      backendResult?.message === 'Successfully Sent SMS' ||
-      backendResult?.success === true
-
-    if (isSuccess) {
+    const bulkData = await resp.json().catch(() => null)
+    if (resp.ok && bulkData?.success) {
       return NextResponse.json({
         success: true,
-        message: `${cleanNumbers.length} SMS sent successfully via SMS gateway (${endpointUsed}).`,
-        sentCount: cleanNumbers.length,
+        message: bulkData.message || `${cleanNumbers.length} SMS sent successfully via SMS gateway.`,
+        sentCount: bulkData?.data?.sent ?? cleanNumbers.length,
         numbers: cleanNumbers,
-        data: backendResult,
+        data: bulkData.data,
       })
     }
 
     const failureReason =
-      backendResult?.message ||
-      (backendResult?.response ? JSON.stringify(backendResult.response) : '') ||
+      bulkData?.message ||
+      bulkData?.data?.results?.[0]?.error ||
       'SMS Gateway reported an error. Please verify SMS API details.'
 
     return NextResponse.json(
@@ -202,7 +131,7 @@ export async function POST(request: NextRequest) {
         message: failureReason,
         sentCount: 0,
         numbers: cleanNumbers,
-        data: backendResult,
+        data: bulkData?.data,
       },
       { status: 422 },
     )

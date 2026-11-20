@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveWebBaseUrl } from '@/lib/api-config'
 
 export const runtime = 'nodejs'
 
@@ -89,103 +88,55 @@ export async function POST(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization') || ''
     const cookieHeader = request.headers.get('cookie') || ''
-    const base = resolveWebBaseUrl().replace(/\/$/, '')
 
-    const subInstituteId = body.sub_institute_id || '1'
-    const syear = body.syear || String(new Date().getFullYear())
+    // Delegate directly to G2G's existing CRM bulk-message WhatsApp (Meta Cloud API) integration
+    const recipients = cleanNumbers.map((num, index) => ({
+      id: index + 1,
+      phone: num,
+      name: `Recipient ${index + 1}`,
+    }))
 
-    let sentCount = 0
-    let failedCount = 0
-    let lastError = ''
-    const results: Array<{ number: string; success: boolean; error?: string }> = []
-
-    // For each mobile number, invoke the ERP WhatsApp dispatch endpoint:
-    // POST /whatsapp-send-reply-messages/store
-    // (This uses WhatsappController::sendWhatsappCloudApi with the institute's cloud_api_access_token)
-    for (const num of cleanNumbers) {
-      const wid = `91${num}`
-      const payload = {
-        type: 'API',
-        wid,
+    const crmBulkUrl = new URL('/api/crm/bulk-message', request.nextUrl.origin)
+    const resp = await fetch(crmBulkUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      body: JSON.stringify({
+        channel: 'whatsapp',
+        relatedType: 'communication',
+        ids: recipients.map((r) => r.id),
+        recipients,
         message,
-        sub_institute_id: subInstituteId,
-        syear,
-      }
+      }),
+      cache: 'no-store',
+    })
 
-      try {
-        const resp = await fetch(`${base}/whatsapp-send-reply-messages/store`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            ...(authHeader ? { Authorization: authHeader } : {}),
-            ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-          },
-          body: JSON.stringify(payload),
-          cache: 'no-store',
-        })
-
-        const text = await resp.text()
-        let parsed: any = null
-        try {
-          parsed = text ? JSON.parse(text) : null
-        } catch {
-          parsed = { raw: text }
-        }
-
-        const isExplicitError =
-          !resp.ok ||
-          parsed?.status === '0' ||
-          parsed?.status_code === 0 ||
-          parsed?.status_code === '0' ||
-          parsed?.message === 'WhatsApp configuration missing' ||
-          parsed?.message === 'Oops ! something went wrong' ||
-          Boolean(parsed?.error)
-
-        const isSuccess = resp.ok && !isExplicitError
-
-        if (isSuccess) {
-          sentCount++
-          results.push({ number: num, success: true })
-        } else {
-          failedCount++
-          const err =
-            parsed?.message ||
-            (parsed?.error ? JSON.stringify(parsed.error) : 'WhatsApp Cloud API dispatch failed.')
-          lastError = err
-          results.push({ number: num, success: false, error: err })
-        }
-      } catch (e: any) {
-        failedCount++
-        lastError = e?.message || 'Network error communicating with WhatsApp endpoint.'
-        results.push({ number: num, success: false, error: lastError })
-      }
-    }
-
-    if (sentCount > 0) {
-      const msg =
-        failedCount > 0
-          ? `${sentCount} WhatsApp message(s) sent, ${failedCount} failed.`
-          : `${sentCount} WhatsApp message(s) sent successfully via Meta Cloud API.`
-
+    const bulkData = await resp.json().catch(() => null)
+    if (resp.ok && bulkData?.success) {
       return NextResponse.json({
         success: true,
-        message: msg,
-        sentCount,
-        failedCount,
+        message: bulkData.message || `${cleanNumbers.length} WhatsApp message(s) sent successfully via Meta Cloud API.`,
+        sentCount: bulkData?.data?.sent ?? cleanNumbers.length,
         numbers: cleanNumbers,
-        results,
+        data: bulkData.data,
       })
     }
+
+    const failureReason =
+      bulkData?.message ||
+      bulkData?.data?.results?.[0]?.error ||
+      'WhatsApp Cloud API dispatch failed. Please verify WhatsApp credentials.'
 
     return NextResponse.json(
       {
         success: false,
-        message: lastError || 'Failed to dispatch WhatsApp messages. Please verify WhatsApp Cloud API setup.',
+        message: failureReason,
         sentCount: 0,
-        failedCount,
         numbers: cleanNumbers,
-        results,
+        data: bulkData?.data,
       },
       { status: 422 },
     )
