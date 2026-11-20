@@ -72,6 +72,8 @@ export interface GtmAccount {
   /** The company's own general contact details (a person's are on the contact). */
   email?: string | null
   phone?: string | null
+  /** Everything else an import file said about the company, heading => text (verification source, research status, confidence ...). */
+  import_details?: Record<string, string> | null
   created_at: string
   // list-only aggregates
   contacts_count?: number
@@ -585,10 +587,13 @@ export interface ImportResult {
     rows: number; valid: number; duplicate: number; invalid: number; imported: number
     /** Companies in the file; of them, how many are new accounts and how many existing ones had empty details filled in. */
     companies?: number; accounts_created: number; accounts_updated?: number
+    /** Contacts that were already there and had missing details filled in; duplicate companies merged into one. */
+    contacts_updated?: number; accounts_merged?: number
   }
-  rows: { line: number; status: 'ok' | 'duplicate' | 'invalid'; errors: string[]; warnings: string[]; name: string; email: string | null; account: string | null; creates_account: boolean }[]
+  rows: { line: number; status: 'ok' | 'update' | 'duplicate' | 'invalid'; errors: string[]; warnings: string[]; name: string; email: string | null; account: string | null; creates_account: boolean }[]
   accounts_to_create: string[]
   accounts_to_update?: string[]
+  accounts_to_merge?: string[]
   committed: boolean
 }
 

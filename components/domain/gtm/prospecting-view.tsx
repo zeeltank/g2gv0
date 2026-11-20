@@ -367,6 +367,16 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
                   <div className="md:col-span-2"><Detail k="Notes" v={detail.account.notes} /></div>
                 </dl>
               )}
+              {!editingAccount && detail.account.import_details && Object.keys(detail.account.import_details).length > 0 && (
+                <div className="mt-3 rounded-md border border-border p-3">
+                  <h4 className="mb-1.5 text-xs font-semibold text-muted-foreground">From the imported file</h4>
+                  <dl className="space-y-1.5 text-sm">
+                    {Object.entries(detail.account.import_details).map(([heading, text]) => (
+                      <div key={heading} className="flex gap-2"><dt className="w-40 shrink-0 text-muted-foreground">{heading}</dt><dd className="min-w-0 whitespace-pre-line break-words"><Linkified text={text} /></dd></div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </section>
 
             <section>
@@ -471,7 +481,19 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
 }
 
 function Detail({ k, v }: { k: string; v: string | null | undefined }) {
-  return <div className="flex gap-2"><dt className="w-28 shrink-0 text-muted-foreground">{k}</dt><dd>{v || '—'}</dd></div>
+  return <div className="flex gap-2"><dt className="w-28 shrink-0 text-muted-foreground">{k}</dt><dd className="min-w-0 whitespace-pre-line break-words">{v ? <Linkified text={v} /> : '—'}</dd></div>
+}
+
+/** Text with its web addresses made into links (a note or an imported source list often holds several). */
+function Linkified({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https?:\/\/[^\s;,)]+)/g).map((part, i) =>
+        /^https?:\/\//.test(part)
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{part}</a>
+          : <span key={i}>{part}</span>)}
+    </>
+  )
 }
 
 /** Only fields the person changed are sent, so an untouched value is never written back. */
