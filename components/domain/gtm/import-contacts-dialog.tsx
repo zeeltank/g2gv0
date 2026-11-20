@@ -14,6 +14,11 @@ const FIELD_LABEL: Record<string, string> = {
   full_name: 'Name *', email: 'Email', title: 'Job title', phone: 'Phone', linkedin_url: 'LinkedIn URL',
   role_in_deal: 'Buying role', company: 'Company', domain: 'Company website / domain', notes: 'Notes',
 }
+/** Where each column is saved: the person's details go on the contact, the company's on the account. */
+const FIELD_GOES_TO: Record<string, string> = {
+  full_name: 'contact', email: 'contact', title: 'contact', phone: 'contact', linkedin_url: 'contact', role_in_deal: 'contact',
+  company: 'company', domain: 'company', notes: 'contact and company',
+}
 
 /**
  * Import contacts from a CSV. Three stages, and nothing is written until the last: choose the
@@ -27,7 +32,7 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
   const [mapping, setMapping] = useState<Record<string, number | null>>({})
   const [accounts, setAccounts] = useState<GtmAccount[]>([])
   const [defaultAccount, setDefaultAccount] = useState('')
-  const [createMissing, setCreateMissing] = useState(false)
+  const [createMissing, setCreateMissing] = useState(true)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,10 +40,10 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
   useEffect(() => {
     if (!open) return
     // Only the accounts on this product and customer type list can receive contacts from this import.
-    void gtmService.listAccounts({ product: scope.product, customer_model: scope.customerModel }).then((r) => setAccounts(r.data.items)).catch(() => setAccounts([]))
-  }, [open, scope.product, scope.customerModel])
+    void gtmService.listAccounts({ product: scope.product, customer_model: scope.customerModel, region: scope.region }).then((r) => setAccounts(r.data.items)).catch(() => setAccounts([]))
+  }, [open, scope.product, scope.customerModel, scope.region])
 
-  const reset = () => { setCsv(''); setFileName(''); setPreview(null); setMapping({}); setResult(null); setError(null); setDefaultAccount(''); setCreateMissing(false) }
+  const reset = () => { setCsv(''); setFileName(''); setPreview(null); setMapping({}); setResult(null); setError(null); setDefaultAccount(''); setCreateMissing(true) }
   const close = () => { reset(); onClose() }
 
   const choose = async (file: File | undefined) => {
@@ -63,7 +68,7 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
 
   const args = (dry: boolean) => ({
     csv, mapping, dry_run: dry, create_missing_accounts: createMissing,
-    product: scope.product, customer_model: scope.customerModel,
+    product: scope.product, customer_model: scope.customerModel, region: scope.region,
     default_account_id: defaultAccount ? Number(defaultAccount) : null,
   })
 
@@ -96,7 +101,7 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
         <DialogHeader><DialogTitle>Import contacts from CSV</DialogTitle><DialogDescription>Check the file first; nothing is saved until you choose Import.</DialogDescription></DialogHeader>
         <div className="space-y-4">
           {scopeIsComplete(scope) && (
-            <p className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-sm">Adding to: <strong>{scopeText}</strong>. Accounts are matched, and new ones created, on this list only.</p>
+            <p className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-sm">Adding to: <strong>{scopeText}</strong>. Accounts and contacts are matched, and new ones created, on this list only. Other regions are never touched.</p>
           )}
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border p-3 text-sm">
             <Upload className="size-4" /><span>{fileName || 'Choose a .csv file'}</span>
@@ -109,7 +114,7 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
               <p className="text-sm text-muted-foreground">{preview.row_count} data row(s). Tell G2G which column holds what:</p>
               <div className="grid gap-2 md:grid-cols-3">
                 {preview.fields.map((f) => (
-                  <label key={f} className="text-xs text-muted-foreground">{FIELD_LABEL[f] ?? f}
+                  <label key={f} className="text-xs text-muted-foreground">{FIELD_LABEL[f] ?? f} <span className="text-[10px] text-primary">→ {FIELD_GOES_TO[f] ?? 'contact'}</span>
                     <select className={`${SELECT} mt-1 w-full text-foreground`} value={mapping[f] ?? ''} onChange={(e) => { setResult(null); setMapping({ ...mapping, [f]: e.target.value === '' ? null : Number(e.target.value) }) }}>
                       <option value="">— not in file —</option>
                       {preview.headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
@@ -124,7 +129,7 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
                     {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </label>
-                {!defaultAccount && <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={createMissing} onChange={(e) => { setResult(null); setCreateMissing(e.target.checked) }} />Create accounts that don&apos;t exist yet</label>}
+                {!defaultAccount && <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={createMissing} onChange={(e) => { setResult(null); setCreateMissing(e.target.checked) }} />Create companies that don&apos;t exist yet</label>}
                 <Button className="ml-auto" size="sm" disabled={busy || mapping.full_name == null} onClick={check}>{busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Check file</Button>
               </div>
             </>
@@ -133,15 +138,19 @@ export function ImportContactsDialog({ open, onClose, onDone, scope, scopeText }
           {result && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge>{result.summary.valid} ready</Badge>
+                {!defaultAccount && result.summary.companies !== undefined && result.summary.companies > 0 && (
+                  <Badge variant="outline">{result.summary.companies} {result.summary.companies === 1 ? 'company' : 'companies'}: {result.summary.accounts_created} {result.committed ? 'created' : 'new'}, {result.summary.accounts_updated ?? 0} {result.committed ? 'updated' : 'to update'}</Badge>
+                )}
+                <Badge>{result.summary.valid} {result.committed ? 'contacts ready' : 'contacts ready'}</Badge>
                 <Badge variant="outline">{result.summary.duplicate} duplicate (skipped)</Badge>
                 <Badge variant="outline">{result.summary.invalid} invalid (skipped)</Badge>
-                {result.accounts_to_create.length > 0 && !result.committed && <span className="text-xs text-muted-foreground">Will create: {result.accounts_to_create.join(', ')}</span>}
+                {result.accounts_to_create.length > 0 && !result.committed && <span className="text-xs text-muted-foreground">Will create: {result.accounts_to_create.slice(0, 12).join(', ')}{result.accounts_to_create.length > 12 ? ` and ${result.accounts_to_create.length - 12} more` : ''}</span>}
+                {(result.accounts_to_update?.length ?? 0) > 0 && !result.committed && <span className="text-xs text-muted-foreground">Will fill in missing details of: {result.accounts_to_update!.slice(0, 8).join(', ')}{result.accounts_to_update!.length > 8 ? ` and ${result.accounts_to_update!.length - 8} more` : ''}</span>}
               </div>
               {result.committed ? (
-                <p className="rounded bg-green-50 p-2 text-sm text-green-900">Imported {result.summary.imported} contact(s){result.summary.accounts_created ? ` and created ${result.summary.accounts_created} account(s)` : ''}.</p>
+                <p className="rounded bg-green-50 p-2 text-sm text-green-900">Imported {result.summary.imported} contact(s){result.summary.accounts_created ? `, created ${result.summary.accounts_created} company account(s)` : ''}{result.summary.accounts_updated ? ` and filled in details of ${result.summary.accounts_updated} existing one(s)` : ''}.</p>
               ) : (
-                <Button size="sm" disabled={busy || result.summary.valid === 0} onClick={commit}>{busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Import {result.summary.valid} contact(s)</Button>
+                <Button size="sm" disabled={busy || (result.summary.valid === 0 && (result.summary.accounts_created + (result.summary.accounts_updated ?? 0)) === 0)} onClick={commit}>{busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Import {result.summary.companies ? `${result.summary.companies} companies and ` : ''}{result.summary.valid} contact(s)</Button>
               )}
               {problems.length > 0 && (
                 <div className="max-h-56 overflow-y-auto rounded-md border border-border">

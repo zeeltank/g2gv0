@@ -1,0 +1,2495 @@
+{
+ "version": 3,
+ "title": "ScholarClone Sales Training",
+ "theme": "professional",
+ "accent": "#0A6AD0",
+ "product": {
+  "key": "scholarclone",
+  "name": "ScholarClone Sales Training",
+  "tagline": "A school that notices and acts"
+ },
+ "chapter": {
+  "id": 990001,
+  "name": "ScholarClone Sales Training",
+  "number": 1,
+  "standard_id": 0,
+  "subject_id": 0,
+  "standard_name": "Sales",
+  "subject_name": "ScholarClone"
+ },
+ "chapter_id": 990001,
+ "slide_count": 37,
+ "teaching_strategy": "Salesperson-led. Start from a role, a product, a business problem, a solution or a live conversation; there is no fixed sequence.",
+ "nav": [
+  {
+   "label": "Home",
+   "goto": 1
+  },
+  {
+   "label": "Roles",
+   "goto": 2
+  },
+  {
+   "label": "Modules",
+   "goto": 3
+  },
+  {
+   "label": "Business Problems",
+   "goto": 4
+  },
+  {
+   "label": "Solutions",
+   "goto": 5
+  },
+  {
+   "label": "Sales Scenarios",
+   "goto": 6
+  }
+ ],
+ "outline": [],
+ "concepts": {},
+ "slides": [
+  {
+   "n": 1,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "hook",
+   "title": "A school that notices and acts",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Every school day creates information. ScholarClone connects it, so leaders see what matters and teachers know what to do next.",
+    "explanations": [],
+    "bullets": [
+     "Start from a role, a product, a business problem, a solution or a live conversation; there is no fixed order.",
+     "Take one product on its own, or all five together as Scholar One."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": 2,
+   "product": {
+    "name": "ScholarClone",
+    "tagline": "A school that notices and acts"
+   },
+   "links": [
+    {
+     "label": "Roles",
+     "goto": 2,
+     "primary": true
+    },
+    {
+     "label": "Modules",
+     "goto": 3
+    },
+    {
+     "label": "Business Problems",
+     "goto": 4
+    },
+    {
+     "label": "Solutions",
+     "goto": 5
+    },
+    {
+     "label": "Sales Scenarios",
+     "goto": 6
+    }
+   ],
+   "group": "Home"
+  },
+  {
+   "n": 2,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Roles",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Who is in the room? Pick the role to see the products it uses.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Trustee / Principal: Institutional visibility, decision support and school performance.",
+     "goto": 7
+    },
+    {
+     "label": "Teacher: Teaching support, assessment and capability development.",
+     "goto": 8
+    },
+    {
+     "label": "Student: Personalised learning, progress and career development.",
+     "goto": 9
+    },
+    {
+     "label": "Parent: Fees, results, notices and attendance for their child.",
+     "goto": 10
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 3,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Modules",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Click any product to open its talk track: the problem it solves, how it helps, and the question to ask.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Scholar One: All five layers, one loop",
+     "goto": 11
+    },
+    {
+     "label": "Scholar Core: Runs the school",
+     "goto": 12
+    },
+    {
+     "label": "Scholar Learn: Teaches and personalises",
+     "goto": 13
+    },
+    {
+     "label": "Scholar CCB: Builds the people",
+     "goto": 14
+    },
+    {
+     "label": "Scholar Insight: The brain on top",
+     "goto": 15
+    },
+    {
+     "label": "Scholar Compass: Guides the student",
+     "goto": 16
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 4,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Business problems",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "What hurts most? Open the live conversation, or go to the solution. These are typical situations, not real customers.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Conversation: Running the school by hand",
+     "goto": 29
+    },
+    {
+     "label": "Conversation: Learning gaps found too late",
+     "goto": 30
+    },
+    {
+     "label": "Conversation: Not knowing where teachers need support",
+     "goto": 31
+    },
+    {
+     "label": "Conversation: Five systems that do not talk",
+     "goto": 32
+    },
+    {
+     "label": "See the solutions",
+     "goto": 5
+    }
+   ],
+   "group": "Business Problems"
+  },
+  {
+   "n": 5,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Solutions",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The shift each product makes, with the value it brings. One row per product.",
+    "explanations": [],
+    "bullets": [
+     "Scholar One (Integrated Intelligent School Platform): from \"Disconnected school information\" to \"Connected school information\". Value: One login, one set of records, no re-entering data; Leaders see learning, staff and operations together.",
+     "Scholar Core (Intelligent School Operations): from \"Manual administrative processes\" to \"Digitally managed workflows\". Value: Fewer missed fees and faster collection follow-up; Admission enquiries tracked from first call to confirmation.",
+     "Scholar Learn (AI-Powered Personalised Learning): from \"Same learning approach for everyone\" to \"Personalised learning pathways\". Value: Gaps found early, concept by concept, not after the exam; Teachers see why a student is stuck, not just the marks.",
+     "Scholar CCB (Competence and Capability Intelligence): from \"Limited visibility into teacher capabilities\" to \"Evidence-based capability intelligence\". Value: Real skill gaps for each role, not guesses; Training matched to the gap and tracked to completion.",
+     "Scholar Insight (School Intelligence): from \"Reports without connected insights\" to \"Better institutional intelligence\". Value: One connected view across the whole school; Trace weak results back to the root concept.",
+     "Scholar Compass (Student Career Intelligence): from \"Limited career guidance\" to \"Structured career intelligence\". Value: Students understand their interests and strengths; Careers, sectors, courses and colleges to explore."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Open the talk track",
+     "goto": 11,
+     "group": "Scholar One"
+    },
+    {
+     "label": "What's inside",
+     "goto": 17,
+     "group": "Scholar One"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 23,
+     "group": "Scholar One"
+    },
+    {
+     "label": "Open the talk track",
+     "goto": 12,
+     "group": "Scholar Core"
+    },
+    {
+     "label": "What's inside",
+     "goto": 18,
+     "group": "Scholar Core"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 24,
+     "group": "Scholar Core"
+    },
+    {
+     "label": "Open the talk track",
+     "goto": 13,
+     "group": "Scholar Learn"
+    },
+    {
+     "label": "What's inside",
+     "goto": 19,
+     "group": "Scholar Learn"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 25,
+     "group": "Scholar Learn"
+    },
+    {
+     "label": "Open the talk track",
+     "goto": 14,
+     "group": "Scholar CCB"
+    },
+    {
+     "label": "What's inside",
+     "goto": 20,
+     "group": "Scholar CCB"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 26,
+     "group": "Scholar CCB"
+    },
+    {
+     "label": "Open the talk track",
+     "goto": 15,
+     "group": "Scholar Insight"
+    },
+    {
+     "label": "What's inside",
+     "goto": 21,
+     "group": "Scholar Insight"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 27,
+     "group": "Scholar Insight"
+    },
+    {
+     "label": "Open the talk track",
+     "goto": 16,
+     "group": "Scholar Compass"
+    },
+    {
+     "label": "What's inside",
+     "goto": 22,
+     "group": "Scholar Compass"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 28,
+     "group": "Scholar Compass"
+    }
+   ],
+   "group": "Solutions"
+  },
+  {
+   "n": 6,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Sales scenarios",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Open a live conversation. Ask the question, then click what the customer says.",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Conversation: How do you handle admissions, fee follow-up and report cards today?",
+     "goto": 29
+    },
+    {
+     "label": "Conversation: What happens when a student keeps getting the same topic wrong?",
+     "goto": 30
+    },
+    {
+     "label": "Conversation: How do you know which teachers need support, and what training they should get?",
+     "goto": 31
+    },
+    {
+     "label": "Conversation: How many separate systems does your school run on today, and who connects them?",
+     "goto": 32
+    },
+    {
+     "label": "Customer questions: cost, rollout, data",
+     "goto": 33
+    },
+    {
+     "label": "Close the meeting: choose the next step",
+     "goto": 34
+    }
+   ],
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 7,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Trustee / Principal",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Institutional visibility, decision support and school performance. Click a product card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Scholar One: One intelligent platform connecting the entire school.",
+     "Scholar Insight: Turn school information into better institutional decisions.",
+     "Scholar Core: Simplify and intelligently manage school operations."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/role-trustee.svg",
+    "alt": "Trustee / Principal (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Scholar One",
+     "goto": 11
+    },
+    {
+     "label": "Scholar Insight",
+     "goto": 15
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 8,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Teacher",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Teaching support, assessment and capability development. Click a product card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Scholar Learn: Make learning more personalised, measurable and adaptive.",
+     "Scholar CCB: Understand and improve teacher and staff capabilities.",
+     "Scholar Core: Simplify and intelligently manage school operations."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/role-teacher.svg",
+    "alt": "Teacher (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Scholar Learn",
+     "goto": 13
+    },
+    {
+     "label": "Scholar CCB",
+     "goto": 14
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 9,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Student",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Personalised learning, progress and career development. Click a product card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Scholar Learn: Make learning more personalised, measurable and adaptive.",
+     "Scholar Compass: Help students explore strengths and future career pathways."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/role-student.svg",
+    "alt": "Student (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Scholar Learn",
+     "goto": 13
+    },
+    {
+     "label": "Scholar Compass",
+     "goto": 16
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 10,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Parent",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Fees, results, notices and attendance for their child. Click a product card to present it for this role.",
+    "explanations": [],
+    "bullets": [
+     "Scholar Core: Simplify and intelligently manage school operations.",
+     "Scholar Compass: Help students explore strengths and future career pathways.",
+     "Scholar Learn: Make learning more personalised, measurable and adaptive."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/role-parent.svg",
+    "alt": "Parent (icon)",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "Scholar Core",
+     "goto": 12
+    },
+    {
+     "label": "Scholar Compass",
+     "goto": 16
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13
+    }
+   ],
+   "group": "Roles"
+  },
+  {
+   "n": 11,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar One",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Integrated Intelligent School Platform. One intelligent platform connecting the entire school.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Schools run five disconnected systems",
+     "Problem it solves: Leaders can’t connect learning, staff and operations",
+     "Why the customer needs it: Your school already runs on five separate things: the office, the classroom, the staffroom, the principal’s notebook and the counsellor’s file. Scholar One connects them into one intelligent school, so what happens in each room informs every decision.",
+     "Why the customer needs it: Best fit. Schools that want the full loop and a single partner. Others can start with one product and add the rest.",
+     "How ScholarClone addresses it: One platform, one login, shared records",
+     "How ScholarClone addresses it: Insight reads all of them; Learn and CCB share teacher data",
+     "Trustee / Principal needs: Institutional visibility, decision support and school performance.",
+     "Business value: One login, one set of records, no re-entering data",
+     "Business value: Leaders see learning, staff and operations together",
+     "Business value: A single rollout and a single partner instead of five vendors",
+     "Ask: Where does your school feel \"disconnected school information\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-one.svg",
+    "alt": "Scholar One: Integrated Intelligent School Platform",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar One",
+     "goto": 17,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 23,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 32,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar CCB",
+     "goto": 14,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 12,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Core",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Intelligent School Operations. Simplify and intelligently manage school operations.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Fee collection and follow-up is manual and leaks money",
+     "Problem it solves: Admission enquiries get lost between phone calls and registers",
+     "Why the customer needs it: Scholar Core takes the paperwork out of running a school. Admissions, fees, attendance, exams, transport, library and parent communication live in one system, so your office team spends time on people, not registers.",
+     "Why the customer needs it: Best fit. Start here if your biggest pain is operations. Add Learn, CCB, Insight and Compass later on the same records.",
+     "How ScholarClone addresses it: Fee collection, cancel/refund, audit trail, online payment and scheduled reminders",
+     "How ScholarClone addresses it: Enquiry, follow-up, registration, form and confirmation in one flow",
+     "Trustee / Principal needs: Institutional visibility, decision support and school performance.",
+     "Teacher needs: Teaching support, assessment and capability development.",
+     "Parent needs: Fees, results, notices and attendance for their child.",
+     "Business value: Fewer missed fees and faster collection follow-up",
+     "Business value: Admission enquiries tracked from first call to confirmation",
+     "Business value: Report cards and results prepared in one flow",
+     "Ask: Where does your school feel \"manual administrative processes\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-core.svg",
+    "alt": "Scholar Core: Intelligent School Operations",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar Core",
+     "goto": 18,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 24,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 29,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar One",
+     "goto": 11,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar CCB",
+     "goto": 14,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 13,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Learn",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "AI-Powered Personalised Learning. Make learning more personalised, measurable and adaptive.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: The whole class is taught at one speed, so some are lost and some are bored",
+     "Problem it solves: We only find learning gaps after the exam",
+     "Why the customer needs it: Scholar Learn gives every student a personal learning path. It finds the exact concepts a child is missing, explains why, and gives practice that adapts, while teachers plan lessons, set homework and see who needs help.",
+     "Why the customer needs it: Best fit. Start here if your focus is learning outcomes. In Scholar One, Learn also feeds Insight, Compass and CCB.",
+     "How ScholarClone addresses it: Adaptive quiz and concept-level mastery show each student’s level",
+     "How ScholarClone addresses it: Chapter diagnostic and concept-level results show gaps early",
+     "Teacher needs: Teaching support, assessment and capability development.",
+     "Student needs: Personalised learning, progress and career development.",
+     "Parent needs: Fees, results, notices and attendance for their child.",
+     "Business value: Gaps found early, concept by concept, not after the exam",
+     "Business value: Teachers see why a student is stuck, not just the marks",
+     "Business value: Interactive practice keeps students engaged",
+     "Ask: Where does your school feel \"same learning approach for everyone\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-learn.svg",
+    "alt": "Scholar Learn: AI-Powered Personalised Learning",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar Learn",
+     "goto": 19,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 25,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 29,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Student",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar One",
+     "goto": 11,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar CCB",
+     "goto": 14,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 14,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar CCB",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Competence and Capability Intelligence. Understand and improve teacher and staff capabilities.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: We don’t know the real skill gaps in our teaching staff",
+     "Problem it solves: Training is generic and not tracked",
+     "Why the customer needs it: Scholar CCB shows what each teacher and staff member can do, where the gaps are, and the right training to close them. Hiring, appraisal and growth paths run from evidence instead of impressions.",
+     "Why the customer needs it: Best fit. Start here if teacher quality is your priority. It works for all staff roles, and in Scholar One connects with Learn and Insight.",
+     "How ScholarClone addresses it: Competency framework, capability library and gap view per role",
+     "How ScholarClone addresses it: Learning catalogue, courses, sessions, assessments and certifications",
+     "Teacher needs: Teaching support, assessment and capability development.",
+     "Business value: Real skill gaps for each role, not guesses",
+     "Business value: Training matched to the gap and tracked to completion",
+     "Business value: Fairer, structured appraisals",
+     "Ask: Where does your school feel \"limited visibility into teacher capabilities\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-ccb.svg",
+    "alt": "Scholar CCB: Competence and Capability Intelligence",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar CCB",
+     "goto": 20,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 26,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 30,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar One",
+     "goto": 11,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 15,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Insight",
+   "accent": "#0B3C73",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "School Intelligence. Turn school information into better institutional decisions.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Data sits in separate systems and nobody sees the whole picture",
+     "Problem it solves: Leaders decide on gut feel",
+     "Why the customer needs it: Scholar Insight is your school’s brain. It connects student, learning, staff and operations data into one knowledge graph and helps leaders trace a problem to its root and decide with evidence.",
+     "Why the customer needs it: Best fit. Insight is strongest on top of Core, Learn and CCB data, so it is the natural centre of Scholar One.",
+     "How ScholarClone addresses it: Foundation data plus a graph that links students, people, curriculum and results",
+     "How ScholarClone addresses it: Executive analytics, decision intelligence and signals with evidence",
+     "Trustee / Principal needs: Institutional visibility, decision support and school performance.",
+     "Business value: One connected view across the whole school",
+     "Business value: Trace weak results back to the root concept",
+     "Business value: Decisions recorded with their evidence",
+     "Ask: Where does your school feel \"reports without connected insights\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-insight.svg",
+    "alt": "Scholar Insight: School Intelligence",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar Insight",
+     "goto": 21,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 27,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 29,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar One",
+     "goto": 11,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 16,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Compass",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Student Career Intelligence. Help students explore strengths and future career pathways.",
+    "explanations": [],
+    "bullets": [
+     "Problem it solves: Students choose streams and careers on peer pressure",
+     "Problem it solves: School has no scalable counselling",
+     "Why the customer needs it: Scholar Compass helps every student discover their interests and strengths and see real career and course paths, so choices of stream and career rest on evidence, not peer pressure.",
+     "Why the customer needs it: Best fit. Start here if guidance is your gap. In Scholar One, Compass uses learning progress from Learn.",
+     "How ScholarClone addresses it: Interest and personality profile with matched careers",
+     "How ScholarClone addresses it: Counselling exams, question master and reports",
+     "Student needs: Personalised learning, progress and career development.",
+     "Parent needs: Fees, results, notices and attendance for their child.",
+     "Business value: Students understand their interests and strengths",
+     "Business value: Careers, sectors, courses and colleges to explore",
+     "Business value: Counsellors get structured profiles",
+     "Ask: Where does your school feel \"limited career guidance\" most today?"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/prod-compass.svg",
+    "alt": "Scholar Compass: Student Career Intelligence",
+    "tag": "ILLUSTRATION - NOT A SCHOLARCLONE SCREEN"
+   },
+   "next": -1,
+   "links": [
+    {
+     "label": "What's inside Scholar Compass",
+     "goto": 22,
+     "group": "What's inside"
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 28,
+     "group": "Workflows"
+    },
+    {
+     "label": "Open a live conversation",
+     "goto": 31,
+     "group": "Live conversation"
+    },
+    {
+     "label": "Used by: Student",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    },
+    {
+     "label": "Scholar One",
+     "goto": 11,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Core",
+     "goto": 12,
+     "group": "Related"
+    },
+    {
+     "label": "Scholar Learn",
+     "goto": 13,
+     "group": "Related"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 17,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar One: what is inside",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Shared platform: One login, role-based menus, rights per school",
+     "Platform services: Event bus, notifications, audit, scheduler, files, workflow",
+     "Integrations: SMS, WhatsApp, email, push, biometric, fee gateway",
+     "Role dashboards: Admin, teacher and student dashboards"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 11,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 23
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 18,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Core: what is inside",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Admissions: Enquiry, follow-up, registration, form, confirmation, reports, dashboard",
+     "Students: Documents, certificates, ICard, house, health, optional subjects, discipline, leave",
+     "Fees: Master setup, collection, refund, NACH, online payment, audit trail, scheduler",
+     "Attendance: Daily and monthly attendance, regularisation, reports, biometric integration",
+     "Exams and Results: Marks entry, report cards, co-scholastic and HPC, templates, mobile approval",
+     "Timetable, Calendar, Circulars: Class and faculty timetable, calendar, exam schedule, circulars, gallery",
+     "Communication: SMS, WhatsApp, email and push notification with delivery reports",
+     "Transport, Hostel, Library: Routes and vehicles; rooms and visitors; books, barcode, issue and return",
+     "Inventory and Admin Services: Requisition to purchase orders; complaints, PTM, petty cash, visitors, front desk",
+     "Alumni, Users and Rights: Alumni directory and events; user master, group and individual rights, user log"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 12,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 24
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 19,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Learn: what is inside",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Adaptive Practice: Timed adaptive quiz, per-concept mastery (mastered, developing, needs practice), retake",
+     "Chapter Diagnostic: Checks what a student already knows before a chapter",
+     "Learning Intelligence: Mastery view, risk cards, learning speed, plateau flags, misconception and fix per concept",
+     "Learning Path and Mastery: Learning path, knowledge map and mastery pages per concept and chapter",
+     "Pedagogy Engine: Recommends the right kind of practice for a student’s weak points",
+     "Content Review and Approval: AI-tagged questions are reviewed and approved before students see them",
+     "Interactive Content: 14 types incl. flashcards, interactive video, drag and drop, branching scenario, question bank",
+     "Gamification: Streaks, badges, personal bests, class team challenges, opt-in leaderboard (grade 4+)",
+     "Teacher Planning, Homework, Online Exams: Lesson plans, syllabus plan, homework, worksheets, exams and evaluation",
+     "Learn Reports: Attempts, attainment, class activity, homework and question-wise reports"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 13,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 25
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Student",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 20,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar CCB: what is inside",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Capability Intelligence: Competency framework, library, capability explorer, mentor-skill mapping, dashboard",
+     "People Learning: Learning catalogue, course builder, assessments, certifications, sessions calendar",
+     "Talent Management: Recruitment, onboarding, performance reviews, career paths, succession, compensation, offboarding",
+     "Organization Management: Employee directory, roles and permissions, compliance and disciplinary library",
+     "Task and Project Management: My tasks, projects, dependencies, calendar, reports, permissions matrix",
+     "HR, Leave and Payroll: Leave, attendance policy, salary structure, monthly payroll"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 14,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 26
+    },
+    {
+     "label": "Used by: Teacher",
+     "goto": 8,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 21,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Insight: what is inside",
+   "accent": "#0B3C73",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Foundation: Departments, people and student data",
+     "Knowledge: Library, graph, memory, AI assistant",
+     "Analytics: Executive view, decisions, decision intelligence",
+     "Intelligence Loop: Signals, workspace, deliberation, evidence, executions",
+     "Automation: Tasks, policies, agents, conversational AI",
+     "Governance and Capabilities: Governance, settings, capability registry",
+     "Coherence Map: Prerequisite chain between concepts",
+     "Knowledge Graph: Links school data into one graph"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 15,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 27
+    },
+    {
+     "label": "Used by: Trustee / Principal",
+     "goto": 7,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 22,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Compass: what is inside",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The modules this product is made of. Show the ones that answer what the customer just said.",
+    "explanations": [],
+    "bullets": [
+     "Knowing Yourself: Student interest and personality profile",
+     "Career Awareness: Four-lens reflection: ambition, alignment, certainty, originality",
+     "Career Explorer: Sectors, courses, colleges, employers, expert advice",
+     "Career Intelligence Hub: Overall intelligence view",
+     "Counselling exams: MBTI and counselling exam, question master",
+     "Career Quest: Pathway quest in Learn"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 16,
+     "primary": true
+    },
+    {
+     "label": "Workflows to demonstrate",
+     "goto": 28
+    },
+    {
+     "label": "Used by: Student",
+     "goto": 9,
+     "group": "Used by"
+    },
+    {
+     "label": "Used by: Parent",
+     "goto": 10,
+     "group": "Used by"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 23,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar One: workflows to demonstrate",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "The intelligent-school loop. 1. Core records the day-to-day work 2. Learn shows how students are learning 3. CCB shows how teachers grow 4. Insight connects everything for leaders 5. Compass guides student futures"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 11,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 17
+    },
+    {
+     "label": "Also show: Scholar Core",
+     "goto": 12,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Learn",
+     "goto": 13,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar CCB",
+     "goto": 14,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 24,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Core: workflows to demonstrate",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "Admission to confirmation. 1. Record the enquiry 2. Follow up with the parent 3. Register and fill the admission form 4. Confirm admission and create the student",
+     "Collect fees. 1. Pick the student 2. Select fee heads 3. Collect (cash, cheque or online) 4. Receipt and dues update automatically",
+     "Prepare report cards. 1. Enter marks 2. Enter co-scholastic and HPC grades 3. Principal approves 4. Publish and print or share the report card"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 12,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 18
+    },
+    {
+     "label": "Also show: Scholar One",
+     "goto": 11,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Learn",
+     "goto": 13,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar CCB",
+     "goto": 14,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 25,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Learn: workflows to demonstrate",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "Student: find gaps and fix them. 1. Pick a subject, then a chapter 2. Take the timed adaptive quiz 3. See which concepts are mastered, developing or need practice 4. See the misunderstanding behind a wrong answer 5. Practise with flashcards, interactive video, quiz or scenario 6. Retake the concept and raise mastery 7. See streak, personal best and badges earned",
+     "Teacher: check on a student. 1. Open Learn and pick a student 2. Open the learning journey and intelligence 3. See weak concepts and misunderstandings 4. Assign homework or a worksheet for the gap",
+     "Admin: approve content. 1. Open Content Review 2. Edit tags or misconceptions if needed 3. Approve in bulk; approved items reach students"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 13,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 19
+    },
+    {
+     "label": "Also show: Scholar One",
+     "goto": 11,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Core",
+     "goto": 12,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar CCB",
+     "goto": 14,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 26,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar CCB: workflows to demonstrate",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "Find a teacher’s skill gaps. 1. Open the capability dashboard 2. Pick a role or teacher 3. See competencies against the required level 4. Assign a course",
+     "Run an appraisal cycle. 1. Open performance reviews 2. Set the cycle and criteria 3. Staff and reviewers complete it 4. See results and the development plan"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 14,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 20
+    },
+    {
+     "label": "Also show: Scholar One",
+     "goto": 11,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Core",
+     "goto": 12,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Learn",
+     "goto": 13,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 27,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Insight: workflows to demonstrate",
+   "accent": "#0B3C73",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "Ask the school a question. 1. Open the AI assistant 2. Ask in plain language 3. See the answer with evidence",
+     "Trace a weak result to its root. 1. Open the coherence map 2. Pick the concept 3. See prerequisites and where the student is stuck"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 15,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 21
+    },
+    {
+     "label": "Also show: Scholar One",
+     "goto": 11,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Core",
+     "goto": 12,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Learn",
+     "goto": 13,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 28,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Scholar Compass: workflows to demonstrate",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Walk the customer through these. Each one is a flow described on the product page.",
+    "explanations": [],
+    "bullets": [
+     "Student discovers a pathway. 1. Take the interest and personality assessments 2. See the profile 3. Explore matched sectors and courses 4. Save the pathway",
+     "Counsellor guides a student. 1. Open the student’s profile 2. Review results 3. Discuss the pathway 4. Record notes"
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Back to the talk track",
+     "goto": 16,
+     "primary": true
+    },
+    {
+     "label": "What's inside",
+     "goto": 22
+    },
+    {
+     "label": "Also show: Scholar One",
+     "goto": 11,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Core",
+     "goto": 12,
+     "group": "Also show"
+    },
+    {
+     "label": "Also show: Scholar Learn",
+     "goto": 13,
+     "group": "Also show"
+    }
+   ],
+   "group": "Modules"
+  },
+  {
+   "n": 29,
+   "section": "Decision 1 of 4 - ScholarClone - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Running the school by hand",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How do you handle admissions, fee follow-up and report cards today?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Running the school by hand - you ask",
+    "question": "You ask: How do you handle admissions, fee follow-up and report cards today?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"It is registers, phone calls and a lot of chasing. Fees leak.\" Opens: Scholar Core",
+      "goto": 12
+     },
+     {
+      "id": "b",
+      "text": "\"Operations are fine. My worry is students falling behind in class.\" Opens: Scholar Learn",
+      "goto": 13
+     },
+     {
+      "id": "c",
+      "text": "\"I just want one place where I can see the whole school.\" Opens: Scholar Insight",
+      "goto": 15
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 30,
+   "section": "Decision 2 of 4 - ScholarClone - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Learning gaps found too late",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: What happens when a student keeps getting the same topic wrong?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Learning gaps found too late - you ask",
+    "question": "You ask: What happens when a student keeps getting the same topic wrong?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"We only find out after the exam, and by then it is late.\" Opens: Scholar Learn",
+      "goto": 13
+     },
+     {
+      "id": "b",
+      "text": "\"Honestly, our teachers need better training first.\" Opens: Scholar CCB",
+      "goto": 14
+     },
+     {
+      "id": "c",
+      "text": "\"Parents keep phoning the office to ask about results and fees.\" Opens: Scholar Core",
+      "goto": 12
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 31,
+   "section": "Decision 3 of 4 - ScholarClone - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Not knowing where teachers need support",
+   "accent": "#4C9A14",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How do you know which teachers need support, and what training they should get?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Not knowing where teachers need support - you ask",
+    "question": "You ask: How do you know which teachers need support, and what training they should get?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"Appraisals are a matter of opinion and training is the same for everyone.\" Opens: Scholar CCB",
+      "goto": 14
+     },
+     {
+      "id": "b",
+      "text": "\"Our students pick streams on peer pressure. That worries me more.\" Opens: Scholar Compass",
+      "goto": 16
+     },
+     {
+      "id": "c",
+      "text": "\"Our data sits in separate systems, so nobody sees the whole picture.\" Opens: Scholar Insight",
+      "goto": 15
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 32,
+   "section": "Decision 4 of 4 - ScholarClone - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Live conversation: Five systems that do not talk",
+   "accent": "#0B3C73",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "You ask: How many separate systems does your school run on today, and who connects them?",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Click what the customer says; each answer opens a different slide.",
+    "kicker": "Five systems that do not talk - you ask",
+    "question": "You ask: How many separate systems does your school run on today, and who connects them?  What does the customer say?",
+    "options": [
+     {
+      "id": "a",
+      "text": "\"Five or more, and nothing is connected. We re-enter things all the time.\" Opens: Scholar One",
+      "goto": 11
+     },
+     {
+      "id": "b",
+      "text": "\"Just the fee software. We want to fix that first.\" Opens: Scholar Core",
+      "goto": 12
+     },
+     {
+      "id": "c",
+      "text": "\"The counsellor keeps her notes in a file in a cupboard.\" Opens: Scholar Compass",
+      "goto": 16
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 33,
+   "section": "ScholarClone - Verified product facts (from the product page)",
+   "slide_type": "objectives",
+   "title": "Customer questions",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "Straight answers, using what the product page says.",
+    "explanations": [],
+    "bullets": [
+     "What does it cost? Say: Pricing depends on the products and the size of your school. We share it in a personal conversation after a short fit review.",
+     "Do we need all five products? Say: No. Start with the layer that fits your biggest problem and add more later. Scholar One is for schools that want the full loop on one platform.",
+     "How is rollout done? Say: A forward-deployed team works with your school through implementation. We do not install and leave.",
+     "Can parents pay fees online? Say: Yes. Online fee payment is available through your school’s payment gateway.",
+     "Is the content checked before students see it? Say: Yes. AI-tagged questions go through a review and approval step before they reach students.",
+     "How is our data protected? Say: We walk you through the data-protection controls in a personal conversation during the fit review."
+    ],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": null,
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": null,
+   "next": -1,
+   "links": [
+    {
+     "label": "Close the meeting: choose the next step",
+     "goto": 34,
+     "primary": true
+    },
+    {
+     "label": "Back to the scenarios",
+     "goto": 6
+    }
+   ],
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 34,
+   "section": "Decision 5 of 5 - ScholarClone - Live sales conversation (typical situation, not a real customer)",
+   "slide_type": "challenge",
+   "title": "Close the meeting",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "The principal has seen what fits the biggest problem and asks, \"So what happens next?\"",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "decision",
+    "reason": "Choose how you close; each choice has its own ending.",
+    "kicker": "Close the meeting - what do you do?",
+    "question": "The principal asks: \"So what happens next?\" How do you close?",
+    "options": [
+     {
+      "id": "a",
+      "text": "Suggest a short fit review, then start with the one product that answers the biggest problem, and add the others later.",
+      "goto": 35
+     },
+     {
+      "id": "b",
+      "text": "Agree a one-product start today, and promise a price for the other products right now so the school feels it is getting a deal.",
+      "goto": 36
+     },
+     {
+      "id": "c",
+      "text": "Propose all five products on day one and say you will email one quote for everything.",
+      "goto": 37
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 35,
+   "section": "ScholarClone - Ending (fictional training scenario)",
+   "slide_type": "challenge",
+   "title": "Deal won",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "outcome",
+    "tone": "sound",
+    "choice": {
+     "id": "won",
+     "text": "A short fit review, then one product, the others later"
+    },
+    "what": "The school agrees to a short fit review and a start with the one product that answers its biggest problem.",
+    "why": "This follows how the product page says ScholarClone is sold: pricing depends on the products and the size of the school and is shared in a personal conversation after a short fit review, and a school can start with the layer that fits and add more later. A forward-deployed team then works with the school through rollout.",
+    "actions": [
+     {
+      "label": "Return to Home",
+      "goto": 1,
+      "primary": true
+     },
+     {
+      "label": "Try the conversations again",
+      "goto": 6
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 36,
+   "section": "ScholarClone - Ending (fictional training scenario)",
+   "slide_type": "challenge",
+   "title": "Won, with concessions",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "outcome",
+    "tone": "caution",
+    "choice": {
+     "id": "wonConc",
+     "text": "Promised a price for the other products on the spot"
+    },
+    "what": "The school agrees to a one-product start, but you have committed to a price before the fit review.",
+    "why": "The product page says pricing is shared after a short fit review, because it depends on the products and the size of the school. A price promised early is a concession you may not be able to keep, and it weakens the review. Start with the fit review, then discuss price.",
+    "actions": [
+     {
+      "label": "Return to Home",
+      "goto": 1,
+      "primary": true
+     },
+     {
+      "label": "Try the conversations again",
+      "goto": 6
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  },
+  {
+   "n": 37,
+   "section": "ScholarClone - Ending (fictional training scenario)",
+   "slide_type": "challenge",
+   "title": "Deal stalled",
+   "accent": "#0A6AD0",
+   "concept_ids": [],
+   "taught_concept_ids": [],
+   "concepts": [],
+   "relationship": null,
+   "content": {
+    "body": "",
+    "explanations": [],
+    "bullets": [],
+    "example": null,
+    "misconception": null,
+    "relationship_note": null,
+    "key_idea": null,
+    "discussion": null,
+    "bloom": "apply",
+    "dok": 2,
+    "minutes": 2
+   },
+   "question_ids": [],
+   "activities": [],
+   "interaction": {
+    "kind": "outcome",
+    "tone": "caution",
+    "choice": {
+     "id": "stalled",
+     "text": "Five products on day one, one quote by email"
+    },
+    "what": "The principal says the school will think about it, and the conversation goes quiet.",
+    "why": "The product page is clear that a school does not need all five products: start with the layer that fits the biggest problem and add more later; Scholar One is for schools that want the full loop on one platform. Leading with everything hides the problem you were asked to solve.",
+    "actions": [
+     {
+      "label": "Return to Home",
+      "goto": 1,
+      "primary": true
+     },
+     {
+      "label": "Try the conversations again",
+      "goto": 6
+     }
+    ]
+   },
+   "interaction_reason": "",
+   "h5p_pattern": null,
+   "image_missing": null,
+   "image": {
+    "url": "/sales-training/scholarclone/images/story-scene.svg",
+    "alt": "The conversation",
+    "tag": "ILLUSTRATION"
+   },
+   "next": -1,
+   "group": "Sales Scenarios"
+  }
+ ],
+ "concept_slides": {},
+ "taught_by": {},
+ "concept_questions": {}
+}

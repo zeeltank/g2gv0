@@ -129,60 +129,23 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 /* ─── Course picker ────────────────────────────────────────────────────────── */
 
 /**
- * The two product websites (G2G, ScholarClone).
+ * The two Sales products (G2G, ScholarClone) are interactive branching scenarios that play inside My Learning, in the same player as
+ * Sales Training. They come from code (public/sales-training/<product>/deck.json), not from enrolment.
  *
- * They are NOT courses to be taught: there are no lessons, no progress and no completion. A card is an entry point that opens the
- * ORIGINAL product page, untouched, as a normal browser page - so its fixed nav, scroll-driven effects, 100vh hero and animations
- * behave exactly as when the file is opened on a desktop. (Inside a frame they cannot: a frame sized to the whole page makes 100vh
- * mean "the whole page", and the hero stretches to match.)
- *
- * The card still comes from an enrolment, so who can see it is decided the way every other course is. It is recognised by the
- * category the seeder gives it, and the page is chosen by the product named in its title - a title that names both, or neither,
- * is not a product website and is shown as an ordinary course.
+ * An earlier version of the seeder created a "Product Learning" course row per product. Those rows are not shown as courses any more
+ * (the Sales row is the way in); opening one by a saved link or a notification opens its scenario instead.
  */
 const PRODUCT_LEARNING_CATEGORY = 'Product Learning'
-const PRODUCT_SITES = [
-  { match: /scholarclone/i, href: '/learning/product-learning/scholarclone.html' },
-  { match: /g2g/i, href: '/learning/product-learning/g2g.html' },
-] as const
+const PRODUCT_SCENARIOS: ReadonlyArray<{ match: RegExp; key: SalesProductKey }> = [
+  { match: /scholarclone/i, key: 'scholarclone' },
+  { match: /g2g/i, key: 'sales' },
+]
 
-function productSiteFor(course: Pick<LearningCourseSummary, 'subject_category' | 'display_name'> | null | undefined): string | null {
+function salesKeyForCourse(course: Pick<LearningCourseSummary, 'subject_category' | 'display_name'> | null | undefined): SalesProductKey | null {
   if (!course || course.subject_category !== PRODUCT_LEARNING_CATEGORY) return null
   const name = course.display_name ?? ''
-  const hits = PRODUCT_SITES.filter((site) => site.match.test(name))
-  return hits.length === 1 ? hits[0].href : null
-}
-
-/** Same card shape as every course, minus lessons, progress and status: it only opens the site. */
-function ProductSiteCard({ course, href }: { course: LearningCourseSummary; href: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
-          {course.display_image && course.display_image !== '/' ? (
-             
-            <img src={course.display_image} alt="" className="size-full object-cover" />
-          ) : (
-            <ImageIcon className="size-5 text-muted-foreground/40" />
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-            {course.display_name ?? 'Product website'}
-          </h3>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">Product website</p>
-        </div>
-      </div>
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
-        Open website <ExternalLink className="size-3.5" />
-      </span>
-    </a>
-  )
+  const hits = PRODUCT_SCENARIOS.filter((p) => p.match.test(name))
+  return hits.length === 1 ? hits[0].key : null
 }
 
 function CourseCard({ course, onSelect }: { course: LearningCourseSummary; onSelect: (id: number) => void }) {
@@ -261,6 +224,7 @@ function CoursePicker({
   onSelect,
   onRetry,
   extraCards,
+  salesCards,
 }: {
   courses: LearningCourseSummary[]
   loading: boolean
@@ -269,13 +233,14 @@ function CoursePicker({
   onRetry: () => void
   /** More course cards shown after the enrolled courses (the sales-training scenarios). */
   extraCards?: React.ReactNode
+  /** The Sales row: one card per Sales product. */
+  salesCards?: React.ReactNode
 }) {
   if (error && !loading && courses.length === 0 && !extraCards) {
     return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
 
-  const productCourses = courses.filter((course) => productSiteFor(course))
-  const regularCourses = courses.filter((course) => !productSiteFor(course))
+  const regularCourses = courses.filter((course) => !salesKeyForCourse(course))
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6">
@@ -309,21 +274,17 @@ function CoursePicker({
             </div>
           )}
 
-          {productCourses.length > 0 && (
-            <section aria-labelledby="product-learning-heading" className="flex w-full min-w-0 flex-col gap-3">
+          {salesCards && (
+            <section aria-labelledby="sales-row-heading" className="flex w-full min-w-0 flex-col gap-3">
               <div>
-                <h2 id="product-learning-heading" className="text-base font-semibold tracking-tight text-foreground">
+                <h2 id="sales-row-heading" className="text-base font-semibold tracking-tight text-foreground">
                   Sales
                 </h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  Each card opens the complete original product website.
+                  Roles, modules, business problems and a branching sales conversation for each product.
                 </p>
               </div>
-              <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                {productCourses.map((course) => (
-                  <ProductSiteCard key={course.id} course={course} href={productSiteFor(course) ?? '#'} />
-                ))}
-              </div>
+              <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{salesCards}</div>
             </section>
           )}
         </>
@@ -1106,16 +1067,6 @@ export function LearningDeliveryWorkspace() {
 
   const router = useRouter()
 
-  // A deep link (?course_id=N, or a notification) to a product website goes to the website. There is no player for these.
-  const productSite = courseId ? productSiteFor(courses.find((course) => course.id === courseId)) : null
-  useEffect(() => {
-    if (!productSite) return
-    selectCourse(null)
-    // A full page load, not router.push: the target is a static file in /public, not a Next route, so the rule's advice does not apply.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = productSite
-  }, [productSite, selectCourse])
-
   // Admin/HR may author content; the API enforces the same rule.
   const canModerate = isHrAdmin(user?.role)
   // The learning screen is view-only for everyone: chapters and lessons are edited in the Course Builder, not while someone is learning.
@@ -1150,7 +1101,18 @@ export function LearningDeliveryWorkspace() {
     const url = new URL(window.location.href)
     if (key) url.searchParams.set('sales', key)
     else url.searchParams.delete('sales')
+    // A saved link to an old product course row carries ?course_id; leaving the scenario must drop it or a reload would reopen it.
+    url.searchParams.delete('course_id')
     window.history.replaceState(null, '', url.toString())
+  }
+
+  // A saved link or notification (?course_id=N) to one of the old product course rows shows that product's scenario. Derived, not
+  // copied into state: Back clears the course id, which is what takes the learner out again.
+  const linkedSales = courseId ? salesKeyForCourse(courses.find((course) => course.id === courseId)) : null
+  const shownSales = salesKey ?? linkedSales
+  const leaveSales = () => {
+    openSales(null)
+    if (linkedSales) selectCourse(null)
   }
 
   const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
@@ -1158,10 +1120,8 @@ export function LearningDeliveryWorkspace() {
     { kind: 'chapter' | 'content'; id: number; label: string } | null
   >(null)
 
-  if (productSite) return null
-
-  if (salesKey) {
-    return <SalesTrainingCourseView productKey={salesKey} onBack={() => openSales(null)} />
+  if (shownSales) {
+    return <SalesTrainingCourseView productKey={shownSales} onBack={leaveSales} />
   }
 
   if (!courseId) {
@@ -1173,7 +1133,8 @@ export function LearningDeliveryWorkspace() {
           error={coursesError}
           onSelect={selectCourse}
           onRetry={reload}
-          extraCards={<SalesTrainingCards onOpen={openSales} />}
+          extraCards={<SalesTrainingCards onOpen={openSales} keys={['sales']} />}
+          salesCards={<SalesTrainingCards onOpen={openSales} title="card" />}
         />
       </div>
     )

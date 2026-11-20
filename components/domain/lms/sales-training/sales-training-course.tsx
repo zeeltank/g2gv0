@@ -56,19 +56,30 @@ function useProgress(key: SalesProductKey, total: number) {
   return { progress, refresh }
 }
 
-/** The cards, to be placed inside the My Learning course grid. */
-export function SalesTrainingCards({ onOpen }: { onOpen: (key: SalesProductKey) => void }) {
+/**
+ * The cards, to be placed inside the My Learning course grid. `keys` picks the products; `title` is the course title
+ * ("G2G Sales Training") or the card title used in the Sales row ("G2G Sales").
+ */
+export function SalesTrainingCards({
+  onOpen,
+  keys,
+  title = 'course',
+}: {
+  onOpen: (key: SalesProductKey) => void
+  keys?: ReadonlyArray<SalesProductKey>
+  title?: 'course' | 'card'
+}) {
   const totals = useSlideTotals()
   return (
     <>
-      {SALES_PRODUCTS.map((p) => (
-        <SalesTrainingCard key={p.key} productKey={p.key} total={totals[p.key] ?? 0} onOpen={onOpen} />
+      {SALES_PRODUCTS.filter((p) => !keys || keys.includes(p.key)).map((p) => (
+        <SalesTrainingCard key={p.key} productKey={p.key} total={totals[p.key] ?? 0} onOpen={onOpen} title={title} />
       ))}
     </>
   )
 }
 
-function SalesTrainingCard({ productKey, total, onOpen }: { productKey: SalesProductKey; total: number; onOpen: (key: SalesProductKey) => void }) {
+function SalesTrainingCard({ productKey, total, onOpen, title }: { productKey: SalesProductKey; total: number; onOpen: (key: SalesProductKey) => void; title: 'course' | 'card' }) {
   const product = productOf(productKey)
   const { progress } = useProgress(productKey, total)
   const started = progress.seen > 0
@@ -83,8 +94,8 @@ function SalesTrainingCard({ productKey, total, onOpen }: { productKey: SalesPro
           <PlayCircle className="size-5" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{product.name}</h3>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">Sales · G2G modules, roles and scenario</p>
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{title === 'card' ? product.cardName : product.name}</h3>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{product.subtitle}</p>
         </div>
       </div>
 
@@ -132,7 +143,7 @@ export function SalesTrainingCourseView({ productKey, onBack }: { productKey: Sa
           </Button>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold tracking-tight text-foreground">{product.name}</h1>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">Sales · G2G modules, roles and a branching scenario</p>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">{product.subtitle}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -162,9 +173,9 @@ export function SalesTrainingCourseView({ productKey, onBack }: { productKey: Sa
           <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-5">
             <p className="text-sm text-muted-foreground">This course is one interactive lesson. Open Learn and work through its parts in order, or jump around with the buttons on each slide.</p>
             <ol className="flex flex-col gap-3 text-sm">
-              <li><strong>1. Product facts</strong> - what G2G is, every module and what each role does in it, who it is for, and what is and is not documented.</li>
-              <li><strong>2. Scenario</strong> - a fictional customer and 8 decisions across the 11 stages of a sale. Every choice has its own consequence.</li>
-              <li><strong>3. Outcome</strong> - a deal won, won with concessions, stalled, or lost, with coaching.</li>
+              <li><strong>1. Product facts</strong> - what {product.about} is, every module and what each role does in it, who it is for, and what is and is not documented.</li>
+              <li><strong>2. Scenario</strong> - a fictional customer and a branching conversation. Every choice has its own consequence.</li>
+              <li><strong>3. Outcome</strong> - a deal won, won with concessions or stalled, with coaching.</li>
             </ol>
             <p className="text-xs text-muted-foreground">
               Progress for this course is kept in this browser and is not part of enrolment reports. Customers and quotes are fictional training content.

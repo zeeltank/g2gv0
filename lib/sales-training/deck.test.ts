@@ -98,6 +98,8 @@ test('a lesson link is recognised as sales training on any host, and nothing els
   assert.equal(salesTrainingKeyOf('https://lms.example.com/module/lms/learning/sales-training/sales?x=1'), 'sales')
   assert.equal(salesTrainingKeyOf('http://localhost:3001/module/lms/learning/sales-training/g2g/'), 'sales')
   assert.equal(salesTrainingKeyOf('https://cdn.example.com/files/deck.pptx'), null)
+  assert.equal(salesTrainingKeyOf('/module/lms/learning/sales-training/scholarclone'), 'scholarclone')
+  assert.equal(salesTrainingKeyOf('https://lms.example.com/module/lms/learning/sales-training/scholarclone?slide=3'), 'scholarclone')
   assert.equal(salesTrainingKeyOf('/module/lms/learning/sales-training'), null)
   assert.equal(salesTrainingKeyOf('/module/lms/learning/sales-training/other'), null)
   assert.equal(salesTrainingKeyOf(null), null)
@@ -108,4 +110,42 @@ test('the six top-navigation buttons open real slides and every slide belongs to
   assert.deepEqual((deck.nav ?? []).map((b) => b.label), ['Home', 'Roles', 'Modules', 'Business Problems', 'Solutions', 'Sales Scenarios'])
   for (const b of deck.nav ?? []) assert.ok(deck.slides.some((s) => s.n === b.goto), b.label + ' opens a missing slide')
   for (const s of deck.slides) assert.ok((deck.nav ?? []).some((b) => b.label === s.group), 'slide ' + s.n + ' has no navigation group')
+})
+
+const loadScholarClone = () => JSON.parse(readFileSync('public/sales-training/scholarclone/deck.json', 'utf8'))
+
+test('the ScholarClone deck parses, has the same six sections as G2G, and is ScholarClone content only', () => {
+  const deck = parseSalesDeck(loadScholarClone())
+  assert.equal(deck.product.key, 'scholarclone')
+  assert.ok(deck.slides.length >= 30 && deck.slides.length <= 40, 'slide count ' + deck.slides.length)
+  assert.deepEqual((deck.nav ?? []).map((b) => b.label), ['Home', 'Roles', 'Modules', 'Business Problems', 'Solutions', 'Sales Scenarios'])
+  for (const s of deck.slides) assert.ok((deck.nav ?? []).some((b) => b.label === s.group), 'slide ' + s.n + ' has no navigation group')
+  const text = JSON.stringify(deck)
+  assert.ok(text.includes('Scholar Core') && text.includes('Scholar Compass'))
+  assert.ok(!/G2G/.test(text), 'ScholarClone deck mentions G2G')
+})
+
+test('every ScholarClone conversation answer opens a different slide, and each of the three endings can be reached and completes', () => {
+  const deck = parseSalesDeck(loadScholarClone())
+  for (const d of deck.slides.filter((s) => s.interaction?.kind === 'decision')) {
+    const i = d.interaction
+    if (i?.kind !== 'decision') continue
+    assert.equal(new Set(i.options.map((o) => o.goto)).size, i.options.length, 'slide ' + d.n + ' answers share a destination')
+  }
+  const endings = deck.slides.filter((s) => s.interaction?.kind === 'outcome').map((s) => (s.interaction?.kind === 'outcome' ? s.interaction.choice.id : ''))
+  assert.deepEqual([...endings].sort(), ['stalled', 'won', 'wonConc'])
+  // walk from the cover through every link, answer and ending: all slides are reachable
+  const by = new Map(deck.slides.map((s) => [s.n, s]))
+  const seen = new Set<number>([1]); const queue = [1]
+  while (queue.length) {
+    const s = by.get(queue.shift() as number)!
+    const to = [
+      ...(s.links ?? []).flatMap((l) => (l.goto !== undefined ? [l.goto] : [])),
+      ...(s.interaction?.kind === 'decision' ? s.interaction.options.map((o) => o.goto) : []),
+      ...(s.interaction?.kind === 'outcome' ? s.interaction.actions.map((a) => a.goto) : []),
+      ...(continueTarget(deck, s) !== null ? [continueTarget(deck, s) as number] : []),
+    ]
+    for (const t of to) if (!seen.has(t)) { seen.add(t); queue.push(t) }
+  }
+  assert.equal(seen.size, deck.slides.length, 'unreachable slides')
 })
