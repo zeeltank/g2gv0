@@ -6,6 +6,7 @@ import { createLocationLoader, foldText, type CountriesAnswer, type CountryOptio
 import type { RegionDraft } from '@/lib/region-scope'
 import { opportunitiesService } from '@/services/signals/opportunities'
 import { SearchableSelect, type SelectOption } from './searchable-select'
+import { StateDropdown } from './state-dropdown'
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -50,6 +51,7 @@ export function LocationPicker({
   effectiveCountry,
   disabled = false,
   loader: injected,
+  stateDropdown = false,
 }: {
   context: LaravelContext
   draft: RegionDraft
@@ -58,6 +60,8 @@ export function LocationPicker({
   disabled?: boolean
   /** Tests give a loader backed by a stub; the app builds its own from the service. */
   loader?: LocationLoader
+  /** Show State / Province as a searchable list of the country's states (from the location data) instead of a text box. Falls back to the text box when the country has no state list. */
+  stateDropdown?: boolean
 }) {
   const loader = useMemo(() => injected ?? createLocationLoader(opportunitiesService, context), [injected, context])
   const [retry, setRetry] = useState(0)
@@ -92,6 +96,24 @@ export function LocationPicker({
     if (event.key === 'Enter') event.preventDefault()   // typing a place never submits a surrounding form
   }
 
+  const stateText = (
+    <div className="space-y-1.5">
+      <label htmlFor="region-state" className="text-xs font-medium text-foreground">State / Province / Region</label>
+      <input
+        id="region-state"
+        type="text"
+        autoComplete="off"
+        maxLength={80}
+        placeholder="Enter state / province"
+        value={draft.state}
+        onChange={(event) => setState(event.target.value)}
+        onKeyDown={noSubmit}
+        disabled={disabled}
+        className={FIELD}
+      />
+    </div>
+  )
+
   return (
     <div className="space-y-3">
       <SearchableSelect
@@ -114,21 +136,16 @@ export function LocationPicker({
         </button>
       )}
 
-      <div className="space-y-1.5">
-        <label htmlFor="region-state" className="text-xs font-medium text-foreground">State / Province / Region</label>
-        <input
-          id="region-state"
-          type="text"
-          autoComplete="off"
-          maxLength={80}
-          placeholder="Enter state / province"
+      {stateDropdown ? (
+        <StateDropdown
+          loader={loader}
+          countryCode={country?.code ?? null}
           value={draft.state}
-          onChange={(event) => setState(event.target.value)}
-          onKeyDown={noSubmit}
+          onPick={(picked) => onDraft({ ...base(), state: picked ? picked.name : '', ...(picked ? { stateCode: picked.code } : {}) })}
           disabled={disabled}
-          className={FIELD}
+          fallback={stateText}
         />
-      </div>
+      ) : stateText}
 
       <div className="space-y-1.5">
         <label htmlFor="region-city" className="text-xs font-medium text-foreground">City</label>

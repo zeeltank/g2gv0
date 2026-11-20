@@ -164,7 +164,7 @@ export function RegionSelector({
               )}
             </div>
 
-            <LocationPicker context={context ?? ({} as LaravelContext)} draft={draft} onDraft={pick} effectiveCountry={effectiveCountry} disabled={disabled} />
+            <LocationPicker context={context ?? ({} as LaravelContext)} draft={draft} onDraft={pick} effectiveCountry={effectiveCountry} disabled={disabled} stateDropdown={single} />
 
             {problems.length > 0 && (
               <ul role="alert" className="list-disc space-y-0.5 pl-4 text-xs text-destructive">

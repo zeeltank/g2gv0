@@ -1,13 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ProductInfo } from '@/services/portfolio/types'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { RegionSelector } from '@/components/domain/signals/region-selector'
-import { SearchableSelect, type SelectOption } from '@/components/domain/signals/searchable-select'
-import { createLocationLoader, type StateOption } from '@/lib/location-api'
-import { DEFAULT_COUNTRY } from '@/lib/location-repository'
-import { opportunitiesService } from '@/services/signals/opportunities'
 import { emptyDraft, regionLabel, type RegionDraft, type RegionSelection } from '@/lib/region-scope'
 
 /** The three customer types, named the way people use them. The first word is the code the server stores. */
@@ -89,64 +85,6 @@ export function useStoredScope(storageKey: string): [ProspectScopeValue, (next: 
   return [scope, update]
 }
 
-/**
- * A State dropdown for India, right on the bar: open it, type to search, pick a state, and the region becomes that state at once (the same place the
- * Region control would give). States come from the same location data as the Region control, so there is no second list. "All states" returns to
- * India as a whole; a place outside India (picked in the Region control) leaves this empty.
- */
-function IndiaStatePicker({ scope, onChange, context }: { scope: ProspectScopeValue; onChange: (next: ProspectScopeValue) => void; context: LaravelContext }) {
-  const loader = useMemo(() => createLocationLoader(opportunitiesService, context), [context])
-  const [india, setIndia] = useState<{ code: string; name: string; states: StateOption[] } | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let live = true
-    loader.countries()
-      .then((c) => {
-        const country = c.countries.find((x) => x.name.trim().toLowerCase() === DEFAULT_COUNTRY.toLowerCase())
-        if (!country) throw new Error('no country')
-        return loader.states(country.code).then((answer) => ({ code: country.code, name: country.name, states: answer.states }))
-      })
-      .then((data) => { if (live) { setIndia(data); setFailed(false) } })
-      .catch(() => { if (live) setFailed(true) })
-    return () => { live = false }
-  }, [loader, attempt])
-
-  const options: SelectOption[] = useMemo(() => (india?.states ?? []).map((s) => ({ value: s.code, label: s.name, hint: s.code })), [india])
-  const region = scope.region
-  const inIndia = !!region && !!india && region.country.trim().toLowerCase() === india.name.toLowerCase()
-  const current = inIndia && region?.state ? (options.find((o) => o.label.toLowerCase() === region.state!.toLowerCase()) ?? { value: '__saved__', label: region.state }) : null
-
-  const select = (option: SelectOption | null) => {
-    if (!india) return
-    if (option === null) {
-      onChange({ ...scope, region: { country: india.name, country_code: india.code } })   // all states: India as a whole
-      return
-    }
-    onChange({ ...scope, region: { country: india.name, country_code: india.code, state: option.label, state_code: option.value } })
-  }
-
-  return (
-    <div className="w-full min-w-56 sm:w-64">
-      <SearchableSelect
-        id="prospect-state"
-        label="State (India)"
-        options={options}
-        value={current}
-        onSelect={select}
-        loading={!india && !failed}
-        error={failed ? 'The state list could not be loaded.' : null}
-        emptyText="No state matches your search."
-        placeholder="Choose a state"
-        searchPlaceholder="Search state…"
-        clearable
-      />
-      {failed && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="mt-1 text-[11px] text-primary hover:underline">Try again</button>}
-    </div>
-  )
-}
-
 const SELECT = 'h-11 min-w-56 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /**
@@ -180,7 +118,6 @@ export function ProspectScopeBar({ products, scope, onChange, context }: {
             {CUSTOMER_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
           </select>
         </div>
-        <IndiaStatePicker scope={scope} onChange={onChange} context={context} />
         <div className="w-full min-w-56 sm:w-72">
           <RegionSelector
             single
