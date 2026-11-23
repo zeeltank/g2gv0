@@ -160,7 +160,7 @@ export function MainProductDeleteDialog({
               <p className="font-semibold text-foreground">Historical Data Preservation</p>
               <p className="text-muted-foreground leading-relaxed">
                 All existing generated signals, company opportunities, target accounts, and research history are{' '}
-                <strong className="text-foreground">safely preserved</strong> without data loss. Deleting removes the product from active dropdowns and archives associated offers.
+                <strong className="text-foreground">safely preserved</strong> without data loss. Deleting removes the product from active dropdowns. A product that still has sub-products is not deleted: archive or move them first.
               </p>
             </div>
           </div>
