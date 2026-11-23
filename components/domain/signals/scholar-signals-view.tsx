@@ -238,7 +238,7 @@ export function ScholarSignalsView({ embedded = false, refreshKey = 0 }: { embed
   const summary = data?.summary
 
   return (
-    <div className={embedded ? 'space-y-6' : 'mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8'}>
+    <div className={embedded ? 'space-y-6' : 'w-full space-y-6 p-4 sm:p-6 lg:p-8'}>
       {!embedded && (
         <>
       <header className="flex flex-col justify-between gap-4 border-b border-border pb-5 sm:flex-row sm:items-center">

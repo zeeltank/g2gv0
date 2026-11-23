@@ -11,7 +11,7 @@ import { PER_PAGE_LABELS, productChoices, readinessChoices, SOLD_CHOICES, STATUS
 function Facet({ label, value, choices, onChange }: { label: string; value: string; choices: readonly Choice[]; onChange: (value: string) => void }) {
   const id = useId()
   return (
-    <div className="flex min-w-[9rem] flex-col gap-1">
+    <div className="flex min-w-[9rem] max-w-[12rem] flex-col gap-1">
       <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
         {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
@@ -37,7 +37,7 @@ export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell
   const f = query.filters
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="w-full sm:max-w-sm sm:flex-1">
+      <div className="w-full sm:min-w-[14rem] sm:max-w-sm sm:flex-1">
         <ListSearch value={query.q} onSearch={onSearch} placeholder={canViewSell ? 'Search by name, ID, SKU or product number…' : 'Search by name or ID…'} label="Search the portfolio" />
       </div>
       <Facet label="Product" value={f.product ?? ''} choices={productChoices(lines, f.product ?? '')} onChange={(v) => onFilter('product', v)} />

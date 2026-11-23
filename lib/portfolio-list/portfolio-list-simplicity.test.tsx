@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll } from '../scaffolds/dom-test-kit'
-import { adminRows, ADMIN_CAN, envelope, HR_CAN, hrRows, SALES_CAN } from './fixtures'
+import { aboutOnly, adminRows, ADMIN_CAN, envelope, HR_CAN, hrRows, product, SALES_CAN, sold } from './fixtures'
 import { setup, type SetupOptions } from './screen-setup'
 
 /**
@@ -105,6 +105,65 @@ describe('one list, no second view', () => {
   })
 })
 
+describe('a list that reads as sections: each Product a band, its Sub-products the rows under it', () => {
+  let current: Awaited<ReturnType<typeof setup>> | null = null
+  afterEach(async () => { current?.restore(); current = null; await disposeAll() })
+
+  // Owner, 23 Nov 2026, from screenshots of the live list: "the product / sub-product hierarchy looks confusing, clumsy, mixed, no separation".
+  it('draws each Product as a solid band with an accent on its left edge, a heavier rule above it and its count and action on the right, never as a row like the others', async () => {
+    current = await setup()
+    const groups = current.k.all('tr[data-group]')
+    assert.ok(groups.length >= 3)
+    for (const tr of groups) {
+      assert.match(tr.className, /(^|\s)bg-muted(\s|$)/, 'a solid band, not a faint tint (bg-muted/40)')
+      assert.match(tr.className, /border-l-primary/, 'with an accent on its left edge')
+      assert.match(tr.className, /border-t-2/, 'and a heavier rule above it')
+    }
+    const scholar = current.rowOf('ScholarClone')!
+    assert.ok(scholar.querySelector('span.ml-auto')?.textContent?.includes('3 sub-products'), 'the count sits on the right, away from the name and its labels')
+    assert.ok(scholar.querySelector('span.ml-auto button'), 'and so does its one action')
+  })
+
+  it('draws a Sub-product under its Product with an elbow line before its name, and no Product band has one', async () => {
+    current = await setup()
+    const { k, rowOf } = current
+    for (const name of ['Fees Intelligence', 'Scholar School ERP', 'ScholarClone Implementation']) assert.ok(rowOf(name)!.querySelector('td span[aria-hidden="true"].border-l-2'), `${name} has the elbow`)
+    assert.equal(k.all('tr[data-group] span[aria-hidden="true"].border-l-2').length, 0, 'a Product band has none')
+  })
+
+  it('has no Type column (a Sub-product under a Product needs no label on every row) and labels only a Service', async () => {
+    current = await setup()
+    const { heads, rowOf } = current
+    assert.ok(!heads().includes('Type'))
+    assert.ok(!rowOf('Fees Intelligence')!.textContent!.includes('Sub-product'), 'no row repeats the word Sub-product')
+    assert.ok(rowOf('ScholarClone Implementation')!.textContent!.includes('Service'), 'a Service is labelled')
+    assert.ok(!rowOf('Fees Intelligence')!.textContent!.includes('Service'))
+  })
+
+  it('gives every column heading one look: the sort buttons take the cell\'s capitals and the one sorted by is darker', async () => {
+    current = await setup()
+    const sortButtons = current.k.all('thead th button')
+    assert.ok(sortButtons.length >= 3)
+    for (const b of sortButtons) {
+      assert.match(b.className, /\buppercase\b/)
+      assert.doesNotMatch(b.className, /normal-case/)
+    }
+    assert.match(sortButtons.find((b) => b.textContent?.trim() === 'Name')!.className, /text-foreground/, 'the sorted-by heading is darker')
+  })
+
+  it('draws nothing in the Sell cells of a Sub-product that is not sold, and a dash where a SOLD one has a gap', async () => {
+    // the second row carries the Sell keys with nothing in them (what the API sends a caller who may view Sell for a record with no Sell side)
+    const keysWithNothing = aboutOnly({ id: 33, name: 'Keys but no Sell side', sku: null, unitPrice: null, category: null, qtyInStock: null, currency: null, hasSell: false })
+    current = await setup({ rows: [product(), sold({ id: 31, name: 'Sold without a category', category: null }), aboutOnly({ id: 32, name: 'Not sold yet' }), keysWithNothing] })
+    const cells = (name: string) => Array.from(current!.rowOf(name)!.querySelectorAll('td'))
+    // td: tick, name, SKU, Price, Category, In stock, Sold in CRM, Readiness, Signals, ICP
+    for (const name of ['Not sold yet', 'Keys but no Sell side']) {
+      assert.deepEqual(cells(name).slice(2, 6).map((td) => td.textContent?.trim()), ['', '', '', ''], `${name}: no dashes in SKU, Price, Category, In stock`)
+    }
+    assert.equal(cells('Sold without a category')[4]!.textContent?.trim(), '—', 'a sold one with no category shows the gap')
+  })
+})
+
 describe('plain words, not codes', () => {
   let current: Awaited<ReturnType<typeof setup>> | null = null
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })
@@ -132,7 +191,7 @@ describe('plain words, not codes', () => {
     current = await setup({ rows: hrRows(), can: HR_CAN, canManage: true })
     const { k, text, heads, openMore } = current
     for (const word of ['SKU', 'Price', 'Category', 'In stock', 'Sold in CRM', 'INR', 'Unit Price', 'Qty In Stock']) assert.ok(!text().includes(word), `HR sees "${word}"`)
-    assert.deepEqual(heads(), ['', 'Name', 'Type', 'Readiness', 'Signals', 'ICP'])
+    assert.deepEqual(heads(), ['', 'Name', 'Readiness', 'Signals', 'ICP'])
     // caller check (23 Nov): a price cell drawn for a person who may not see prices would be an extra column with no heading (the rows carry no price, so it shows a dash)
     const sub = k.all('tbody tr').find((row) => row.querySelectorAll('td').length > 1)
     assert.ok(sub !== undefined, 'the table has a Sub-product row')
