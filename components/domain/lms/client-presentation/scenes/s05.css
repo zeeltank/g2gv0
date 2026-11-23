@@ -1,0 +1,14 @@
+/* Slide 5: introducing the name */
+.s05-wash { position: absolute; inset: 0; background: radial-gradient(900px 900px at 22% 50%, rgba(16, 136, 246, 0.22), transparent 68%), radial-gradient(1100px 700px at 100% 100%, rgba(11, 60, 115, 0.6), transparent 70%); }
+.s05-mark { position: absolute; left: 70px; top: 190px; width: 700px; height: 700px; }
+.s05-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.s05-logo { position: absolute; left: 130px; top: 130px; width: 440px; height: 440px; object-fit: contain; border-radius: 50%; background: #fff; box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.65); }
+.s05-copy { position: absolute; left: 900px; right: 120px; top: 120px; bottom: 100px; display: flex; flex-direction: column; justify-content: center; }
+.s05-brand { margin: 0 0 26px; font-size: 30px; letter-spacing: 0.3em; color: #7fb6ff; opacity: 1; }
+.s05-pos { margin: 0; font-size: 60px; line-height: 1.14; color: #fff; }
+.s05-def { margin: 44px 0 0; font-size: 31px; line-height: 1.42; font-weight: 500; color: #cfdced; max-width: 880px; padding-left: 26px; border-left: 3px solid var(--cp-blue); }
+.s05-legend { margin-top: 52px; }
+.s05-legend-t { margin: 0 0 18px; font-size: 24px; font-weight: 600; color: #b7c7da; }
+.s05-legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.s05-legend li { display: flex; align-items: center; gap: 22px; font-size: 25px; font-weight: 500; color: #dce9f7; }
+.s05-legend li .cp-badge { min-width: 238px; }

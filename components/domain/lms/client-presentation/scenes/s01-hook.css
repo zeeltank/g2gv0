@@ -1,0 +1,30 @@
+/* Slide 1 (and the resolved backdrop on slide 15) */
+.hb-base { inset: 0; filter: blur(16px) brightness(0.5) saturate(0.85); transform: scale(1.06); }
+.hb-sharp {
+  inset: 0; --fx: 60%; --fy: 58%; --fr: 300px;
+  filter: contrast(1.05) saturate(0.92);
+  -webkit-mask-image: radial-gradient(circle at var(--fx) var(--fy), #000 0, #000 var(--fr), transparent calc(var(--fr) + 300px));
+  mask-image: radial-gradient(circle at var(--fx) var(--fy), #000 0, #000 var(--fr), transparent calc(var(--fr) + 300px));
+}
+.hb-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3, 12, 22, 0.94) 0%, rgba(3, 12, 22, 0.78) 34%, rgba(3, 12, 22, 0.2) 66%, rgba(3, 12, 22, 0.35) 100%), linear-gradient(0deg, rgba(3, 12, 22, 0.55) 0%, transparent 38%); pointer-events: none; }
+.hb-web { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hb-pt { filter: drop-shadow(0 0 10px rgba(159, 208, 255, 0.95)); }
+
+.s01-copy { position: absolute; left: 140px; top: 0; bottom: 0; width: 1280px; display: flex; flex-direction: column; justify-content: center; }
+.s01-h { margin: 0; color: #fff; text-shadow: 0 2px 40px rgba(0, 0, 0, 0.45); }
+.s01-h em { color: #9fd0ff; }
+.s01-support { margin: 56px 0 0; font-size: 40px; line-height: 1.3; font-weight: 500; color: #dce9f7; max-width: 900px; }
+.s01-closing { position: absolute; left: 140px; bottom: 88px; margin: 0; font-size: 27px; font-weight: 600; letter-spacing: 0.01em; color: #b7c7da; max-width: 760px; }
+.s01-closing::before { content: ''; display: block; width: 72px; height: 2px; background: var(--cp-blue); margin-bottom: 20px; }
+
+.s15-copy { position: absolute; left: 140px; top: 92px; width: 1180px; }
+.s15-h { margin: 0; color: #fff; font-size: 104px; line-height: 1.02; text-shadow: 0 2px 40px rgba(0, 0, 0, 0.5); }
+.s15-support { margin: 34px 0 0; font-size: 38px; line-height: 1.3; font-weight: 500; color: #dce9f7; max-width: 1000px; }
+.s15-items { position: absolute; left: 140px; right: 140px; bottom: 150px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; list-style: none; margin: 0; padding: 0; }
+.s15-item { border-top: 2px solid rgba(255, 255, 255, 0.35); padding-top: 18px; font-size: 29px; line-height: 1.3; font-weight: 600; color: #fff; }
+.s15-item b { display: block; font-size: 20px; letter-spacing: 0.18em; color: #9fd0ff; margin-bottom: 10px; }
+.s15-close { position: absolute; left: 140px; bottom: 62px; margin: 0; font-size: 31px; font-weight: 700; color: #fff; letter-spacing: 0.01em; }
+.s15-contact { position: absolute; right: 140px; bottom: 54px; padding: 12px 22px; border: 2px dashed rgba(255, 255, 255, 0.5); border-radius: 10px; font-size: 21px; font-weight: 600; color: #dce9f7; }
+
+/* The invitation sits on a darker lower band so the four items stay readable over the brightest part of the photograph. */
+.s15-band { position: absolute; left: 0; right: 0; bottom: 0; height: 520px; background: linear-gradient(0deg, rgba(3, 12, 22, 0.88) 0%, rgba(3, 12, 22, 0.55) 55%, transparent 100%); pointer-events: none; }

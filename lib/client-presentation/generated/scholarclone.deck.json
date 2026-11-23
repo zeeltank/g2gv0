@@ -1,0 +1,1366 @@
+{
+ "product": "scholarclone",
+ "title": "ScholarClone: What is your school not seeing?",
+ "slides": [
+  {
+   "n": 1,
+   "id": "hook",
+   "section": "Curiosity",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "What is your school not seeing?",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "support",
+     "text": "Even when it has the data, the reports and the software.",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "closing",
+     "text": "Discover what becomes possible when your school starts connecting the dots.",
+     "kind": "approved-copy"
+    }
+   ],
+   "say": "Pause on the question. Do not explain anything. Let them answer first: what do you think a school like yours might not be seeing?",
+   "ask": "What would you say your school is not seeing today?",
+   "transition": "You already hold a lot of information. Let us look at where it comes from.",
+   "slots": [
+    {
+     "id": "img-hook",
+     "type": "photo",
+     "brief": "Modern Indian school classroom, students and teacher, natural light, shallow depth of field. Licensed photo; AI image only if the owner says yes."
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "id": "hidden-question",
+   "section": "Curiosity",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "What if the information your school already has could help you see more clearly?",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "ring",
+     "text": "Student performance",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Attendance",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Fees",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Teacher activities",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Examinations",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "School operations",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Parent communication",
+     "kind": "label"
+    },
+    {
+     "role": "ring",
+     "text": "Learning activities",
+     "kind": "label"
+    },
+    {
+     "role": "support",
+     "text": "The challenge is not always missing data. Sometimes it is connecting what you already have.",
+     "kind": "statement"
+    }
+   ],
+   "say": "Every school already produces all of these. Ask which of them the principal sees together on one day.",
+   "ask": "Which two of these do you look at side by side today?",
+   "transition": "Let us make this real with one student.",
+   "slots": [
+    {
+     "id": "img-principal",
+     "type": "photo",
+     "brief": "School principal at a desk in an Indian school office, not looking at camera. Licensed photo."
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "id": "familiar-situation",
+   "section": "Recognition",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "A student keeps struggling. The school has the records. What happens next?",
+     "kind": "statement"
+    },
+    {
+     "role": "card",
+     "text": "Examination marks",
+     "kind": "label"
+    },
+    {
+     "role": "card",
+     "text": "Classroom observations",
+     "kind": "label"
+    },
+    {
+     "role": "card",
+     "text": "A parent's concern",
+     "kind": "label"
+    },
+    {
+     "role": "compare-left",
+     "text": "Recorded: the problem is written down.",
+     "kind": "statement"
+    },
+    {
+     "role": "compare-right",
+     "text": "Understood: the gap is found, the next learning step is clear, and progress is reviewed.",
+     "kind": "statement"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative situation, to validate with you",
+     "kind": "label"
+    }
+   ],
+   "say": "Make clear this is an illustration, not a customer story. Ask them to recognise it, not to agree with us.",
+   "ask": "Does this happen in your school? What usually happens after the marks are in?",
+   "transition": "So what separates a record from a next step?",
+   "slots": [
+    {
+     "id": "img-student",
+     "type": "photo",
+     "brief": "Indian school student writing in a notebook, face turned or hands only. Licensed photo."
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "id": "info-to-action",
+   "section": "Recognition",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "Information is not yet action.",
+     "kind": "statement"
+    },
+    {
+     "role": "step",
+     "text": "School information",
+     "kind": "label"
+    },
+    {
+     "role": "step",
+     "text": "Understanding",
+     "kind": "label"
+    },
+    {
+     "role": "step",
+     "text": "Identifying the gap",
+     "kind": "label"
+    },
+    {
+     "role": "step",
+     "text": "Deciding what to do",
+     "kind": "label"
+    },
+    {
+     "role": "step",
+     "text": "Taking action",
+     "kind": "label"
+    },
+    {
+     "role": "step",
+     "text": "Reviewing progress",
+     "kind": "label"
+    },
+    {
+     "role": "ask",
+     "text": "Where does your school's information stop today?",
+     "kind": "question"
+    },
+    {
+     "role": "chooser",
+     "text": "Which of these matters most to you?",
+     "kind": "question"
+    },
+    {
+     "role": "chip",
+     "text": "A principal's morning",
+     "kind": "label"
+    },
+    {
+     "role": "chip",
+     "text": "A student who is struggling",
+     "kind": "label"
+    },
+    {
+     "role": "chip",
+     "text": "A teacher who needs development",
+     "kind": "label"
+    },
+    {
+     "role": "chip",
+     "text": "A difficult leadership decision",
+     "kind": "label"
+    },
+    {
+     "role": "chip",
+     "text": "A student exploring a future",
+     "kind": "label"
+    }
+   ],
+   "say": "Walk the line slowly. Then stop and ask where their information stops. Let the leader pick the chip; follow the leader, not the script.",
+   "ask": "Where does your school's information stop today? Which situation matters most to you?",
+   "transition": "Let us look at how a school can close that gap.",
+   "slots": []
+  },
+  {
+   "n": 5,
+   "id": "introducing",
+   "section": "The answer",
+   "badge": null,
+   "lines": [
+    {
+     "role": "brand",
+     "text": "ScholarClone",
+     "kind": "label"
+    },
+    {
+     "role": "headline",
+     "text": "An integrated intelligent K–12 platform designed to help schools connect information, support better decisions and take meaningful action.",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "definition",
+     "text": "School Intelligence means helping a school understand what its information is telling it, where attention is needed and what action may be appropriate next.",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "legend",
+     "text": "We show what works today and what is still ahead, separately.",
+     "kind": "statement"
+    },
+    {
+     "role": "legend-item",
+     "text": "LIVE",
+     "kind": "label"
+    },
+    {
+     "role": "legend-item",
+     "text": "PARTIAL",
+     "kind": "label"
+    },
+    {
+     "role": "legend-item",
+     "text": "CONCEPTUAL",
+     "kind": "label"
+    },
+    {
+     "role": "legend-hint",
+     "text": "Works today.",
+     "kind": "statement"
+    },
+    {
+     "role": "legend-hint",
+     "text": "Parts work today. The slide says which.",
+     "kind": "statement"
+    },
+    {
+     "role": "legend-hint",
+     "text": "Design intent. Not built.",
+     "kind": "statement"
+    }
+   ],
+   "say": "Only now introduce the name. Read the definition once in plain words. Tell them the deck will always mark what works today and what is ahead.",
+   "ask": "Does that match how you would describe what you need?",
+   "transition": "Here is how the pieces fit together.",
+   "slots": [
+    {
+     "id": "img-logo",
+     "type": "brand",
+     "brief": "ScholarClone logo ring extracted from the product page. Owner to confirm the file to use."
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "id": "ecosystem",
+   "section": "The answer",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "Six products, one idea: see, decide, act.",
+     "kind": "statement"
+    },
+    {
+     "role": "product",
+     "text": "Scholar One: Integrated Intelligent School Platform",
+     "kind": "fact",
+     "badge": "CONCEPTUAL"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Core: Intelligent School Operations",
+     "kind": "fact",
+     "badge": "LIVE"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Learn: AI-Powered Personalised Learning",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "product",
+     "text": "Scholar CCB: Competence and Capability Intelligence",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Insight: School Intelligence",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Compass: Student Career Intelligence",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "note",
+     "text": "Scholar One is the connecting layer. Some connections work today (see slide 13); the rest are design intent.",
+     "kind": "statement"
+    }
+   ],
+   "say": "Do not read all six. Say what each one is for in one phrase, then point at the badges: this is where we are honest about status.",
+   "ask": "Which of these would you start with if you had to choose one?",
+   "transition": "Start with the part that runs the school every day.",
+   "slots": []
+  },
+  {
+   "n": 7,
+   "id": "core",
+   "section": "Operations",
+   "badge": "LIVE",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "The everyday work of the school, off the registers and into workflows",
+     "kind": "statement"
+    },
+    {
+     "role": "row",
+     "text": "Fees: collection, online payment through the school's payment gateway, and cheque reconciliation.",
+     "kind": "fact"
+    },
+    {
+     "role": "row",
+     "text": "Attendance: daily student and staff attendance with reports.",
+     "kind": "fact"
+    },
+    {
+     "role": "row",
+     "text": "Examinations: exam creation, marks entry and result reports.",
+     "kind": "fact"
+    },
+    {
+     "role": "more",
+     "text": "Also: admissions, student records, staff payroll, and messages to parents.",
+     "kind": "fact"
+    },
+    {
+     "role": "situation",
+     "text": "School situation (typical, to validate): collection, registers and marks are kept by hand and compiled at the end.",
+     "kind": "illustration"
+    },
+    {
+     "role": "value",
+     "text": "What could become easier: a clearer picture of collection, absence and results without compiling by hand.",
+     "kind": "statement"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "Pick the one workflow the leader cares about. Detail for the other four is in the notes and a supporting slide.",
+   "ask": "Where do you currently find out something has gone wrong in fees or attendance?",
+   "transition": "Operations tell you what happened. Learning shows what to do about it for a student.",
+   "slots": [
+    {
+     "id": "shot-fees",
+     "type": "screenshot",
+     "brief": "Fee collection screen, demo data, authorised environment."
+    },
+    {
+     "id": "shot-attendance",
+     "type": "screenshot",
+     "brief": "Student attendance marking screen, demo data."
+    },
+    {
+     "id": "shot-marks",
+     "type": "screenshot",
+     "brief": "Marks entry or report card screen, demo data."
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "id": "learn",
+   "section": "Learning",
+   "badge": "PARTIAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "From 'who failed' to 'what to learn next'",
+     "kind": "statement"
+    },
+    {
+     "role": "step",
+     "text": "Assessment",
+     "kind": "label",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Diagnosis",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Plan drawn from the diagnosis",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Content for the weak concepts",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Practice at the right level",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Evaluation",
+     "kind": "label",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Next learning step",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "today",
+     "text": "Works today: a diagnostic that finds weak concepts, a plan, recommended content, adaptive practice, and one clear next action.",
+     "kind": "fact"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "In plain words: find what the student does not yet understand, plan from it, practise, check, then decide what comes next. Say clearly that students do not set their own goals in the product today.",
+   "ask": "How does a teacher find out today which concept a student is stuck on?",
+   "transition": "Teachers carry the rest of this load. Here is where AI helps them.",
+   "slots": [
+    {
+     "id": "shot-diagnostic",
+     "type": "screenshot",
+     "brief": "Diagnostic result with concept breakdown, demo student."
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "id": "teacher-ai",
+   "section": "Learning",
+   "badge": "PARTIAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "Less time preparing, more time coaching",
+     "kind": "statement"
+    },
+    {
+     "role": "row",
+     "text": "AI can draft questions and learning content for school staff to use.",
+     "kind": "fact"
+    },
+    {
+     "role": "row",
+     "text": "Chapter content can become flashcards, true/false questions or a short presentation.",
+     "kind": "fact"
+    },
+    {
+     "role": "value",
+     "text": "What could become easier: repeated preparation, more activity options for different learning needs, and more time to coach and mentor.",
+     "kind": "statement"
+    },
+    {
+     "role": "principle",
+     "text": "AI supports the teacher. The teacher stays in charge of the classroom.",
+     "kind": "statement"
+    },
+    {
+     "role": "source",
+     "text": "Chapter content",
+     "kind": "fact"
+    },
+    {
+     "role": "output",
+     "text": "Flashcards",
+     "kind": "fact"
+    },
+    {
+     "role": "output",
+     "text": "True/false questions",
+     "kind": "fact"
+    },
+    {
+     "role": "output",
+     "text": "A short presentation",
+     "kind": "fact"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "Keep it concrete: the teacher picks a chapter and gets drafts to adjust. Do not promise checking or approval steps until verified.",
+   "ask": "Which part of preparation takes most of your teachers' time today?",
+   "transition": "Teachers also need support to grow. Here is how that can be tracked.",
+   "slots": [
+    {
+     "id": "img-teacher",
+     "type": "photo",
+     "brief": "Indian school teacher with small group of students, natural light. Licensed photo."
+    },
+    {
+     "id": "shot-generate",
+     "type": "screenshot",
+     "brief": "Question or content generation screen, demo data."
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "id": "ccb",
+   "section": "People",
+   "badge": "PARTIAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "From occasional training to continuing development",
+     "kind": "statement"
+    },
+    {
+     "role": "step",
+     "text": "Role",
+     "kind": "label",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Competencies",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Ratings",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Gap",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Development plan",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Progress, action by action",
+     "kind": "fact",
+     "mark": "partial"
+    },
+    {
+     "role": "today",
+     "text": "Works today: staff rated on each competency; a gap view; a development plan with actions that can be updated.",
+     "kind": "fact"
+    },
+    {
+     "role": "ahead",
+     "text": "Not yet built for schools: a progress roster across all staff, and suggested learning assigned automatically from a gap.",
+     "kind": "concept"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative teacher situation, to validate with you",
+     "kind": "label"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions. Be open that a progress view across all staff and automatic learning suggestions are not built for schools yet.",
+   "ask": "How do you know today whether a training you ran changed what a teacher can do?",
+   "transition": "Everything so far produces signals. Leaders need them in one place.",
+   "slots": [
+    {
+     "id": "img-staffroom",
+     "type": "photo",
+     "brief": "Teacher in school corridor or staff room, Indian context, licensed photo."
+    },
+    {
+     "id": "shot-gap",
+     "type": "screenshot",
+     "brief": "Competency gap or development plan screen, demo data."
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "id": "insight",
+   "section": "Leadership",
+   "badge": "PARTIAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "See where attention is needed. Decide. Review.",
+     "kind": "statement"
+    },
+    {
+     "role": "step",
+     "text": "Information",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Identify a gap",
+     "kind": "fact",
+     "mark": "partial"
+    },
+    {
+     "role": "step",
+     "text": "Understand the situation",
+     "kind": "fact",
+     "mark": "partial"
+    },
+    {
+     "role": "step",
+     "text": "Decide an action",
+     "kind": "fact",
+     "mark": "built"
+    },
+    {
+     "role": "step",
+     "text": "Monitor progress",
+     "kind": "label",
+     "mark": "partial"
+    },
+    {
+     "role": "today",
+     "text": "Works today: signals from several functions; an attendance and results comparison across classes; an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve, reject or defer.",
+     "kind": "fact"
+    },
+    {
+     "role": "limit",
+     "text": "This shows association between measures, not cause.",
+     "kind": "statement"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative case, to validate with you",
+     "kind": "label"
+    },
+    {
+     "role": "thread",
+     "text": "Fall in assessment results",
+     "kind": "fact"
+    },
+    {
+     "role": "thread",
+     "text": "Attendance risk",
+     "kind": "fact"
+    },
+    {
+     "role": "thread",
+     "text": "Missed assignments",
+     "kind": "fact"
+    },
+    {
+     "role": "case",
+     "text": "One case, with a recommended action",
+     "kind": "fact"
+    },
+    {
+     "role": "decision",
+     "text": "Approve",
+     "kind": "fact"
+    },
+    {
+     "role": "decision",
+     "text": "Reject",
+     "kind": "fact"
+    },
+    {
+     "role": "decision",
+     "text": "Defer",
+     "kind": "fact"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "This is decision support, not automation. Say the comparison shows a link, not a cause. Do not describe it as a forecast or as finding students early.",
+   "ask": "When a report arrives, who decides what happens next, and where is that recorded?",
+   "transition": "One more thread: where does a student's future fit in?",
+   "slots": [
+    {
+     "id": "shot-case",
+     "type": "screenshot",
+     "brief": "Academic-risk case with recommendation, demo data."
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "id": "compass",
+   "section": "Students",
+   "badge": "PARTIAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "A career conversation that starts from evidence",
+     "kind": "statement"
+    },
+    {
+     "role": "row",
+     "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations.",
+     "kind": "fact"
+    },
+    {
+     "role": "row",
+     "text": "An aspiration is compared with interests and learning evidence. When the evidence is thin, the result says so and does not guess.",
+     "kind": "fact"
+    },
+    {
+     "role": "limit",
+     "text": "This guides exploration. It does not forecast a student's career.",
+     "kind": "statement"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative situation, to validate with you",
+     "kind": "label"
+    },
+    {
+     "role": "circle",
+     "text": "Interests",
+     "kind": "fact"
+    },
+    {
+     "role": "circle",
+     "text": "Learning evidence",
+     "kind": "fact"
+    },
+    {
+     "role": "aspiration",
+     "text": "Aspiration",
+     "kind": "fact"
+    },
+    {
+     "role": "result",
+     "text": "Aligned",
+     "kind": "fact"
+    },
+    {
+     "role": "result",
+     "text": "Not aligned",
+     "kind": "fact"
+    },
+    {
+     "role": "result",
+     "text": "Not enough evidence",
+     "kind": "fact"
+    },
+    {
+     "role": "proof",
+     "text": "Screenshot to be supplied from an authorised environment.",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "Lead with the honest part: when there is not enough evidence the product says so. Never say competencies or any career outcome.",
+   "ask": "What does career guidance look like for your senior classes today?",
+   "transition": "Now the part that matters most: how these connect.",
+   "slots": [
+    {
+     "id": "img-counsel",
+     "type": "photo",
+     "brief": "Senior student with a school counsellor, Indian context, licensed photo."
+    },
+    {
+     "id": "shot-alignment",
+     "type": "screenshot",
+     "brief": "Career alignment result screen, demo data."
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "id": "connected",
+   "section": "Connected",
+   "badge": "CONCEPTUAL",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "What is connected today, and what is not yet",
+     "kind": "statement"
+    },
+    {
+     "role": "node",
+     "text": "School operations",
+     "kind": "label"
+    },
+    {
+     "role": "node",
+     "text": "Student learning",
+     "kind": "label"
+    },
+    {
+     "role": "node",
+     "text": "Teacher capability",
+     "kind": "label"
+    },
+    {
+     "role": "node",
+     "text": "Leadership",
+     "kind": "label"
+    },
+    {
+     "role": "node",
+     "text": "Career exploration",
+     "kind": "label"
+    },
+    {
+     "role": "link-built",
+     "text": "A submitted online exam adds to the student's career evidence automatically.",
+     "kind": "fact"
+    },
+    {
+     "role": "link-built",
+     "text": "Attendance and results are compared across classes.",
+     "kind": "fact"
+    },
+    {
+     "role": "link-built",
+     "text": "Results, attendance and assignments are joined into one risk case.",
+     "kind": "fact"
+    },
+    {
+     "role": "link-concept",
+     "text": "Design intent, not built: practice results into career evidence on their own; staff capability into career mentoring; suggested learning from a staff gap; one view across learning, staff and career.",
+     "kind": "concept"
+    },
+    {
+     "role": "legend",
+     "text": "Solid line: works today. Dashed line: design intent.",
+     "kind": "statement"
+    }
+   ],
+   "say": "Be plain: three connections work today and the rest are where we want to go. That honesty is the trust-builder.",
+   "ask": "Which missing connection would matter most to your school?",
+   "transition": "Let us put it in a day.",
+   "slots": []
+  },
+  {
+   "n": 14,
+   "id": "principals-day",
+   "section": "In practice",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "A principal's morning",
+     "kind": "statement"
+    },
+    {
+     "role": "q",
+     "text": "Which students may need attention?",
+     "kind": "question"
+    },
+    {
+     "role": "q",
+     "text": "Which learning areas need support?",
+     "kind": "question"
+    },
+    {
+     "role": "q",
+     "text": "Where do teachers need development?",
+     "kind": "question"
+    },
+    {
+     "role": "q",
+     "text": "Which operational issues need action?",
+     "kind": "question"
+    },
+    {
+     "role": "q",
+     "text": "What comes first today?",
+     "kind": "question"
+    },
+    {
+     "role": "note",
+     "text": "Today the answers sit in different screens. One morning view across them is design intent.",
+     "kind": "concept"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative scenario, not a customer case",
+     "kind": "label"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Insight · PARTIAL",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Learn · PARTIAL",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar CCB · PARTIAL",
+     "kind": "fact",
+     "badge": "PARTIAL"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Core · LIVE",
+     "kind": "fact",
+     "badge": "LIVE"
+    },
+    {
+     "role": "q-answer",
+     "text": "One morning view: design intent",
+     "kind": "concept",
+     "badge": "CONCEPTUAL"
+    }
+   ],
+   "say": "Let the principal choose one question and follow it through its product. Say plainly that a single morning view is not built.",
+   "ask": "Which of these five do you answer first on a normal morning?",
+   "transition": "If this feels worth testing, here is how we would start together.",
+   "slots": [
+    {
+     "id": "img-arrival",
+     "type": "photo",
+     "brief": "Principal arriving at an Indian school in the morning, licensed photo."
+    }
+   ]
+  },
+  {
+   "n": 15,
+   "id": "invitation",
+   "section": "Invitation",
+   "badge": null,
+   "lines": [
+    {
+     "role": "headline",
+     "text": "Let's discover what your school could see differently.",
+     "kind": "approved-copy"
+    },
+    {
+     "role": "support",
+     "text": "We would like to talk with you about the Founding 25 Pilot Programme.",
+     "kind": "invitation"
+    },
+    {
+     "role": "item",
+     "text": "1. The challenge that matters most to your school",
+     "kind": "invitation"
+    },
+    {
+     "role": "item",
+     "text": "2. The first capability to explore",
+     "kind": "invitation"
+    },
+    {
+     "role": "item",
+     "text": "3. The people who should be involved",
+     "kind": "invitation"
+    },
+    {
+     "role": "item",
+     "text": "4. The evidence or improvement your school wants to review",
+     "kind": "invitation"
+    },
+    {
+     "role": "close",
+     "text": "The next step is a conversation.",
+     "kind": "invitation"
+    },
+    {
+     "role": "contact",
+     "text": "[Presenter name, phone and email to be added]",
+     "kind": "placeholder"
+    }
+   ],
+   "say": "Do not sell. Ask which of the four items they can name today and offer to start there.",
+   "ask": "What is the one challenge you would want to look at first?",
+   "transition": "",
+   "slots": [
+    {
+     "id": "img-hook",
+     "type": "photo",
+     "brief": "Same photograph as slide 1, used again in focus."
+    }
+   ]
+  }
+ ],
+ "short": [
+  {
+   "n": 1,
+   "title": "Curiosity hook",
+   "uses": [
+    1
+   ]
+  },
+  {
+   "n": 2,
+   "title": "The hidden school challenge",
+   "uses": [
+    2,
+    4
+   ]
+  },
+  {
+   "n": 3,
+   "title": "ScholarClone's approach",
+   "uses": [
+    5,
+    6
+   ]
+  },
+  {
+   "n": 4,
+   "title": "One customer scenario",
+   "uses": [
+    14
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Invitation",
+   "uses": [
+    15
+   ]
+  }
+ ],
+ "scenarios": [
+  {
+   "id": "sc-principal",
+   "n": 1,
+   "title": "The principal's morning",
+   "label": "Illustrative",
+   "slide": 14,
+   "situation": "It is a quarter to eight. The principal has a few minutes before assembly and wants to know where to look first.",
+   "challenge": "Fees, attendance, results and staff matters sit in different places, so deciding where to look takes time.",
+   "capability": "Scholar Insight (PARTIAL): signals from several functions and risk cases; Scholar Core (LIVE): fees and attendance reports.",
+   "next_action": "Open the cases waiting for a decision; ask the accounts head about the fee follow-up list; speak to one class teacher.",
+   "value": "The first hour can go to acting, not searching. A single morning view across all of this is design intent, not built."
+  },
+  {
+   "id": "sc-student",
+   "n": 2,
+   "title": "A student who is struggling",
+   "label": "Illustrative",
+   "slide": 8,
+   "situation": "A Class 7 student has scored low in two tests in a row. The teacher has notes and a parent has called.",
+   "challenge": "The school has the marks and the concern but not a clear picture of which concepts need work.",
+   "capability": "Scholar Learn (PARTIAL): a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.",
+   "next_action": "Start with the concepts marked weak; practise at the right level; use the next action after practice.",
+   "value": "The conversation with the parent can name specific concepts and a plan."
+  },
+  {
+   "id": "sc-teacher",
+   "n": 3,
+   "title": "A teacher who needs development",
+   "label": "Illustrative",
+   "slide": 10,
+   "situation": "A teacher and the head of department both rate the teacher lower on assessment design.",
+   "challenge": "A training day may have been held, but nobody can say whether that competency has changed.",
+   "capability": "Scholar CCB (PARTIAL): ratings, a gap, a development plan with actions, and progress tracking.",
+   "next_action": "Agree two actions in a development plan; re-rate after the review date.",
+   "value": "Development is tied to a stated gap and followed up. Suggested learning assigned automatically for school staff is design intent."
+  },
+  {
+   "id": "sc-decision",
+   "n": 4,
+   "title": "A school leader making a difficult decision",
+   "label": "Illustrative",
+   "slide": 11,
+   "situation": "A director must decide whether to add remedial support for one grade next term.",
+   "challenge": "Opinions differ and the evidence is spread across attendance, results and teacher notes.",
+   "capability": "Scholar Insight (PARTIAL): an attendance and results comparison across classes, and risk cases with a recommendation a person approves, rejects or defers.",
+   "next_action": "Review the comparison and the cases; record the decision.",
+   "value": "The decision is made with evidence on screen, and the decision is recorded. The comparison shows a link, not a cause."
+  },
+  {
+   "id": "sc-career",
+   "n": 5,
+   "title": "A student exploring a future",
+   "label": "Illustrative",
+   "slide": 12,
+   "situation": "A senior-class student says they want a particular career but has not looked at their own interests or strengths.",
+   "challenge": "A counselling conversation has little evidence to start from.",
+   "capability": "Scholar Compass (PARTIAL): interest profile, aspirations, and an alignment result that says so when the evidence is thin.",
+   "next_action": "Use the result to open the conversation; add evidence where it is thin.",
+   "value": "The conversation starts from evidence. Nothing is promised about the student's career."
+  }
+ ],
+ "assets": {
+  "img-hook": {
+   "type": "photo",
+   "src": "/client-presentation/scholarclone/images/img-hook.webp",
+   "alt": "A bright modern classroom: a teacher at an interactive display and students seen from behind",
+   "credit": "Photo: Gokuldham Nar / Pexels. Illustrative stock imagery.",
+   "ai": false,
+   "w": 2560,
+   "h": 1707,
+   "focus": null
+  },
+  "img-principal": {
+   "type": "photo",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "img-student": {
+   "type": "photo",
+   "src": "/client-presentation/scholarclone/images/img-student.webp",
+   "alt": "A student writing in a notebook, seen over the shoulder",
+   "credit": "Photo: Katerina Holmes / Pexels. Illustrative stock imagery.",
+   "ai": false,
+   "w": 2000,
+   "h": 1333,
+   "focus": null
+  },
+  "img-logo": {
+   "type": "brand",
+   "src": "/client-presentation/scholarclone/brand/logo-ring.png",
+   "alt": "ScholarClone logo: a blue and green ring reading Teach & Learn, Test & Assessment, Curricula Planning, Report & Analytics, around the Scholar Clone wordmark",
+   "credit": null,
+   "ai": false,
+   "w": 400,
+   "h": 400,
+   "focus": null
+  },
+  "shot-fees": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "shot-attendance": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "shot-marks": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "shot-diagnostic": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "img-teacher": {
+   "type": "photo",
+   "src": "/client-presentation/scholarclone/images/img-teacher.webp",
+   "alt": "A teacher talking with a small group of boys in a classroom",
+   "credit": "Photo: Fahad Puthawala / Pexels. Illustrative stock imagery.",
+   "ai": false,
+   "w": 2000,
+   "h": 1333,
+   "focus": null
+  },
+  "shot-generate": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "img-staffroom": {
+   "type": "photo",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "shot-gap": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "shot-case": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "img-counsel": {
+   "type": "photo",
+   "src": "/client-presentation/scholarclone/images/img-counsel.webp",
+   "alt": "An adult and a student talking calmly across a table",
+   "credit": "Photo: World Sikh Organization of Canada / Pexels. Illustrative stock imagery.",
+   "ai": false,
+   "w": 2000,
+   "h": 1385,
+   "focus": null
+  },
+  "shot-alignment": {
+   "type": "screenshot",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "img-arrival": {
+   "type": "photo",
+   "src": "/client-presentation/scholarclone/images/img-arrival.webp",
+   "alt": "Schoolgirls in uniform walking along a tree-lined road in the morning",
+   "credit": "Photo: Shubham Thakur (Beyond India by Shubham Thakur) / Pexels. Illustrative stock imagery.",
+   "ai": false,
+   "w": 2000,
+   "h": 1333,
+   "focus": null
+  },
+  "alt-open-A": {
+   "type": "photo",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "alt-open-B": {
+   "type": "photo",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  },
+  "alt-open-C": {
+   "type": "photo",
+   "src": null,
+   "alt": null,
+   "credit": null,
+   "ai": false,
+   "w": null,
+   "h": null,
+   "focus": null
+  }
+ },
+ "source_sha256": "60e5eb25fb0e69d9"
+}
