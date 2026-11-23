@@ -566,7 +566,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{row.itemType === 'service' ? 'Service' : 'Product'} · Qty {row.quantity}</p>
+                    <p className="truncate text-xs text-muted-foreground">{row.itemType === 'service' ? 'Service' : 'Sub-product'} · Qty {row.quantity}</p>
                   </div>
                   <Button variant="ghost" size="icon-sm" onClick={() => void removeProduct(row.id)} aria-label={`Remove ${row.name}`}>
                     <Trash2 className="size-4" aria-hidden="true" />

@@ -118,6 +118,20 @@ describe('the Sub-product picker: typing', () => {
     assert.deepEqual(optionNames(k), ['Scholar Nine'], 'the older answer arrived later and was ignored')
   })
 
+  it('never lets a slow FAILURE of an older text replace the list for the newer one', async () => {
+    const { k, api } = await open({ pickerDelay: (q) => (q === 'lms' ? 700 : 0), pickerFails: (q) => q === 'lms' })
+    await openPicker(k)
+    await typeInto(k, searchBox(k)!, 'lms')
+    await k.tick(pause)
+    assert.deepEqual(api.searchTexts(), ['', 'lms'], 'the slow, failing search is on its way')
+    await typeInto(k, searchBox(k)!, 'nine')
+    await k.tick(pause)
+    assert.deepEqual(optionNames(k), ['Scholar Nine'], 'the newer text is shown')
+    await k.tick(800)
+    assert.deepEqual(optionNames(k), ['Scholar Nine'], 'the older failure arrived later and was ignored')
+    assert.ok(k.one('[data-picker-failure]') === null, 'no failure notice for a search the person has moved on from')
+  })
+
   it('says so when nothing is sold that matches', async () => {
     const { k } = await open()
     await openPicker(k)

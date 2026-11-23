@@ -33,8 +33,8 @@ export interface ApiOptions {
   lines?: ProductLineRow[]
   /** The picker answers 403 (a person with no right to prices). */
   pickerForbidden?: boolean
-  /** The picker answers 500 while this returns true. */
-  pickerFails?: () => boolean
+  /** The picker answers 500 while this returns true (it is told the text searched for). */
+  pickerFails?: (q: string) => boolean
   /** The server sends no price (a person who may not see them): every row has `unitPrice: null`. */
   hidePrices?: boolean
   /** How long to take over a search for this text. */
@@ -72,7 +72,7 @@ export async function answerCatalogue(call: Pick<Call, 'method' | 'path' | 'quer
     const delay = options.pickerDelay?.(q) ?? 0
     if (delay > 0) await wait(delay)
     if (options.pickerForbidden) return { status: 403, body: { status: 0, message: 'You do not have the right to view prices of this kind of product.' } }
-    if (options.pickerFails?.()) return { status: 500, body: { status: 0, message: 'Server error.' } }
+    if (options.pickerFails?.(q)) return { status: 500, body: { status: 0, message: 'Server error.' } }
     const type = call.query.get('type')
     const limit = Math.min(50, Number(call.query.get('limit') ?? 20))
     const rows = catalogue

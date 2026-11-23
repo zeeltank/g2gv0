@@ -81,6 +81,15 @@ describe('a price book: Add Sub-product Price', () => {
     s.restore()
   })
 
+  it('names an entry of the book a Sub-product (a service stays a Service), never a Product', async () => {
+    PriceBookPage = (await import('../../components/domain/crm/price-book-detail-page')).PriceBookDetailPage
+    const s = await open()
+    const text = s.k.bodyText()
+    assert.ok(text.includes('Sub-product · Base 25000.00'), text.slice(0, 400))
+    assert.ok(!/(^|[^-])Product · Base/.test(text), 'the word Product is for the level above')
+    s.restore()
+  })
+
   it('does not offer a Sub-product that is already in the book, and asks for room for the one it hides', async () => {
     PriceBookPage = (await import('../../components/domain/crm/price-book-detail-page')).PriceBookDetailPage
     const s = await open()
@@ -116,6 +125,22 @@ describe('an opportunity: Sub-products of Interest', () => {
     assert.strictEqual(post[0].body.productId, '12', 'the catalogue id as the text the tag has always sent')
     assert.equal(post[0].body.quantity, 1)
     noOldList(s.calls)
+    s.restore()
+  })
+
+  it('names a tagged Sub-product a Sub-product (a service stays a Service), never a Product', async () => {
+    const { opportunity } = await import('../opportunities/fixtures')
+    const { withOpportunityExtras } = await import('../opportunities/model')
+    const rows = [{ id: '7', productId: '12', name: 'Fees Intelligence', itemType: 'product', quantity: 2 }, { id: '8', productId: '13', name: 'Implementation', itemType: 'service', quantity: 1 }]
+    const { respond } = recorder({}, (call) => (call.method === 'GET' && call.path.endsWith('/products') ? { status: 1, message: '', data: rows } : undefined))
+    const { OpportunityDetailPage } = await import('../../components/domain/crm/opportunity-detail-page')
+    const s = await mountWith(respond, (h) => h(OpportunityDetailPage, { opportunity: withOpportunityExtras(opportunity() as never), onSaved: () => undefined, onBack: () => undefined, picklists: { salesStage: [], leadSource: [], potentialType: [], forecastCategory: [] } }), { pathname: '/module/crm/sales/opportunities/31' })
+    await s.k.click(s.k.withText('Sub-products')!)
+    await s.k.tick(30)
+    const text = s.k.bodyText()
+    assert.ok(text.includes('Sub-product · Qty 2'), text.slice(0, 500))
+    assert.ok(text.includes('Service · Qty 1'))
+    assert.ok(!/(^|[^-])Product · Qty/.test(text), 'the word Product is for the level above')
     s.restore()
   })
 })

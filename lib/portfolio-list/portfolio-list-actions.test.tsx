@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll } from '../scaffolds/dom-test-kit'
-import { adminRows, HR_CAN, hrRows, product, sold, SALES_CAN } from './fixtures'
+import { adminRows, HR_CAN, hrRows, product, sold, SALES_CAN, service } from './fixtures'
 import { everything, meta as formMeta, taxonomy } from '../portfolio/fixtures'
 import { setup, type SetupOptions } from './screen-setup'
 import type { Call } from './screen-kit'
@@ -117,6 +117,21 @@ describe('bulk actions', () => {
     assert.deepEqual((current.to('/bulk/delete')[0].body as { ids: number[] }).ids, [63])
   })
 
+  it('reads the Sell section only of the ticked rows that do not carry their catalogue id (a mixed page: the API sent the key for one, not for the other)', async () => {
+    current = await setup({ rows: [product(), sold({ crmProductId: 63 }), service()], intercept: bulkWorld() })
+    await tick('Fees Intelligence')
+    await tick('ScholarClone Implementation')
+    await current.k.click(current.button('Delete (to the Recycle Bin)')!)
+    await current.k.tick(30)
+    await current.k.click(confirmButton('Move to the Recycle Bin')!)
+    await current.k.tick(80)
+    assert.deepEqual(current.to('/sell').map((c) => c.path.replace(/^.*\/product-master\//, '')), ['15/sell'], 'one read, for the row without the key')
+    const calls = current.to('/bulk/delete')
+    const ids = (type: string) => (calls.find((c) => (c.body as { itemType: string }).itemType === type)!.body as { ids: number[] }).ids
+    assert.deepEqual(ids('product'), [63], 'the key the list sent')
+    assert.deepEqual(ids('service'), [1015], 'the id read from the Sell section')
+  })
+
   it('names a row whose catalogue id could not be read, does not touch it, and still changes the others', async () => {
     current = await setup({
       intercept: bulkWorld((call) => (call.path.endsWith('/product-master/15/sell') ? { __status: 403, status: 0, message: 'No.' } : undefined)),
@@ -217,6 +232,34 @@ describe('the More menu', () => {
     assert.equal(url.searchParams.get('itemType'), 'product')
     assert.equal(url.searchParams.get('search'), 'erp')
     assert.equal(url.searchParams.get('sub_institute_id'), '1')
+  })
+
+  it('Import CSV posts the rows of the file with the item type the Type filter says (Sub-products by default, services for ?type=service), and reads the list again', async () => {
+    for (const [search, itemType, noun] of [['', 'product', 'sub-product'], ['type=service', 'service', 'service']] as const) {
+      current = await setup({ search, intercept: (call) => (call.path.endsWith('/crm/products/import') ? { status: 1, message: 'Imported 1 row.', data: { created: 1, results: [{ row: 1, ok: true }] } } : undefined) })
+      const { k } = current
+      await current.openMore()
+      await k.click(current.menuItems().find((m) => m.textContent?.includes('Import CSV'))!)
+      await k.tick(60)
+      assert.ok(k.bodyText().includes(`Import ${noun}s`), `the dialog is for ${noun}s`)
+      const input = k.one('input[type="file"]') as HTMLInputElement
+      const file = { name: 'rows.csv', text: async () => 'Name,SKU,Unit Price,Assigned To (user id)\nOnboarding,ON-1,100,7\n' }
+      await k.act(async () => {
+        Object.defineProperty(input, 'files', { value: [file], configurable: true })
+        input.dispatchEvent(new k.w.Event('change', { bubbles: true }))
+      })
+      await k.tick(40)
+      const listsBefore = current.to('/product-master/list').length
+      await k.click(current.button(`Import 1 ${noun}`)!)
+      await k.tick(80)
+      const [post] = current.to('/crm/products/import')
+      assert.equal(post.method, 'POST')
+      assert.deepEqual({ itemType: (post.body as { itemType: string }).itemType, rows: (post.body as { rows: unknown[] }).rows }, { itemType, rows: [{ name: 'Onboarding', sku: 'ON-1', unitPrice: '100', assignedTo: '7' }] })
+      assert.equal(current.to('/product-master/list').length, listsBefore + 1, 'the list is read again after an import that created rows')
+      await disposeAll()
+      current.restore()
+    }
+    current = null
   })
 
   it('Import, Export and Find duplicates work on services when the Type filter says Service', async () => {

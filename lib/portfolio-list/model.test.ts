@@ -120,6 +120,25 @@ describe('turning ticked rows into catalogue ids', () => {
     assert.deepEqual(asked.sort(), [14, 15], 'the row that carries its id is not read again')
   })
 
+  it('reads no Sell section at all when every ticked row carries its catalogue id (the list API\'s `crmProductId`, Sell viewers only), and keeps the type of each id', async () => {
+    const asked: number[] = []
+    const plan = await planBulk([sold({ id: 11, crmProductId: 63 }), service({ id: 15, crmProductId: 71 }), entry({ id: 14, crmProductId: 64 })], async (id) => { asked.push(id); return null })
+    assert.deepEqual(asked, [], 'no read per ticked row: the contract with the list API')
+    assert.deepEqual(plan.byType, { product: [63, 64], service: [71] })
+    assert.deepEqual(plan.unresolved, [])
+  })
+
+  it('does not trust a key that is not a whole positive number (null for a record with no Sell side, 0, text, negative) and reads that row\'s Sell section instead', async () => {
+    const asked: number[] = []
+    const odd = [
+      sold({ id: 11, crmProductId: null }), sold({ id: 12, name: 'Zero', crmProductId: 0 }), sold({ id: 13, name: 'Text', crmProductId: '63' as unknown as number }),
+      sold({ id: 14, name: 'Negative', crmProductId: -5 }), sold({ id: 16, name: 'Missing' }),
+    ]
+    const plan = await planBulk(odd, async (id) => { asked.push(id); return id + 1000 })
+    assert.deepEqual(asked.sort(), [11, 12, 13, 14, 16], 'every one of them is read, because none carries a usable key')
+    assert.deepEqual(plan.byType.product, [1011, 1012, 1013, 1014, 1016])
+  })
+
   it('adds the answers of the two batches into one', () => {
     const merged = mergeBulkAnswers([
       { results: [{ id: '1', ok: true }], summary: { succeeded: 1, failed: 0 } },

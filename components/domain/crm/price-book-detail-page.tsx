@@ -193,7 +193,7 @@ export function PriceBookDetailPage({ priceBook, onSaved, onBack }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {item.itemType === 'service' ? 'Service' : 'Product'}
+                    {item.itemType === 'service' ? 'Service' : 'Sub-product'}
                     {item.basePrice !== null ? ` · Base ${item.basePrice.toFixed(2)}` : ''}
                   </p>
                 </div>
