@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { useListQuery } from '@/components/shared/scaffolds/use-list-query'
 import { useConfirm } from '@/components/shared/scaffolds/use-confirm'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
+import { SectionBar } from '@/components/domain/signals/signals-header'
 import { CrmBulkActionBar } from '@/components/domain/crm/crm-bulk-action-bar'
 import { crmBulkResultMessage } from '@/components/domain/crm/crm-bulk-result-message'
 import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
@@ -46,7 +47,7 @@ const errorText = (cause: unknown, fallback: string) => (cause instanceof ApiErr
  * What a person sees follows what the API sent: the SKU, price, category, stock and Sold in CRM columns, the Sold in CRM filter and the bulk bar are drawn only
  * for a caller who may view Sell (`meta.can.viewSell`); the pair review only for an administrator (`meta.can.confirmMatches`).
  */
-export function PortfolioList({ canManage }: { canManage: boolean }) {
+export function PortfolioList({ canManage, embedded = false }: { canManage: boolean; embedded?: boolean }) {
   const { query, setQuery, setSearch, setPage, setFilter, toggleSort } = useListQuery(PORTFOLIO_QUERY)
   const context = useMemo(() => getLaravelContext(), [])
   const { confirm, confirmDialog } = useConfirm()
@@ -216,26 +217,28 @@ export function PortfolioList({ canManage }: { canManage: boolean }) {
     </>
   )
 
-  return (
-    <div className="space-y-4 p-4 sm:p-6">
-      <PremiumHeader
-        title="Product Portfolio"
-        description="Every product and the sub-products under it: what each one is, whether it is sold in CRM, and how ready it is."
-        actions={(
-          <>
-            <PortfolioMoreMenu
-              itemType={itemType}
-              search={query.q}
-              canViewSell={can.viewSell}
-              canManage={canManage}
-              onChanged={() => void load()}
-              onNotice={(text) => { setNotice({ tone: 'success', text }) }}
-              onError={(text) => { setNotice({ tone: 'error', text }) }}
-            />
-            {addButtons}
-          </>
-        )}
+  const headerActions = (
+    <>
+      <PortfolioMoreMenu
+        itemType={itemType}
+        search={query.q}
+        canViewSell={can.viewSell}
+        canManage={canManage}
+        onChanged={() => void load()}
+        onNotice={(text) => { setNotice({ tone: 'success', text }) }}
+        onError={(text) => { setNotice({ tone: 'error', text }) }}
       />
+      {addButtons}
+    </>
+  )
+  const description = 'Every product and the sub-products under it: what each one is, whether it is sold in CRM, and how ready it is.'
+
+  return (
+    <div className={embedded ? 'space-y-4' : 'space-y-4 p-4 sm:p-6'}>
+      {/* Inside Market Signals (the Product Portfolio tab) the Signals header already names the page, so only its description and actions are drawn, like every other Signals tab. */}
+      {embedded
+        ? <SectionBar description={description} actions={headerActions} />
+        : <PremiumHeader title="Product Portfolio" description={description} actions={headerActions} />}
 
       {notice && (
         <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm ${BANNER_TONE[notice.tone]}`}>

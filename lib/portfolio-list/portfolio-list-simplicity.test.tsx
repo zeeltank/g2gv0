@@ -105,6 +105,23 @@ describe('one list, no second view', () => {
   })
 })
 
+describe('the same list inside Market Signals (the Product Portfolio tab) and on its own (the module)', () => {
+  let current: Awaited<ReturnType<typeof setup>> | null = null
+  afterEach(async () => { current?.restore(); current = null; await disposeAll() })
+
+  it('on its own it draws its title; inside Market Signals the Signals header names the page, so it draws only its description and its actions', async () => {
+    current = await setup()
+    assert.equal(current.k.one('h1')!.textContent, 'Product Portfolio', 'the module page has its own title')
+    current.restore()
+    await disposeAll()
+    current = await setup({ embedded: true })
+    assert.equal(current.k.all('h1').length, 0, 'no second title under the Signals header')
+    assert.ok(current.text().includes('Every product and the sub-products under it'), 'the description stays')
+    assert.deepEqual(Array.from(current.k.all('button')).map((b) => b.textContent?.trim()).slice(0, 3), ['More', 'Add product', 'Add sub-product'], 'and so do the three actions, first on the page')
+    assert.equal(current.k.all('tr[data-group]').length >= 3, true, 'and the same list is under it')
+  })
+})
+
 describe('a list that reads as sections: each Product a band, its Sub-products the rows under it', () => {
   let current: Awaited<ReturnType<typeof setup>> | null = null
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })

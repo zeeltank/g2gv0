@@ -54,7 +54,7 @@ describe('the sidebar never shows Signal Review', () => {
     assert.deepEqual(marketSignals.children, [])
     assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
     assert.deepEqual(visibleSignalsTabs(result.tabs).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    for (const href of ['/signals', '/ingestion', '/portfolio', '/partners']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
+    for (const href of ['/signals', '/ingestion', '/portfolio', '/partners', '/signals/portfolio']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
   })
 
   it('drops it wherever it is nested, under either address or by its name, and keeps its neighbours', () => {

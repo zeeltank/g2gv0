@@ -24,7 +24,7 @@ export function SignalsHeader({ active, className = '' }: { active?: SignalsTabK
           {tabs.map((t) => (
             <li key={t.key}>
               <Link
-                href={t.href}
+                href={t.route}
                 aria-current={t.key === active ? 'page' : undefined}
                 title={t.hint}
                 className={`flex h-9 items-center justify-center rounded-lg border px-3 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${t.key === active ? 'border-primary/40 bg-primary text-primary-foreground shadow-sm' : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'}`}
