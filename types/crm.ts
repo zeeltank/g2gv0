@@ -910,14 +910,6 @@ export interface CrmProduct {
 /** The state of an ideal-customer profile, as the server words it. */
 export type CrmIcpState = 'active' | 'draft' | 'archived' | 'template' | 'none'
 
-/** What the Products list says about the product lines behind it: whether they exist on this server, how many items are tied to one, and how many there are. */
-export interface CrmProductLines {
-  available: boolean
-  linked: number
-  productLines: number
-  subProducts: number
-}
-
 export type CrmProductPayload = Partial<
   Omit<CrmProduct, 'id' | 'productNo' | 'taxRateName' | 'imageUrl' | 'createdAt' | 'updatedAt' | 'createdBy'
   | 'masterId' | 'masterKind' | 'masterStatus' | 'productLine' | 'offerId' | 'signalsFound' | 'icp'>
@@ -938,8 +930,7 @@ export interface CrmProductBundleItem {
 export interface CrmProductListResponse {
   status: number
   message: string
-  /** `lines` is absent from a server that predates the product lines. */
-  data: { items: CrmProduct[]; pagination: CrmPagination; lines?: CrmProductLines }
+  data: { items: CrmProduct[]; pagination: CrmPagination }
 }
 
 export interface CrmProductResponse {

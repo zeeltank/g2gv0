@@ -1,5 +1,6 @@
 import type { PmHistoryChange, PmHistoryRow, PmSell, PmUsageFull, PmUsageDoc } from '@/services/product-master/record-types'
 import type { PmIcpState, PmItemType } from '@/services/product-master/types'
+import { choiceOf } from '@/lib/product-selection'
 import { PRODUCT_ONLY_SELL_FIELDS } from './form-model'
 
 /*
@@ -202,4 +203,16 @@ export function whenWord(at: string | null): string {
   if (!at) return 'Unknown time'
   const date = new Date(at.replace(' ', 'T'))
   return Number.isNaN(date.getTime()) ? at : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------- links
+
+/**
+ * Company Opportunities for one Product, or for one of its Sub-products: the Signals screen's own `?product=` address, so the page that counts the signals can
+ * also show them. A Sub-product is "key::ID" (`choiceOf`); a record with no Product key has no address (null). Moved here from the old product-line model when
+ * the old Products screens were removed (slice 15, WPD); its one caller is the Signals & ICP tab.
+ */
+export function signalsHref(productKey: string | null | undefined, offerId?: string | null): string | null {
+  if (!productKey) return null
+  return `/signals?product=${encodeURIComponent(choiceOf(productKey, offerId))}`
 }

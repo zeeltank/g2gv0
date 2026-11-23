@@ -8,9 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SectionCard } from '@/components/shared/business/shared'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
 import {
-  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, STORE_WORD, usageCounts, whenWord, typeWord,
+  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, whenWord, typeWord,
 } from '@/lib/portfolio/page-model'
-import { signalsHref } from '@/components/domain/crm/product-lines-model'
 import type { IcpStates } from '@/lib/portfolio/icp-state'
 import type { PmFullRecord, PmHistoryRow, PmPaging, PmSell, PmUsageFull } from '@/services/product-master/record-types'
 import { IcpChip } from './portfolio-chips'

@@ -47,20 +47,6 @@ const ALLOWED: Allowance[] = [
   { file: 'lib/portfolio-list/screen-kit.ts', why: 'a fixture of the real menu, which still holds the two rows (468 and 469 keep status 1)' },
   // A saved link: the Ask chat draws a stored answer's link, and the page behind it redirects.
   { file: 'lib/ask/context.test.ts', line: /sales\/products\/12/, why: 'a sample of the addresses the Ask chat treats as internal links; a link stored before the merge still carries it and the redirect page carries it on' },
-  // The old screens' own components and tests: still on disk until step P4 deletes them together; no live route imports them (the second half of this file proves it).
-  { file: 'components/domain/crm/product-catalog-list-view.tsx', why: 'the old Products list, deleted at P4; no live route imports it' },
-  { file: 'components/domain/crm/product-list-view.tsx', why: 'the old Products list wrapper, deleted at P4; no live route imports it' },
-  { file: 'components/domain/crm/product-detail-page.tsx', why: 'the old Product page, deleted at P4; no live route imports it' },
-  { file: 'lib/product-master/lines-model.test.ts', why: 'tests the old Product lines model, deleted with it at P4' },
-  { file: 'lib/product-master/lines-panels.test.tsx', why: 'tests the old Product line panels, deleted with them at P4' },
-  { file: 'lib/product-master/lines-parts.test.tsx', why: 'tests the old Product line parts, deleted with them at P4' },
-  { file: 'lib/product-master/lines-record-page.test.tsx', why: 'tests the old Product line page, deleted with it at P4' },
-  { file: 'lib/product-master/lines-view.test.tsx', why: 'tests the old Product lines list, deleted with it at P4' },
-  { file: 'lib/product-master/product-detail-tabs.test.tsx', why: 'tests the old Product page tabs, deleted with them at P4' },
-  { file: 'lib/product-master/products-screen.test.tsx', why: 'tests the old Products screen, deleted with it at P4' },
-  { file: 'lib/product-master/screen-kit.ts', why: 'the test kit of the old Products screen, deleted with it at P4' },
-  // Consumers that still link to a product by its catalogue id: Track P3-C moves them. Until then the link works: `resolveAccessLink` still answers the old address for a person who held
-  // the row, and the redirect page carries it to the Sub-product page through the by-crm lookup.
 ]
 
 /** "relative/path:line: the line" for each line that names an address and is not allowed in its file. */
@@ -109,7 +95,7 @@ describe('nothing in the front end links to the old Products and Services screen
     const files = sourceFiles(ROOT, FOLDERS)
     for (const expected of [
       'hooks/content-map-crm.ts', 'hooks/use-sidebar-navigation.ts', 'lib/signals-nav.ts', 'lib/gtg-navigation.ts', 'components/domain/crm/ticket-detail-page.tsx',
-      'components/domain/crm/asset-detail-page.tsx', 'components/domain/crm/product-catalog-list-view.tsx', 'app/module/crm/sales/products/page.tsx', 'app/module/crm/sales/services/page.tsx',
+      'components/domain/crm/asset-detail-page.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'app/module/crm/sales/products/page.tsx', 'app/module/crm/sales/services/page.tsx',
       'app/module/crm/sales/products/[id]/page.tsx', 'app/module/crm/sales/services/[id]/page.tsx', 'app/module/crm/sales/products/lines/[id]/page.tsx', 'app/portfolio/page.tsx',
     ]) {
       assert.ok(files.includes(expected), `${expected} is not scanned`)
@@ -186,10 +172,10 @@ describe('nothing in the front end links to the old Products and Services screen
 
 // ---------------------------------------------------------------------------------------------------------------------------- the old components
 
-/** The components and models of the old Products and Services screens. They stay on disk until step P4; nothing live may import them. */
+/** The components and models of the old Products and Services screens. They were deleted at P4 (slice 15, WPD); nothing may import them or bring them back. */
 const OLD_SCREEN_FILES = [
   'product-catalog-list-view', 'product-list-view', 'service-list-view', 'product-detail-page', 'product-lines-view', 'product-line-record-page', 'create-product-modal',
-  'product-lines-model', 'product-line-columns', 'product-links-panels', 'product-signals-icp-tab', 'product-scope-switch', 'product-master-form', 'product-master-parts', 'product-offer-about',
+  'product-lines-model', 'product-master-model', 'product-line-columns', 'product-links-panels', 'product-signals-icp-tab', 'product-scope-switch', 'product-master-form', 'product-master-parts', 'product-offer-about',
   'product-usage-tab',
 ]
 
@@ -204,7 +190,13 @@ function importsOldScreen(text: string): string[] {
   return hits
 }
 
-describe('no live route imports a component of the old Products and Services screens', () => {
+describe('the old Products and Services components are gone, and no live route imports one', () => {
+  it('has none of the old components, models or test kits on disk (a file brought back under an old name would be a second Products screen)', () => {
+    const names = [...OLD_SCREEN_FILES, 'lines-fixtures', 'screen-kit']
+    const back = ['components/domain/crm', 'lib/product-master'].flatMap((dir) => readdirSync(path.join(ROOT, dir)).filter((file) => names.includes(file.replace(/\.(tsx?|jsx?)$/, ''))).map((file) => `${dir}/${file}`))
+    assert.deepEqual(back, [], 'a file of the old Products or Services screens is back; the Product Portfolio replaced it')
+  })
+
   // A live route is a page under app/ or an entry of a content map under hooks/ (the shell draws whatever those import). The screens of this track are scanned too.
   const live = () => [
     ...sourceFiles(ROOT, ['app', 'hooks']),

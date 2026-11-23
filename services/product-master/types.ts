@@ -74,28 +74,6 @@ export interface PmListData {
   totals: { products: number; subProducts: number; items: number }
 }
 
-export interface PmAbout {
-  whatItDoes: string | null
-  modulesComponents: string | null
-  deploymentModel: string | null
-  proofPoints: string | null
-  notes: string | null
-  needsSolved: string[]
-  primarySegments: string[]
-  triggerSignals: string[]
-}
-
-export interface PmOffer {
-  id: number
-  offerId: string
-  name: string
-  product: string | null
-  readiness: string | null
-  /** A person confirmed the readiness through the Portfolio. Never set from the Product Master. */
-  readinessConfirmed: boolean
-  about: PmAbout
-}
-
 export interface PmCrmItem {
   id: number
   productNo: string | null
@@ -109,24 +87,6 @@ export interface PmCrmItem {
   active: boolean
 }
 
-export interface PmRecord {
-  id: number
-  key: string
-  name: string
-  kind: PmKind
-  status: PmStatus
-  origin: string
-  shared: boolean
-  signalKey: string | null
-  portfolioName: string | null
-  parent: { id: number; key: string; name: string } | null
-  subProducts: Array<{ id: number; key: string; name: string; status: PmStatus }>
-  offer: PmOffer | null
-  crmProduct: PmCrmItem | null
-  createdAt: string | null
-  updatedAt: string | null
-}
-
 export interface PmPriceBookEntry {
   priceBookId: number
   priceBookNo: string | null
@@ -134,16 +94,6 @@ export interface PmPriceBookEntry {
   currency: string | null
   active: boolean
   listPrice: number
-}
-
-export interface PmUsage {
-  signals: number | null
-  /** The ICP's state (its content is never sent here). null for a catalogue-only item. */
-  icp: PmIcpState | null
-  priceBooks: PmPriceBookEntry[]
-  quotes: number
-  basePrice: number | null
-  currency: string | null
 }
 
 export interface PmOption {
