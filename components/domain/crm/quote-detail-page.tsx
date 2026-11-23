@@ -17,7 +17,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPriceBookItem, CrmProduct, CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmQuoteStageHistoryEntry, CrmTaxRate } from '@/types/crm'
+import type { CrmPriceBookItem, CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmQuoteStageHistoryEntry, CrmTaxRate } from '@/types/crm'
 import { CreateQuoteModal } from './create-quote-modal'
 import { QuoteLineItemTable } from './quote-line-item-table'
 import { useAssignableEmployees } from './lead-employees'
@@ -66,7 +66,6 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
   const [lineItems, setLineItems] = useState<CrmQuoteLineItemInput[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(true)
   const [savingLineItems, setSavingLineItems] = useState(false)
-  const [products, setProducts] = useState<CrmProduct[]>([])
   const [taxRates, setTaxRates] = useState<CrmTaxRate[]>([])
   const [priceBookItems, setPriceBookItems] = useState<CrmPriceBookItem[]>([])
   const [stageHistory, setStageHistory] = useState<CrmQuoteStageHistoryEntry[]>([])
@@ -112,16 +111,10 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getTaxRates(context),
-    ])
-      .then(([productsRes, servicesRes, taxRatesRes]) => {
-        setProducts([...productsRes.data.items, ...servicesRes.data.items])
-        setTaxRates(taxRatesRes.data)
-      })
-      .catch(() => { /* the line-item builder still works with empty pickers */ })
+    // The Sub-products are searched by the picker on each line; only the tax rates are read here.
+    crmService.getTaxRates(context)
+      .then((taxRatesRes) => setTaxRates(taxRatesRes.data))
+      .catch(() => { /* the line-item builder still works with no tax rates to choose */ })
   }, [context])
 
   useEffect(() => {
@@ -262,7 +255,7 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
             </div>
           ) : (
             <div className="space-y-3">
-              <QuoteLineItemTable lineItems={lineItems} onChange={setLineItems} products={products} taxRates={taxRates} currency={quote.currency} priceBookItems={priceBookItems} />
+              <QuoteLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={quote.currency} priceBookItems={priceBookItems} />
               <div className="flex items-center gap-3 pt-2">
                 <Button disabled={savingLineItems} onClick={() => void saveLineItems()}>
                   {savingLineItems && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}

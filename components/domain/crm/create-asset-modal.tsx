@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmAsset, CrmAssetPayload, CrmPicklistValue } from '@/types/crm'
@@ -24,30 +25,6 @@ const EMPTY: CrmAssetPayload = {
   assetName: '', productId: null, organizationId: null, serialNumber: '', tagNumber: '',
   dateSold: '', dateInService: '', status: '', shippingMethod: '', shippingTrackingNumber: '',
   invoiceId: null, description: '', assignedTo: '',
-}
-
-/** Products & Services share one physical table (`crm_products`) - an Asset's `product_id` can point at either, so both item types are fetched and offered together, same as `AddPriceBookItemDialog` already does on the Price Book detail page. */
-function useProductOptions(enabled: boolean) {
-  const context = useMemo(() => getLaravelContext(), [])
-  const [options, setOptions] = useState<Array<{ id: string; label: string }>>([])
-
-  useEffect(() => {
-    if (!enabled || !isLaravelContextReady(context)) return
-    let active = true
-
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([products, services]) => {
-        if (active) setOptions([...products.data.items, ...services.data.items].map((p) => ({ id: p.id, label: p.name })))
-      })
-      .catch(() => { /* the form still works with an empty picker */ })
-
-    return () => { active = false }
-  }, [context, enabled])
-
-  return options
 }
 
 function useInvoiceOptions(enabled: boolean) {
@@ -72,7 +49,6 @@ export function CreateAssetModal({ isOpen, onClose, onSaved, asset }: Props) {
   const context = useMemo(() => getLaravelContext(), [])
   const employees = useAssignableEmployees(context, isOpen)
   const organizations = useOrganizationOptions(context, isOpen)
-  const products = useProductOptions(isOpen)
   const invoices = useInvoiceOptions(isOpen)
   const [statusOptions, setStatusOptions] = useState<CrmPicklistValue[]>([])
 
@@ -108,7 +84,7 @@ export function CreateAssetModal({ isOpen, onClose, onSaved, asset }: Props) {
 
   const submit = async () => {
     if (!form.assetName?.trim() || !form.productId || !form.assignedTo) {
-      setError('Asset Name, Product, and Assigned To are required.')
+      setError('Asset Name, Sub-product, and Assigned To are required.')
       return
     }
     if (!isLaravelContextReady(context)) {
@@ -137,7 +113,7 @@ export function CreateAssetModal({ isOpen, onClose, onSaved, asset }: Props) {
         <DialogHeader className="shrink-0">
           <DialogTitle>{asset ? 'Edit Asset' : 'New Asset'}</DialogTitle>
           <DialogDescription>
-            {asset ? 'Update this asset.' : 'A serialized unit of a Product, owned by an Organization.'}
+            {asset ? 'Update this asset.' : 'A serialized unit of a Sub-product, owned by an Organization.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -149,12 +125,12 @@ export function CreateAssetModal({ isOpen, onClose, onSaved, asset }: Props) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Product *</Label>
-              <SearchableSelect
-                value={form.productId ?? ''}
-                onChange={(v) => set('productId', v || null)}
-                options={products.map((p) => ({ value: p.id, label: p.label }))}
-                placeholder="Choose a product or service…"
+              <Label htmlFor="asset-product">Sub-product *</Label>
+              <SubProductPicker
+                id="asset-product"
+                value={form.productId}
+                onChange={(picked) => set('productId', picked ? picked.productId : null)}
+                placeholder="Choose a Sub-product"
               />
             </div>
             <div className="space-y-1.5">

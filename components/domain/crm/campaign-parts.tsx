@@ -2,6 +2,7 @@
 
 import { useId } from 'react'
 import { NativeSelect } from '@/components/shared/scaffolds'
+import { ProductPicker } from '@/components/domain/portfolio/product-picker'
 import { Label } from '@/components/ui/label'
 import {
   FUNNEL_ABOVE_TEXT, FUNNEL_BASIS_TEXT, FUNNEL_EMPTY_TEXT, FUNNEL_QUIET_TEXT, funnelView, gtmCampaignText, leadsText, productChoices, productText, showProductChoice,
@@ -117,15 +118,5 @@ export function CampaignLinksSection({ campaign }: { campaign: Pick<Campaign, 'p
 export function CampaignProductSelect({ options, current, value, onChange }: {
   options: readonly PmOption[]; current: CampaignProductRef | null; value: string; onChange: (value: string) => void
 }) {
-  const id = useId()
-  if (!showProductChoice(options, current)) return null
-
-  return (
-    <div className="space-y-1.5" data-campaign-product-field>
-      <Label htmlFor={id}>Product (optional)</Label>
-      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        {productChoices(options, current).map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
-      </NativeSelect>
-    </div>
-  )
+  return <ProductPicker options={options} current={current} value={value} onChange={onChange} label="Product (optional)" fieldAttribute="data-campaign-product-field" />
 }

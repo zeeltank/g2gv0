@@ -35,7 +35,8 @@ async function open(opts: Setup = {}) {
     campaigns: opts.campaigns,
     respond: (call: Call) => {
       if (call.path.endsWith('/crm/campaigns')) return opts.campaignsStatus ? { status: 0, message: 'You do not have access.', __status: opts.campaignsStatus } : listAnswer([{ id: '7', name: 'Diwali outreach' }, { id: '8', name: 'Pongal drive' }])
-      if (call.path.endsWith('/product-master/options')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: opts.options ?? options }
+      // Slice 15, P3-C: the box offers the Products (level 1) from /product-master/lines: names only, no Sub-products.
+      if (call.path.endsWith('/product-master/lines')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: ((opts.options ?? options) as Array<{ id: number; key: string; name: string; kind: string }>).filter((o) => o.kind === 'product').map(({ id, key, name }) => ({ id, key, name })) }
       if (call.path.endsWith('/crm/opportunities/pipeline')) return pipelineAnswer(opts.reasons === 'older' ? null : opts.reasons ?? REASONS)
       if (call.path.endsWith('/table_data')) return [{ id: 2, first_name: 'Asha', last_name: 'Menon' }, { id: 3, first_name: 'Ravi', last_name: 'Iyer' }]
       if (call.path.endsWith('/crm/organizations')) return listAnswer([])
@@ -96,11 +97,11 @@ async function open(opts: Setup = {}) {
 describe('the opportunity form: the optional Product', () => {
   afterEach(async () => { await disposeAll() })
 
-  it('is a labelled box with "No product" first and every product the Product Master lists', async () => {
+  it('is a labelled box with "No product" first and every Product the shared Product list offers (Products only, never Sub-products)', async () => {
     const s = await open()
     assert.ok(s.productBox(), 'the Product box is drawn')
     assert.equal(s.labelOf(s.productBox()!), 'Product (optional)')
-    assert.deepEqual(s.optionLabels(s.productBox()!), ['No product', 'ScholarClone', 'ScholarClone › School ERP', 'G2G'])
+    assert.deepEqual(s.optionLabels(s.productBox()!), ['No product', 'ScholarClone', 'G2G'])
     assert.equal(s.productBox()!.value, '', 'a new opportunity starts with no product')
     s.restore()
   })
@@ -109,11 +110,11 @@ describe('the opportunity form: the optional Product', () => {
     const s = await open()
     await s.setValue(s.k.one('#opp-name')!, 'Hillcrest ERP rollout')
     await s.assignTo('Asha')
-    await s.setValue(s.productBox()!, '9')
+    await s.setValue(s.productBox()!, '12')
     await s.save('Create Opportunity')
     assert.equal(s.saves.length, 1)
     assert.equal(s.saves[0].method, 'POST')
-    assert.equal(s.body().productMasterId, 9)
+    assert.equal(s.body().productMasterId, 12)
     assert.equal(s.body().name, 'Hillcrest ERP rollout')
     assert.deepEqual(s.saved, ['Opportunity created.'])
     s.restore()
@@ -166,7 +167,7 @@ describe('the opportunity form: the optional Product', () => {
 
   it('keeps a product the list no longer holds (archived since) under its own name, so it can be seen and cleared', async () => {
     const s = await open({ opportunity: opportunity({ product: { id: 77, key: 'old', name: 'Old Product' } }) })
-    assert.deepEqual(s.optionLabels(s.productBox()!), ['No product', 'ScholarClone', 'ScholarClone › School ERP', 'G2G', 'Old Product'])
+    assert.deepEqual(s.optionLabels(s.productBox()!), ['No product', 'ScholarClone', 'G2G', 'Old Product'])
     assert.equal(s.productBox()!.value, '77')
     s.restore()
   })
@@ -184,7 +185,7 @@ describe('the opportunity form: the optional Product', () => {
 
   it('shows the server\'s refusal of a product in the dialog and does not close it', async () => {
     const s = await open({ opportunity: opportunity({ product: null }), onSave: () => ({ status: 0, message: 'Product not found.', errors: { productMasterId: ['Choose one of your own products.'] }, __status: 422 }) })
-    await s.setValue(s.productBox()!, '9')
+    await s.setValue(s.productBox()!, '12')
     await s.save('Save Changes')
     says(s.k.bodyText(), 'Product not found.')
     assert.deepEqual(s.saved, [], 'nothing was saved')
@@ -285,13 +286,13 @@ describe('the opportunity form: when it is closed', () => {
     const screen = await screenKit({ respond: () => undefined })
     const { CreateOpportunityModal } = await import('../../components/domain/crm/create-opportunity-modal')
     await screen.mount(screen.k.h(CreateOpportunityModal, { isOpen: false, onClose: () => undefined, onSaved: () => undefined, opportunity: null, picklists }), 60)
-    assert.equal(screen.calls.filter((c) => c.path.endsWith('/product-master/options') || c.path.endsWith('/crm/opportunities/pipeline')).length, 0)
+    assert.equal(screen.calls.filter((c) => c.path.endsWith('/product-master/lines') || c.path.endsWith('/crm/opportunities/pipeline')).length, 0)
     screen.restore()
   })
 
   it('reads both when it is opened', async () => {
     const s = await open()
-    assert.equal(s.calls.filter((c) => c.path.endsWith('/product-master/options')).length, 1)
+    assert.equal(s.calls.filter((c) => c.path.endsWith('/product-master/lines')).length, 1)
     assert.equal(s.calls.filter((c) => c.path.endsWith('/crm/opportunities/pipeline')).length, 1)
     s.restore()
   })

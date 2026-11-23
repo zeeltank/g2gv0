@@ -25,7 +25,8 @@ async function open(existing: Lead | null = null, opts: OpenOpts = {}) {
     pathname: '/module/crm/marketing/leads',
     respond: (call: Call) => {
       if (call.path.endsWith('/table_data')) return [{ id: 2, first_name: 'Anil', last_name: 'Shah' }, { id: 9, first_name: 'Ravi', last_name: 'Iyer' }]
-      if (call.path.endsWith('/product-master/options')) return { status: 1, data: opts.productOptions ?? [{ id: 9, key: 'scholar', name: 'ScholarClone', label: 'ScholarClone' }, { id: 10, key: 'payroll', name: 'Payroll Cloud', label: 'Payroll Cloud' }] }
+      // Slice 15, P3-C: the Product box reads the Products (level 1) from /product-master/lines.
+      if (call.path.endsWith('/product-master/lines')) return { status: 1, data: opts.productOptions ?? [{ id: 9, key: 'scholar', name: 'ScholarClone' }, { id: 10, key: 'payroll', name: 'Payroll Cloud' }] }
       if (call.method === 'POST' && call.path.endsWith('/crm/leads')) {
         if (opts.onPost) return opts.onPost(call)
         return { status: 1, message: 'Lead created.', data: lead({ id: '60' }) }

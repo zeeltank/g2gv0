@@ -15,8 +15,6 @@ const CampaignListView = createLazyComponent(() => import('@/domain/crm/campaign
 // Sales phase. Each of these is a real, working list view screen.
 const OpportunityListView = createLazyComponent(() => import('@/domain/crm/opportunity-list-view').then((m) => ({ default: m.OpportunityListView })))
 const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-view').then((m) => ({ default: m.QuoteListView })))
-const ProductListView = createLazyComponent(() => import('@/domain/crm/product-list-view').then((m) => ({ default: m.ProductListView })))
-const ServiceListView = createLazyComponent(() => import('@/domain/crm/service-list-view').then((m) => ({ default: m.ServiceListView })))
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const PriceBookListView = createLazyComponent(() => import('@/domain/crm/price-book-list-view').then((m) => ({ default: m.PriceBookListView })))
 const SalesOrderListView = createLazyComponent(() => import('@/domain/crm/sales-order-list-view').then((m) => ({ default: m.SalesOrderListView })))
@@ -112,11 +110,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 13. CPQ: Quotes
   { accessLink: '/module/crm/sales/quotes', component: QuoteListView },
 
-  // 14. CPQ: Products Catalog
-  { accessLink: '/module/crm/sales/products', component: ProductListView },
-
-  // 15. CPQ: Services Catalog
-  { accessLink: '/module/crm/sales/services', component: ServiceListView },
+  // 14 and 15. Products and Services were merged into the Product Portfolio (/portfolio) on 13 Nov 2026 (owner decision, slice 15). Their old addresses, with
+  // their detail and line pages, are redirect pages under app/module/crm/sales, so nothing is mapped here.
 
   // 16. CPQ: Price Books
   { accessLink: '/module/crm/sales/price-books', component: PriceBookListView },

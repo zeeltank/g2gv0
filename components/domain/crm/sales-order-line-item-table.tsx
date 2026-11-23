@@ -25,9 +25,10 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { CrmProduct, CrmSalesOrderLineItemInput, CrmTaxRate } from '@/types/crm'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import type { PickedSubProduct } from '@/lib/product-picker/model'
+import type { CrmSalesOrderLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -62,7 +63,6 @@ export function computeTotals(items: CrmSalesOrderLineItemInput[], taxRates: Crm
 interface Props {
   lineItems: CrmSalesOrderLineItemInput[]
   onChange: (lineItems: CrmSalesOrderLineItemInput[]) => void
-  products: CrmProduct[]
   taxRates: CrmTaxRate[]
   currency: string | null
 }
@@ -72,24 +72,20 @@ const emptyRow = (sequenceNo: number): CrmSalesOrderLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function SalesOrderLineItemTable({ lineItems, onChange, products, taxRates, currency }: Props) {
+export function SalesOrderLineItemTable({ lineItems, onChange, taxRates, currency }: Props) {
   const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates])
 
-  const productOptions = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.name, hint: p.itemType === 'service' ? 'Service' : 'Product' })),
-    [products],
-  )
   const taxOptions = [{ label: 'No tax', value: 'none' }, ...taxRates.map((t) => ({ label: `${t.name} (${t.percentage}%)`, value: t.id }))]
 
   const updateRow = (index: number, patch: Partial<CrmSalesOrderLineItemInput>) => {
     onChange(lineItems.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   }
 
-  const onProductChange = (index: number, productId: string) => {
-    const product = products.find((p) => p.id === productId)
+  // The picker hands back the same four things the old product list did (the catalogue id as text, the name, the base price and the default tax rate).
+  const onProductChange = (index: number, product: PickedSubProduct | null) => {
     if (!product) { updateRow(index, { productId: null }); return }
     updateRow(index, {
-      productId: product.id,
+      productId: product.productId,
       description: product.name,
       unitPrice: product.unitPrice ?? 0,
       taxRateId: product.taxRateId,
@@ -106,7 +102,7 @@ export function SalesOrderLineItemTable({ lineItems, onChange, products, taxRate
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">#</TableHead>
-              <TableHead className="min-w-[180px]">Product / Service</TableHead>
+              <TableHead className="min-w-[180px]">Sub-product</TableHead>
               <TableHead className="min-w-[200px]">Description</TableHead>
               <TableHead className="w-24">Qty</TableHead>
               <TableHead className="w-28">Unit Price</TableHead>
@@ -128,12 +124,10 @@ export function SalesOrderLineItemTable({ lineItems, onChange, products, taxRate
               <TableRow key={index}>
                 <TableCell className="text-xs text-muted-foreground">{index + 1}</TableCell>
                 <TableCell>
-                  <SearchableSelect
-                    value={row.productId ?? ''}
-                    onChange={(v) => onProductChange(index, v)}
-                    options={productOptions}
-                    placeholder="Pick one…"
-                    aria-label={`Product for line ${index + 1}`}
+                  <SubProductPicker
+                    value={row.productId}
+                    onChange={(picked) => onProductChange(index, picked)}
+                    aria-label={`Sub-product for line ${index + 1}`}
                   />
                 </TableCell>
                 <TableCell>

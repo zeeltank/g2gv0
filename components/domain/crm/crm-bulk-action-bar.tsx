@@ -27,6 +27,8 @@ interface Props {
   onSendSms?: () => void
   /** Multi-channel messaging: Email, SMS, WhatsApp */
   onSendMessage?: (channel: 'email' | 'sms' | 'whatsapp') => void
+  /** The words on the delete button; "Delete" when omitted. The Product Portfolio says what Delete does ("Delete (to the Recycle Bin)"). */
+  deleteLabel?: string
 }
 
 /**
@@ -36,7 +38,7 @@ interface Props {
  * that bar is still hand-rolled per its own two callers too, so there's no
  * existing generic actions-array convention in this app to adopt instead.
  */
-export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms, onSendMessage }: Props) {
+export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms, onSendMessage, deleteLabel = 'Delete' }: Props) {
   const [assigneeId, setAssigneeId] = useState('')
   const [cascade, setCascade] = useState(false)
 
@@ -115,7 +117,7 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
           )}
 
           <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>
-            <Trash2 className="mr-2 size-4" />Delete
+            <Trash2 className="mr-2 size-4" />{deleteLabel}
           </Button>
 
           {busy && <Spinner className="size-4" />}

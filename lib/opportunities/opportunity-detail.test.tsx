@@ -10,7 +10,7 @@ import { screenKit } from './screen-kit'
 
 /** An opportunity's page as a person meets it: the real page, the real sidebar hook and service client, only the network replaced. */
 
-const TABS_AS_ALWAYS = ['Details', 'AI Deal Coach & MEDDPICC', 'Contacts', 'Products & Services', 'Quotes', 'Stage History', 'Schedule', 'Comments', 'Documents', 'Emails', 'Projects']
+const TABS_AS_ALWAYS = ['Details', 'AI Deal Coach & MEDDPICC', 'Contacts', 'Sub-products', 'Quotes', 'Stage History', 'Schedule', 'Comments', 'Documents', 'Emails', 'Projects']
 const picklists = { salesStage: [], leadSource: [], potentialType: [], forecastCategory: [] }
 
 async function open(over: Record<string, unknown> = {}) {

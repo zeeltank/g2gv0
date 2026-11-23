@@ -45,7 +45,12 @@ describe('Signals sidebar', () => {
 
   it('the four tabs go to the existing routes (nothing is a placeholder)', () => {
     assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/portfolio/page.tsx', 'portfolio'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
+    // REWRITTEN ON PURPOSE (slice 15, P3-A, 14 Nov 2026): the Product Portfolio is a product page with its own sidebar entry, not a Signals page (owner, 13 Nov: "no Company
+    // Opportunities, Ingestion Engine, Partner Network button"), so its page is drawn OUTSIDE the Signals frame. The other two tabs keep the frame, as strictly as before.
+    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
+    const portfolioPage = read('app/portfolio/page.tsx')
+    assert.doesNotMatch(portfolioPage, /import[^\n]*SignalsFrame|<SignalsFrame/, 'the Product Portfolio page neither imports nor draws the Signals frame (and so draws no Signals buttons)')
+    assert.match(portfolioPage, /<PortfolioList canManage=\{canManage\} \/>/, 'it draws the unified list')
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
 

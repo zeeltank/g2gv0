@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import { KPICard } from '@/components/shared/business/kpi-card'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
@@ -46,7 +47,7 @@ const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'ai-coach', label: 'AI Deal Coach & MEDDPICC' },
   { id: 'contacts', label: 'Contacts' },
-  { id: 'products', label: 'Products & Services' },
+  { id: 'products', label: 'Sub-products' },
   { id: 'quotes', label: 'Quotes' },
   { id: 'history', label: 'Stage History' },
   { id: 'schedule', label: 'Schedule' },
@@ -122,21 +123,10 @@ function AddProductDialog({ isOpen, onClose, onAdded, opportunityId }: {
   isOpen: boolean; onClose: () => void; onAdded: () => void; opportunityId: string
 }) {
   const context = useMemo(() => getLaravelContext(), [])
-  const [products, setProducts] = useState<Array<{ id: string; label: string }>>([])
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([products, services]) => setProducts([...products.data.items, ...services.data.items].map((p) => ({ id: p.id, label: p.name }))))
-      .catch(() => { /* the form still works with an empty picker */ })
-  }, [isOpen, context])
 
   const submit = async () => {
     if (!productId) return
@@ -149,7 +139,7 @@ function AddProductDialog({ isOpen, onClose, onAdded, opportunityId }: {
       onAdded()
       onClose()
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to add this product.')
+      setError(reason instanceof Error ? reason.message : 'Unable to add this Sub-product.')
     } finally {
       setSubmitting(false)
     }
@@ -159,13 +149,13 @@ function AddProductDialog({ isOpen, onClose, onAdded, opportunityId }: {
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Product / Service</DialogTitle>
-          <DialogDescription>Tag a Product or Service this opportunity is interested in - no pricing here, that&apos;s what a Quote is for.</DialogDescription>
+          <DialogTitle>Add Sub-product</DialogTitle>
+          <DialogDescription>Tag a Sub-product this opportunity is interested in - no pricing here, that&apos;s what a Quote is for.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Product / Service</Label>
-            <SearchableSelect value={productId} onChange={setProductId} options={products.map((p) => ({ value: p.id, label: p.label }))} placeholder="Choose one…" />
+            <Label htmlFor="add-prod-product">Sub-product</Label>
+            <SubProductPicker id="add-prod-product" value={productId} onChange={(picked) => setProductId(picked ? picked.productId : '')} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="add-prod-qty">Quantity</Label>
@@ -350,7 +340,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
       await crmService.removeOpportunityProduct(context, opportunity.id, rowId)
       void loadProducts()
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : 'Unable to remove that product.')
+      setNotice(reason instanceof Error ? reason.message : 'Unable to remove that Sub-product.')
     }
   }
 
@@ -541,18 +531,18 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
 
       {tab === 'products' && (
         <SectionCard
-          title="Products & Services of Interest"
+          title="Sub-products of Interest"
           actions={(
             <Button size="sm" variant="outline" onClick={() => setAddProductOpen(true)}>
               <Plus className="mr-1.5 size-4" aria-hidden="true" />
-              Add Product
+              Add Sub-product
             </Button>
           )}
         >
           {productsLoading && (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Loading products…
+              Loading Sub-products…
             </div>
           )}
           {!productsLoading && products.length === 0 && (
@@ -562,7 +552,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
               action={(
                 <Button size="sm" onClick={() => setAddProductOpen(true)}>
                   <Plus className="mr-1.5 size-4" aria-hidden="true" />
-                  Add Product
+                  Add Sub-product
                 </Button>
               )}
             />

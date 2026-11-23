@@ -12,7 +12,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { NativeSelect } from '@/components/shared/scaffolds'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import { productMasterService } from '@/services/product-master/product-master-service'
+import { ProductPicker } from '@/components/domain/portfolio/product-picker'
+import { useProductChoices } from '@/lib/product-picker/use-product-choices'
 import type { PmOption } from '@/services/product-master/types'
 import type { CrmPicklistValue, Lead, LeadPayload } from '@/types/crm'
 import { useAssignableEmployees } from './lead-employees'
@@ -45,21 +46,12 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
 
   const [seededFrom, setSeededFrom] = useState<Lead | null | 'unset'>('unset')
   const [form, setForm] = useState<LeadPayload>(EMPTY)
-  const [productOptions, setProductOptions] = useState<PmOption[]>([])
   const [productMasterId, setProductMasterId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    let cancelled = false
-    productMasterService.options()
-      .then((response) => {
-        if (!cancelled) setProductOptions(Array.isArray(response.data) ? response.data : [])
-      })
-      .catch(() => { /* product box empty */ })
-    return () => { cancelled = true }
-  }, [context, isOpen])
+  // The Products (level 1) of the shared Product list; empty when they cannot be read, and the box then offers "No product" and the lead's own.
+  const productOptions = useProductChoices(isOpen && isLaravelContextReady(context))
 
   // Seed the form the moment this opens for a new lead/edit target, mirroring
   // create-task-modal.tsx's seed/seededFrom pattern (set-during-render, not
@@ -233,24 +225,15 @@ export function CreateLeadModal({ isOpen, onClose, onSaved, lead, picklists }: P
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5" data-lead-product-field>
-              <Label htmlFor="lead-product-line">Product Line</Label>
-              <NativeSelect
-                id="lead-product-line"
-                value={productMasterId}
-                onChange={(e) => setProductMasterId(e.target.value)}
-              >
-                <option value="">— Select Product Line —</option>
-                {productOptions.map((opt) => (
-                  <option key={opt.id} value={String(opt.id)}>
-                    {opt.label || opt.name}
-                  </option>
-                ))}
-                {lead?.product && !productOptions.some((o) => o.id === lead.product!.id) && (
-                  <option value={String(lead.product.id)}>{lead.product.name}</option>
-                )}
-              </NativeSelect>
-            </div>
+            <ProductPicker
+              id="lead-product-line"
+              options={productOptions}
+              current={lead?.product ? { id: lead.product.id, name: lead.product.name } : null}
+              value={productMasterId}
+              onChange={setProductMasterId}
+              alwaysShow
+              fieldAttribute="data-lead-product-field"
+            />
             <div className="space-y-1.5">
               <Label>Assigned To{lead ? ' *' : ''}</Label>
               <SearchableSelect
