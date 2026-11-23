@@ -1,0 +1,23 @@
+/* Slide 14: a principal's morning */
+.s14-photo-wrap { position: absolute; left: 0; top: 0; bottom: 0; width: 760px; overflow: hidden; }
+.s14-photo { inset: 0; }
+.s14-photo > img { object-position: 38% 50%; }
+.s14-photo-fade { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 62%, var(--cp-paper) 100%), linear-gradient(0deg, rgba(6, 24, 43, 0.35), transparent 30%); pointer-events: none; }
+.s14-col { position: absolute; left: 860px; right: 120px; top: 80px; bottom: 70px; display: flex; flex-direction: column; }
+.s14-kick { color: var(--cp-blue-d); opacity: 1; }
+.s14-h { margin: 14px 0 0; font-size: 88px; line-height: 1.02; color: var(--cp-text-ink); }
+.s14-tag { align-self: flex-start; margin-top: 22px; padding: 8px 16px; border: 2px solid var(--cp-text-ink); border-radius: 6px; font-size: 21px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cp-text-ink); transform: rotate(-1.2deg); }
+.s14-qs { list-style: none; margin: 36px 0 0; padding: 0; display: grid; }
+.s14-q { border-top: 1.5px solid rgba(12, 42, 74, 0.25); padding: 20px 0 18px; }
+.s14-q:last-child { border-bottom: 1.5px solid rgba(12, 42, 74, 0.25); }
+.s14-q-row { display: flex; align-items: baseline; gap: 22px; }
+.s14-q-n { display: inline-block; width: 36px; font-size: 22px; letter-spacing: 0.18em; font-weight: 800; color: var(--cp-blue-d); }
+.s14-q-t { font-size: 38px; line-height: 1.2; font-weight: 600; color: var(--cp-text-ink); transition: color 0.3s; }
+.s14-q[data-open='false'] .s14-q-t { color: rgba(12, 42, 74, 0.62); }
+.s14-q[data-open='true'] .s14-q-t { color: var(--cp-text-ink); }
+.s14-a { overflow: hidden; }
+.s14-a-in { display: flex; align-items: center; gap: 4px; padding: 16px 0 4px 58px; }
+.s14-a-name { font-size: 30px; font-weight: 700; color: var(--cp-text-body); }
+.s14-a-in .cp-badge { margin-left: 6px; }
+.s14-q[data-concept='true'][data-open='true'] .s14-a-name { font-style: italic; }
+.s14-note { margin: auto 0 0; padding: 16px 22px; border: 2px dashed rgba(12, 42, 74, 0.4); border-radius: 12px; font-size: 25px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); }

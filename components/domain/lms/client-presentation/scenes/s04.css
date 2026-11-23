@@ -1,0 +1,19 @@
+/* Slide 4: information is not yet action */
+.s04-glow { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 78% 62%, rgba(16, 136, 246, 0.16), transparent 70%), radial-gradient(900px 600px at 8% 0%, rgba(11, 60, 115, 0.55), transparent 70%); }
+.s04-h { position: absolute; left: 140px; top: 96px; margin: 0; max-width: 1400px; color: #fff; }
+.s04-line { position: absolute; inset: 0; }
+.s04-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.s04-lab { position: absolute; width: 300px; text-align: center; font-size: 30px; line-height: 1.25; font-weight: 600; color: #eaf2fb; }
+.s04-num { display: block; font-size: 20px; letter-spacing: 0.2em; color: #7fb6ff; font-weight: 800; margin-bottom: 8px; }
+.s04-ask { position: absolute; left: 140px; right: 140px; top: 800px; margin: 0; font-size: 62px; line-height: 1.12; text-align: center; color: #fff; }
+.s04-chooser { position: absolute; left: 140px; right: 140px; top: 400px; }
+.s04-chooser-q { margin: 0 0 40px; font-size: 56px; line-height: 1.1; color: #fff; text-align: center; }
+.s04-chips { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 22px; max-width: 1640px; }
+.s04-chip-item { grid-column: span 2; }
+.s04-chip-item:nth-child(4) { grid-column: 2 / span 2; }
+.s04-chip-item:nth-child(5) { grid-column: 4 / span 2; }
+.s04-chip { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: center; gap: 22px; padding: 26px 30px; border-radius: 18px; border: 2px solid rgba(159, 208, 255, 0.45); background: rgba(11, 37, 64, 0.72); font-size: 31px; line-height: 1.2; font-weight: 600; color: #fff; }
+.s04-chip:hover { border-color: #1088f6; background: rgba(16, 136, 246, 0.22); }
+.s04-chip:focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
+.s04-chip:disabled { cursor: default; }
+.s04-chip-n { font-size: 22px; letter-spacing: 0.16em; font-weight: 800; color: #7fb6ff; }
