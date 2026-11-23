@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { CUSTOMER_MODELS, fromConfig, toConfig } from './icp-form'
+import { buildIcpConfigs, changedIcpModels, emptyIcpStates, icpModelsToSend, icpStatesFromOffer, parseIcpForModel } from './portfolio/icp-state'
 import { emptyIcpForm } from './product-icp-draft'
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8')
@@ -37,12 +38,17 @@ describe('Ideal customer text has no short limit', () => {
   })
 })
 
+// RE-POINTED (S15 WPD2, 23 Nov 2026): the retired Portfolio dialog (product-form-dialog.tsx) is replaced by the one form drawer, so these pins read the drawer.
+const drawer = read('components/domain/portfolio/product-form-drawer.tsx')
+
 describe('Add product: the ICP is checked before the product is saved', () => {
   it('checks the ICP on the server first and stops with the problems, saving nothing', () => {
-    const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.ok(s.indexOf('productIcpService.checkConfig') > 0)
-    assert.ok(s.indexOf('productIcpService.checkConfig') < s.indexOf('portfolioService.createOffer'), 'the check comes before the product is created')
-    assert.match(s, /Fix the Individual ICP section\. Nothing was saved\./)
+    const check = drawer.indexOf('productIcpService.checkConfig')
+    assert.ok(check > 0)
+    const saves = [drawer.indexOf('productRecordService.create(body)'), drawer.indexOf('productRecordService.update(record.id, body)')]
+    assert.ok(saves.every((at) => at > 0), 'both saves of the Sub-product form are found')
+    assert.ok(saves.every((at) => check < at), 'the check comes before the product is created or updated')
+    assert.match(drawer, /Fix the Ideal customer section\. Nothing was saved\./)
   })
 })
 
@@ -65,8 +71,8 @@ describe('Long lines are kept whole, short comma lists still split', () => {
   })
 
   it('sub-products are saved with their individual ICP directly without creating a top-level product', () => {
-    const s = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(s, /toPayload\(form, mode, icpConfig\)/)
+    assert.match(drawer, /buildPayload\(\{[^\n]*icp: Object\.keys\(built\.configs\)\.length > 0 \? built\.configs : undefined/)
+    assert.doesNotMatch(drawer, /productIcpService\.createProduct/)
   })
 })
 
@@ -85,17 +91,22 @@ describe('A long product description fits the ICP part (500 characters)', () => 
 })
 
 describe('Add or edit sub-product: saves directly to offers', () => {
-  const s = read('components/domain/portfolio/product-form-dialog.tsx')
   it('sub-products belong to their parent product and never create a master product', () => {
-    assert.doesNotMatch(s, /productIcpService\.createProduct/)
+    // Only the Sub-product form is read: the drawer's other form, "Add product", exists to make a Product, through the Product record API (not the ICP one).
+    const subProductForm = drawer.slice(drawer.indexOf('// ====', drawer.indexOf('function AddProductForm')))
+    assert.ok(subProductForm.includes('function SubProductForm'), 'the Sub-product form is the part read')
+    assert.doesNotMatch(subProductForm, /productIcpService\.createProduct/)
+    assert.doesNotMatch(subProductForm, /kind: 'product'/)
   })
   it('guidance allows 5,000 characters in the sub-product ICP form', () => {
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /maxLength=\{5000\}/)
   })
 })
 
+// NARROWED (S15 WPD2, 23 Nov 2026): the "Delete" button of the retired portfolio-view.tsx (administrators, own products only, window.confirm) is gone; the owner's
+// decisions D-8 and D-9 replaced it with Archive, which is proved by behaviour in lib/portfolio/sub-product-page*.test.tsx. The confirmation text and the service call stay.
 describe('Delete one of your own products', () => {
-  it('asks first, says what is kept, and only your own products get the button', async () => {
+  it('words the confirmation (what is deleted, what is kept) and the service deletes by key', async () => {
     const { deleteProductConfirmation } = await import('./product-form')
     const t = deleteProductConfirmation('Scholar Learn', 0)
     assert.match(t, /Scholar Learn/)
@@ -106,21 +117,84 @@ describe('Delete one of your own products', () => {
     assert.doesNotMatch(t, /existing opportunit/)
     assert.match(deleteProductConfirmation('X', 2), /2 existing opportunities/)
     assert.match(deleteProductConfirmation('X', 1), /1 existing opportunity;/)
-    const s = read('components/domain/portfolio/portfolio-view.tsx')
-    assert.match(s, /\{isAdmin && p\?\.custom && <Button[^>]*onClick=\{\(\) => void handleDeleteProduct\(p\)\}/)
-    assert.match(s, /window\.confirm\(deleteProductConfirmation\(p\.label, p\.opportunities_count\)\)/)
     assert.match(read('services/signals/product-icp.ts'), /apiClient\.delete<[^>]*>\(`\$\{path\(product\)\}\?\$\{qs\(c\)\}`\)/)
   })
 })
 
 describe('Editing a saved sub-product shows its saved ICP', () => {
   it('opens the edit form with the full offer, and fills the form from the saved ICP', () => {
-    const view = read('components/domain/portfolio/portfolio-view.tsx')
-    assert.match(view, /onSelect=\{\(\) => void openEdit\(offer\)\}/)
-    assert.match(view, /const full = await portfolioService\.getOffer\(context, offer\.id\);?\s*\n\s*setEditOffer\(full\.data\)/)
-    const dialog = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(dialog, /t\?\.pain \|\| \(Array\.isArray\(t\?\.phrases\)/, 'a trigger is shown in full, not its shortened phrase')
-    assert.match(dialog, /freshness: firstTrigger\?\.decay != null \? String\(firstTrigger\.decay\) : ''/)
+    // The edit form reads the offer row itself (the list rows do not carry the saved ICPs) and fills the three models from it with lib/portfolio/icp-state.ts.
+    assert.match(drawer, /portfolioService\.getOffer\(context, record\.offer\.id\)/)
+    assert.match(drawer, /icp: record\?\.offer \? icpStatesFromOffer\(offer, record\.offer\.name\) : emptyIcpStates\(\)/)
+    // The Sub-product page opens that same form on its own record, in edit mode.
+    assert.match(read('components/domain/portfolio/sub-product-page.tsx'), /<ProductFormDrawer\s+open=\{drawer\}\s+onOpenChange=\{setDrawer\}\s+mode="edit"\s+recordId=\{record\.id\}/)
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /This is this product&apos;s saved ICP/)
+  })
+})
+
+describe('The ICP state of a saved sub-product (lib/portfolio/icp-state.ts)', () => {
+  // The parse moved here from the retired Portfolio dialog; these run it, where they used to read the dialog's text.
+  const stored = {
+    label: 'Fee ICP',
+    industry_label: 'Mid-size private schools',
+    pitch: 'Fee reconciliation',
+    buyer_types: ['Trustee', 'Principal'],
+    regions: ['Gujarat', 'Maharashtra'],
+    triggers: { a: { pain: 'School announces a fee-collection tender', phrases: ['fee tender'], decay: 60, source: 'tender' }, b: { phrases: ['new admissions season', 'new session'] } },
+    queries: [{ q: 'school fee software tender' }],
+    disqualifiers: [{ label: 'Government schools', phrases: ['government school'] }, 'trading company'],
+  }
+
+  it('reads a stored ICP the way the old dialog did: a trigger in full, freshness and source from the first trigger, lists one per line', () => {
+    const { form, lines } = parseIcpForModel(stored, 'Fee Suite', 'b2b')
+    assert.equal(form.customer_model, 'b2b')
+    assert.equal(form.label, 'Fee ICP')
+    assert.equal(form.buyer_types, 'Trustee\nPrincipal')
+    assert.equal(form.regions, 'Gujarat\nMaharashtra')
+    assert.equal(lines.triggers, 'School announces a fee-collection tender\nnew admissions season, new session', 'a trigger is shown in full (its pain, else its phrases), not a shortened phrase')
+    assert.equal(lines.freshness, '60')
+    assert.equal(lines.source, 'tender')
+    assert.equal(lines.queries, 'school fee software tender')
+    assert.equal(lines.exclusions, 'Government schools\ntrading company')
+    const bare = parseIcpForModel({ industry_label: 'x' }, 'Fee Suite', 'b2g')
+    assert.equal(bare.form.label, 'Fee Suite B2G ICP', 'a stored ICP with no name is named after the product and the model')
+    assert.equal(bare.lines.freshness, '', 'no trigger, no invented freshness')
+    assert.equal(bare.lines.source, 'news')
+    assert.deepEqual(parseIcpForModel(undefined, 'Fee Suite', 'b2c'), emptyIcpStates().b2c)
+  })
+
+  it('finds the three models in an offer, in one single ICP by its customer model (none means B2B), or none at all', () => {
+    const multi = icpStatesFromOffer({ individual_icps: { b2b: { label: 'B' }, b2g: { label: 'G' } } }, 'Fee Suite')
+    assert.equal(multi.b2b.form.label, 'B')
+    assert.equal(multi.b2g.form.label, 'G')
+    assert.equal(multi.b2c.form.label, '', 'a model nobody stored stays empty')
+    assert.equal(icpStatesFromOffer({ individual_icp: { label: 'Old' } }, 'Fee Suite').b2b.form.label, 'Old')
+    const partner = icpStatesFromOffer({ icp_config: { label: 'Partners', customer_model: 'b2c' } }, 'Fee Suite')
+    assert.equal(partner.b2c.form.label, 'Partners')
+    assert.equal(partner.b2b.form.label, '', 'a single ICP of another model is not copied into B2B')
+    assert.deepEqual(icpStatesFromOffer(null, 'Fee Suite'), emptyIcpStates())
+    assert.deepEqual(icpStatesFromOffer({}, 'Fee Suite'), emptyIcpStates())
+  })
+
+  it('sends only the models the person changed and filled in, and names a model that has no name as a problem, not a config', () => {
+    const loaded = icpStatesFromOffer({ individual_icps: { b2b: stored } }, 'Fee Suite')
+    assert.deepEqual(changedIcpModels(loaded, loaded), [])
+    assert.deepEqual(icpModelsToSend(loaded, loaded), [], 'nothing changed, nothing sent')
+    const edited = { ...loaded, b2b: { ...loaded.b2b, form: { ...loaded.b2b.form, pitch: 'A new pitch' } } }
+    assert.deepEqual(changedIcpModels(loaded, edited), ['b2b'])
+    assert.deepEqual(icpModelsToSend(loaded, edited), ['b2b'])
+    const cleared = { ...loaded, b2b: emptyIcpStates().b2b }
+    assert.deepEqual(changedIcpModels(loaded, cleared), ['b2b'])
+    assert.deepEqual(icpModelsToSend(loaded, cleared), [], 'a model the person emptied is changed but has nothing to send')
+    const offer = { offer_id: 'FEE-01', name: 'Fee Suite', what_it_does: 'Fee collection' }
+    const built = buildIcpConfigs(['b2b'], edited, offer)
+    assert.deepEqual(Object.keys(built.configs), ['b2b'])
+    assert.equal(built.configs.b2b?.customer_model, 'b2b')
+    assert.equal(built.configs.b2b?.pitch, 'A new pitch')
+    assert.deepEqual(built.problems, {})
+    const unnamed = { ...loaded, b2g: { ...loaded.b2g, form: { ...loaded.b2g.form, pitch: 'Only a pitch' } } }
+    const refused = buildIcpConfigs(['b2g'], unnamed, offer)
+    assert.deepEqual(refused.configs, {})
+    assert.match(refused.problems.b2g?.[0] ?? '', /ICP name: give the B2G ICP a name/)
   })
 })

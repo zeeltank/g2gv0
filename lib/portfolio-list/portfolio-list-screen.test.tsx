@@ -87,7 +87,7 @@ describe('what a caller who may not view prices sees (HR)', () => {
     await disposeAll()
     current.restore()
     current = await setup()
-    assert.equal(placeholder(current), 'Search by name, ID or SKU…')
+    assert.equal(placeholder(current), 'Search by name, ID, SKU or product number…')
   })
 
   it('draws the Sell columns for a sales profile and an administrator (the same list, the API sent the keys)', async () => {

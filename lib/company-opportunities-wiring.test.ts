@@ -18,10 +18,11 @@ describe('Product Details & ICP link', () => {
     assert.equal(configureHref('g2g'), '/portfolio/g2g')
   })
 
-  it('points at a route that exists, and the old ?product= link still lands on that product', () => {
+  // The second half of this test (the old `/portfolio?product=<key>` link redirecting to that product's page) read the retired portfolio-view.tsx; the unified list
+  // has no such redirect (S15 WPD2 test map, 23 Nov 2026, G1), so it is not pinned here.
+  it('points at a route that exists', () => {
     assert.ok(existsSync(join(root, 'app/portfolio/[product]/page.tsx')))
     assert.ok(existsSync(join(root, 'app/portfolio/page.tsx')))
-    assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /router\.replace\(configureHref\(linked\)\)/)
   })
 
   it('has a link to the product\'s sub-products (where each ICP is set), an old ?tab=icp link lands there, and an unknown tab falls back to the overview', () => {
@@ -166,8 +167,9 @@ describe('Premium workspace and honest forms', () => {
   })
 
   it('shows failures inline: no native alert() in the four modules', () => {
-    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-view.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
-      assert.equal(/alert\(/.test(read(f)), false, f)
+    // The Product Portfolio is now the unified list (portfolio-view.tsx is retired): its screen, its More menu and its one form are read in its place.
+    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-more-menu.tsx', 'components/domain/portfolio/product-form-drawer.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
+      assert.equal(/\balert\(/.test(read(f)), false, f)
     }
   })
 

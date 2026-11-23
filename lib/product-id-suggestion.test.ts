@@ -25,18 +25,21 @@ describe('Next product ID for a category', () => {
   })
 })
 
+// RE-POINTED (S15 WPD2, 23 Nov 2026): the Category choice of the retired Portfolio dialog (product-form-dialog.tsx) is the Product choice of the one form drawer; the ID is
+// suggested from it the same way (the next number after the highest one among that Product's sub-products).
 describe('Add product form', () => {
-  const s = read('components/domain/portfolio/product-form-dialog.tsx')
+  const about = read('components/domain/portfolio/product-form-about.tsx')
+  const drawer = read('components/domain/portfolio/product-form-drawer.tsx')
 
-  it('shows Category and Status before Product ID and Name', () => {
-    const at = (id: string) => s.indexOf(`<Field id="${id}"`)
-    assert.ok(at('pf-category') < at('pf-status') && at('pf-status') < at('pf-id') && at('pf-id') < at('pf-name'))
+  it('shows the Product before the ID and the Name (the Product decides the suggested ID)', () => {
+    const at = (label: string) => about.indexOf(`<Field label="${label}"`)
+    assert.ok(at('Product') > 0 && at('Product') < at('ID') && at('ID') < at('Name'))
   })
 
-  it('fills the ID from the category in add mode, leaves a typed ID alone, and the ID stays editable', () => {
-    assert.match(s, /void chooseCategory\(e\.target\.value\)/)
-    assert.match(s, /if \(mode !== 'create' \|\| idEdited\) return/)
-    assert.match(s, /nextProductId\(category, ids\)/)
-    assert.match(s, /disabled=\{busy \|\| mode === 'edit'\}/)
+  it('fills the ID from the Product in add mode, leaves a typed ID alone, and the ID stays editable until the first save', () => {
+    assert.match(drawer, /return nextProductId\(product\.portfolioName, product\.subProducts\.map\(\(s\) => s\.offerId \?\? ''\)\.filter\(Boolean\)\)/)
+    assert.match(drawer, /const suggestion = !editing && !idTouched \? suggestId\(choices, productId\) : ''/)
+    assert.match(drawer, /const setOfferId = \(offerId: string\) => \{ setIdTouched\(offerId\.trim\(\) !== ''\); setAbout\(\{ offerId \}\) \}/)
+    assert.match(about, /onChange=\{\(e\) => onOfferId\(e\.target\.value\)\} disabled=\{busy \|\| hasAbout\}/)
   })
 })

@@ -38,7 +38,7 @@ export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="w-full sm:max-w-sm sm:flex-1">
-        <ListSearch value={query.q} onSearch={onSearch} placeholder={canViewSell ? 'Search by name, ID or SKU…' : 'Search by name or ID…'} label="Search the portfolio" />
+        <ListSearch value={query.q} onSearch={onSearch} placeholder={canViewSell ? 'Search by name, ID, SKU or product number…' : 'Search by name or ID…'} label="Search the portfolio" />
       </div>
       <Facet label="Product" value={f.product ?? ''} choices={productChoices(lines, f.product ?? '')} onChange={(v) => onFilter('product', v)} />
       <Facet label="Type" value={f.type} choices={TYPE_CHOICES} onChange={(v) => onFilter('type', v)} />
