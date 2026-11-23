@@ -1,6 +1,6 @@
 # 10 My Learning wiring (EXECUTED on db3 on 2026-11-23 after the owner's explicit go)
 
-Date 2026-11-23. Nothing in this file has been run. No db3 write, commit, push or deploy has happened.
+Date 2026-11-23. This file began as the plan; the steps below were executed the same evening after the owner's explicit go (see "What was done" at the end). The plan text is kept as written.
 
 ## What the code already allows (read, no change needed)
 `components/domain/lms/delivery/learning-delivery-workspace.tsx` (`lessonKind`, lines 83-100) treats a lesson whose type is `link` or `url` as a link lesson that opens its address; only links to `/sales-training/<product>` and the interactive-course origin get their own player. So a plain **link lesson that points at the new route** needs **no edit to any existing file** and leaves the old Sales Training untouched:
@@ -25,7 +25,7 @@ Course title stays "ScholarClone: What is your school not seeing?" (already on t
 
 ## What was done (2026-11-23, evening)
 Owner confirmed course 207 is theirs and chose to enrol the 11 active tenant-6 users (the same people who hold the two old Sales cards). `scripts/client-presentation/wire-course-207.py --execute` ran against db3 (128.199.17.97/hp_erp), tenant 6 only:
-- backup of the 207 and 237 rows: `D:\client-presentation-assetsackup\db3-course207-20261123_204252.json`
+- backup of the 207 and 237 rows: `D:\client-presentation-assets\backup\db3-course207-20261123_204252.json`
 - 2 link lessons added to chapter 237: id 275 "Full presentation" and id 276 "Five-slide version" (category "Interactive deck")
 - course 207 set from status 0 to 1
 - 11 `lms_course_enroll` rows (status `enrolled`) for course 207
