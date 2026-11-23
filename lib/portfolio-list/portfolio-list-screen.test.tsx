@@ -56,6 +56,20 @@ describe('the Product Portfolio list: what is on the page', () => {
     assert.equal(hrefOf('Enterprise Brain'), '/portfolio/enterprise_brain')
   })
 
+  it('sends an old address with a Product\'s KEY (/portfolio?product=scholarclone) to that Product\'s page, and keeps the numeric Product filter on the list', async () => {
+    const old = await open({ search: 'product=scholarclone' })
+    assert.deepEqual(old.router.written, ['/portfolio/scholarclone'], 'the old key link opens the Product page')
+    old.restore()
+    await disposeAll()
+    const numeric = await open({ search: 'product=1' })
+    assert.deepEqual(numeric.router.written, [], 'a Product number is the list\'s own filter: no redirect')
+    assert.ok(numeric.lastList()!.query.get('productId') === '1' || numeric.lastList()!.query.get('product_id') === '1', 'and it reaches the server')
+    numeric.restore()
+    await disposeAll()
+    const plain = await open()
+    assert.deepEqual(plain.router.written, [], 'no product in the address: no redirect')
+  })
+
   it('says every word as Product or Sub-product: never Catalogue, Offer, Item or Product line (rendered text, every state of the page)', async () => {
     const { text, openMore } = await open()
     assert.ok(!FORBIDDEN.test(text()), `forbidden word on the page: ${text().match(FORBIDDEN)?.[0]}`)

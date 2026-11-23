@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -12,6 +13,7 @@ import { CrmBulkActionBar } from '@/components/domain/crm/crm-bulk-action-bar'
 import { crmBulkResultMessage } from '@/components/domain/crm/crm-bulk-result-message'
 import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
 import { getLaravelContext } from '@/lib/laravel-context'
+import { configureHref, normalizeProductKey } from '@/lib/product-selection'
 import { createLatestOnly } from '@/lib/signal-run-view'
 import { displayItems, listScreenState, matchesToReview, mayTick, mergeBulkAnswers, planBulk, type ListScreenState } from '@/lib/portfolio-list/model'
 import { clearFiltersPatch, effectiveSort, isNarrowed, listRequest, PORTFOLIO_QUERY, productIdOf, type SortKey } from '@/lib/portfolio-list/query'
@@ -60,6 +62,14 @@ export function PortfolioList({ canManage }: { canManage: boolean }) {
   // Which form is open: a new Product (administrators), or a new Sub-product, with the Product it starts under when the list is about one.
   const [drawer, setDrawer] = useState<{ mode: ProductFormMode; defaultProductId?: number } | null>(null)
   const latest = useRef(createLatestOnly())
+
+  // An old address with a Product's KEY (`/portfolio?product=scholarclone`: saved links, old Ask answers) opens that Product's page; the list's own Product filter is a number.
+  const router = useRouter()
+  const productFilter = (query.filters.product ?? '').trim()
+  const oldKey = productFilter !== '' && productIdOf(query) === undefined ? normalizeProductKey(productFilter) : ''
+  useEffect(() => {
+    if (oldKey !== '') router.replace(configureHref(oldKey))
+  }, [oldKey, router])
 
   const request = useMemo(() => listRequest(query), [query])
   const can = data?.meta.can ?? NOTHING
