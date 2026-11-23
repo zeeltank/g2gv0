@@ -1,6 +1,6 @@
 import { formatWhen, safeInternalPath } from '@/lib/agent/model'
 import type { ChipTone } from '@/lib/org-accounts/tones'
-import { safeHttpUrl } from '@/lib/signal-review/signal-display'
+import { safeHttpUrl } from '@/lib/signals/signal-display'
 import type { FactsQueueParams } from '@/services/facts/api-types'
 import type {
   ConsentChannel, ConsentChannelKey, ConsentData, ConsentSource, Fact, FactBand, FactCounts, FactEntityType, FactEvidence, FactStatus,

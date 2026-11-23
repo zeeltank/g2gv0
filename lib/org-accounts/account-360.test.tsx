@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import { ApiError } from '../../services/core'
 import type { OrgAccountsApi } from '../../services/org-accounts/api-types'
 import type { Org360 } from '../../services/org-accounts/types'
@@ -144,17 +144,26 @@ describe('Account 360 tab: the linked records', () => {
 describe('Account 360 tab: the signals', () => {
   afterEach(disposeAll)
 
-  it('shows each signal with its status in words, its date, and a link to Signal Review on its title', async () => {
+  it('shows each signal with its status in words, its date, and a link to Company Opportunities on its title', async () => {
     const { k, section } = await setup()
     const signals = section('Signals')!
     assert.ok(signals.textContent!.includes('3 in total · 2 need a decision · 1 decided'), "signals.textContent!.includes('3 in total · 2 need a decision · 1 decided')")
     const first = k.one('[data-signal="301"]')!
     assert.equal(first.querySelector('[data-status]')!.textContent, 'Needs decision')
     assert.equal(first.querySelector('[data-date-kind]')!.textContent, 'Event 12 Oct 2026')
-    assert.equal(first.querySelector('a')!.getAttribute('href'), '/signal-review?status=all&q=District%20invites%20bids%20for%20school%20software')
+    assert.equal(first.querySelector('a')!.getAttribute('href'), '/signals?status=all&q=District%20invites%20bids%20for%20school%20software')
+    assert.ok(signals.textContent!.includes('Decisions are made in Company Opportunities.'), 'the sentence names the screen the title link opens')
     const second = k.one('[data-signal="302"]')!
     assert.equal(second.querySelector('[data-status]')!.textContent, 'Reviewed')
     assert.equal(second.querySelector('[data-date-kind]')!.textContent, 'Date unknown')
+  })
+
+  it('keeps a signal\'s title as plain text when the person has no Signals link, and still shows the page it was found on', async () => {
+    const { k } = await setup({ links: { ...DEFAULT_LINKS, signals: null } })
+    const first = k.one('[data-signal="301"]')!
+    const hrefs = Array.from(first.querySelectorAll('a')).map((a) => a.getAttribute('href'))
+    assert.deepEqual(hrefs, ['https://news.example/district-bids'], 'only the evidence page is a link')
+    assert.ok(first.textContent!.includes('District invites bids for school software'), 'the title is still there as text')
   })
 
   it('links the evidence page that a signal was found on, safely, and only when there is one', async () => {

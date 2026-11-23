@@ -41,7 +41,6 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
-const SignalReviewView = createLazyComponent(() => import('@/domain/crm/signal-review-view').then((m) => ({ default: m.SignalReviewView })))
 
 // Marketing Automation & AI Agent Runs
 const AutomationRulesView = createLazyComponent(() => import('@/domain/crm/automation-rules-view').then((m) => ({ default: m.AutomationRulesView })))
@@ -70,9 +69,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 2. Market Signals & Social Listening
   { accessLink: '/module/crm/signals', component: MarketSignalsView },
   { accessLink: '/signals', component: MarketSignalsView },
-  // Signal Review (agentic CRM slice 2): decide on signals with the evidence in view, and keep the reason. Beside the original Signals screen, which is unchanged.
-  { accessLink: '/module/crm/signal-review', component: SignalReviewView },
-  { accessLink: '/signal-review', component: SignalReviewView },
+  // Signal Review has no entry here any more: it was merged into Company Opportunities (13 Nov 2026). Its two old addresses are redirect pages under app/, which send
+  // a visitor to /signals with the query kept; the menu row stays in the database and the sidebar hides it in code (lib/signals-nav.ts).
   { accessLink: '/module/crm/marketing/signal-inbox', component: MarketSignalsView },
 
   // 3. Prospecting & ICP Discovery

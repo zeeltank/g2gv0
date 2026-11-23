@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import type { PmEnvelope, PmListData, PmListData as ListData, PmMeta, PmOption, PmRecord } from '../../services/product-master/types'
 import { line, lineRecord, list, meta, options, sub, subProductRecord } from './lines-fixtures'
 

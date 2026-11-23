@@ -1,19 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
-  Layers,
-  Bot,
-  UserPlus,
+  CheckCircle2,
   Clock,
+  Flame,
+  Layers,
   RefreshCw,
-  Search,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { NativeSelect } from '@/components/shared/scaffolds/form-field'
+import type { ListQuery } from '@/components/shared/scaffolds/list-query'
+import { ListSearch } from '@/components/shared/scaffolds/list-search'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { formatRunDate } from '@/lib/run-dates'
 import { ApiError } from '@/services/core'
@@ -21,27 +22,54 @@ import {
   opportunitiesService,
   type Opportunity,
   type OpportunityListResponse,
+  type OpportunityQuery,
 } from '@/services/signals/opportunities'
 import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
 import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
+import { ExportCsvButton, ScreenNoticeBanner, type ScreenNotice } from '@/components/domain/signals/signal-export-button'
 import { wantsFallback } from '@/lib/signal-fallback'
-import { rangeText, todayIn } from '@/lib/signal-dates'
+import { rangeText } from '@/lib/signal-dates'
 import { createLatestOnly, listErrorMode } from '@/lib/signal-run-view'
-
-/** Signals shown per page. */
-export const SIGNALS_PER_PAGE = 5
+import { fitChoices, FRESHNESS_CHOICES, reviewStatusOf, STATUS_CHOICES, summaryTiles, type Choice } from '@/lib/signals/list-model'
+import {
+  DEFAULT_PER_PAGE, isNarrowedHere, listRequest, OPPORTUNITY_SORT_CHOICES, opportunityListState, PER_PAGE_LABELS,
+} from '@/lib/signals/opportunity-query'
+import { replaceRow } from '@/lib/signals/opportunity-row'
+import { BANNER_TONE } from '@/lib/signals/tones'
+import { cn } from '@/lib/utils'
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
+/** The list's search, filters, order, page and page size, kept in the address by the screen around it (the list only reads them and asks to change them). */
+export interface SignalListControls {
+  query: ListQuery
+  setSearch: (q: string) => void
+  setFilter: (name: string, value: string) => void
+  setSort: (sort: string) => void
+  setPage: (page: number) => void
+  /** Clears the search and the facets (not the product). */
+  clearFilters: () => void
+}
+
+/** What each of the four counts means, under its number. */
+const TILE_HINTS = [
+  { icon: Layers, hint: 'Matching the search and filters' },
+  { icon: Clock, hint: 'Not decided on yet' },
+  { icon: CheckCircle2, hint: 'Contacted, reviewed or not relevant' },
+  { icon: Flame, hint: 'Leaving out the not relevant ones' },
+] as const
+
 /**
  * Unified Signals List and Dashboard:
- * Summary cards, three source tabs (All, Generated, Manually Added), search & sort, and a 9-column opportunities table.
- * It reads stored rows only; choosing filters or pagination never starts research.
+ * Four counts from the server, three source tabs (All, Generated, Manually Added), search, Status / Freshness / Fit / Sort / Page size, and the signals as
+ * cards. It reads stored rows only; choosing filters or pagination never starts research. The search, filters, order, page and page size live in the
+ * address (`controls`), so a refresh, the Back button and a pasted link open the same view.
  */
 export function SignalList({
   context,
   productKey,
   productLabel,
+  productMasterId = null,
   runDate,
   allDates,
   refreshKey,
@@ -54,13 +82,14 @@ export function SignalList({
   allSignals = false,
   dateFrom,
   dateTo,
-  today,
-  timezone,
-  onAddManual,
+  controls,
 }: {
   context: LaravelContext
+  /** A product key, or 'all' for every product. */
   productKey: string
   productLabel: string
+  /** Only the signals filed under this Product Master record (the Signal Review's meaning of a number in the address). */
+  productMasterId?: number | null
   /** YYYY-MM-DD of a successful run, or null when viewing all dates or when the product has none yet. */
   runDate: string | null
   allDates?: boolean
@@ -76,32 +105,54 @@ export function SignalList({
   runId?: number | null
   dateFrom?: string | null
   dateTo?: string | null
-  today?: string | null
-  timezone?: string | null
-  onAddManual?: () => void
+  controls: SignalListControls
 }) {
+  const { query } = controls
+  const { q, sort, page } = query
+  const status = query.filters.status ?? 'all'
+  const freshness = query.filters.freshness ?? 'all'
+  const fit = query.filters.fit ?? 'all'
+  const per = query.filters.per ?? String(DEFAULT_PER_PAGE)
+
   const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'connectors' | 'manual'>('all')
-  const [search, setSearch] = useState('')
-  const [debounced, setDebounced] = useState('')
-  const [page, setPage] = useState(1)
-  const [status, setStatus] = useState('')
-  const [sort, setSort] = useState<'default' | 'priority' | 'qualification'>('default')
   const [data, setData] = useState<OpportunityListResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  // What the last export said (saved, cut short, nothing to export, cancelled, failed), until it is put away.
+  const [exportNotice, setExportNotice] = useState<ScreenNotice | null>(null)
   const latest = useRef(createLatestOnly())
+  const everyProduct = productKey === 'all'
 
+  // Another product or another day: nothing of the previous view stays on screen, and the list goes back to page one. Not on the first render: a link
+  // that opens on page three must stay on page three.
+  const scope = [productKey, productMasterId ?? '', runDate ?? '', allDates ? 1 : 0, dateFrom ?? '', dateTo ?? '', offerId ?? '', customerModel, runId ?? ''].join('|')
+  const lastScope = useRef(scope)
+  const { setPage } = controls
   useEffect(() => {
-    const t = setTimeout(() => { setDebounced(search.trim()); setPage(1) }, 300)
-    return () => clearTimeout(t)
-  }, [search])
+    if (lastScope.current === scope) return
+    lastScope.current = scope
+    setData(null); setError(null); setSourceTab('all')
+    if (page > 1) setPage(1)
+  }, [scope, page, setPage])
 
-  // Another product or another day: start from page one with nothing of the previous view on screen.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1); setData(null); setError(null); setActionError(null); setStatus(''); setSourceTab('all')
-  }, [productKey, runDate, allDates, dateFrom, dateTo, offerId, customerModel, runId])
+  // What the list asks the server for: the screen's scope (product, day, sub-product, ICP type, places, source tab) and the address's search, facets, order,
+  // page and page size. The CSV export reads every page of this SAME request (the button below), so the file is the list without the paging.
+  const request = useMemo((): OpportunityQuery => ({
+    product: productKey,
+    productMasterId: productMasterId ?? undefined,
+    offerId: allSignals ? undefined : (offerId ?? undefined),
+    customerModel: allSignals ? undefined : customerModel,
+    regions: allSignals ? undefined : regions,
+    runDate: allDates || dateFrom ? undefined : (runDate ?? undefined),
+    from: dateFrom ?? undefined,
+    to: dateTo ?? undefined,
+    runId: runId ?? undefined,
+    ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit, per } }),
+    expired: 'include',
+    allSignals: Boolean(allSignals),
+    // "From connectors" is narrowed on this screen (by found_via); the server only knows all, generated and manual.
+    source: sourceTab === 'connectors' ? 'all' : sourceTab,
+  }), [productKey, productMasterId, allSignals, offerId, customerModel, regions, allDates, dateFrom, runDate, dateTo, runId, q, sort, page, status, freshness, fit, per, sourceTab])
 
   const load = useCallback(async () => {
     if (!allDates && !runDate && !dateFrom) {
@@ -113,25 +164,7 @@ export function SignalList({
     const ticket = latest.current.next()
     setLoading(true)
     try {
-      const res = await opportunitiesService.list(context, {
-        product: productKey,
-        offerId: allSignals ? undefined : (offerId ?? undefined),
-        customerModel: allSignals ? undefined : customerModel,
-        regions: allSignals ? undefined : regions,
-        runDate: allDates || dateFrom ? undefined : (runDate ?? undefined),
-        from: dateFrom ?? undefined,
-        to: dateTo ?? undefined,
-        runId: runId ?? undefined,
-        search: debounced || undefined,
-        reviewStatus: status || undefined,
-        sort,
-        page,
-        perPage: SIGNALS_PER_PAGE,
-        expired: 'include',
-        allSignals: Boolean(allSignals),
-        // "From connectors" is narrowed on this screen (by found_via); the server only knows all, generated and manual.
-        source: sourceTab === 'connectors' ? 'all' : sourceTab,
-      })
+      const res = await opportunitiesService.list(context, request)
       if (!latest.current.isLatest(ticket)) return
       setData(res)
       setError(null)
@@ -142,7 +175,7 @@ export function SignalList({
     } finally {
       if (latest.current.isLatest(ticket)) setLoading(false)
     }
-  }, [context, productKey, runDate, allDates, dateFrom, dateTo, debounced, status, sort, page, onTotal, offerId, customerModel, regions, runId, allSignals, sourceTab])
+  }, [context, request, allDates, runDate, dateFrom, onTotal])
 
   useEffect(() => {
     let live = true
@@ -150,40 +183,16 @@ export function SignalList({
     return () => { live = false }
   }, [load, refreshKey])
 
-  // Calculate summary counts dynamically from actual records matching the active filters
-  const summaryStats = useMemo(() => {
-    if (!data) return { total: 0, generated: 0, manual: 0, newToday: 0 }
-    const items = data.data
-    const total = data.meta.total
-    const todayStr = today || (timezone ? todayIn(timezone) : null)
+  // A card changed (a decision, a lead): the row is replaced in place and the counts move with it, so what is on screen agrees without a reload.
+  const changed = useCallback((next: Opportunity) => setData((current) => (current ? replaceRow(current, next) : current)), [])
 
-    const gen = items.filter((o) => !o.entered_manually && !o.found_via && o.research_run_id !== null).length
-    const man = items.filter((o) => o.entered_manually || (!o.research_run_id && !o.found_via)).length
-    const newTod = items.filter((o) => {
-      const d = o.captured_on || o.report_date || o.first_discovered_at?.slice(0, 10)
-      return todayStr ? d === todayStr : false
-    }).length
-
-    const computedGen = total <= items.length ? gen : Math.max(gen, total - man)
-    const computedNewToday = total <= items.length ? newTod : Math.max(newTod, data.summary.new ?? 0)
-
-    return {
-      total,
-      generated: computedGen,
-      manual: man,
-      newToday: computedNewToday,
-    }
-  }, [data, today, timezone])
-
-  const act = async (o: Opportunity, action: 'review' | 'follow-up' | 'dismiss') => {
-    setActionError(null)
-    try {
-      await opportunitiesService.act(context, o.id, action)
-      void load()
-    } catch (e) {
-      setActionError(errMsg(e, 'Could not update the signal.'))
-    }
-  }
+  // A link or a refresh can hold a page past the end (signals were decided or removed since): go to the last page, not to an empty list with no pager.
+  const rowsOnPage = data?.data.length
+  const matching = data?.meta.total ?? 0
+  const lastPage = data?.meta.last_page ?? 1
+  useEffect(() => {
+    if (rowsOnPage === 0 && matching > 0 && page > lastPage) setPage(Math.max(1, lastPage))
+  }, [rowsOnPage, matching, lastPage, page, setPage])
 
   const items = useMemo(() => {
     if (!data) return []
@@ -199,6 +208,8 @@ export function SignalList({
     return data.data
   }, [data, sourceTab])
 
+  const resetPage = () => { if (page > 1) setPage(1) }
+
   if (!allDates && !runDate && !dateFrom) {
     return (
       <EmptyState
@@ -213,161 +224,94 @@ export function SignalList({
     return <ErrorState title="Could not load the signals" description={error ?? ''} retry={() => void load()} />
   }
 
+  // "No signals yet" for an organisation that has none, "No signals match these filters" (with a way out) for a search, a facet, a status or a source
+  // tab that matched nothing. The product is the scope of the screen, not a filter of it.
+  const emptyKind = opportunityListState({ loaded: data !== null, error: '', rows: items.length, summaryTotal: data?.summary.total ?? 0, query })
+  const filtered = emptyKind === 'filtered-empty' || isNarrowedHere(query) || sourceTab !== 'all'
+  const reasons = data?.filters?.review_reasons ?? []
+  const statusWord = reviewStatusOf(status) ?? ''
+
   return (
     <div className="space-y-5" aria-busy={loading}>
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 md:gap-4">
-        {/* Total Signals */}
-        <div className="premium-card rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-shadow hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Signals</span>
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <Layers className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {summaryStats.total}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Matching active filters</p>
+      {/* The four counts, from the server: what the list would hold with the search and the filters, whatever page it is on. */}
+      {data && (
+        <div role="group" aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4 md:gap-4">
+          {summaryTiles(data.summary).map((tile, index) => {
+            const { icon: Icon, hint } = TILE_HINTS[index]
+            return (
+              <div key={tile.label} className="premium-card rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-shadow hover:shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tile.label}</span>
+                  <div className="rounded-lg bg-muted p-2 text-foreground">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </div>
+                </div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">{tile.value}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+              </div>
+            )
+          })}
         </div>
-
-        {/* Generated */}
-        <div className="premium-card rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-shadow hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Generated</span>
-            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-600">
-              <Bot className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {summaryStats.generated}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Automated research runs</p>
-        </div>
-
-        {/* Manually Added */}
-        <div className="premium-card rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-shadow hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Manually Added</span>
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
-              <UserPlus className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {summaryStats.manual}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Direct team submissions</p>
-        </div>
-
-        {/* New Today */}
-        <div className="premium-card rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-shadow hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Today</span>
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
-              <Clock className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {summaryStats.newToday}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Discovered or saved today</p>
-        </div>
-      </div>
+      )}
 
       {/* Tabs and Controls Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Source Tabs */}
-        <div role="tablist" aria-label="Signal source tabs" className="inline-flex rounded-xl bg-muted/60 p-1 text-xs font-medium">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={sourceTab === 'all'}
-            onClick={() => { setSourceTab('all'); setPage(1) }}
-            className={`rounded-lg px-3 py-1.5 transition-all ${
-              sourceTab === 'all'
-                ? 'bg-card text-foreground font-semibold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={sourceTab === 'generated'}
-            onClick={() => { setSourceTab('generated'); setPage(1) }}
-            className={`rounded-lg px-3 py-1.5 transition-all ${
-              sourceTab === 'generated'
-                ? 'bg-card text-foreground font-semibold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Generated
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={sourceTab === 'connectors'}
-            onClick={() => { setSourceTab('connectors'); setPage(1) }}
-            className={`rounded-lg px-3 py-1.5 transition-all ${
-              sourceTab === 'connectors'
-                ? 'bg-card text-foreground font-semibold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Connectors
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={sourceTab === 'manual'}
-            onClick={() => { setSourceTab('manual'); setPage(1) }}
-            className={`rounded-lg px-3 py-1.5 transition-all ${
-              sourceTab === 'manual'
-                ? 'bg-card text-foreground font-semibold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Manually Added
-          </button>
-        </div>
-
-        {/* Search, Filter, Sort and Refresh Controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-44 max-w-xs flex-1 sm:w-56">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by company or summary…"
-              aria-label="Search signals"
-              className="h-9 pl-8 text-xs"
-            />
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Source Tabs */}
+          <div role="tablist" aria-label="Signal source tabs" className="inline-flex rounded-xl bg-muted/60 p-1 text-xs font-medium">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === 'all'}
+              onClick={() => { setSourceTab('all'); resetPage() }}
+              className={`rounded-lg px-3 py-1.5 transition-all ${
+                sourceTab === 'all'
+                  ? 'bg-card text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === 'generated'}
+              onClick={() => { setSourceTab('generated'); resetPage() }}
+              className={`rounded-lg px-3 py-1.5 transition-all ${
+                sourceTab === 'generated'
+                  ? 'bg-card text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Generated
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === 'connectors'}
+              onClick={() => { setSourceTab('connectors'); resetPage() }}
+              className={`rounded-lg px-3 py-1.5 transition-all ${
+                sourceTab === 'connectors'
+                  ? 'bg-card text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Connectors
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === 'manual'}
+              onClick={() => { setSourceTab('manual'); resetPage() }}
+              className={`rounded-lg px-3 py-1.5 transition-all ${
+                sourceTab === 'manual'
+                  ? 'bg-card text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Manually Added
+            </button>
           </div>
-
-          <select
-            aria-label="Review status"
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-            className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">Any status</option>
-            <option value="New">New</option>
-            <option value="Reviewed">Reviewed</option>
-            <option value="Follow-up">Contacted</option>
-            <option value="Dismissed">Not relevant</option>
-          </select>
-
-          <select
-            aria-label="Sort signals"
-            value={sort}
-            onChange={(e) => { setSort(e.target.value as 'default' | 'priority' | 'qualification'); setPage(1) }}
-            className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="default">Sort: Newest first</option>
-            <option value="priority">Sort: Priority</option>
-            <option value="qualification">Sort: Qualification</option>
-          </select>
 
           <Button
             type="button"
@@ -382,17 +326,31 @@ export function SignalList({
             <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+
+        {/* Search and the facets: the Signal Review's own, kept in the address. They wrap, so a narrow screen never scrolls sideways. */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full sm:max-w-sm sm:flex-1">
+            <ListSearch value={q} onSearch={controls.setSearch} placeholder="Search by company or summary…" label="Search signals" />
+          </div>
+          <Facet label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => controls.setFilter('status', v)} />
+          <Facet label="Freshness" value={freshness} choices={FRESHNESS_CHOICES} onChange={(v) => controls.setFilter('freshness', v)} />
+          <Facet label="Fit" value={fit} choices={fitChoices(data?.filters?.business_fits, data?.filters?.products, fit)} onChange={(v) => controls.setFilter('fit', v)} />
+          <Facet label="Sort" value={sort} choices={OPPORTUNITY_SORT_CHOICES} onChange={controls.setSort} />
+          <Facet label="Page size" value={per} choices={PER_PAGE_LABELS} onChange={(v) => controls.setFilter('per', v)} />
+          {/* Every page of what the list asks for (the filters above are in it), up to the file's cap; works in every scope. */}
+          <ExportCsvButton label="Export CSV" read={(exportPage, size) => opportunitiesService.list(context, { ...request, page: exportPage, perPage: size })} onNotice={setExportNotice} />
+        </div>
+        {exportNotice && <ScreenNoticeBanner notice={exportNotice} onDismiss={() => setExportNotice(null)} />}
       </div>
 
-      {actionError && <p role="alert" className="text-xs text-destructive">{actionError}</p>}
       {errorMode === 'beside' && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className={cn('rounded-lg border p-2.5 text-xs', BANNER_TONE.error)}>
           Could not refresh the signals: {error}. The list below is what was loaded before.{' '}
           <button type="button" className="font-medium underline" onClick={() => void load()}>Try again</button>
         </p>
       )}
 
-      {/* Unified Opportunities Table */}
+      {/* Unified Opportunities List */}
       {!data ? (
         <div className="space-y-3" aria-busy="true">
           {[0, 1, 2, 3, 4].map((i) => (
@@ -400,7 +358,7 @@ export function SignalList({
           ))}
         </div>
       ) : items.length === 0 ? (
-        !allDates && runDate && wantsFallback({ itemCount: items.length, search: debounced, view: 'all', status, loaded: !loading }) ? (
+        !allDates && runDate && wantsFallback({ itemCount: items.length, search: q, view: 'all', status: statusWord, loaded: !loading, narrowed: fit !== 'all' || freshness !== 'all' }) ? (
           <FallbackSignals
             context={context}
             productKey={productKey}
@@ -425,19 +383,20 @@ export function SignalList({
           />
         ) : (
           <EmptyState
-            title={debounced || status || sourceTab !== 'all' ? 'No signals match these filters' : (allDates ? `No saved ${productLabel} signals yet` : 'No signals match these filters')}
+            title={filtered ? 'No signals match these filters' : (everyProduct ? 'No saved signals yet' : (allDates ? `No saved ${productLabel} signals yet` : 'No signals match these filters'))}
             description={
-              debounced || status || sourceTab !== 'all'
-                ? 'Try adjusting your search, status, source tab or date filters.'
-                : (allDates ? `Press Generate Signals to run research for ${productLabel}.` : 'Try a different filter or search.')
+              filtered
+                ? 'Try adjusting your search, status, freshness, fit, source tab or date filters.'
+                : (everyProduct ? 'Choose a product and press Generate Signals to run research for it. Its results are kept here.' : (allDates ? `Press Generate Signals to run research for ${productLabel}.` : 'Try a different filter or search.'))
             }
+            action={filtered ? <Button type="button" variant="outline" onClick={controls.clearFilters}>Clear filters</Button> : undefined}
           />
         )
       ) : (
         <div className="space-y-4">
           {items.map((o, i) => (
             <div key={o.id} className="premium-rise" style={{ '--i': Math.min(i, 8) } as React.CSSProperties}>
-              <SignalCard o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} />
+              <SignalCard o={o} reasons={reasons} products={data.filters?.products} onChanged={changed} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} />
             </div>
           ))}
 
@@ -474,6 +433,19 @@ export function SignalList({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** A labelled native select: it takes the label wiring, and these lists are short. */
+function Facet({ label, value, choices, onChange }: { label: string; value: string; choices: readonly Choice[]; onChange: (value: string) => void }) {
+  const id = useId()
+  return (
+    <div className="flex min-w-[9rem] flex-col gap-1">
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
+      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
+      </NativeSelect>
     </div>
   )
 }

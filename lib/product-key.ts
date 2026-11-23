@@ -5,7 +5,8 @@
  */
 
 export const PRODUCT_KEY_PATTERN = /^[a-z][a-z0-9_]{2,19}$/
-export const RESERVED_KEYS = ['all', 'unassigned', 'none', 'null', 'new', 'undefined']
+// `products` is the address of a Sub-product's own page (/portfolio/products/[id]): a Product's page is /portfolio/[key], so a key of `products` would be that page.
+export const RESERVED_KEYS = ['all', 'unassigned', 'none', 'null', 'new', 'undefined', 'products']
 export const MAX_LABEL = 50
 
 /** A key proposed from the name: lower-case words joined by underscores, at most 20 characters. The person can change it. */

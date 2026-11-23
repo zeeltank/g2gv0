@@ -18,6 +18,7 @@ describe('new product key', () => {
   it('refuses invalid keys, reserved words and bad names before asking the server', () => {
     for (const k of ['', 'ab', 'Has Space', '1abc', 'a-b-c', 'x'.repeat(21)]) assert.ok(validateNewProduct(k, 'Name').key, k)
     assert.ok(validateNewProduct('all', 'Name').key)
+    assert.ok(validateNewProduct('products', 'Name').key, 'a key of products would be the address of a Sub-product page (/portfolio/products/[id])')
     assert.ok(validateNewProduct('fine_key', '').label)
     assert.ok(validateNewProduct('fine_key', 'x'.repeat(51)).label)
   })

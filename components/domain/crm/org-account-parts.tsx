@@ -7,7 +7,7 @@ import { NativeSelect } from '@/components/shared/scaffolds/form-field'
 import { lifecycleLabel, NO_VALUE, sourceBadges } from '@/lib/org-accounts/display'
 import type { Choice } from '@/lib/org-accounts/scope-model'
 import { CHIP_BASE, CHIP_TONE, DATE_BASE, DATE_TONE, LIFECYCLE_TONE, NOTICE_TONE, type ChipTone, type NoticeTone } from '@/lib/org-accounts/tones'
-import { dateBadge, statusChip, type StatusChipTone } from '@/lib/signal-review/signal-display'
+import { dateBadge, statusChip, type StatusChipTone } from '@/lib/signals/signal-display'
 import { cn } from '@/lib/utils'
 import type { OrgAccountItem, OrgLifecycle, OrgSignalLine } from '@/services/org-accounts/types'
 

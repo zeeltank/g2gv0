@@ -1,6 +1,8 @@
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
 import { JSDOM } from 'jsdom'
+import { readListQuery } from '../components/shared/scaffolds/list-query'
+import { OPPORTUNITIES_QUERY } from './signals/opportunity-query'
 
 // The real SignalList rendered in jsdom, with the list request replaced by a script (no backend, no provider).
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
@@ -9,7 +11,10 @@ Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, co
 
 const ctx = { organizationId: 1, subInstituteId: 1, userId: 1 } as never
 const NO_REGIONS: never[] = []   // one array, as the screen's state is: a new array every render would reload every render
-const page = (total: number) => ({ status: 1, data: [], summary: { immediate: 0, watchlist: 0 }, meta: { total, page: 1, per_page: 5, last_page: 1 } })
+// The list no longer reads the address itself: the screen around it does and hands the list the view and the ways to change it. These tests are about the
+// list's own loading, so the view is the default one (the address of the screen is proved in lib/signals/company-opportunities-screen.test.tsx).
+const CONTROLS = { query: readListQuery(new URLSearchParams(''), OPPORTUNITIES_QUERY), setSearch: () => {}, setFilter: () => {}, setSort: () => {}, setPage: () => {}, clearFilters: () => {} }
+const page =(total: number) => ({ status: 1, data: [], summary: { immediate: 0, watchlist: 0 }, meta: { total, page: 1, per_page: 5, last_page: 1 } })
 
 function deferred<T>() {
   let resolve!: (v: T) => void
@@ -38,7 +43,7 @@ async function setup() {
   document.body.appendChild(host)
   const root = createRoot(host)
   const render = (refreshKey: number, runId: number | null = null) => React.act(async () => {
-    root.render(React.createElement(SignalList, { context: ctx, productKey: 'p', productLabel: 'P', runDate: null, allDates: true, refreshKey, onTotal, runId, regions: NO_REGIONS }))
+    root.render(React.createElement(SignalList, { context: ctx, productKey: 'p', productLabel: 'P', runDate: null, allDates: true, refreshKey, onTotal, runId, regions: NO_REGIONS, controls: CONTROLS }))
   })
   const settle = (fn: () => void) => React.act(async () => { fn(); await Promise.resolve(); await Promise.resolve() })
 

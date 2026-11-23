@@ -6,10 +6,8 @@ export interface OrgLinks {
   crmOrganisations: string | null
   /** The GTM accounts screen. It has no page for one account, so a row opens the list (the same as the GTM & Signals tab did). */
   gtm: string | null
-  /** The Signals screen (Company Opportunities). */
+  /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
   signals: string | null
-  /** Signal Review, which a signal's title opens. */
-  signalReview: string | null
   contacts: string | null
   opportunities: string | null
 }
@@ -18,8 +16,6 @@ export const ACCESS_LINKS = {
   crmOrganisations: '/module/crm/marketing/organizations',
   gtm: '/gtm/prospecting',
   signals: '/signals',
-  /** The menu row's own access_link is `/signal-review`; `/module/crm/signal-review` is the same screen under the CRM root's path. */
-  signalReview: ['/signal-review', '/module/crm/signal-review'],
   contacts: '/module/crm/marketing/contacts',
   opportunities: '/module/crm/sales/opportunities',
 } as const
@@ -37,8 +33,6 @@ export function buildLinks(resolve: (accessLink: string) => string): OrgLinks {
     crmOrganisations: orNull(ACCESS_LINKS.crmOrganisations),
     gtm: orNull(ACCESS_LINKS.gtm),
     signals: orNull(ACCESS_LINKS.signals),
-    // The first spelling the menu holds: the migration wrote `/signal-review`, and a host may carry the other.
-    signalReview: ACCESS_LINKS.signalReview.map(orNull).find((path) => path !== null) ?? null,
     contacts: orNull(ACCESS_LINKS.contacts),
     opportunities: orNull(ACCESS_LINKS.opportunities),
   }
@@ -48,11 +42,12 @@ export function buildLinks(resolve: (accessLink: string) => string): OrgLinks {
 export const recordHref = (base: string | null, id: number): string | null => (base ? `${base}/${id}` : null)
 
 /**
- * Signal Review opened on one signal: every status (a decided signal would be hidden by its default of "needs a decision") narrowed by the
- * signal's title, which the screen's search matches.
+ * One signal opened in Company Opportunities (`/signals`): every status (a decided signal would be hidden by the default of "needs a decision") narrowed by the
+ * signal's title, which the screen's search matches. The Signal Review screen was merged into Company Opportunities on 13 Nov 2026, so this follows the Signals
+ * link and no longer looks for a menu row of its own (the function keeps its older name). Its query uses the names the screen reads: `status` and `q`.
  */
-export function signalReviewHref(links: Pick<OrgLinks, 'signalReview'>, title: string): string | null {
-  return links.signalReview ? `${links.signalReview}?status=all&q=${encodeURIComponent(title)}` : null
+export function signalHref(links: Pick<OrgLinks, 'signals'>, title: string): string | null {
+  return links.signals ? `${links.signals}?status=all&q=${encodeURIComponent(title)}` : null
 }
 
 /** For tests and previews: every screen present, at the paths the menu holds. */
@@ -60,7 +55,6 @@ export const DEFAULT_LINKS: OrgLinks = {
   crmOrganisations: ACCESS_LINKS.crmOrganisations,
   gtm: ACCESS_LINKS.gtm,
   signals: ACCESS_LINKS.signals,
-  signalReview: ACCESS_LINKS.signalReview[0],
   contacts: ACCESS_LINKS.contacts,
   opportunities: ACCESS_LINKS.opportunities,
 }

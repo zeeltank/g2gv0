@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import { h } from '../scaffolds/h'
 
 /**

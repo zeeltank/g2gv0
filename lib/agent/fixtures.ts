@@ -8,7 +8,7 @@ import type {
 export const ORG_ID = 7
 export const NOW = '2026-11-03T15:22:57+00:00'
 
-export const SIGNAL: AgentEvidenceRef = { type: 'signal', id: '39', label: 'Hillcrest is opening a new CBSE campus', url: '/module/crm/signal-review?status=all&q=Hillcrest' }
+export const SIGNAL: AgentEvidenceRef = { type: 'signal', id: '39', label: 'Hillcrest is opening a new CBSE campus', url: '/signals?status=all&q=Hillcrest' }
 export const CRM_ORG: AgentEvidenceRef = { type: 'crm_organization', id: '135', label: 'Hillcrest Academy', url: '/module/crm/marketing/organizations/135' }
 export const DEAL: AgentEvidenceRef = { type: 'gtm_deal', id: '125', label: 'Hillcrest Academy - Opportunity', url: '/gtm/deals/125' }
 export const SELF: AgentEvidenceRef = { type: 'org_account', id: String(ORG_ID), label: 'Hillcrest Academy', url: `/module/crm/organisation-360/${ORG_ID}` }

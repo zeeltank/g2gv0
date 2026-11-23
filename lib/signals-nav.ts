@@ -28,6 +28,14 @@ const EXTRA_FOLDED_LABELS: ReadonlySet<string> = new Set([
   'inbox',
 ])
 
+/**
+ * The retired Signal Review screen: it was merged into Company Opportunities on 13 Nov 2026 (owner decision), and its two addresses now redirect to /signals.
+ * Its menu ROW stays in the database with status 1, because a Role & Permissions save deletes the rights of every row that is not status 1, so the row can still
+ * arrive in a person's menu. The sidebar never draws it, whatever the person's rights: it is dropped here, in code, and a visit to either address highlights
+ * Market Signals (see `owners`). Both spellings are the same screen (the row's own access_link, and the one under the CRM root's path).
+ */
+const SIGNAL_REVIEW_PATHS = ['/signal-review', '/module/crm/signal-review'] as const
+
 export interface CollapsedSignalsNav {
   modules: NavModule[]
   /** The Signals tab links this user's menu actually contained (their menu rights decide it). Null when the tree has no Signals group. */
@@ -40,6 +48,34 @@ const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
   return label === 'signal inbox' || label === 'inbox' || link === '/module/crm/marketing/signal-inbox'
+}
+
+/** The Signal Review row: a leaf (a row with children is never dropped, so nothing else can disappear with it) by either address or by its name. */
+const isSignalReviewNode = (n: NavNode): boolean => {
+  if (n.children.length > 0) return false
+  const label = n.label.trim().toLowerCase()
+  const link = (n.accessLink ?? '').trim().toLowerCase().replace(/\/+$/, '')
+  return label === 'signal review' || (SIGNAL_REVIEW_PATHS as readonly string[]).includes(link)
+}
+
+/** The same tree without the Signal Review row, at any depth. A branch that does not hold it comes back as the same objects, and nothing is changed in place. */
+function withoutSignalReview<T extends NavNode>(nodes: T[]): T[] {
+  let changed = false
+  const out: T[] = []
+  for (const node of nodes) {
+    if (isSignalReviewNode(node)) {
+      changed = true
+      continue
+    }
+    const children = withoutSignalReview(node.children)
+    if (children !== node.children) {
+      changed = true
+      out.push({ ...node, children })
+    } else {
+      out.push(node)
+    }
+  }
+  return changed ? out : nodes
 }
 
 const isSignalsParent = (n: NavNode): boolean => {
@@ -97,6 +133,9 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
       owners['/signals'] = { moduleId, menuId, submenuId: node.id }
       owners['/module/crm/signals'] = { moduleId, menuId, submenuId: node.id }
       owners['/module/crm/marketing/signal-inbox'] = { moduleId, menuId, submenuId: node.id }
+      for (const path of SIGNAL_REVIEW_PATHS) {
+        owners[path] = { moduleId, menuId, submenuId: node.id }
+      }
       for (const tab of SIGNALS_TABS) {
         owners[tab.href] = { moduleId, menuId, submenuId: node.id }
       }
@@ -132,7 +171,9 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
     }) as NavModule)
 
   const uniqueFound = [...new Set(found)]
-  return { modules: uniqueFound.length === 0 ? modules : next, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners }
+  // The Signal Review row is dropped from whichever tree comes back, so it never reaches the sidebar, even for a person whose menu holds no Signals row at all.
+  const shown = withoutSignalReview(uniqueFound.length === 0 ? modules : next)
+  return { modules: shown, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners }
 }
 
 /** These are app sections, so their visibility must not depend on optional sidebar menu rows. */

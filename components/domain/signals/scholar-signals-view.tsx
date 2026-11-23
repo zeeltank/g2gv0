@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import NextLink from 'next/link'
 import {
   AlertCircle,
   CheckCircle2,
@@ -15,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  UserPlus,
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -29,8 +27,14 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { discoveryLabel } from '@/lib/signal-run-notice'
 import { summariseEvidence, type EvidenceSummary } from '@/lib/evidence-summary'
 import { evidenceBadge, fitHeading } from '@/lib/signal-evidence'
+import { replaceRow } from '@/lib/signals/opportunity-row'
 import { OpportunityIcpComparison } from '@/components/domain/signals/opportunity-icp-comparison'
+import { SignalCardActions, SignalCardDetails, SignalCardMessages, useSignalCard, type SignalCardService } from '@/components/domain/signals/signal-card-actions'
+import { SignalDateBadge, SignalStatusChip } from '@/components/domain/signals/signal-parts'
 import { ApiError } from '@/services/core'
+import { signalReviewService } from '@/services/signal-review/signal-review-service'
+import type { ProductFilterOption } from '@/services/signal-review/signal-types'
+import type { ReasonOption } from '@/services/signal-review/types'
 import { sourcePlatform } from '@/lib/source-link'
 import {
   opportunitiesService,
@@ -217,14 +221,8 @@ export function ScholarSignalsView({ embedded = false, refreshKey = 0 }: { embed
     }
   }
 
-  const act = async (opp: Opportunity, action: 'follow-up' | 'dismiss' | 'review') => {
-    try {
-      await opportunitiesService.act(context, opp.id, action)
-      loadFeed()
-    } catch (e) {
-      setMessage(errMsg(e, 'Action failed'))
-    }
-  }
+  // A card changed (a decision, a lead): the row is replaced in place, so the cards and the counts agree without a reload.
+  const changed = useCallback((next: Opportunity) => setData((current) => (current ? replaceRow(current, next) : current)), [])
 
   const removeSource = async (id: number) => {
     try {
@@ -358,7 +356,7 @@ export function ScholarSignalsView({ embedded = false, refreshKey = 0 }: { embed
         <EmptyState title="No signals here yet" description={embedded ? 'No ScholarClone opportunities are stored yet. Press Generate Signals above when you want research to run. Only schools with a real, sourced reason to buy appear.' : 'Press “Find signals now”, check one school, or add a file or link. Only schools with a real, sourced reason to buy appear.'} />
       ) : (
         <div className="space-y-4">
-          {items.map((o) => <SignalCard key={o.id} o={o} onAct={act} />)}
+          {items.map((o) => <SignalCard key={o.id} o={o} reasons={data?.filters?.review_reasons ?? []} products={data?.filters?.products} onChanged={changed} />)}
           {data && data.meta.last_page > 1 && (
             <div className="flex items-center justify-center gap-3 text-sm">
               <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
@@ -508,7 +506,21 @@ function LeadQualificationPanel({ q }: { q?: Opportunity['crm_qualification'] })
   )
 }
 
-export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: (o: Opportunity, a: 'follow-up' | 'dismiss' | 'review') => void; runDateLabel?: string | null }) {
+/**
+ * One signal as a card. Deciding on it (a reason, a note, "someone decided first"), turning it into a lead (asked first, made once) and the decisions
+ * already made on it are the Signal Review's own, shared through signal-card-actions. The card never changes itself: a change is handed to `onChanged`
+ * as the signal's new version, and the list that owns the signal replaces the row and moves its counts.
+ */
+export function SignalCard({ o, runDateLabel, reasons = [], products, service = signalReviewService, onChanged }: {
+  o: Opportunity
+  runDateLabel?: string | null
+  /** The reasons a person can give for "Not relevant" (the list's `filters.review_reasons`). */
+  reasons?: ReasonOption[]
+  /** Product definitions, to name a signal's fit after the product (the list's `filters.products`). */
+  products?: readonly ProductFilterOption[]
+  service?: SignalCardService
+  onChanged: (next: Opportunity) => void
+}) {
   const c = o.card
   const a = o.assessment
   const strength = STRENGTH[o.strength ?? 'watch']
@@ -517,28 +529,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
   const src = c?.source ?? (o.source_url ? { text: 'Source', url: o.source_url } : null)
   const pull = a?.sales_pull ?? []
   const evidence = summariseEvidence(o)
-
-  // Sales & Marketing merge, Phase 4: self-contained (its own context, its own loading/result
-  // state) rather than threaded through onAct - SignalCard is used from two different parents
-  // (SignalList and this file's own list), and promoting isn't a review-status action like the
-  // other three buttons here, it creates a real crm_leads row via LeadFactory.
-  const [promoting, setPromoting] = useState(false)
-  const [promotedLeadId, setPromotedLeadId] = useState<string | null>(o.promoted_lead_id ?? null)
-  const [promoteError, setPromoteError] = useState<string | null>(null)
-  const handlePromote = async () => {
-    const context = getLaravelContext()
-    if (!isLaravelContextReady(context)) return
-    setPromoting(true)
-    setPromoteError(null)
-    try {
-      const res = await opportunitiesService.promoteToCrm(context, o.id)
-      setPromotedLeadId(res.data.lead_id)
-    } catch (e) {
-      setPromoteError(e instanceof ApiError || e instanceof Error ? e.message : 'Failed to promote this signal to a CRM lead')
-    } finally {
-      setPromoting(false)
-    }
-  }
+  const card = useSignalCard({ signal: o, service, onChanged })
 
   return (
     <article className="premium-card space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -560,7 +551,8 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           </Badge>
         )}
         <h2 className="text-base font-semibold">{c?.organisation_line ?? o.company_name}</h2>
-        {o.review_status !== 'New' && <Badge variant="secondary">{o.review_status === 'Follow-up' ? 'Contacted' : o.review_status}</Badge>}
+        <SignalStatusChip status={o.review_status} />
+        {o.date_info && <SignalDateBadge info={o.date_info} />}
       </div>
 
       {/* 1. What happened */}
@@ -617,7 +609,7 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
       </div>
 
       {/* Evidence and the finer detail stay folded until asked for, so each card is short. */}
-      <details className="group rounded-xl border border-border/60 px-3 py-2">
+      <details className="group rounded-xl border border-border/60 px-3 py-2" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) card.openHistory() }}>
         <summary className="cursor-pointer text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Evidence and details</summary>
         <div className="mt-2 space-y-3">
       {/* 5. Is there evidence of buying intent? */}
@@ -647,6 +639,9 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
         </p>
       )}
 
+      {/* The Signal Review's own: the source's wording and date, how the signal fits the product and scored, and every decision made on it. */}
+      <SignalCardDetails card={card} signal={o} products={products} />
+
         </div>
       </details>
 
@@ -666,26 +661,8 @@ export function SignalCard({ o, onAct, runDateLabel }: { o: Opportunity; onAct: 
           {o.entered_manually && <span className="ml-2">· Added by hand{o.captured_on ? ` on ${fmtDay(o.captured_on)}` : ''}{sourcePlatform(o.source_url) ? ` · from ${sourcePlatform(o.source_url)}` : ''}</span>}
           {typeof o.days_left === 'number' && <span className="ml-2">· {o.days_left < 0 ? 'Past its closing date' : o.days_left === 0 ? 'Closes today' : `${o.days_left} day${o.days_left === 1 ? '' : 's'} left`}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" disabled={o.review_status === 'Reviewed'} onClick={() => onAct(o, 'review')}>Mark reviewed</Button>
-          <Button size="sm" variant="outline" disabled={o.review_status === 'Follow-up'} onClick={() => onAct(o, 'follow-up')}>Contacted</Button>
-          <Button size="sm" variant="ghost" onClick={() => onAct(o, 'dismiss')}>Not relevant</Button>
-          {promotedLeadId ? (
-            <NextLink
-              href={`/module/crm/marketing/leads/${promotedLeadId}`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
-            >
-              <CheckCircle2 className="size-3.5" />
-              Promoted &middot; View Lead{o.promoted_lead_no ? ` (${o.promoted_lead_no})` : ''}
-            </NextLink>
-          ) : (
-            <Button size="sm" variant="outline" disabled={promoting} onClick={() => void handlePromote()} className="gap-1.5">
-              {promoting ? <Loader2 className="size-3.5 animate-spin" /> : <UserPlus className="size-3.5" />}
-              Promote to CRM Lead
-            </Button>
-          )}
-        </div>
-        {promoteError && <p role="alert" className="w-full text-xs text-destructive">{promoteError}</p>}
+        <SignalCardActions card={card} signal={o} reasons={reasons} />
+        <SignalCardMessages card={card} reasons={reasons} />
       </div>
     </article>
   )
