@@ -211,10 +211,10 @@ describe('the words of the pair review on the real output', () => {
     assert.ok(!FORBIDDEN.test(current.k.one('[role="alertdialog"]')!.textContent!), 'and none in the question')
   })
 
-  it('KNOWN DEFECT, backend (ProductMatchSuggester.php:469 and :714): three server sentences carry a retired word the screen shows as written: "offer id" once and "item(s)" twice', () => {
-    const found = serverSentences()
-    assert.equal(found.length, 3, 'exactly these three; when the backend says Sub-product and other product(s) this becomes 0: change the expectation then')
-    assert.equal(found.filter((sentence) => /^the SKU .+ holds the offer id /.test(sentence)).length, 1, 'the SKU sentence of the first pair says offer id')
-    assert.equal(found.filter((sentence) => /^item\(s\) \d+ ".+" have the same best Sub-product/.test(sentence)).length, 2, 'the two EDITION sentences say item(s)')
+  it('the server\'s own sentences carry no retired word any more (fixed in the backend on 23 Nov: "Sub-product code" and "CRM record(s)"), and the screen shows them as written', () => {
+    assert.deepEqual(serverSentences(), [], 'no sentence of the server says offer, item or catalogue')
+    const all = REAL_ITEMS.flatMap((row) => row.reasons)
+    assert.equal(all.filter((sentence) => /^the SKU .+ holds the Sub-product code /.test(sentence)).length, 1, 'the SKU sentence of the first pair')
+    assert.equal(all.filter((sentence) => /^CRM record\(s\) \d+ ".+" have the same best Sub-product/.test(sentence)).length, 2, 'the two EDITION sentences')
   })
 })

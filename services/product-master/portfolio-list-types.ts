@@ -173,5 +173,6 @@ export interface RecordHead {
 
 export interface ByCrmAnswer {
   status: number
-  data: { id: number; kind: PortfolioKind }
+  /** `mergedInto`: the record a pair review merged this one into (the server's alias of a retired record), null for every other record. */
+  data: { id: number; kind: PortfolioKind; mergedInto?: { id: number; key: string | null; name: string } | null }
 }

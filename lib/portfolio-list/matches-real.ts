@@ -7,6 +7,9 @@ import type { MatchDecisionRow, MatchRow, MatchesData } from '../../services/pro
  * `ProductMatchSuggester::suggest` builds (read in source: app/Domain/ProductMaster/ProductMatchSuggester.php, the `$rows[]` array at about line 731); keys the screen never
  * reads (`parts`, `rejected`, `state`, `thresholds`, `serviceRule`) are kept so the screen is proved against what the server really sends, not against a tidied copy.
  *
+ * Three sentences were reworded on 23 Nov 2026 when the server's own wording lost its retired words (hp_erp ProductMatchSuggester.php, slice 15 WPB item 6): "holds the offer
+ * id" is now "holds the Sub-product code" and "item(s)" is now "CRM record(s)". They are written here the way the server now says them; the scores and the rest are the dry run's.
+ *
  * Not printed by the dry run, so written here by inference and said so: the master id of SCH-07 "School FTS / Digital Office" (52, the sequence of the Sub-product table),
  * the Sub-products' own Product id (1) and the `category` of the items other than the three the reasons name.
  */
@@ -30,10 +33,10 @@ export const REAL_ITEMS: MatchRow[] = [
     usage: usage({ opp: 20, quote: 10, order: 8, inv: 8, pricebook: 3, campaign: 1 }), candidate: SCH_01, score: 98, margin: 98, sharedWith: [67],
     reasons: [
       "the category 'School ERP' is inside the Sub-product name (+40)",
-      'the SKU SCH-01-GUJ holds the offer id SCH-01 (+30)',
+      'the SKU SCH-01-GUJ holds the Sub-product code SCH-01 (+30)',
       'the names share: erp (+12)',
       'the descriptions share 4 word(s): school, student, administration, fee (+16)',
-      'item(s) 67 "Scholar Core School Management" have the same best Sub-product: they are cuts of one thing, choose which one is the pair',
+      'CRM record(s) 67 "Scholar Core School Management" have the same best Sub-product: they are cuts of one thing, choose which one is the pair',
     ],
     alternatives: [{ masterId: 46, offerCode: 'SCH-01', name: SCH_01.name, score: 98 }],
   }),
@@ -44,7 +47,7 @@ export const REAL_ITEMS: MatchRow[] = [
       "the category 'School ERP' is inside the Sub-product name (+40)",
       'the names share: school (+12)',
       'the descriptions share 2 word(s): student, admission (+8)',
-      'item(s) 66 "Scholar One ERP - Gujarat Edition" have the same best Sub-product: they are cuts of one thing, choose which one is the pair',
+      'CRM record(s) 66 "Scholar One ERP - Gujarat Edition" have the same best Sub-product: they are cuts of one thing, choose which one is the pair',
     ],
     alternatives: [{ masterId: 46, offerCode: 'SCH-01', name: SCH_01.name, score: 60 }, { masterId: 52, offerCode: 'SCH-07', name: SCH_07.name, score: 12 }],
   }),

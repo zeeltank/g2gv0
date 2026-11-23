@@ -154,7 +154,7 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
                     {row.shared && <SharedChip />}
                   </div>
                 </TableCell>
-                <TableCell>{typeWord(row)}</TableCell>
+                <TableCell className="whitespace-nowrap">{typeWord(row)}</TableCell>
                 {sell && <TableCell className="font-mono text-xs"><SellValue row={row} value={row.sku ?? null} /></TableCell>}
                 {sell && <TableCell><SellValue row={row} value={formatMoney(row.unitPrice, row.currency)} /></TableCell>}
                 {sell && <TableCell className="hidden lg:table-cell"><SellValue row={row} value={row.category ?? null} /></TableCell>}

@@ -202,6 +202,8 @@ export function SignalsIcpTab({ record, signals, icpStates, icpError, canEdit, o
       >
         {!record.offer
           ? <p className="text-sm text-muted-foreground">An ideal customer belongs to the About of a sub-product, and this one has no About yet.</p>
+          : record.status === 'archived'
+          ? <p className="text-sm text-muted-foreground">This sub-product is archived. Restore it to see or change its ideal customer: nothing is lost.</p>
           : (
             <div className="space-y-4">
               <dl className="grid gap-3 sm:grid-cols-2"><Fact label="State" value={<IcpChip state={record.icp} />} /></dl>

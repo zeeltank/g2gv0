@@ -34,6 +34,16 @@ describe('a catalogue id (the old /products/{id} and /services/{id})', () => {
     assert.deepEqual(current.router.written, ['/portfolio/products/31'])
   })
 
+  it('follows a merge: a record a pair review merged into another opens on the one it was merged into, query kept (the server\'s mergedInto)', async () => {
+    current = await open({ kind: 'catalogue', id: '8' }, { tab: 'usage' }, () => ({ status: 1, data: { id: 31, kind: 'item', mergedInto: { id: 12, key: 'scholarclone/sch-12', name: 'Fee Collection' } } }))
+    assert.deepEqual(current.router.written, ['/portfolio/products/12?tab=usage'])
+  })
+
+  it('does not follow anything when mergedInto is null or absent (an older server)', async () => {
+    current = await open({ kind: 'catalogue', id: '8' }, {}, () => ({ status: 1, data: { id: 31, kind: 'item', mergedInto: null } }))
+    assert.deepEqual(current.router.written, ['/portfolio/products/31'])
+  })
+
   it('says "could not be found" for an id that is not this organisation\'s or no longer exists (404), and offers the Portfolio', async () => {
     current = await open({ kind: 'catalogue', id: '999' }, {}, () => ({ __status: 404, status: 0, message: 'Not found.' }))
     const { text, k, router } = current

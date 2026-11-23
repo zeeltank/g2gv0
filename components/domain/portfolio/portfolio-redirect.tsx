@@ -42,7 +42,8 @@ export function PortfolioRedirect({ lookup, params }: { lookup: RedirectLookup; 
     try {
       if (lookup.kind === 'catalogue') {
         const found = await portfolioListService.byCrm(id)
-        router.replace(subProductTarget(found.data.id, paramsRef.current))
+        // A record a pair review merged into another opens on the one it was merged into (the server's `mergedInto`), so an old bookmark does not end on a retired record.
+        router.replace(subProductTarget(found.data.mergedInto?.id ?? found.data.id, paramsRef.current))
       } else {
         const found = await portfolioListService.head(id)
         router.replace(recordTarget(found.data, paramsRef.current))
