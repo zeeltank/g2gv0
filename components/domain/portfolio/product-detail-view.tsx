@@ -18,6 +18,7 @@ import type { PmMeta } from '@/services/product-master/types'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { useProducts } from '@/components/domain/signals/product-selector'
 import { SubProductIcpBadge } from './icp-status-badge'
+import { ProductEditDialog } from './product-edit-dialog'
 import { ArchivedChip, SharedChip } from './portfolio-chips'
 import { ProductFormDrawer } from './product-form-drawer'
 import { ProductProfilePanel } from './product-profile-panel'
@@ -45,6 +46,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [subsError, setSubsError] = useState('')
   const [subsBusy, setSubsBusy] = useState(false)
   const [drawer, setDrawer] = useState<'create-sub-product' | 'create-product' | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -156,6 +158,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
 
   const forProduct = encodeURIComponent(product.key)
   const canAdd = Boolean(can?.createSubProduct) && master?.status !== 'archived'
+  // Only an administrator edits a Product's own details, and only one this organisation created (a built-in Product is shared and read only).
+  const canEditProduct = isAdmin && Boolean(product.custom) && !master?.shared && master?.status !== 'archived'
   const tabs: PageTab[] = TAB_IDS.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? (subs?.paging.total ?? product.offers.length) : undefined }))
 
   return (
@@ -178,6 +182,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => { reload(); void loadSubs(1) }}><RefreshCw className="mr-2 size-4" aria-hidden="true" /> Refresh</DropdownMenuItem>
                 {isAdmin && <DropdownMenuItem onSelect={() => setDrawer('create-product')}>Add product</DropdownMenuItem>}
+                {canEditProduct && <DropdownMenuItem onSelect={() => setEditOpen(true)}>Edit this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'active' && <DropdownMenuItem onSelect={() => void changeStatus(true)}>Archive this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'archived' && <DropdownMenuItem onSelect={() => void changeStatus(false)}>Restore this product</DropdownMenuItem>}
                 <DropdownMenuItem asChild><Link href="/portfolio">Browse the full portfolio</Link></DropdownMenuItem>
@@ -226,6 +231,13 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
           reload()
           void loadSubs(1)
         }}
+      />
+      <ProductEditDialog
+        context={context}
+        open={editOpen}
+        product={product}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setNotice({ tone: 'success', text: 'Product saved.' }); reload() }}
       />
       {confirmDialog}
     </div>

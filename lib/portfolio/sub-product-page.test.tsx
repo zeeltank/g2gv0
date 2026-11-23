@@ -232,6 +232,29 @@ describe('a Sub-product page: what each tab reads and shows', () => {
     assert.ok(k.all('a').some((a) => a.getAttribute('href')?.startsWith('/signals?product=')), 'a link to the signals')
   })
 
+  it('says where a merged record went: a notice with a link to the record it was merged into, and none for any other record', async () => {
+    const merged = await openPage({ record: fullRecord({ status: 'archived', mergedInto: { id: 12, key: 'scholarclone/sch-12', name: 'Fee Collection (kept)' } }) })
+    assert.ok(merged.k.bodyText().includes('This record was merged into Fee Collection (kept)'))
+    assert.equal(merged.k.all('a').find((a) => a.textContent === 'Fee Collection (kept)')?.getAttribute('href'), '/portfolio/products/12')
+    await disposeAll()
+    const plain = await openPage()
+    assert.equal(plain.k.bodyText().includes('was merged into'), false)
+    await disposeAll()
+    const nulled = await openPage({ record: fullRecord({ mergedInto: null }) })
+    assert.equal(nulled.k.bodyText().includes('was merged into'), false)
+  })
+
+  it('Signals & ICP of an archived Sub-product: does not ask the old endpoint (it answers 404 for an archived one), says why in a sentence and shows no error', async () => {
+    // found in the real-browser walk of 23 Nov 2026: archiving with this tab open made the tab say "The ideal customer could not be read."
+    const { k, calls } = await openPage({ record: fullRecord({ status: 'archived' }) })
+    await openTab(k, 'Signals & ICP')
+    await k.tick(20)
+    assert.deepEqual(calls.offers, [], 'the ideal customer is not asked for')
+    assert.ok(k.bodyText().includes('This sub-product is archived. Restore it to see or change its ideal customer'))
+    assert.equal(k.all('[role="alert"]').length, 0, 'and no error is drawn')
+    assert.equal(k.all('ul[aria-label="Customer models"]').length, 0, 'no stale list of models')
+  })
+
   it('Signals & ICP: names the three ideal customer models and opens the form to edit them', async () => {
     const { k } = await openPage({ offerIcps: { b2b: { label: 'Fee B2B', industry_label: 'Private schools.' } } })
     await openTab(k, 'Signals & ICP')

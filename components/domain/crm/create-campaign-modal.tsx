@@ -11,8 +11,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { chosenProduct, productPayload } from '@/lib/campaigns/model'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import { productMasterService } from '@/services/product-master/product-master-service'
-import type { PmOption } from '@/services/product-master/types'
+import { useProductChoices } from '@/lib/product-picker/use-product-choices'
 import type { Campaign, CampaignPayload, CrmPicklistValue } from '@/types/crm'
 import { CampaignProductSelect } from './campaign-parts'
 import { useAssignableEmployees } from './lead-employees'
@@ -42,18 +41,10 @@ export function CreateCampaignModal({ isOpen, onClose, onSaved, campaign, pickli
   const [error, setError] = useState('')
   // Slice 9: the optional Product. It is held apart from `form` (an id as text, '' for none) and joins the request only when the person chose or changed it.
   const [productValue, setProductValue] = useState('')
-  const [productOptions, setProductOptions] = useState<PmOption[]>([])
 
-  // The Product box's choices come from the Product Master. If they cannot be read (no session, no right, a server without it) the form works exactly as
-  // before and the box is simply not drawn.
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    let cancelled = false
-    productMasterService.options()
-      .then((response) => { if (!cancelled) setProductOptions(Array.isArray(response.data) ? response.data : []) })
-      .catch(() => { /* no Product box */ })
-    return () => { cancelled = true }
-  }, [context, isOpen])
+  // The Product box's choices are the Products (level 1) of the shared Product list. If they cannot be read (no session, a server without it) the form works
+  // exactly as before and the box is simply not drawn.
+  const productOptions = useProductChoices(isOpen && isLaravelContextReady(context))
 
   if (isOpen && seededFrom !== campaign) {
     setSeededFrom(campaign)

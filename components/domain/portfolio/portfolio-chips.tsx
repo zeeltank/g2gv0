@@ -1,7 +1,6 @@
 'use client'
 
-import { readinessTone } from '@/components/domain/crm/product-master-model'
-import { chipClass } from '@/lib/product-master/tones'
+import { chipClass, readinessTone } from '@/lib/product-master/tones'
 import { icpStateLabel, SELL_STATE_LABEL, type SellStateWord } from '@/lib/portfolio/page-model'
 import type { PmIcpState } from '@/services/product-master/types'
 

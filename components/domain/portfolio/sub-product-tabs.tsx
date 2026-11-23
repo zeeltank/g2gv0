@@ -8,9 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SectionCard } from '@/components/shared/business/shared'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
 import {
-  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, STORE_WORD, usageCounts, whenWord, typeWord,
+  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, whenWord, typeWord,
 } from '@/lib/portfolio/page-model'
-import { signalsHref } from '@/components/domain/crm/product-lines-model'
 import type { IcpStates } from '@/lib/portfolio/icp-state'
 import type { PmFullRecord, PmHistoryRow, PmPaging, PmSell, PmUsageFull } from '@/services/product-master/record-types'
 import { IcpChip } from './portfolio-chips'
@@ -203,6 +202,8 @@ export function SignalsIcpTab({ record, signals, icpStates, icpError, canEdit, o
       >
         {!record.offer
           ? <p className="text-sm text-muted-foreground">An ideal customer belongs to the About of a sub-product, and this one has no About yet.</p>
+          : record.status === 'archived'
+          ? <p className="text-sm text-muted-foreground">This sub-product is archived. Restore it to see or change its ideal customer: nothing is lost.</p>
           : (
             <div className="space-y-4">
               <dl className="grid gap-3 sm:grid-cols-2"><Fact label="State" value={<IcpChip state={record.icp} />} /></dl>

@@ -23,9 +23,10 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { CrmPriceBookItem, CrmProduct, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import type { PickedSubProduct } from '@/lib/product-picker/model'
+import type { CrmPriceBookItem, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -60,7 +61,6 @@ export function computeTotals(items: CrmQuoteLineItemInput[], taxRates: CrmTaxRa
 interface Props {
   lineItems: CrmQuoteLineItemInput[]
   onChange: (lineItems: CrmQuoteLineItemInput[]) => void
-  products: CrmProduct[]
   taxRates: CrmTaxRate[]
   currency: string | null
   /** The quote's selected price book's own per-product prices, if any - a newly-picked product defaults to its override here instead of its base unitPrice. */
@@ -72,29 +72,26 @@ const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, currency, priceBookItems = [] }: Props) {
+export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, priceBookItems = [] }: Props) {
   const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates])
 
-  const productOptions = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.name, hint: p.itemType === 'service' ? 'Service' : 'Product' })),
-    [products],
-  )
   const taxOptions = [{ label: 'No tax', value: 'none' }, ...taxRates.map((t) => ({ label: `${t.name} (${t.percentage}%)`, value: t.id }))]
 
   const updateRow = (index: number, patch: Partial<CrmQuoteLineItemInput>) => {
     onChange(lineItems.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   }
 
-  const onProductChange = (index: number, productId: string) => {
-    const product = products.find((p) => p.id === productId)
+  // The picker hands back the same four things the old product list did (the catalogue id as text, the name, the base price and the default tax rate), so the
+  // price and tax defaulting below is exactly what it was.
+  const onProductChange = (index: number, product: PickedSubProduct | null) => {
     if (!product) { updateRow(index, { productId: null }); return }
     // The quote's price book overrides this product's base price when it has
     // one listed - falls back to the base unitPrice otherwise (see
     // crm_price_book_items' own migration docblock: this is a UI default at
     // add-time only, never enforced retroactively on rows already on the quote).
-    const override = priceBookItems.find((i) => i.productId === product.id)
+    const override = priceBookItems.find((i) => i.productId === product.productId)
     updateRow(index, {
-      productId: product.id,
+      productId: product.productId,
       description: product.name,
       unitPrice: override?.listPrice ?? product.unitPrice ?? 0,
       taxRateId: product.taxRateId,
@@ -111,7 +108,7 @@ export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, cu
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">#</TableHead>
-              <TableHead className="min-w-[180px]">Product / Service</TableHead>
+              <TableHead className="min-w-[180px]">Sub-product</TableHead>
               <TableHead className="min-w-[200px]">Description</TableHead>
               <TableHead className="w-24">Qty</TableHead>
               <TableHead className="w-28">Unit Price</TableHead>
@@ -133,12 +130,10 @@ export function QuoteLineItemTable({ lineItems, onChange, products, taxRates, cu
               <TableRow key={index}>
                 <TableCell className="text-xs text-muted-foreground">{index + 1}</TableCell>
                 <TableCell>
-                  <SearchableSelect
-                    value={row.productId ?? ''}
-                    onChange={(v) => onProductChange(index, v)}
-                    options={productOptions}
-                    placeholder="Pick one…"
-                    aria-label={`Product for line ${index + 1}`}
+                  <SubProductPicker
+                    value={row.productId}
+                    onChange={(picked) => onProductChange(index, picked)}
+                    aria-label={`Sub-product for line ${index + 1}`}
                   />
                 </TableCell>
                 <TableCell>

@@ -7,7 +7,7 @@ import type { ActiveNav, NavModule, NavNode } from '@/lib/gtg-navigation'
 export const SIGNALS_TABS = [
   { key: 'opportunities', label: 'Company Opportunities', href: '/signals', hint: 'Generate and review signals' },
   { key: 'ingestion', label: 'Ingestion Engine', href: '/ingestion', hint: 'Analyse a page or document' },
-  { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', hint: 'Products, offers and ICPs' },
+  { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', hint: 'Products, sub-products and ICPs' },
   { key: 'partners', label: 'Partner Network', href: '/partners', hint: 'Delivery and sales partners' },
 ] as const
 
@@ -42,6 +42,101 @@ export interface CollapsedSignalsNav {
   tabs: string[] | null
   /** Each folded-away path -> the menu entry that now stands for it, so the sidebar and breadcrumb stay on "Signals" for those routes. */
   owners: Record<string, ActiveNav>
+  /**
+   * The old menu addresses of rows the person's menu really held that the sidebar no longer draws (the Products and Services rows). They still resolve, to
+   * themselves, in `resolveAccessLink`: their pages are redirects that keep the query, so a screen that has not been retargeted yet and links to
+   * `resolveAccessLink(old address) + '/' + id` still opens the right record, through the by-crm lookup, instead of the dashboard.
+   */
+  retired: string[]
+}
+
+/*
+ * PRODUCTS AND SERVICES BECAME ONE SCREEN (owner decision of 13 Nov 2026, slice 15: the Product Portfolio). Their two menu ROWS (468 and 469) stay in the
+ * database with status 1, because a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds a row keeps holding it.
+ * What changes is only what the sidebar DRAWS, here, in code:
+ *   - the Products row is shown as "Product Portfolio" and opens /portfolio, in the slot Products had;
+ *   - the Services row is shown only to a person who has Services but not Products, and opens /portfolio?type=service;
+ *   - a visit to /portfolio highlights that entry (not Market Signals) whenever the person has it; a person with neither keeps the Market Signals highlight.
+ * The rows are found by their access_link, never by a numeric id (the ids differ between hosts).
+ */
+const PRODUCTS_PATH = '/module/crm/sales/products'
+const SERVICES_PATH = '/module/crm/sales/services'
+const PORTFOLIO_PATH = '/portfolio'
+const PORTFOLIO_SERVICES_PATH = '/portfolio?type=service'
+const PRODUCT_PORTFOLIO_LABEL = 'Product Portfolio'
+
+const linkOf = (n: NavNode): string => (n.accessLink ?? '').trim().toLowerCase().replace(/\/+$/, '')
+
+/** The Products row: a leaf (a row with children is never touched, so nothing else can change with it) with the row's own access_link. */
+const isProductsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === PRODUCTS_PATH
+const isServicesNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === SERVICES_PATH
+
+/** Where the sidebar hook files an entry: the same walk as `useSidebarNavigation`'s, so the highlight lands on the real entry. */
+function locate(modules: NavModule[], test: (n: NavNode) => boolean): ActiveNav | null {
+  const walk = (moduleId: string, node: NavNode, parent: NavNode | null): ActiveNav | null => {
+    if (test(node)) return { moduleId, menuId: parent ? parent.id : node.id, submenuId: node.id }
+    for (const child of node.children) {
+      const hit = walk(moduleId, child, node)
+      if (hit) return hit
+    }
+    return null
+  }
+  for (const m of modules) {
+    for (const menu of m.children) {
+      const hit = walk(m.id, menu, null)
+      if (hit) return hit
+    }
+  }
+  return null
+}
+
+/** The tree with each node passed through `fn` (children first); a node `fn` answers null for is dropped. A branch nothing changed in comes back as the same objects. */
+function mapNodes<T extends NavNode>(nodes: T[], fn: (node: T) => T | null): T[] {
+  let changed = false
+  const out: T[] = []
+  for (const node of nodes) {
+    const children = mapNodes(node.children, fn as (n: NavNode) => NavNode | null)
+    const base = children === node.children ? node : ({ ...node, children } as T)
+    const next = fn(base)
+    if (next !== node) changed = true
+    if (next !== null) out.push(next)
+  }
+  return changed ? out : nodes
+}
+
+interface ProductsFold {
+  modules: NavModule[]
+  owners: Record<string, ActiveNav>
+  retired: string[]
+}
+
+/** See the comment above `PRODUCTS_PATH`. Pure: the menu tree is not changed in place. */
+function foldProductsNav(modules: NavModule[]): ProductsFold {
+  const products = locate(modules, isProductsNode)
+  const services = locate(modules, isServicesNode)
+  const owners: Record<string, ActiveNav> = {}
+  const retired: string[] = []
+  if (!products && !services) return { modules, owners, retired }
+
+  const shown = products ?? services!
+  owners[PORTFOLIO_PATH] = shown
+  if (products) {
+    owners[PRODUCTS_PATH] = products
+    retired.push(PRODUCTS_PATH)
+  }
+  if (services) {
+    // A Services-only person opens the Services entry; a Products holder has no Services entry, so the old address maps to the Product Portfolio.
+    owners[SERVICES_PATH] = shown
+    retired.push(SERVICES_PATH)
+  }
+
+  const folded = mapNodes(modules, (node) => {
+    if (isProductsNode(node)) return { ...node, label: PRODUCT_PORTFOLIO_LABEL, accessLink: PORTFOLIO_PATH }
+    if (isServicesNode(node)) return products ? null : { ...node, accessLink: PORTFOLIO_SERVICES_PATH }
+    return node
+  })
+
+  return { modules: folded, owners, retired }
 }
 
 const isSignalInboxNode = (n: NavNode): boolean => {
@@ -173,7 +268,10 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const uniqueFound = [...new Set(found)]
   // The Signal Review row is dropped from whichever tree comes back, so it never reaches the sidebar, even for a person whose menu holds no Signals row at all.
   const shown = withoutSignalReview(uniqueFound.length === 0 ? modules : next)
-  return { modules: shown, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners }
+  // Products and Services are one entry in the sidebar now (owner decision of 13 Nov 2026). The fold's owners come last, so a visit to /portfolio highlights the
+  // Product Portfolio entry rather than Market Signals when the person has it.
+  const products = foldProductsNav(shown)
+  return { modules: products.modules, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners: { ...owners, ...products.owners }, retired: products.retired }
 }
 
 /** These are app sections, so their visibility must not depend on optional sidebar menu rows. */

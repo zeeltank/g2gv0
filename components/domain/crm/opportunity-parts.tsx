@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type Ref } from 'react'
 import { NativeSelect } from '@/components/shared/scaffolds'
+import { ProductPicker } from '@/components/domain/portfolio/product-picker'
 import { SectionCard } from '@/components/shared/business/shared'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -34,17 +35,7 @@ const NOTE_MAX = 1000
 export function OpportunityProductSelect({ options, current, value, onChange }: {
   options: readonly PmOption[]; current: OpportunityProductRef | null; value: string; onChange: (value: string) => void
 }) {
-  const id = useId()
-  if (!showProductChoice(options, current)) return null
-
-  return (
-    <div className="space-y-1.5" data-opportunity-product-field>
-      <Label htmlFor={id}>Product (optional)</Label>
-      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        {productChoices(options, current).map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
-      </NativeSelect>
-    </div>
-  )
+  return <ProductPicker options={options} current={current} value={value} onChange={onChange} label="Product (optional)" fieldAttribute="data-opportunity-product-field" />
 }
 
 /** The line under a deal's title: "Product: School ERP", or "No product chosen". Nothing when the server did not say (an older server). */

@@ -3,9 +3,9 @@ import { buildIcpConfig, emptyIcpForm, emptyIcpLines, icpTouched, type IcpLines 
 
 /*
  * The "Ideal customer" section of the Sub-product form: three independent models, each its own ICP form and its own lines. Pure functions, no React, so the
- * rules can be tested. The parse is the Portfolio dialog's own (components/domain/portfolio/product-form-dialog.tsx, `parseIcpDataForModel`), moved here so
- * the new form and the old dialog read a stored ICP the same way; the payload is the one PortfolioController has always taken as `icp_configs`
- * (App\Domain\Portfolio\OfferIcpSync): one config per model that carries something.
+ * rules can be tested. The parse is the old Portfolio dialog's own (`parseIcpDataForModel` in product-form-dialog.tsx, retired on 23 Nov 2026 once the one form
+ * drawer replaced it), moved here so the form reads a stored ICP the way the dialog did (pinned in lib/customer-model.test.ts); the payload is the one
+ * PortfolioController has always taken as `icp_configs` (App\Domain\Portfolio\OfferIcpSync): one config per model that carries something.
  */
 
 export type IcpModel = 'b2b' | 'b2c' | 'b2g'

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2, Package, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -184,7 +185,8 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
 
   const offerRowId = record?.offer?.id
   useEffect(() => {
-    if (tab !== 'signals' || offerRowId === undefined || !record?.offer) return
+    // An archived Sub-product has left the old Portfolio endpoint on purpose (it answers 404), so the ideal customer is not asked for: the tab says why instead.
+    if (tab !== 'signals' || offerRowId === undefined || !record?.offer || record.status === 'archived') return
     let live = true
     const name = record.offer.name
     queueMicrotask(() => {
@@ -194,7 +196,7 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
         .catch((cause) => { if (live) setIcpError(cause instanceof Error ? cause.message : 'The ideal customer could not be read.') })
     })
     return () => { live = false }
-  }, [tab, offerRowId, record?.offer, context, stale])
+  }, [tab, offerRowId, record?.offer, record?.status, context, stale])
 
   const can = meta?.can
   const isAdmin = Boolean(can?.createProduct)
@@ -297,8 +299,15 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
             {busy && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Working" />}
           </>
         )}
-        notice={notice && (
-          <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${NOTICE_TONE[notice.tone]}`}>{notice.text}</div>
+        notice={(notice || record?.mergedInto) && (
+          <div className="space-y-2">
+            {record?.mergedInto && (
+              <div role="status" className="rounded-lg border border-border bg-card p-3 text-sm text-foreground">
+                This record was merged into <Link href={`/portfolio/products/${record.mergedInto.id}`} className="font-medium underline underline-offset-2 hover:no-underline">{record.mergedInto.name}</Link>. Open that one: it carries everything that was kept.
+              </div>
+            )}
+            {notice && <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${NOTICE_TONE[notice.tone]}`}>{notice.text}</div>}
+          </div>
         )}
         tabs={record && <PageTabs tabs={tabs} active={tab} onChange={setTab} label="Sections of this sub-product" idPrefix={ID_PREFIX} />}
       >

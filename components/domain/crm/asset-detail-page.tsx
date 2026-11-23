@@ -16,6 +16,7 @@ import { crmService } from '@/services/crm'
 import { useAssignableEmployees } from './lead-employees'
 import { getLaravelContext } from '@/lib/laravel-context'
 import type { CrmAsset, CrmAuditEntry } from '@/types/crm'
+import { ProductPageLink } from '@/components/domain/portfolio/product-page-link'
 import { CreateAssetModal } from './create-asset-modal'
 import { CrmHistoryTab } from './crm-history-tab'
 
@@ -138,16 +139,10 @@ export function AssetDetailPage({ asset, onSaved, onBack }: Props) {
           <SectionCard title="Asset Details">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-1.5">
-                <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</dt>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-product</dt>
                 <dd className="text-sm font-medium text-foreground">
                   {asset.productId ? (
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => router.push(resolveAccessLink('/module/crm/sales/products') + `/${asset.productId}`)}
-                    >
-                      {asset.productName || `#${asset.productId}`}
-                    </button>
+                    <ProductPageLink crmProductId={asset.productId}>{asset.productName || `#${asset.productId}`}</ProductPageLink>
                   ) : '—'}
                 </dd>
               </div>

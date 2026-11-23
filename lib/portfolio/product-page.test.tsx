@@ -6,19 +6,28 @@ import { portfolioProducts } from '../signals/opportunity-fixtures'
 import { axeViolations } from '../agent/a11y'
 import { resolveProductTab } from './page-model'
 import { listRow, meta } from './fixtures'
-import { installWorld, openTab, press, tabLabels, type World } from './screen-kit'
+import { fill, installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
 /** One Product's page in a fake browser: the Signals products it already read, the Sub-products from the unified list, the form in its drawer. */
-async function openProduct(world: World = {}) {
+async function openProduct(world: World = {}, productKey = 'scholarclone', customise?: (p: ReturnType<typeof portfolioProducts>) => void) {
   const k = await kit()
-  const router = await routerHarness('', '/portfolio/scholarclone')
+  const router = await routerHarness('', `/portfolio/${productKey}`)
   const calls = await installWorld(k, { listRows: [listRow(), listRow({ id: 12, name: 'Admissions', key: 'scholarclone/sch-12', state: 'not_sold', type: null, hasSell: false, readiness: 'Prototype', signalsFound: 0, icp: 'none' })], ...world })
   const { portfolioService } = await import('../../services/portfolio/portfolio-service')
-  Object.assign(portfolioService, { getProducts: async () => portfolioProducts() })
+  Object.assign(portfolioService, { getProducts: async () => { const answer = portfolioProducts(); customise?.(answer); return answer } })
   const { ProductDetailView } = await import('../../components/domain/portfolio/product-detail-view')
-  await k.render(router.wrap(k.h(ProductDetailView, { context: { token: 'test-token', subInstituteId: '1', syear: '', userId: '2', organizationId: '', orgType: '', profileId: '1' } as never, productKey: 'scholarclone' })))
+  await k.render(router.wrap(k.h(ProductDetailView, { context: { token: 'test-token', subInstituteId: '1', syear: '', userId: '2', organizationId: '', orgType: '', profileId: '1' } as never, productKey })))
   await k.tick(80)
   return { k, router, calls }
+}
+
+/** Opens the "More actions" menu of the page header and returns its items. */
+async function openMoreMenu(k: Awaited<ReturnType<typeof kit>>) {
+  const trigger = k.all('button').find((b) => b.getAttribute('aria-label') === 'More actions')
+  assert.ok(trigger, 'the page has a More actions menu')
+  await k.act(async () => { trigger.dispatchEvent(new k.w.MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, ctrlKey: false })) })
+  await k.tick(20)
+  return k.all('[role="menuitem"]')
 }
 
 describe('a Product page', () => {
@@ -83,6 +92,45 @@ describe('a Product page', () => {
   it('has no Add sub-product button for a caller who may not add one', async () => {
     const { k } = await openProduct({ meta: meta({}, { createSubProduct: false }) })
     assert.ok(k.withText('Add sub-product') === null, 'no Add sub-product button for a caller who may not add')
+  })
+
+  it('lets an administrator edit a Product this organisation created (name, category, status, description) through the Product API; a built-in Product, and a caller who may not create Products, get no Edit', async () => {
+    // The old Portfolio's "Edit Product" dialog was lost when the old screens went (found by the removal track, 23 Nov 2026): the unified screens had no way to edit a Product.
+    const asCustom = (answer: ReturnType<typeof portfolioProducts>) => {
+      const first = answer.data.products[0] as unknown as Record<string, unknown>
+      Object.assign(first, { key: 'payroll_cloud', label: 'Payroll Cloud', custom: true, description: 'Old text', category: 'HR tech', status: 'active' })
+    }
+    const saved: Array<{ key: string; body: Record<string, unknown> }> = []
+    const { productIcpService } = await import('../../services/signals/product-icp')
+    Object.assign(productIcpService, { updateProduct: async (_c: unknown, key: string, body: Record<string, unknown>) => { saved.push({ key, body }); return { status: 1, message: 'Product updated.', data: { product: { key, label: String(body.label) } } } } })
+
+    const own = await openProduct({}, 'payroll_cloud', asCustom)
+    const items = await openMoreMenu(own.k)
+    const edit = items.find((i) => i.textContent?.trim() === 'Edit this product')
+    assert.ok(edit, 'an administrator is offered Edit for a Product of the organisation')
+    await own.k.click(edit)
+    await own.k.tick(40)
+    assert.ok(own.k.one('[role="dialog"]')!.textContent!.includes('Edit product: Payroll Cloud'))
+    await fill(own.k, 'Product name', 'Payroll Cloud Plus')
+    await fill(own.k, 'Category', 'People tech')
+    await fill(own.k, 'Description', 'New text')
+    await press(own.k, 'Save changes')
+    await own.k.tick(60)
+    assert.deepEqual(saved, [{ key: 'payroll_cloud', body: { label: 'Payroll Cloud Plus', description: 'New text', category: 'People tech', status: 'active' } }], 'the key is kept and the four details are sent')
+    assert.ok(own.k.bodyText().includes('Product saved.'))
+    await disposeAll()
+
+    const builtIn = await openProduct()
+    assert.ok(!(await openMoreMenu(builtIn.k)).some((i) => i.textContent?.trim() === 'Edit this product'), 'a built-in Product is shared and read only')
+    await disposeAll()
+
+    // a Product that is the organisation's own record but that Signals does not know as one it created (custom false): no Edit either
+    const notCustom = await openProduct({}, 'payroll_cloud', (answer) => { asCustom(answer); Object.assign(answer.data.products[0] as unknown as Record<string, unknown>, { custom: false }) })
+    assert.ok(!(await openMoreMenu(notCustom.k)).some((i) => i.textContent?.trim() === 'Edit this product'), 'only a Product the organisation created is edited here')
+    await disposeAll()
+
+    const noRight = await openProduct({ meta: meta({}, { createProduct: false }) }, 'payroll_cloud', asCustom)
+    assert.ok(!(await openMoreMenu(noRight.k)).some((i) => i.textContent?.trim() === 'Edit this product'), 'only an administrator edits a Product')
   })
 
   it('marks a built-in Product as Shared, read only, and offers no archive for it', async () => {

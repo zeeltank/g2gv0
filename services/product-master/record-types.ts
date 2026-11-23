@@ -93,6 +93,8 @@ export interface PmFullRecord {
   sell: PmSell | null
   about: PmAboutFull | null
   icp: PmIcpState | null
+  /** The record a pair review merged this one into; null (or absent on an older server) for every other record. */
+  mergedInto?: { id: number; key: string | null; name: string } | null
   createdAt: string | null
   updatedAt: string | null
 }

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmFaq, CrmFaqPayload, CrmPicklistValue } from '@/types/crm'
@@ -28,21 +29,10 @@ export function CreateFaqModal({ isOpen, onClose, onSaved, faq, categories, stat
   const context = useMemo(() => getLaravelContext(), [])
   const employees = useAssignableEmployees(context, isOpen)
 
-  const [products, setProducts] = useState<Array<{ id: string; label: string }>>([])
   const [seededFrom, setSeededFrom] = useState<CrmFaq | null | 'unset'>('unset')
   const [form, setForm] = useState<CrmFaqPayload>(EMPTY)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([products, services]) => setProducts([...products.data.items, ...services.data.items].map((p) => ({ id: p.id, label: p.name }))))
-      .catch(() => { /* the form still works with an empty picker */ })
-  }, [isOpen, context])
 
   if (isOpen && seededFrom !== faq) {
     setSeededFrom(faq)
@@ -90,7 +80,7 @@ export function CreateFaqModal({ isOpen, onClose, onSaved, faq, categories, stat
         <DialogHeader className="shrink-0">
           <DialogTitle>{faq ? 'Edit FAQ' : 'New FAQ'}</DialogTitle>
           <DialogDescription>
-            {faq ? 'Update this question and answer.' : 'Add a question and its answer - optionally scoped to one product or service.'}
+            {faq ? 'Update this question and answer.' : 'Add a question and its answer - optionally scoped to one Sub-product.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -128,12 +118,13 @@ export function CreateFaqModal({ isOpen, onClose, onSaved, faq, categories, stat
           </div>
 
           <div className="space-y-1.5">
-            <Label>Product / Service</Label>
-            <SearchableSelect
-              value={form.productId ?? ''}
-              onChange={(v) => set('productId', v)}
-              options={products.map((p) => ({ value: p.id, label: p.label }))}
-              placeholder="Optional - leave blank for a general question…"
+            <Label htmlFor="faq-product">Sub-product</Label>
+            <SubProductPicker
+              id="faq-product"
+              value={form.productId}
+              onChange={(picked) => set('productId', picked ? picked.productId : '')}
+              placeholder="Optional - leave blank for a general question"
+              clearable
             />
           </div>
 

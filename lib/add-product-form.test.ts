@@ -8,21 +8,27 @@ import { emptyProductForm, toPayload, validateProductForm } from './product-form
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8')
 const offer = { offer_id: 'MY-01', name: 'Payroll Cloud', what_it_does: 'Monthly payroll and compliance' }
 
+// RE-POINTED (S15 WPD2, 23 Nov 2026): the retired Portfolio dialog (product-form-dialog.tsx) is replaced by the one form drawer: its About section
+// (product-form-about.tsx) carries the Portfolio's fields under their live words, its ICP section the three ideal customers.
 describe('Add Product form: all original fields, one form', () => {
-  const src = read('components/domain/portfolio/product-form-dialog.tsx')
+  const about = read('components/domain/portfolio/product-form-about.tsx')
+  const drawer = read('components/domain/portfolio/product-form-drawer.tsx')
 
   it('has every one of the 15 product fields', () => {
-    for (const id of ['pf-id', 'pf-name', 'pf-category', 'pf-status', 'pf-what', 'pf-modules', 'pf-problems', 'pf-proof', 'pf-pricing', 'pf-band', 'pf-deploy', 'pf-owner', 'pf-notes']) assert.ok(src.includes(`id="${id}"`), id)
-    assert.ok(src.includes('legend="Target customers"'))
-    assert.ok(src.includes('legend="Buying events it responds to"'))
-    assert.ok(src.includes('Other target customer, then Add'))
-    assert.ok(src.includes('Other buying event, then Add'))
-    for (const label of ['Product ID', 'Name', 'Category', 'Status', 'Description', 'Features and capabilities', 'Customer problems solved', 'Benefits and proof', 'Pricing model', 'Typical deal size', 'Deployment', 'Delivery owner', 'Notes']) assert.ok(src.includes(`label="${label}"`), label)
+    // The old words and the live ones: Category is Product, Status is Readiness, Product ID is ID, Description is What it does.
+    for (const label of ['Product', 'ID', 'Name', 'Readiness', 'What it does', 'Features and capabilities', 'Customer problems solved', 'Benefits and proof', 'Pricing model', 'Typical deal size', 'Deployment', 'Delivery owner', 'Notes']) assert.ok(about.includes(`label="${label}"`), label)
+    assert.ok(about.includes('legend="Target customers"'))
+    assert.ok(about.includes('legend="Buying events it responds to"'))
+    assert.ok(about.includes('Other target customer, then Add'))
+    assert.ok(about.includes('Other buying event, then Add'))
   })
 
   it('is one form again (no steps), with the Individual ICP below the product details', () => {
-    assert.doesNotMatch(src, /WIZARD_STEPS|STEP_FIELDS|setStep/)
-    assert.ok(src.indexOf('label="Notes"') < src.indexOf('<ProductIcpSection'))
+    assert.doesNotMatch(drawer, /WIZARD_STEPS|STEP_FIELDS|setStep/)
+    // One drawer, three sections in this order: the product details, then Sell in CRM, then the ideal customer.
+    const at = (id: string) => drawer.indexOf(`{ id: '${id}', label:`)
+    assert.ok(at('about') > 0 && at('about') < at('sell') && at('sell') < at('icp'))
+    assert.ok(drawer.indexOf('<AboutSection') < drawer.indexOf('<IcpSection'))
     assert.match(read('components/domain/portfolio/product-icp-section.tsx'), /Individual Ideal Customer Profile \(ICP\)/)
   })
 
@@ -33,11 +39,13 @@ describe('Add Product form: all original fields, one form', () => {
   })
 
   it('takes the dropdown options from the server taxonomy, not from hard-coded lists', () => {
-    assert.match(src, /taxonomy\?\.parent_products/)
-    assert.match(src, /taxonomy\?\.readiness_statuses/)
-    assert.match(src, /taxonomy\?\.deployment_models/)
-    assert.match(src, /taxonomy\?\.segments/)
-    assert.match(src, /taxonomy\?\.signal_families/)
+    // The Products are the server's own list (`choices`, from the Product record API) and the readiness words the server accepts (`readinessCodes`), not `taxonomy.parent_products`.
+    assert.match(about, /choices\.filter\(/)
+    assert.match(about, /readinessCodes/)
+    assert.match(about, /taxonomy\?\.readiness_statuses/)
+    assert.match(about, /taxonomy\?\.deployment_models/)
+    assert.match(about, /taxonomy\?\.segments/)
+    assert.match(about, /taxonomy\?\.signal_families/)
   })
 })
 
@@ -80,9 +88,9 @@ describe('Individual ICP of a product', () => {
   })
 
   it('saves the sub-product with its individual ICP directly and never creates a top-level product in the master product list', () => {
-    const src = read('components/domain/portfolio/product-form-dialog.tsx')
-    assert.match(src, /portfolioService\.(createOffer|updateOffer)/)
-    assert.match(src, /icpConfig/)
+    const src = read('components/domain/portfolio/product-form-drawer.tsx')
+    assert.match(src, /productRecordService\.(create|update)\(/)
+    assert.match(src, /icp: Object\.keys\(built\.configs\)\.length > 0 \? built\.configs : undefined/)
     assert.doesNotMatch(src, /productIcpService\.createProduct/)
     assert.doesNotMatch(src, /localStorage|sessionStorage/)
   })

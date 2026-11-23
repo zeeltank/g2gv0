@@ -16,10 +16,13 @@ describe('Product page routes', () => {
     }
   })
 
+  // RE-POINTED (S15 WPD2, 23 Nov 2026): the "Select Product" dropdown of the retired portfolio-view.tsx is the Product filter of the unified list's toolbar.
   it('the portfolio has a product dropdown and no product-level ICP badge or Edit ICP button', () => {
-    const view = read('components/domain/portfolio/portfolio-view.tsx')
-    assert.match(view, /Select Product/)
-    assert.doesNotMatch(view, /icpHref|IcpStatusBadge|Edit ICP|View ICP/)
+    const toolbar = read('components/domain/portfolio/portfolio-list-toolbar.tsx')
+    assert.match(toolbar, /<Facet label="Product"[^>]*choices=\{productChoices\(/)
+    for (const file of ['portfolio-list.tsx', 'portfolio-list-table.tsx', 'portfolio-list-toolbar.tsx', 'portfolio-more-menu.tsx']) {
+      assert.doesNotMatch(read(`components/domain/portfolio/${file}`), /icpHref|IcpStatusBadge|Edit ICP|View ICP/, file)
+    }
   })
 
   it('an unknown key shows a not-found state, not an error', () => {
