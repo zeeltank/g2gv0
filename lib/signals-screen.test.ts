@@ -54,6 +54,17 @@ describe('Signals sidebar', () => {
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
 
+  it('keeps the four tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
+    // Owner, 23 Nov 2026: "in Market Signals when I click the Product Portfolio tab the other tabs vanish: I want the 4 tabs there for fast switching, but not in the Product Portfolio module."
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio', '/partners'], 'the tab goes to a route inside Signals')
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'], 'while the menu row it stands for is still /portfolio')
+    assert.match(read('components/domain/signals/signals-header.tsx'), /href=\{t\.route\}/, 'the header links each tab to its route')
+    const tabPage = read('app/signals/portfolio/page.tsx')
+    assert.match(tabPage, /<SignalsFrame active="portfolio">/, 'the tab page draws the Signals frame with the Product Portfolio tab active')
+    assert.match(tabPage, /<PortfolioList canManage=\{canManage\} embedded \/>/, 'and the same list, embedded')
+    assert.doesNotMatch(read('app/portfolio/page.tsx'), /import[^\n]*SignalsFrame|<SignalsFrame|<PortfolioList[^>]*embedded/, 'the module page has no Signals tabs and is not embedded')
+  })
+
 
   it('folds Signal Inbox into Market Signals so Market Signals is a flat direct link to /signals with zero children', () => {
     const liveTree: NavModule[] = [{

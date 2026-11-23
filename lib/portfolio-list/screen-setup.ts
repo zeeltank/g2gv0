@@ -12,6 +12,8 @@ export interface SetupOptions {
   rows?: PortfolioRow[]
   can?: PortfolioCan
   canManage?: boolean
+  /** Drawn inside Market Signals (the Product Portfolio tab): no title of its own. */
+  embedded?: boolean
   /** Replaces the list answer. Gets the request's query; return the envelope (or throw / return a `__status` body to refuse). */
   list?: (query: URLSearchParams, call: Call) => unknown
   matches?: MatchesData | 'forbidden' | 'fail'
@@ -55,7 +57,7 @@ export async function setup(opts: SetupOptions = {}) {
     },
   })
   const { PortfolioList } = await import('../../components/domain/portfolio/portfolio-list')
-  await sk.mount(sk.k.h(PortfolioList, { canManage: opts.canManage ?? true }))
+  await sk.mount(sk.k.h(PortfolioList, { canManage: opts.canManage ?? true, embedded: opts.embedded }))
 
   const text = () => sk.k.bodyText()
   /** The request the list sent last, as its query string. */
