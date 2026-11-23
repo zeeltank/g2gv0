@@ -7,9 +7,10 @@
  * academic-year-bound).
  */
 
-import { apiClient, buildApiUrl } from '@/services/core'
+import { apiClient, buildApiUrl, ApiError } from '@/services/core'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { withLeadExtras } from '@/lib/leads/model'
+import type { MessageChannel, MessageDraft } from '@/lib/crm/message-channels'
 import { withOpportunityExtras, withPipelineReasons } from '@/lib/opportunities/model'
 import { withCampaignExtras, withLeadCampaign } from '@/lib/campaigns/model'
 import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
@@ -102,6 +103,7 @@ import type {
   CrmSavedViewListResponse,
   CrmSavedViewResponse,
   CrmBulkSendSmsResponse,
+  CrmRecipientMessages,
   CrmSendSmsPayload,
   CrmSendSmsResponse,
   CrmSmsLogListResponse,
@@ -1231,10 +1233,158 @@ export const crmService = {
   sendSms: (context: LaravelContext, payload: CrmSendSmsPayload) =>
     apiClient.post<CrmSendSmsResponse>('/crm/sms-log/send', { ...payload, ...baseParams(context) }),
 
-  bulkSendSms: (context: LaravelContext, relatedType: 'lead' | 'organization' | 'contact', ids: string[], message: string) =>
-    apiClient.post<CrmBulkSendSmsResponse>('/crm/sms-log/bulk-send', {
-      relatedType, ids: ids.map(Number), message, ...baseParams(context),
+  bulkSendSms: async (
+    context: LaravelContext,
+    relatedType: 'lead' | 'organization' | 'contact' | 'communication',
+    ids: string[],
+    message: string,
+    recipients?: Array<{ id: string; email?: string | null; name?: string; phone?: string | null }>,
+    messages?: CrmRecipientMessages,
+  ): Promise<CrmBulkSendSmsResponse> => {
+    const res = await fetch('/api/crm/bulk-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(context?.token ? { Authorization: `Bearer ${context.token}` } : {}),
+      },
+      body: JSON.stringify({
+        channel: 'sms',
+        relatedType,
+        ids,
+        message,
+        recipients,
+        messages,
+      }),
+    })
+
+    const json = await res.json()
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to dispatch SMS messages.')
+    }
+
+    return {
+      status: json.data?.sent > 0 ? 1 : 0,
+      message: json.message,
+      data: json.data,
+    }
+  },
+
+  sendWhatsapp: (
+    context: LaravelContext,
+    payload: { toNumber: string; message: string; relatedType?: 'lead' | 'organization' | 'contact' | 'opportunity'; relatedId?: string },
+  ) =>
+    apiClient.post<{ status: number; message: string }>('/crm/whatsapp/send', {
+      ...payload,
+      ...(payload.relatedId ? { relatedId: Number(payload.relatedId) } : {}),
+      ...baseParams(context),
     }),
+
+  bulkSendWhatsapp: async (
+    context: LaravelContext,
+    relatedType: 'lead' | 'organization' | 'contact' | 'communication',
+    ids: string[],
+    message: string,
+    recipients?: Array<{ id: string; email?: string | null; name?: string; phone?: string | null }>,
+    messages?: CrmRecipientMessages,
+  ): Promise<CrmBulkSendSmsResponse> => {
+    const res = await fetch('/api/crm/bulk-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(context?.token ? { Authorization: `Bearer ${context.token}` } : {}),
+      },
+      body: JSON.stringify({
+        channel: 'whatsapp',
+        relatedType,
+        ids,
+        message,
+        recipients,
+        messages,
+      }),
+    })
+
+    const json = await res.json()
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to dispatch WhatsApp messages.')
+    }
+
+    return {
+      status: json.data?.sent > 0 ? 1 : 0,
+      message: json.message,
+      data: json.data,
+    }
+  },
+
+  /** Asks the configured AI provider for one draft per selected record. Nothing is sent. */
+  draftMessages: async (
+    context: LaravelContext,
+    payload: {
+      channel: MessageChannel
+      relatedType: 'lead' | 'organization' | 'contact'
+      ids: string[]
+      purpose: string
+      instruction?: string
+      existingDrafts?: Record<string, string>
+    },
+  ): Promise<MessageDraft[]> => {
+    const res = await fetch('/api/crm/message-draft', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(context?.token ? { Authorization: `Bearer ${context.token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const json = await res.json().catch(() => null)
+    if (!res.ok) {
+      throw new Error(json?.message || 'Could not generate a draft.')
+    }
+
+    return json?.data?.drafts ?? []
+  },
+
+  bulkSendEmail: async (
+    context: LaravelContext,
+    payload: {
+      relatedType: 'lead' | 'organization' | 'contact' | 'communication'
+      ids: string[]
+      subject: string
+      body: string
+      templateId?: string
+      recipients?: Array<{ id: string; email?: string | null; name?: string; phone?: string | null }>
+      messages?: CrmRecipientMessages
+    },
+  ): Promise<CrmBulkSendSmsResponse> => {
+    const res = await fetch('/api/crm/bulk-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(context?.token ? { Authorization: `Bearer ${context.token}` } : {}),
+      },
+      body: JSON.stringify({
+        channel: 'email',
+        relatedType: payload.relatedType,
+        ids: payload.ids,
+        subject: payload.subject,
+        body: payload.body,
+        templateId: payload.templateId,
+        recipients: payload.recipients,
+        messages: payload.messages,
+      }),
+    })
+
+    const json = await res.json()
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to dispatch email messages.')
+    }
+
+    return {
+      status: json.data?.sent > 0 ? 1 : 0,
+      message: json.message,
+      data: json.data,
+    }
+  },
 
   smsLogExportUrl: (context: LaravelContext, query: { search?: string; status?: CrmSmsStatus } = {}) =>
     buildApiUrl('/crm/sms-log/export', {

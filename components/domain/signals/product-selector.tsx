@@ -93,7 +93,7 @@ export function useSelectedProduct(context: LaravelContext, products: ProductInf
 
 /** The product pills. A product that is not configured for discovery is still selectable (to read its records) but says so. */
 export function ProductSelector({
-  products, loading, error, value, onChange, allowAll,
+  products, loading, error, value, onChange, allowAll, fullWidth = false,
 }: {
   products: ProductInfo[] | null
   loading: boolean
@@ -101,14 +101,16 @@ export function ProductSelector({
   value: ProductChoice | null
   onChange: (next: ProductChoice) => void
   allowAll: boolean
+  /** One long bar across the page, the products sharing its width equally. */
+  fullWidth?: boolean
 }) {
-  if (loading && !products) return <Skeleton className="h-9 w-80 rounded-lg" aria-label="Loading products" />
+  if (loading && !products) return <Skeleton className={fullWidth ? 'h-11 w-full rounded-lg' : 'h-9 w-80 rounded-lg'} aria-label="Loading products" />
   if (error || !products) return <p className="text-sm text-destructive" role="alert">{error ?? 'Products unavailable.'}</p>
 
   const items = [...(allowAll ? [{ key: 'all', label: 'All products', ready: true }] : []), ...products.map((p) => ({ key: p.key, label: p.label, ready: p.ready }))]
 
   return (
-    <div role="radiogroup" aria-label="Product" className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
+    <div role="radiogroup" aria-label="Product" className={`gap-1 rounded-lg bg-muted p-1 ${fullWidth ? 'flex w-full' : 'inline-flex max-w-full flex-wrap'}`}>
       {items.map((p) => (
         <button
           key={p.key}
@@ -116,7 +118,7 @@ export function ProductSelector({
           role="radio"
           aria-checked={value === p.key}
           onClick={() => onChange(p.key)}
-          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value === p.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${fullWidth ? 'flex-1 justify-center py-2' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value === p.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
         >
           {p.label}
           {!p.ready && <Badge variant="warning" className="px-1.5 py-0 text-[10px]">needs setup</Badge>}

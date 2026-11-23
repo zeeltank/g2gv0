@@ -4,7 +4,7 @@
  */
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
-import { decideGenerate, generateSignals, runGuardedGenerate, type GenerateProduct, type GenerateService, type GenerateStatus } from './signals-generate'
+import { decideGenerate, describeIcpSync, generateSignals, runGuardedGenerate, type GenerateProduct, type GenerateService, type GenerateStatus, type IcpRegionSync } from './signals-generate'
 import type { LaravelContext } from './laravel-context'
 
 const ctx = { token: 't', subInstituteId: '6', syear: '', userId: '1', organizationId: '', orgType: '', profileId: '1' } as LaravelContext
@@ -44,14 +44,9 @@ describe('decideGenerate', () => {
     assert.equal(!d.ok && d.outcome.started === false && d.outcome.reason, 'unknown_product')
   })
 
-  it('refuses a product that is not ready and passes on what is missing and the next step', () => {
+  it('accepts any valid product for universal generation', () => {
     const d = decideGenerate('enterprise_brain', products, false)
-    assert.equal(d.ok, false)
-    if (!d.ok && !d.outcome.started) {
-      assert.equal(d.outcome.reason, 'not_ready')
-      assert.deepEqual(d.outcome.missing, ['No active ICP for Enterprise Brain'])
-      assert.match(d.outcome.nextStep ?? '', /Ideal Customer Profile/)
-    }
+    assert.equal(d.ok, true)
   })
 
   it('refuses a second submission while a run is going', () => {
@@ -75,13 +70,13 @@ describe('generateSignals', () => {
     assert.equal(out.started && out.runId, 77)
   })
 
-  it('makes no request at all for Enterprise Brain or G2G without a ready ICP', async () => {
+  it('starts research for Enterprise Brain or G2G using universal synthesis', async () => {
     for (const key of ['enterprise_brain', 'g2g']) {
-      const { service, calls } = stub(okStatus)
+      const { service, calls } = stub((p) => ({ ...okStatus(p), product: { key: p ?? '', label: p ?? '', ready: true, missing: [] } }))
       const out = await generateSignals({ context: ctx, choice: key, products, running: false, service })
-      assert.equal(out.started, false)
-      assert.deepEqual(calls.status, [])
-      assert.deepEqual(calls.run, [])
+      assert.equal(out.started, true)
+      assert.deepEqual(calls.status, [key])
+      assert.deepEqual(calls.run, [key])
     }
   })
 
@@ -94,13 +89,12 @@ describe('generateSignals', () => {
     }
   })
 
-  it('does not trust a stale "ready" in the list: the backend\'s fresh status wins', async () => {
+  it('refuses when backend reports unknown or missing product', async () => {
     const stale: GenerateProduct[] = [{ ...products[0] }]
-    const { service, calls } = stub((p) => ({ ...okStatus(p), product: { key: 'scholarclone', label: 'ScholarClone', ready: false, missing: ['The ScholarClone ICP is invalid (regions: a list)'] } }))
+    const { service, calls } = stub((p) => ({ ...okStatus(p), product: null }))
     const out = await generateSignals({ context: ctx, choice: 'scholarclone', products: stale, running: false, service })
     assert.equal(out.started, false)
     assert.deepEqual(calls.run, [])
-    assert.equal(!out.started && out.missing[0], 'The ScholarClone ICP is invalid (regions: a list)')
   })
 
   it('does not start when the backend says a run is already going, or when providers are missing', async () => {
@@ -162,12 +156,12 @@ describe('runGuardedGenerate (one click)', () => {
     assert.deepEqual(h.log.filter((l) => l === 'busy').length, 3)
   })
 
-  it('an invalid product is explained, sends nothing, and leaves the button usable', async () => {
+  it('an unknown product is explained, sends nothing, and leaves the button usable', async () => {
     const { service, calls } = stub(okStatus)
     const guard = { current: false }
     const h = handlers()
-    await runGuardedGenerate(guard, args(service, 'enterprise_brain'), h.on)
-    assert.deepEqual(h.log, ['begin', 'refused:not_ready'])
+    await runGuardedGenerate(guard, args(service, 'non_existent_key'), h.on)
+    assert.deepEqual(h.log, ['begin', 'refused:unknown_product'])
     assert.equal(calls.run.length, 0)
     assert.equal(guard.current, false)
   })
@@ -203,5 +197,80 @@ describe('runGuardedGenerate (one click)', () => {
     await runGuardedGenerate(guard, args(service), h.on)
     assert.equal(guard.current, false)
     assert.deepEqual(h.log, ['begin', 'failed:Network error'])
+  })
+})
+
+describe('the ICP Region the server saved with a run', () => {
+  const create = (icp: IcpRegionSync | null | undefined) => {
+    const sent: Array<{ regions?: unknown; offerId?: string | null; model?: string }> = []
+    const service: GenerateService = {
+      getStatus: async (_c, p) => ({ data: okStatus(p) }),
+      runResearch: async (_c, _params, _p, regions, offerId, model) => {
+        sent.push({ regions, offerId, model })
+        return { message: 'Research started.', data: { run_id: 5, run: { id: 5 }, ...(icp === undefined ? {} : { icp_sync: icp }) } }
+      },
+    }
+
+    return { service, sent }
+  }
+  const india = [{ country: 'India' }]
+  const args = (service: GenerateService, sub: { offer_id: string; name: string; ready: boolean; missing: string[] } | null) => ({
+    context: ctx, choice: 'scholarclone', products, running: false, service, regions: india, sub, customerModel: 'b2b' as const,
+  })
+
+  it("reports a created or updated ICP in the server's own words, and nothing for any other outcome", () => {
+    assert.equal(describeIcpSync({ status: 'created', message: 'Created the B2B ICP for Fee Suite with Region: India.' }), 'Created the B2B ICP for Fee Suite with Region: India.')
+    assert.equal(describeIcpSync({ status: 'updated', message: 'Updated the Region of the B2B ICP for Fee Suite to USA.' }), 'Updated the Region of the B2B ICP for Fee Suite to USA.')
+    for (const status of ['unchanged', 'skipped'] as const) assert.equal(describeIcpSync({ status, message: 'should never be shown' }), null)
+    assert.equal(describeIcpSync({ status: 'created', message: '   ' }), null, 'never an empty or made-up claim')
+    assert.equal(describeIcpSync(null), null)
+    assert.equal(describeIcpSync(undefined), null)
+  })
+
+  it("hands the server's ICP outcome to the screen and sends the region, sub-product and customer type with the request", async () => {
+    const { service, sent } = create({ status: 'created', message: 'Created the B2B ICP for Fee Suite with Region: India.', icp: null })
+    const out = await generateSignals(args(service, { offer_id: 'FEE-1', name: 'Fee Suite', ready: true, missing: [] }))
+    assert.equal(out.started, true)
+    assert.equal(out.started && out.icpSync?.status, 'created')
+    assert.deepEqual(sent[0], { regions: india, offerId: 'FEE-1', model: 'b2b' })
+  })
+
+  it('Whole Product sends no sub-product, and a "skipped" answer produces no ICP message', async () => {
+    const { service, sent } = create({ status: 'skipped', reason: 'whole_product', message: null, icp: null })
+    const out = await generateSignals(args(service, null))
+    assert.equal(sent[0].offerId, null)
+    assert.equal(out.started && describeIcpSync(out.icpSync), null)
+  })
+
+  it('an older server that does not send icp_sync still works, and shows no ICP message', async () => {
+    const { service } = create(undefined)
+    const out = await generateSignals(args(service, null))
+    assert.equal(out.started && out.icpSync, null)
+    assert.equal(out.started && describeIcpSync(out.icpSync), null)
+  })
+
+  it("shows the server's validation error when the ICP could not be created, and starts no run", async () => {
+    const service: GenerateService = {
+      getStatus: async (_c, p) => ({ data: okStatus(p) }),
+      runResearch: async () => { throw new Error('No ICP exists for this sub-product yet. Nothing was changed.') },
+    }
+    const seen: string[] = []
+    await runGuardedGenerate({ current: false }, args(service, { offer_id: 'FEE-1', name: 'Fee Suite', ready: false, missing: [] }), {
+      busy: () => seen.push('busy'), begin: () => seen.push('begin'), refused: () => seen.push('refused'), started: () => seen.push('started'),
+      failed: (e) => seen.push(`failed:${(e as Error).message}`),
+    })
+    assert.deepEqual(seen, ['begin', 'failed:No ICP exists for this sub-product yet. Nothing was changed.'])
+  })
+
+  it('a second click while the first request is in flight is refused, so no second request can change the ICP twice', async () => {
+    const { service, sent } = create({ status: 'updated', message: 'Updated.' })
+    const guard = { current: false }
+    const seen: string[] = []
+    const handlers = { busy: () => seen.push('busy'), begin: () => seen.push('begin'), refused: () => seen.push('refused'), started: () => seen.push('started'), failed: () => seen.push('failed') }
+    const first = runGuardedGenerate(guard, args(service, { offer_id: 'FEE-1', name: 'Fee Suite', ready: true, missing: [] }), handlers)
+    await runGuardedGenerate(guard, args(service, { offer_id: 'FEE-1', name: 'Fee Suite', ready: true, missing: [] }), handlers)
+    await first
+    assert.deepEqual(seen, ['begin', 'busy', 'started'])
+    assert.equal(sent.length, 1)
   })
 })

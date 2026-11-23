@@ -15,6 +15,9 @@ import {
   Target,
   RefreshCw,
   Building2,
+  List,
+  LayoutGrid,
+  Network,
 } from 'lucide-react'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { FilterBar, type Filter } from '@/components/ui/filter-bar'
@@ -34,6 +37,7 @@ import type { Employee } from '@/types/employee'
 import { cn } from '@/lib/utils'
 import { ImportEmployeesDialog } from './employee-directory-parts/import-employees-dialog'
 import { BulkActionsBar } from './employee-directory-parts/bulk-actions-bar'
+import { EmployeeNetworkView } from './employee-directory-parts/network-view'
 
 const LazyEmployeeDirectorySheets = lazy(() =>
   import('@/domain/organization/employee-directory-sheets').then((module) => ({
@@ -88,6 +92,9 @@ function toEmployee(row: DirectoryEmployee): Employee {
     jobrole_id: row.jobrole_id,
     user_profile_id: row.user_profile_id,
     employee_no: row.employee_no,
+    reporting_manager_id: row.reporting_manager_id,
+    shift_id: row.shift_id,
+    shift_name: row.shift_name,
   }
 }
 
@@ -102,6 +109,21 @@ export function EmployeeDirectory() {
   const [isAddSheetOpen, setIsAddSheetOpen] = React.useState(false)
   const [isImportOpen, setIsImportOpen] = React.useState(false)
   const [activeEmployee, setActiveEmployee] = React.useState<Employee | null>(null)
+  const [viewMode, setViewMode] = React.useState<'list' | 'grid' | 'hierarchy'>('list')
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('employee-directory-view')
+      if (saved === 'grid' || saved === 'hierarchy') setViewMode(saved)
+    } catch {}
+  }, [])
+
+  function changeViewMode(mode: 'list' | 'grid' | 'hierarchy') {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('employee-directory-view', mode)
+    } catch {}
+  }
 
   const [employees, setEmployees] = React.useState<Employee[]>([])
   const [meta, setMeta] = React.useState<ListMeta | null>(null)
@@ -129,7 +151,13 @@ export function EmployeeDirectory() {
           jobroleId: jobRoleFilter || undefined,
           status: statusFilter || undefined,
         })
-        setEmployees((response?.data ?? []).map(toEmployee))
+        // Active people first, then inactive. Array.sort is stable, so each group
+        // keeps the order the server returned (by name).
+        setEmployees(
+          (response?.data ?? [])
+            .map(toEmployee)
+            .sort((a, b) => Number(b.status_code === 1) - Number(a.status_code === 1)),
+        )
         setMeta(response?.meta ?? null)
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Failed to load employees.')
@@ -296,6 +324,36 @@ export function EmployeeDirectory() {
     [employees, selectedIds],
   )
 
+  function renderRowActions(row: Employee) {
+    return (
+      <div className="relative flex justify-start" onClick={(event) => event.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="absolute right-0 mt-1 w-48">
+            <DropdownMenuItem onClick={() => setActiveEmployee(row)} className="cursor-pointer">
+              <User className="mr-2 h-4 w-4" /> View Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {row.status_code === 1 ? (
+              <DropdownMenuItem
+                onClick={() => void changeStatus(row, 0)}
+                className="cursor-pointer text-destructive focus-visible:bg-destructive/10"
+              >
+                <ShieldAlert className="mr-2 h-4 w-4" /> Suspend Access
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => void changeStatus(row, 1)} className="cursor-pointer">
+                <ShieldCheck className="mr-2 h-4 w-4" /> Restore Access
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  }
+
   const columns: Column<Employee>[] = React.useMemo(() => [
     {
       id: 'full_name',
@@ -341,33 +399,7 @@ export function EmployeeDirectory() {
       id: 'id',
       header: 'Action',
       width: '16',
-      render: (_, row) => (
-        <div className="relative flex justify-start" onClick={(event) => event.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="absolute right-0 mt-1 w-48">
-              <DropdownMenuItem onClick={() => setActiveEmployee(row)} className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" /> View Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {row.status_code === 1 ? (
-                <DropdownMenuItem
-                  onClick={() => void changeStatus(row, 0)}
-                  className="cursor-pointer text-destructive focus-visible:bg-destructive/10"
-                >
-                  <ShieldAlert className="mr-2 h-4 w-4" /> Suspend Access
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => void changeStatus(row, 1)} className="cursor-pointer">
-                  <ShieldCheck className="mr-2 h-4 w-4" /> Restore Access
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+      render: (_, row) => renderRowActions(row),
     },
     // changeStatus closes over `load` and `context`, both stable for a render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -424,6 +456,38 @@ export function EmployeeDirectory() {
             <Download className="mr-2 h-4 w-4" /> Export
           </Button>
           <div className="mx-2 hidden h-6 w-px bg-border sm:block" />
+          <div className="flex items-center rounded-md border border-border p-0.5">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => changeViewMode('list')}
+              className="h-7 cursor-pointer px-2"
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => changeViewMode('grid')}
+              className="h-7 cursor-pointer px-2"
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'hierarchy' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => changeViewMode('hierarchy')}
+              className="h-7 cursor-pointer px-2"
+              aria-label="Hierarchy view"
+              aria-pressed={viewMode === 'hierarchy'}
+            >
+              <Network className="h-4 w-4" />
+            </Button>
+          </div>
           <Button size="sm" onClick={() => setIsAddSheetOpen(true)} className="cursor-pointer rounded-md px-5 shadow-sm">
             <Plus className="mr-2 h-4 w-4" /> Add Employee
           </Button>
@@ -450,6 +514,7 @@ export function EmployeeDirectory() {
           context={context}
           selected={selectedEmployees}
           departments={reference?.departments ?? []}
+          shifts={reference?.shifts ?? []}
           onClear={() => setSelectedIds([])}
           onExport={() => exportCsv(selectedEmployees)}
           onDone={async (message) => {
@@ -470,6 +535,74 @@ export function EmployeeDirectory() {
           }} />
         </div>
         <CardContent className="p-0">
+          {viewMode !== 'list' ? (
+            loading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading...</div>
+            ) : employees.length === 0 ? (
+              error ? null : (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  <p>{meta?.empty_reason || (hasFilters ? 'No employees match these filters.' : 'No employees yet.')}</p>
+                  {meta?.empty_is_expected && (
+                    <Button size="sm" className="mt-3" onClick={() => setIsAddSheetOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" /> Add the first employee
+                    </Button>
+                  )}
+                </div>
+              )
+            ) : viewMode === 'hierarchy' ? (
+              <EmployeeNetworkView employees={employees} onOpen={setActiveEmployee} />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {employees.map((row) => {
+                  const id = String(row.id)
+                  const selected = selectedIds.includes(id)
+                  return (
+                    <div
+                      key={id}
+                      onClick={() => setActiveEmployee(row)}
+                      className={cn(
+                        'relative flex cursor-pointer flex-col items-center gap-2 rounded-lg border bg-card p-3 pt-4 text-center transition-shadow hover:shadow-md',
+                        selected ? 'border-primary ring-1 ring-primary' : 'border-border/60',
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() =>
+                          setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+                        }
+                        className="absolute left-2 top-2 size-3.5 cursor-pointer"
+                        aria-label={`Select ${row.full_name}`}
+                      />
+                      <div className="absolute right-1 top-1">{renderRowActions(row)}</div>
+                      <EmployeeAvatar src={row.image} name={row.full_name} className="size-11" />
+                      <div className="min-w-0 max-w-full">
+                        <p className="truncate text-sm font-semibold text-foreground">{row.full_name}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{row.email || '—'}</p>
+                      </div>
+                      <div className="w-full min-w-0 space-y-0.5 text-xs">
+                        <p className={cn('truncate font-medium', !row.department_name && 'text-muted-foreground')}>
+                          {row.department_name || 'Unassigned'}
+                        </p>
+                        <p
+                          title={row.jobRole || undefined}
+                          className={cn('truncate text-muted-foreground', !row.jobRole && 'italic')}
+                        >
+                          {row.jobRole || 'No role'}
+                        </p>
+                      </div>
+                      <StatusBadge
+                        status={row.status}
+                        variant={(row.status.toLowerCase() === 'active' ? 'active' : 'inactive') as any}
+                        className="capitalize"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          ) : (
           <DataTable
             columns={columns}
             data={employees}
@@ -495,6 +628,7 @@ export function EmployeeDirectory() {
             }
             className="overflow-visible rounded-none border-0 [&_th]:bg-transparent [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wider [&_td]:py-4"
           />
+          )}
         </CardContent>
       </Card>
 

@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { apiErrorText } from '@/lib/api-messages'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { serverProblems, suggestKey, validateNewProduct, type NewProductErrors } from '@/lib/product-key'
@@ -19,6 +20,9 @@ import { productIcpService } from '@/services/signals/product-icp'
 export function NewProductDialog({ context, open, onClose, onCreated }: { context: LaravelContext; open: boolean; onClose: () => void; onCreated: (key: string) => void }) {
   const [label, setLabel] = useState('')
   const [key, setKey] = useState('')
+  const [category, setCategory] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState<'active' | 'inactive'>('active')
   // Once the person edits the key themselves it stops following the name.
   const [keyTouched, setKeyTouched] = useState(false)
   const [errors, setErrors] = useState<NewProductErrors>({})
@@ -28,7 +32,7 @@ export function NewProductDialog({ context, open, onClose, onCreated }: { contex
   useEffect(() => {
     if (!open) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLabel(''); setKey(''); setKeyTouched(false); setErrors({}); setMessage(''); setBusy(false)
+    setLabel(''); setKey(''); setCategory(''); setDescription(''); setStatus('active'); setKeyTouched(false); setErrors({}); setMessage(''); setBusy(false)
   }, [open])
 
   async function submit(e: React.FormEvent) {
@@ -40,7 +44,13 @@ export function NewProductDialog({ context, open, onClose, onCreated }: { contex
     setBusy(true)
     setMessage('')
     try {
-      const res = await productIcpService.createProduct(context, { key, label: label.trim() })
+      const res = await productIcpService.createProduct(context, {
+        key,
+        label: label.trim(),
+        category: category.trim() || undefined,
+        description: description.trim() || undefined,
+        status,
+      })
       onCreated(res.data.product.key)
     } catch (err) {
       const { fields, general } = serverProblems(err instanceof ApiError ? err.errors : undefined)
@@ -79,6 +89,27 @@ export function NewProductDialog({ context, open, onClose, onCreated }: { contex
             {errors.key
               ? <p role="alert" className="text-xs text-destructive">{errors.key}</p>
               : <p className="text-xs text-muted-foreground">Used in addresses and to label this product&apos;s signals. It cannot be changed later.</p>}
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="np-category" className="text-xs font-medium text-foreground">Category / Focus <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <Input id="np-category" value={category} maxLength={60} disabled={busy} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. EdTech SaaS, Infrastructure, Telecom" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="np-status" className="text-xs font-medium text-foreground">Status</label>
+            <select
+              id="np-status"
+              value={status}
+              disabled={busy}
+              onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="np-desc" className="text-xs font-medium text-foreground">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <Textarea id="np-desc" rows={2} value={description} maxLength={500} disabled={busy} onChange={(e) => setDescription(e.target.value)} placeholder="Summary of this product..." className="text-xs" />
           </div>
           {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
           <div className="flex justify-end gap-2 border-t border-border/60 pt-3">

@@ -657,6 +657,7 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
           {a?.evidence ? <span className="ml-2">· {dateLabel(a.evidence)} · {a.evidence.read_as === 'page_text' ? 'page read' : 'snippet only'}</span>
             : <span className="ml-2">· {o.source_published_at ? `Published ${fmtDay(o.source_published_at)}` : 'No publication date on the source'}</span>}
           {discoveryLabel(o.discovered_on_report_date, runDateLabel) && <span className="ml-2">· {discoveryLabel(o.discovered_on_report_date, runDateLabel)}</span>}
+          {o.found_via && <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{o.found_via.kind === 'connector' ? `From ${o.found_via.label} connector` : `From ${o.found_via.label.toLowerCase()} analysis`}</span>}
           {o.entered_manually && <span className="ml-2">· Added by hand{o.captured_on ? ` on ${fmtDay(o.captured_on)}` : ''}{sourcePlatform(o.source_url) ? ` · from ${sourcePlatform(o.source_url)}` : ''}</span>}
           {typeof o.days_left === 'number' && <span className="ml-2">· {o.days_left < 0 ? 'Past its closing date' : o.days_left === 0 ? 'Closes today' : `${o.days_left} day${o.days_left === 1 ? '' : 's'} left`}</span>}
         </div>

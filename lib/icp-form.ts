@@ -17,7 +17,7 @@ export const CUSTOMER_MODELS: { value: Exclude<CustomerModel, ''>; label: string
   { value: 'b2b', label: 'B2B: sold to private organisations', note: 'Signals are found for organisations (schools, trusts, companies) that show a buying event.' },
   { value: 'b2g', label: 'B2G: sold to government & public bodies', note: 'Signals focus on tenders, RFPs, board circulars, and government procurement.' },
   { value: 'both', label: 'Both B2B and B2C', note: 'Signals are found for organisations only. Signals about individual buyers are not generated.' },
-  { value: 'b2c', label: 'B2C: sold to individuals', note: 'Daily signals are not supported for B2C yet. The ICP can be saved, but research will not start until it is B2B or Both.' },
+  { value: 'b2c', label: 'B2C: sold through partners', note: 'Signals find partner firms (consultants, trainers, implementers, resellers) in the places you pick, and are scored on firm type, place and proof, not on a buying event.' },
 ]
 
 export interface FormState {

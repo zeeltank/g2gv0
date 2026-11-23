@@ -43,6 +43,9 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
+import { SalesTrainingLauncher } from '@/components/domain/lms/sales-training/sales-training-launcher'
+import { SalesTrainingCards, SalesTrainingCourseView } from '@/components/domain/lms/sales-training/sales-training-course'
+import { SALES_PRODUCTS, salesTrainingKeyOf, type SalesProductKey } from '@/lib/sales-training/deck'
 import {
   AuthoringDeleteDialog,
   ChapterFormSheet,
@@ -80,8 +83,10 @@ function formatDate(value: string | null) {
 function lessonKind(
   fileType: string | null,
   src?: string | null,
-): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'unknown' {
+): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'sales' | 'unknown' {
   const type = (fileType ?? '').toLowerCase()
+  // A link to the sales-training player plays inside the lesson, whatever type the lesson was saved as.
+  if (salesTrainingKeyOf(src)) return 'sales'
   if (type === 'mp4' || type === 'video') return 'video'
   if (type === 'pdf') return 'pdf'
   if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
@@ -123,22 +128,119 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 /* ─── Course picker ────────────────────────────────────────────────────────── */
 
+/**
+ * The two Sales products (G2G, ScholarClone) are interactive branching scenarios that play inside My Learning, in the same player as
+ * Sales Training. They come from code (public/sales-training/<product>/deck.json), not from enrolment.
+ *
+ * An earlier version of the seeder created a "Product Learning" course row per product. Those rows are not shown as courses any more
+ * (the Sales row is the way in); opening one by a saved link or a notification opens its scenario instead.
+ */
+const PRODUCT_LEARNING_CATEGORY = 'Product Learning'
+const PRODUCT_SCENARIOS: ReadonlyArray<{ match: RegExp; key: SalesProductKey }> = [
+  { match: /scholarclone/i, key: 'scholarclone' },
+  { match: /g2g/i, key: 'sales' },
+]
+
+function salesKeyForCourse(course: Pick<LearningCourseSummary, 'subject_category' | 'display_name'> | null | undefined): SalesProductKey | null {
+  if (!course || course.subject_category !== PRODUCT_LEARNING_CATEGORY) return null
+  const name = course.display_name ?? ''
+  const hits = PRODUCT_SCENARIOS.filter((p) => p.match.test(name))
+  return hits.length === 1 ? hits[0].key : null
+}
+
+function CourseCard({ course, onSelect }: { course: LearningCourseSummary; onSelect: (id: number) => void }) {
+  const due = formatDate(course.end_date)
+  const overdue =
+    course.end_date &&
+    new Date(course.end_date) < new Date() &&
+    course.enrollment_status !== 'completed'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(course.id)}
+      className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
+          {course.display_image && course.display_image !== '/' ? (
+
+            <img src={course.display_image} alt="" className="size-full object-cover" />
+          ) : (
+            <ImageIcon className="size-5 text-muted-foreground/40" />
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+            {course.display_name ?? 'Untitled course'}
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {[course.subject_type, course.standard_name].filter(Boolean).join(' · ') || '—'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-[11px] font-semibold">
+          <span className="text-muted-foreground">
+            {course.completed_content}/{course.total_content} lessons
+          </span>
+          <span className="text-foreground">{course.progress_percent}%</span>
+        </div>
+        <Progress
+          value={course.progress_percent}
+          className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <StatusBadge
+          variant={
+            course.enrollment_status === 'completed'
+              ? 'success'
+              : overdue
+                ? 'error'
+                : 'processing'
+          }
+          size="sm"
+          className="text-[10px] font-bold uppercase tracking-wider"
+        >
+          {course.enrollment_status === 'completed'
+            ? 'Completed'
+            : overdue
+              ? 'Overdue'
+              : 'In Progress'}
+        </StatusBadge>
+        {due && <span className="text-[11px] text-muted-foreground">Due {due}</span>}
+      </div>
+    </button>
+  )
+}
+
 function CoursePicker({
   courses,
   loading,
   error,
   onSelect,
   onRetry,
+  extraCards,
+  salesCards,
 }: {
   courses: LearningCourseSummary[]
   loading: boolean
   error: string | null
   onSelect: (id: number) => void
   onRetry: () => void
+  /** More course cards shown after the enrolled courses (the sales-training scenarios). */
+  extraCards?: React.ReactNode
+  /** The Sales row: one card per Sales product. */
+  salesCards?: React.ReactNode
 }) {
-  if (error && !loading && courses.length === 0) {
+  if (error && !loading && courses.length === 0 && !extraCards) {
     return <ErrorState title="Couldn't load your courses" description={error} retry={onRetry} />
   }
+
+  const regularCourses = courses.filter((course) => !salesKeyForCourse(course))
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6">
@@ -155,84 +257,37 @@ function CoursePicker({
             <Skeleton key={index} className="h-40 rounded-xl" />
           ))}
         </div>
-      ) : courses.length === 0 ? (
+      ) : courses.length === 0 && !extraCards ? (
         <EmptyState
           icon={<GraduationCap className="size-8" />}
           title="No enrolled courses"
           description="Enrol from the learning catalogue to start learning."
         />
       ) : (
-        <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {courses.map((course) => {
-            const due = formatDate(course.end_date)
-            const overdue =
-              course.end_date &&
-              new Date(course.end_date) < new Date() &&
-              course.enrollment_status !== 'completed'
+        <>
+          {(regularCourses.length > 0 || extraCards) && (
+            <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {regularCourses.map((course) => (
+                <CourseCard key={course.id} course={course} onSelect={onSelect} />
+              ))}
+              {extraCards}
+            </div>
+          )}
 
-            return (
-              <button
-                key={course.id}
-                type="button"
-                onClick={() => onSelect(course.id)}
-                className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted">
-                    {course.display_image && course.display_image !== '/' ? (
-                       
-                      <img src={course.display_image} alt="" className="size-full object-cover" />
-                    ) : (
-                      <ImageIcon className="size-5 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-                      {course.display_name ?? 'Untitled course'}
-                    </h3>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {[course.subject_type, course.standard_name].filter(Boolean).join(' · ') || '—'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-semibold">
-                    <span className="text-muted-foreground">
-                      {course.completed_content}/{course.total_content} lessons
-                    </span>
-                    <span className="text-foreground">{course.progress_percent}%</span>
-                  </div>
-                  <Progress
-                    value={course.progress_percent}
-                    className="h-1.5 bg-muted-foreground/20 [&>div]:bg-primary"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <StatusBadge
-                    variant={
-                      course.enrollment_status === 'completed'
-                        ? 'success'
-                        : overdue
-                          ? 'error'
-                          : 'processing'
-                    }
-                    size="sm"
-                    className="text-[10px] font-bold uppercase tracking-wider"
-                  >
-                    {course.enrollment_status === 'completed'
-                      ? 'Completed'
-                      : overdue
-                        ? 'Overdue'
-                        : 'In Progress'}
-                  </StatusBadge>
-                  {due && <span className="text-[11px] text-muted-foreground">Due {due}</span>}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+          {salesCards && (
+            <section aria-labelledby="sales-row-heading" className="flex w-full min-w-0 flex-col gap-3">
+              <div>
+                <h2 id="sales-row-heading" className="text-base font-semibold tracking-tight text-foreground">
+                  Sales
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Roles, modules, business problems and a branching sales conversation for each product.
+                </p>
+              </div>
+              <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{salesCards}</div>
+            </section>
+          )}
+        </>
       )}
     </div>
   )
@@ -448,6 +503,20 @@ function LessonViewer({
           </Button>
         </a>
       </div>
+    )
+  }
+
+  const salesKey = salesTrainingKeyOf(src)
+  if (kind === 'sales' && salesKey) {
+    return (
+      <SalesTrainingLauncher
+        key={lesson.id}
+        productKey={salesKey}
+        title={lesson.title}
+        completed={lesson.status === 'completed'}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
     )
   }
 
@@ -1004,36 +1073,14 @@ export function LearningDeliveryWorkspace() {
   const canAuthor = false
   const [activeTab, setActiveTab] = useState('learn')
 
-  // When a lesson is completed while the learner is on it, show a clear Next button and move on after a short countdown.
-  const [advance, setAdvance] = useState<{ lessonId: number; secs: number } | null>(null)
-  const advanceIn = advance && currentLesson && advance.lessonId === currentLesson.id ? advance.secs : null
-  const goNextRef = useRef(goNext)
-  const currentIdRef = useRef<number | null>(null)
-  useEffect(() => {
-    goNextRef.current = goNext
-    currentIdRef.current = currentLesson?.id ?? null
-  })
-  useEffect(() => {
-    if (!advance) return
-    const timer = setTimeout(() => {
-      if (advance.secs <= 1) {
-        setAdvance(null)
-        // Only move on if the learner is still on the lesson that just finished.
-        if (advance.lessonId === currentIdRef.current) goNextRef.current()
-      } else {
-        setAdvance({ ...advance, secs: advance.secs - 1 })
-      }
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [advance])
   const completeLesson = async (lesson: FlatLesson) => {
     const saved = await markLesson(lesson, 'completed')
     if (!saved) return
-    if (hasNext) setAdvance({ lessonId: lesson.id, secs: 5 })
-    // The quiz is a focused next step after the last lesson, rather than a
+    // Completing a lesson never moves the learner on: they stay until they press Next or pick another lesson. No timer, no countdown.
+    // The quiz is a focused next step after the LAST lesson, rather than a
     // competing card beside the course player. The server still enforces this
     // completion gate when the dedicated page starts an attempt.
-    else if ((assessments?.length ?? 0) > 0) {
+    if (!hasNext && (assessments?.length ?? 0) > 0) {
       router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
     }
   }
@@ -1041,10 +1088,41 @@ export function LearningDeliveryWorkspace() {
   const goToQuiz = React.useCallback(() => {
     router.push(`/module/lms/learning/my-learning/quiz?course_id=${courseId}`)
   }, [courseId, router])
+  /*
+   * Sales-training scenarios are listed as courses but are not database courses: they are generated decks served from
+   * /sales-training. Opening one swaps in its own course page; ?sales=<sc|g2g|eb> keeps it open across a reload.
+   */
+  const [salesKey, setSalesKey] = useState<SalesProductKey | null>(() => {
+    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('sales')
+    return SALES_PRODUCTS.find((p) => p.key === requested)?.key ?? null
+  })
+  const openSales = (key: SalesProductKey | null) => {
+    setSalesKey(key)
+    const url = new URL(window.location.href)
+    if (key) url.searchParams.set('sales', key)
+    else url.searchParams.delete('sales')
+    // A saved link to an old product course row carries ?course_id; leaving the scenario must drop it or a reload would reopen it.
+    url.searchParams.delete('course_id')
+    window.history.replaceState(null, '', url.toString())
+  }
+
+  // A saved link or notification (?course_id=N) to one of the old product course rows shows that product's scenario. Derived, not
+  // copied into state: Back clears the course id, which is what takes the learner out again.
+  const linkedSales = courseId ? salesKeyForCourse(courses.find((course) => course.id === courseId)) : null
+  const shownSales = salesKey ?? linkedSales
+  const leaveSales = () => {
+    openSales(null)
+    if (linkedSales) selectCourse(null)
+  }
+
   const [authoringTarget, setAuthoringTarget] = useState<AuthoringTarget | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'chapter' | 'content'; id: number; label: string } | null
   >(null)
+
+  if (shownSales) {
+    return <SalesTrainingCourseView productKey={shownSales} onBack={leaveSales} />
+  }
 
   if (!courseId) {
     return (
@@ -1055,6 +1133,8 @@ export function LearningDeliveryWorkspace() {
           error={coursesError}
           onSelect={selectCourse}
           onRetry={reload}
+          extraCards={<SalesTrainingCards onOpen={openSales} keys={['sales']} />}
+          salesCards={<SalesTrainingCards onOpen={openSales} title="card" />}
         />
       </div>
     )
@@ -1110,7 +1190,7 @@ export function LearningDeliveryWorkspace() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {(courseCertificate || courseComplete || detail?.certificate_available) && (
+          {(courseCertificate || courseComplete || (detail as any)?.certificate_available) && (
             <Button
               size="sm"
               variant="outline"
@@ -1228,15 +1308,10 @@ export function LearningDeliveryWorkspace() {
                     <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                       <div className="flex items-center gap-2 text-sm font-medium text-emerald-900 dark:text-emerald-100">
                         <CheckCircle2 className="size-4 text-emerald-600" />
-                        Lesson complete{advanceIn !== null ? `. The next lesson starts in ${advanceIn}s` : ''}
+                        Lesson complete
                       </div>
                       <div className="flex items-center gap-2">
-                        {advanceIn !== null && (
-                          <Button variant="ghost" size="sm" onClick={() => setAdvance(null)}>
-                            Stay here
-                          </Button>
-                        )}
-                        <Button size="sm" className="gap-1" onClick={() => { setAdvance(null); goNext() }}>
+                        <Button size="sm" className="gap-1" onClick={goNext}>
                           Next lesson <ChevronRight className="size-3.5" />
                         </Button>
                       </div>

@@ -305,6 +305,8 @@ export function getAvailableCities(country: string, state: string): string[] {
  */
 export function addCustomLocation(raw: CustomLocationEntry): { success: boolean; problems: string[] } {
   const problems = problemsWith(raw)
+  // This older custom-places store keeps its own rule: a saved custom city needs its state (the Region form itself now takes free text).
+  if (raw.city && !raw.state) problems.push('A city needs its state / province: choose the state first.')
   if (problems.length > 0) {
     return { success: false, problems }
   }

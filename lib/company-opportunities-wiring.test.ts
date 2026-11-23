@@ -44,10 +44,11 @@ describe('Product Details & ICP link', () => {
     assert.equal(subProductIcpState([ready]).label, 'ICP configured for all 1 sub-product')
   })
 
-  it('shows the selected product ICP readiness on the Company opportunities screen', () => {
+  it('enables universal signal generation on Company opportunities without blocking ICP requirements', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /selected\?\.icp_models\?\.\[icpType\]/)
-    assert.match(src, /Complete it in Product Portfolio/)
+    assert.match(src, /disabled=\{!selected \|\| run\.running\}/)
+    assert.doesNotMatch(src, /Needs setup/)
+    assert.doesNotMatch(src, /Configure in Product Portfolio/)
   })
 })
 
@@ -78,8 +79,11 @@ describe('Routes and navigation', () => {
     // A run belongs to a Portfolio product found by KEY: the "all" and "master" scopes have none, so the run hook is given null.
     assert.match(screen, /const choice = scope\?\.kind === 'product' \? scope\.choice : null/)
     assert.match(screen, /const selected = products\?\.find\(\(p\) => p\.key === product\) \?\? null/)
-    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions\)/)
-    assert.match(screen, /disabled=\{!selected \|\| run\.running \|\| !ready\}/)
+    // Changed on purpose in the merge of origin/main (82b4922): the screen passes the products reload to the run (the server may create the sub-product's ICP region) and
+    // Generate is no longer held back by a client-side readiness check, so only "nothing chosen" and "a run is going" turn it off.
+    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions, reloadProducts\)/)
+    assert.match(screen, /disabled=\{!selected \|\| run\.running\}/)
+    assert.doesNotMatch(screen, /\|\| !ready\}/, 'Generate is not disabled by a readiness flag any more')
     assert.equal(/useSelectedProduct/.test(screen), false, 'the old hook defaults to "all" where all is allowed; this screen resolves its scope itself')
     // The product dropdown component this screen does not use still has no "All products".
     const dropdown = read('components/domain/signals/product-selector.tsx')

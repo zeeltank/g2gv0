@@ -107,7 +107,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRegions(loaded)
   }, [])
-  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions)
+  // When the server creates or changes the sub-product's ICP Region, the products (and their ICP readiness) are read again.
+  const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions, reloadProducts)
   const setCustomerModel = run.setCustomerModel
   useEffect(() => {
     setCustomerModel(icpType)
@@ -176,19 +177,9 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const currentModelStatus = offerId
     ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[icpType]
     : selected?.icp_models?.[icpType]
-
-  const isModelReady = currentModelStatus
-    ? currentModelStatus.ready
-    : (icpType === 'b2b' ? Boolean(selected?.ready) : false)
-
-  const ready = offerId
-    ? (currentModelStatus ? currentModelStatus.ready : icpType === 'b2b' && selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_ready === true)
-    : isModelReady
-  // The line beside Generate. The Signal Review's dialog said both things: what a run costs, before Start, and what a product still lacks. Here they are words
-  // next to the button, where they were a tooltip and a screen-reader line only.
-  const generateHint = selected
-    ? (ready ? RUN_COST_NOTE : `This profile is not ready for discovery. ${currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.'}`)
-    : (everyProduct ? 'Choose one product to generate signals for it.' : '')
+  // The line beside Generate: what a run costs, before Start. (origin/main, 82b4922: Generate is no longer held back by a client-side readiness check, because
+  // the server now creates or completes the sub-product's ICP region itself, so the old "this profile is not ready" line is gone with the check.)
+  const generateHint = selected ? RUN_COST_NOTE : (everyProduct ? 'Choose one product to generate signals for it.' : '')
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -263,10 +254,23 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sub-Product</label>
-            <select id="sub-product-select" aria-label="Sub-Product" value={offerId ?? ''} onChange={(e) => selected && select(choiceOf(selected.key, e.target.value || null))} disabled={run.running || !selected} className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <label htmlFor="sub-product-select" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Sub-Product
+            </label>
+            <select
+              id="sub-product-select"
+              aria-label="Sub-Product"
+              value={offerId ?? ''}
+              onChange={(e) => selected && select(choiceOf(selected.key, e.target.value || null))}
+              disabled={run.running || !selected}
+              className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <option value="">{selected ? 'Whole product' : '—'}</option>
-              {selected?.offers.map((offer) => <option key={offer.offer_id} value={offer.offer_id}>{offer.name}</option>)}
+              {selected?.offers.map((offer) => (
+                <option key={offer.offer_id} value={offer.offer_id}>
+                  {offer.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -287,23 +291,21 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
                 { key: 'b2b' as const, label: 'B2B Customer Acquisition' },
                 { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
                 { key: 'b2g' as const, label: 'B2G — Government' },
-              ].map((item) => {
-                return (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                  </option>
-                )
-              })}
+              ].map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Dropdown 3: Region */}
-          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} />
+          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} context={context} />
 
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-border/60 pt-4">
-          {/* In words, beside the buttons (it was a tooltip and a screen-reader line): why Generate is off, or what a run costs. */}
+          {/* In words, beside the buttons: what a run costs. (Generate is no longer held back by a readiness check: the server completes the ICP region itself.) */}
           <p aria-live="polite" className="min-w-0 flex-1 basis-56 text-xs text-muted-foreground">{generateHint}</p>
           {/* Run health and cost belong to the organisation's runs, not to the product on screen: the button is here in every scope. */}
           <RunHealthButton className="h-11 w-full rounded-xl sm:w-auto" />
@@ -312,8 +314,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             size="lg"
             className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
             onClick={generate}
-            disabled={!selected || run.running || !ready}
-            title={!ready && selected ? (currentModelStatus?.missing?.[0] ?? 'Complete it in Product Portfolio.') : (everyProduct ? 'Choose one product to generate signals for it.' : undefined)}
+            disabled={!selected || run.running}
+            title={everyProduct ? 'Choose one product to generate signals for it.' : undefined}
           >
             {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
             {run.running ? 'Finding Signals…' : 'Generate Signals'}
@@ -323,7 +325,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
         {regionProblems.length > 0 && <ul role="alert" className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-destructive">{regionProblems.map((p) => <li key={p}>{p}</li>)}</ul>}
 
         {/* The run's real progress appears directly below the selectors after generation starts. */}
-        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running || !ready} />}
+        {showsRunProgress(run.running, run.activeRun) && <ResearchProgress run={shownRun} onRetry={generate} retryDisabled={run.running} />}
         {run.notice && (
           <div className="mt-3">
             <ExpandableRunNotice

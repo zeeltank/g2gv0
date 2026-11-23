@@ -2108,6 +2108,9 @@ export interface CrmSendSmsResponse {
   data: CrmSmsLogEntry
 }
 
+/** Reviewed, recipient-specific message text keyed by record id. */
+export type CrmRecipientMessages = Record<string, { subject?: string; body: string }>
+
 export interface CrmBulkSendSmsResponse {
   status: number
   message: string

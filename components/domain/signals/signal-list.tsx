@@ -114,7 +114,7 @@ export function SignalList({
   const fit = query.filters.fit ?? 'all'
   const per = query.filters.per ?? String(DEFAULT_PER_PAGE)
 
-  const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'manual'>('all')
+  const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'connectors' | 'manual'>('all')
   const [data, setData] = useState<OpportunityListResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -150,7 +150,8 @@ export function SignalList({
     ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit, per } }),
     expired: 'include',
     allSignals: Boolean(allSignals),
-    source: sourceTab,
+    // "From connectors" is narrowed on this screen (by found_via); the server only knows all, generated and manual.
+    source: sourceTab === 'connectors' ? 'all' : sourceTab,
   }), [productKey, productMasterId, allSignals, offerId, customerModel, regions, allDates, dateFrom, runDate, dateTo, runId, q, sort, page, status, freshness, fit, per, sourceTab])
 
   const load = useCallback(async () => {
@@ -196,10 +197,13 @@ export function SignalList({
   const items = useMemo(() => {
     if (!data) return []
     if (sourceTab === 'generated') {
-      return data.data.filter((o) => !o.entered_manually && o.research_run_id !== null)
+      return data.data.filter((o) => !o.entered_manually && !o.found_via && o.research_run_id !== null)
+    }
+    if (sourceTab === 'connectors') {
+      return data.data.filter((o) => Boolean(o.found_via))
     }
     if (sourceTab === 'manual') {
-      return data.data.filter((o) => o.entered_manually || !o.research_run_id)
+      return data.data.filter((o) => o.entered_manually || (!o.research_run_id && !o.found_via))
     }
     return data.data
   }, [data, sourceTab])
@@ -280,6 +284,19 @@ export function SignalList({
               }`}
             >
               Generated
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === 'connectors'}
+              onClick={() => { setSourceTab('connectors'); resetPage() }}
+              className={`rounded-lg px-3 py-1.5 transition-all ${
+                sourceTab === 'connectors'
+                  ? 'bg-card text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Connectors
             </button>
             <button
               type="button"

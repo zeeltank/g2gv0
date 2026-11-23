@@ -619,7 +619,7 @@ export function DocumentLibraryView() {
     }
 
     setUploading(true)
-    setBatchFiles(files.map((f) => ({ key: f.relativePath, fileName: f.relativePath, status: 'pending' })))
+    setBatchFiles(files.map((f) => ({ key: f.relativePath, fileName: f.file.name, status: 'pending' })))
 
     try {
       let pathToFolderId: Record<string, number> = {}
@@ -1831,7 +1831,7 @@ export function DocumentLibraryView() {
           onShare={(doc) => { setShareTarget({ type: 'document', item: doc }); setShareDialogOpen(true) }}
           onRename={(doc, title) => void renameDocumentHandler(doc, title)}
           canDelete={canDelete}
-          folders={displayedFolders}
+          folders={debouncedQuery !== '' ? EMPTY_FOLDERS : displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
           onDeleteFolder={openDeleteFolderConfirm}
           onMoveFolder={(folder) => {
@@ -1868,7 +1868,7 @@ export function DocumentLibraryView() {
           }}
           onShare={(doc) => { setShareTarget({ type: 'document', item: doc }); setShareDialogOpen(true) }}
           canDelete={canDelete}
-          folders={displayedFolders}
+          folders={debouncedQuery !== '' ? EMPTY_FOLDERS : displayedFolders}
           onOpenFolder={(folder) => setCurrentFolderId(folder.id)}
           onDeleteFolder={openDeleteFolderConfirm}
           onMoveFolder={(folder) => {

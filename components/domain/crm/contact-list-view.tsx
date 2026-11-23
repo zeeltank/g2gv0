@@ -13,6 +13,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { FactsApi } from '@/services/facts/api-types'
 import type { Contact, CrmPicklistValue } from '@/types/crm'
+import { BulkSendMessageDialog, type MessageChannel } from './bulk-send-message-dialog'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateContactModal } from './create-contact-modal'
 import { CrmBulkActionBar } from './crm-bulk-action-bar'
@@ -130,6 +131,7 @@ export function ContactListView({ factsService }: { factsService?: FactsApi } = 
 
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
+  const [bulkMessageChannel, setBulkMessageChannel] = useState<MessageChannel>('email')
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
@@ -299,15 +301,31 @@ export function ContactListView({ factsService }: { factsService?: FactsApi } = 
         onReassign={(assigneeId) => void handleBulkReassign(assigneeId)}
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
-        onSendSms={() => setBulkSmsOpen(true)}
+        onSendMessage={(channel) => {
+          setBulkMessageChannel(channel)
+          setBulkSmsOpen(true)
+        }}
+        onSendSms={() => {
+          setBulkMessageChannel('sms')
+          setBulkSmsOpen(true)
+        }}
       />
 
-      <BulkSendSmsDialog
+      <BulkSendMessageDialog
         isOpen={bulkSmsOpen}
         onClose={() => setBulkSmsOpen(false)}
         onSent={(message) => { setNotice(message); clearSelection(); void load() }}
         relatedType="contact"
         ids={Array.from(selectedIds)}
+        recipients={contacts
+          .filter((c) => selectedIds.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || undefined,
+            email: c.email || null,
+            phone: c.mobile || c.phone || null,
+          }))}
+        initialChannel={bulkMessageChannel}
       />
     </div>
   )

@@ -157,6 +157,20 @@ export interface TagCloudItem {
   count: number;
 }
 
+/** An API failure that keeps the HTTP status, so callers can decide whether a retry is safe. */
+export class ApiError extends Error {
+  status: number;
+  /** Seconds the server asked us to wait (Retry-After), when it sent one. */
+  retryAfter?: number;
+
+  constructor(message: string, status: number, retryAfter?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
 async function requestApi<T>(path: string, options: RequestInit = {}): Promise<T> {
   const session = buildSessionContext();
   const base = session.baseUrl || '';
@@ -173,7 +187,8 @@ async function requestApi<T>(path: string, options: RequestInit = {}): Promise<T
 
   const json = await response.json().catch(() => ({}));
   if (!response.ok || json.status === 0) {
-    throw new Error(json.message || `Request failed with code ${response.status}`);
+    const retryAfter = Number(response.headers.get('Retry-After')) || undefined;
+    throw new ApiError(json.message || `Request failed with code ${response.status}`, response.status, retryAfter);
   }
   return json as T;
 }
@@ -187,12 +202,14 @@ export const IdmsApi = {
     return requestApi<{ status: number; data: DocumentItem[]; pagination: DocumentPagination }>(`/documents?${q.toString()}`);
   },
 
-  async uploadDocument(file: File, visibility: string = 'organization') {
+  async uploadDocument(file: File, visibility: string = 'organization', declaredType?: 'curriculum' | 'general' | 'textbook') {
     const session = buildSessionContext();
     const base = session.baseUrl || '';
     const form = new FormData();
     form.append('file', file);
     form.append('visibility', visibility);
+    // Recorded as what the uploader said; the analysis pipeline behaves the same for every type.
+    if (declaredType) form.append('declared_type', declaredType);
     if (session.subInstituteId) form.append('sub_institute_id', session.subInstituteId);
     if (session.userId) form.append('user_id', session.userId);
 
@@ -207,11 +224,12 @@ export const IdmsApi = {
         headers,
       });
     } catch {
-      throw new Error('the server could not be reached. Check your connection and try again');
+      throw new ApiError('the server could not be reached. Check your connection and try again', 0);
     }
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.status === 0) {
-      if (json.message) throw new Error(json.message);
+      const retryAfter = Number(res.headers.get('Retry-After')) || undefined;
+      if (json.message) throw new ApiError(json.message, res.status, retryAfter);
       const byStatus: Record<number, string> = {
         401: 'your session has expired. Sign in again',
         403: 'you do not have permission to upload documents',
@@ -219,10 +237,12 @@ export const IdmsApi = {
         415: 'the server does not accept this file type',
         422: 'the server rejected the file',
         500: 'the server hit an error while saving the file',
+        429: 'the server is receiving too many requests right now',
         502: 'the server is temporarily unavailable',
         503: 'the server is temporarily unavailable',
+        504: 'the server took too long to answer while saving and analyzing the file',
       };
-      throw new Error(byStatus[res.status] ?? `the server refused the upload (code ${res.status})`);
+      throw new ApiError(byStatus[res.status] ?? `the server refused the upload (code ${res.status})`, res.status, retryAfter);
     }
     return json;
   },
@@ -335,5 +355,21 @@ export const IdmsApi = {
   async getAuditLogs(documentId?: number) {
     const q = documentId ? `?document_id=${documentId}` : '';
     return requestApi<{ status: number; data: AuditEntry[]; pagination: DocumentPagination }>(`/audit${q}`);
+  },
+
+  /**
+   * Pre-flight duplicate check by SHA-256 content hash.
+   * Returns the matching document title if the file is already in the library, null otherwise.
+   * Silently returns null on any server error so a missing/unsupported endpoint never blocks uploads.
+   */
+  async checkDuplicate(sha256: string): Promise<{ document_id: number; title: string } | null> {
+    try {
+      const res = await requestApi<{ status: number; data: { document_id: number; title: string } | null }>(
+        `/documents/duplicate-check?sha256=${encodeURIComponent(sha256)}`,
+      );
+      return res.data ?? null;
+    } catch {
+      return null;
+    }
   },
 };

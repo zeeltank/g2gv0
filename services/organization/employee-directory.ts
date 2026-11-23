@@ -53,6 +53,9 @@ export type DirectoryEmployee = {
   supervisor_opt: string | number | null
   /** Who this person reports to. The column leave and the gates read. */
   reporting_manager_id: number | null
+  /** Shift Master shift (hrms_shifts.id) and its name. */
+  shift_id: number | null
+  shift_name: string | null
   profile_name: string | null
   department_name: string | null
   jobrole: string | null
@@ -92,6 +95,8 @@ export type ScheduleEntry = {
 }
 
 export type ReferenceData = {
+  /** Active Shift Master shifts, for the Shift picker. Times are "HH:mm". */
+  shifts: { id: number; name: string; start_time: string; end_time: string }[]
   departments: { id: number; name: string; parent_id: number | null }[]
   job_roles: { id: number; name: string; department_id: number | null; category: string | null }[]
   user_profiles: { id: number; name: string }[]

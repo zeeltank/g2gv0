@@ -127,14 +127,36 @@ export interface IcpCheckResult {
 /** The product after it was created, as the products list describes it. */
 export interface CreatedProduct { status: number; message: string; data: { product: ProductInfo } }
 
+export interface ProductDependencies {
+  status: number
+  data: {
+    key: string
+    label: string
+    sub_products_count: number
+    icp_profiles_count: number
+    opportunities_count: number
+    research_runs_count: number
+    target_accounts_count: number
+    can_delete: boolean
+  }
+}
+
 export const productIcpService = {
-  /** Creates a NEW top-level product for the organisation (administrators only). It has no ICP of its own (ICPs belong to its sub-products); no offer or group is touched. */
-  createProduct: (c: LaravelContext, body: { key: string; label: string }) =>
+  /** Creates a NEW top-level product for the organisation (administrators only). */
+  createProduct: (c: LaravelContext, body: { key: string; label: string; description?: string; category?: string; logo?: string; status?: string }) =>
     apiClient.post<CreatedProduct>(`/signals/icp/products?${qs(c)}`, body),
 
-  /** Deletes a product you created yourself (never a built-in one) from the database, with its ICP and every saved version. Its offers are not touched. */
+  /** Updates an existing Main Product (custom or built-in). */
+  updateProduct: (c: LaravelContext, product: string, body: { label?: string; description?: string; category?: string; logo?: string; status?: string }) =>
+    apiClient.put<{ status: number; message: string; data: { product: ProductInfo } }>(`${path(product)}?${qs(c)}`, body),
+
+  /** Inspects product dependencies before safe deletion. */
+  getProductDependencies: (c: LaravelContext, product: string) =>
+    apiClient.get<ProductDependencies>(`${path(product)}/dependencies?${qs(c)}`),
+
+  /** Deletes a product from the database with safe sub-product archiving and foreign-key preservation. */
   deleteProduct: (c: LaravelContext, product: string) =>
-    apiClient.delete<{ status: number; message: string; data: { removed: string; icp_deleted: number } }>(`${path(product)}?${qs(c)}`),
+    apiClient.delete<{ status: number; message: string; data: { removed: string } }>(`${path(product)}?${qs(c)}`),
 
   /** Checks an ICP's settings on the server before the product exists (no product needed). Nothing is saved. */
   checkConfig: (c: LaravelContext, config: IcpConfig, model: 'b2b' | 'b2c' | 'b2g' = 'b2b') =>

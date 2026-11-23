@@ -152,6 +152,10 @@ export interface SubProductWithoutIcp { offer_id: string; name: string; problems
 export interface ProductInfo {
   key: string
   label: string
+  status?: string | null
+  description?: string | null
+  category?: string | null
+  logo?: string | null
   /** True for a product this organisation created itself (not one of the built-in products). */
   custom?: boolean
   /** Why signals cannot be generated for this product yet (an own product whose generation is not switched on), or null. */

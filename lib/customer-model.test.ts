@@ -11,7 +11,7 @@ describe('ICP customer type', () => {
   it('offers B2B, B2C, B2G and Both, each with a note about signals', () => {
     assert.deepEqual(CUSTOMER_MODELS.map((m) => m.value).sort(), ['b2b', 'b2c', 'b2g', 'both'])
     assert.ok(CUSTOMER_MODELS.every((m) => m.note.length > 20))
-    assert.match(CUSTOMER_MODELS.find((m) => m.value === 'b2c')!.note, /not supported/)
+    assert.match(CUSTOMER_MODELS.find((m) => m.value === 'b2c')!.note, /partner firms/)
   })
 
   it('is saved and read back, and left out of an ICP that never set it', () => {

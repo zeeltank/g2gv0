@@ -11,6 +11,10 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { useAuth } from '@/components/auth/gtg-auth'
+import { getLaravelContext } from '@/lib/laravel-context'
+import { useProducts } from '@/components/domain/signals/product-selector'
+import type { ProductInfo } from '@/services/portfolio/types'
 import {
   ACCOUNT_STAGES, ACTIVITY_TYPES, CONTACT_ROLES, CONTACT_STATUSES, gtmService, isMasked,
   type AccountDetail, type ContactPatch, type GtmAccount, type GtmCandidate, type GtmContact, type GtmDirectory,
@@ -18,6 +22,10 @@ import {
 import type { CrossLinkedCrmOrganization } from '@/components/domain/crm/crm-cross-links-tab'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
 import { ImportContactsDialog } from './import-contacts-dialog'
+import {
+  ProspectScopeBar, accountRegionLabel, customerTypeLabel, productLabel, regionKey, scopeIsComplete, scopeSentence, useStoredScope,
+  type ProspectScopeValue,
+} from './prospecting-scope'
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 
@@ -30,6 +38,13 @@ type Tab = 'accounts' | 'research'
  */
 export function ProspectingView() {
   const ready = useGtmReady()
+  const { user } = useAuth()
+  const context = getLaravelContext(user)
+  const { products } = useProducts(context)
+  const [scope, setScope] = useStoredScope(`g2g_prospect_scope_${context.organizationId || context.subInstituteId || 'default'}`)
+  const complete = scopeIsComplete(scope)
+  const scopeText = scopeSentence(products, scope)
+  const needScope = 'Choose a product, a customer type and a region first.'
   const [tab, setTab] = useState<Tab>('accounts')
   const [openId, setOpenId] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
@@ -41,9 +56,10 @@ export function ProspectingView() {
     <div className="p-6">
       <GtmPageHeader
         title="Prospecting"
-        description="Your working list of target accounts, the people at them, and the buying signals your research found."
-        actions={<><Button variant="outline" onClick={() => setImporting(true)}><Upload className="mr-1 size-4" />Import contacts</Button><Button onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button></>}
+        description="Your working list of target accounts for each product and customer type, the people at them, and the buying signals your research found."
+        actions={<><Button variant="outline" disabled={!complete} title={complete ? undefined : needScope} onClick={() => setImporting(true)}><Upload className="mr-1 size-4" />Import contacts</Button><Button disabled={!complete} title={complete ? undefined : needScope} onClick={() => setAdding(true)}><Plus className="mr-1 size-4" />Add account</Button></>}
       />
+      <ProspectScopeBar products={products} scope={scope} context={context} onChange={(next) => { setScope(next); setOpenId(null) }} />
       <div className="mb-4 flex gap-1 border-b border-border">
         {([['accounts', 'Target accounts'], ['research', 'From research']] as const).map(([key, label]) => (
           <button
@@ -54,17 +70,17 @@ export function ProspectingView() {
         ))}
       </div>
 
-      {ready && tab === 'accounts' && <AccountsTab refresh={refresh} onOpen={setOpenId} />}
-      {ready && tab === 'research' && <ResearchTab refresh={refresh} onPromoted={(id) => { bump(); setOpenId(id) }} />}
+      {ready && tab === 'accounts' && <AccountsTab key={`${scope.product}|${scope.customerModel}|${regionKey(scope.region)}`} refresh={refresh} onOpen={setOpenId} scope={scope} products={products} />}
+      {ready && tab === 'research' && <ResearchTab refresh={refresh} scope={scope} onPromoted={(id) => { bump(); setOpenId(id) }} />}
 
-      <ImportContactsDialog open={importing} onClose={() => setImporting(false)} onDone={bump} />
-      <AddAccountDialog open={adding} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); bump(); setOpenId(id) }} />
+      <ImportContactsDialog open={importing} onClose={() => setImporting(false)} onDone={bump} scope={scope} scopeText={scopeText} />
+      <AddAccountDialog open={adding} scope={scope} scopeText={scopeText} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); bump(); setOpenId(id) }} />
       <AccountDialog key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} onChanged={bump} />
     </div>
   )
 }
 
-function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number) => void }) {
+function AccountsTab({ refresh, onOpen, scope, products }: { refresh: number; onOpen: (id: number) => void; scope: ProspectScopeValue; products: ProductInfo[] | null }) {
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('')
   const [page, setPage] = useState(1)
@@ -75,14 +91,15 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setData((await gtmService.listAccounts({ q, stage, page })).data)
+      setData((await gtmService.listAccounts({ q, stage, page, product: scope.product, customer_model: scope.customerModel, region: scope.region })).data)
       setError(null)
     } catch (e) {
       setError(errMsg(e, 'Unable to load accounts'))
     } finally {
       setLoading(false)
     }
-  }, [q, stage, page])
+  }, [q, stage, page, scope.product, scope.customerModel, scope.region])
+
 
   useEffect(() => { queueMicrotask(() => void load()) }, [load, refresh])
 
@@ -102,7 +119,7 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
       {loading && !data ? <Skeleton className="h-40" /> : error ? (
         <ErrorState title="Could not load accounts" description={error} retry={load} />
       ) : !data || data.items.length === 0 ? (
-        <EmptyState title={q || stage ? 'No accounts match' : 'No accounts yet'} description={q || stage ? 'Try clearing the filters.' : 'Add an account, or promote a company from the "From research" tab.'} />
+        <EmptyState title={q || stage ? 'No accounts match' : 'No accounts yet'} description={q || stage ? 'Try clearing the filters.' : scopeIsComplete(scope) ? `Nothing on the ${scopeSentence(products, scope)} list yet. Add an account, import contacts, or promote a company from the "From research" tab.` : 'Add an account, or promote a company from the "From research" tab.'} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -113,7 +130,7 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
               <tbody>
                 {data.items.map((a) => (
                   <tr key={a.id} className="cursor-pointer border-t border-border hover:bg-muted/30" onClick={() => onOpen(a.id)}>
-                    <td className="p-3"><div className="font-medium">{a.name}</div><div className="text-xs text-muted-foreground">{[a.industry, a.location].filter(Boolean).join(' · ') || a.domain || '—'}</div></td>
+                    <td className="p-3"><div className="font-medium">{a.name}</div><div className="text-xs text-muted-foreground">{[a.industry, a.location, a.domain].filter(Boolean).join(' · ') || '—'}</div>{a.notes && <div className="mt-0.5 line-clamp-1 max-w-md text-[11px] text-muted-foreground/80" title={a.notes}>{a.notes}</div>}{!scopeIsComplete(scope) && a.product_key && <div className="mt-0.5 text-[11px] text-primary">{productLabel(products, a.product_key)} · {customerTypeLabel(a.customer_model).split(' · ')[1] ?? a.customer_model}{accountRegionLabel(a) ? ` · ${accountRegionLabel(a)}` : ''}</div>}</td>
                     <td className="p-3"><Badge variant="outline">{a.stage}</Badge></td>
                     <td className="p-3">{a.contacts_count ?? 0}</td>
                     <td className="p-3">{a.signals_count ?? 0}</td>
@@ -137,25 +154,31 @@ function AccountsTab({ refresh, onOpen }: { refresh: number; onOpen: (id: number
   )
 }
 
-function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (accountId: number) => void }) {
+function ResearchTab({ refresh, onPromoted, scope }: { refresh: number; onPromoted: (accountId: number) => void; scope: ProspectScopeValue }) {
   const [items, setItems] = useState<GtmCandidate[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     try {
-      setItems((await gtmService.candidates()).data.items)
+      setItems((await gtmService.candidates({ product: scope.product, customer_model: scope.customerModel, region: scope.region })).data.items)
       setError(null)
     } catch (e) {
       setError(errMsg(e, 'Unable to load researched companies'))
     }
-  }, [])
+  }, [scope.product, scope.customerModel, scope.region])
   useEffect(() => { queueMicrotask(() => void load()) }, [load, refresh])
 
   const promote = async (c: GtmCandidate) => {
     setBusy(c.id)
     try {
-      const res = await gtmService.promoteCompany(c.id)
+      // Filed under the list you are looking at; from an all-products view, under the product and type of its own strongest signal.
+      const res = await gtmService.promoteCompany(c.id, {
+        product: scope.product !== 'all' ? scope.product : (c.product_key ?? undefined),
+        customer_model: scope.customerModel !== 'all' ? scope.customerModel : (c.customer_model ?? undefined),
+        // The chosen region; from an all-regions view, the one place its strongest signal was found for (if there is exactly one).
+        region: scope.region ?? (c.region?.country ? { country: c.region.country, state: c.region.state ?? undefined, city: c.region.city ?? undefined } : null),
+      })
       onPromoted(res.data.account.id)
     } catch (e) {
       setError(errMsg(e, 'Could not add this company'))
@@ -167,7 +190,7 @@ function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (ac
   if (error) return <ErrorState title="Could not load" description={error} retry={load} />
   if (!items) return <Skeleton className="h-40" />
   if (items.length === 0) {
-    return <EmptyState title="Nothing waiting" description="Every researched company is already an account. New companies appear here after the next signal research run." />
+    return <EmptyState title="Nothing waiting" description={scope.product !== 'all' || scope.customerModel !== 'all' || scope.region !== null ? 'No researched company with a signal for this product, customer type and region is waiting. New ones appear after the next signal run or connector sync.' : 'Every researched company is already an account. New companies appear here after the next signal research run.'} />
   }
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -197,7 +220,7 @@ function ResearchTab({ refresh, onPromoted }: { refresh: number; onPromoted: (ac
   )
 }
 
-function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
+function AddAccountDialog({ open, onClose, onCreated, scope, scopeText }: { open: boolean; onClose: () => void; onCreated: (id: number) => void; scope: ProspectScopeValue; scopeText: string }) {
   const [form, setForm] = useState({ name: '', domain: '', industry: '', location: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -209,6 +232,7 @@ function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose
       const res = await gtmService.createAccount({
         name: form.name.trim(), domain: form.domain.trim() || null,
         industry: form.industry.trim() || null, location: form.location.trim() || null,
+        product: scope.product, customer_model: scope.customerModel, region: scope.region,
       })
       setForm({ name: '', domain: '', industry: '', location: '' })
       onCreated(res.data.account.id)
@@ -222,7 +246,7 @@ function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add account</DialogTitle><DialogDescription>A company you want to sell to.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Add account</DialogTitle><DialogDescription>{scopeText ? `Adding to the ${scopeText} list.` : 'A company you want to sell to.'}</DialogDescription></DialogHeader>
         <div className="space-y-3">
           <Input placeholder="Company name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input placeholder="Website or domain" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} />
@@ -294,7 +318,7 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{a?.name ?? 'Account'}</DialogTitle>
-          <DialogDescription>{a ? [a.industry, a.location, a.domain].filter(Boolean).join(' · ') || 'No details recorded' : 'Loading…'}</DialogDescription>
+          <DialogDescription>{a ? [a.industry, a.location, a.domain, a.email, a.phone].filter(Boolean).join(' · ') || 'No details recorded' : 'Loading…'}</DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!detail ? (error ? null : <Skeleton className="h-40" />) : (
@@ -336,8 +360,22 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
                   <Detail k="Domain" v={detail.account.domain} /><Detail k="Website" v={detail.account.website} />
                   <Detail k="Industry" v={detail.account.industry} /><Detail k="Location" v={detail.account.location} />
                   <Detail k="Company size" v={detail.account.employee_range} />
+                  <Detail k="Email" v={detail.account.email} /><Detail k="Phone" v={detail.account.phone} />
                   <Detail k="Owner" v={detail.account.owner_user_id === null ? null : directory?.users.find((u) => u.id === detail.account.owner_user_id)?.name ?? `User #${detail.account.owner_user_id}`} />
+                  <Detail k="Product · type" v={[detail.account.product_key, detail.account.customer_model && customerTypeLabel(detail.account.customer_model)].filter(Boolean).join(' · ') || null} />
+                  <Detail k="Region" v={accountRegionLabel(detail.account) || null} />
+                  <div className="md:col-span-2"><Detail k="Notes" v={detail.account.notes} /></div>
                 </dl>
+              )}
+              {!editingAccount && detail.account.import_details && Object.keys(detail.account.import_details).length > 0 && (
+                <div className="mt-3 rounded-md border border-border p-3">
+                  <h4 className="mb-1.5 text-xs font-semibold text-muted-foreground">From the imported file</h4>
+                  <dl className="space-y-1.5 text-sm">
+                    {Object.entries(detail.account.import_details).map(([heading, text]) => (
+                      <div key={heading} className="flex gap-2"><dt className="w-40 shrink-0 text-muted-foreground">{heading}</dt><dd className="min-w-0 whitespace-pre-line break-words"><Linkified text={text} /></dd></div>
+                    ))}
+                  </dl>
+                </div>
               )}
             </section>
 
@@ -443,7 +481,19 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
 }
 
 function Detail({ k, v }: { k: string; v: string | null | undefined }) {
-  return <div className="flex gap-2"><dt className="w-28 shrink-0 text-muted-foreground">{k}</dt><dd>{v || '—'}</dd></div>
+  return <div className="flex gap-2"><dt className="w-28 shrink-0 text-muted-foreground">{k}</dt><dd className="min-w-0 whitespace-pre-line break-words">{v ? <Linkified text={v} /> : '—'}</dd></div>
+}
+
+/** Text with its web addresses made into links (a note or an imported source list often holds several). */
+function Linkified({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https?:\/\/[^\s;,)]+)/g).map((part, i) =>
+        /^https?:\/\//.test(part)
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{part}</a>
+          : <span key={i}>{part}</span>)}
+    </>
+  )
 }
 
 /** Only fields the person changed are sent, so an untouched value is never written back. */
@@ -452,12 +502,12 @@ function AccountEditForm({ account, directory, busy, onSave, onCancel }: {
 }) {
   const [f, setF] = useState({
     name: account.name, domain: account.domain ?? '', website: account.website ?? '', industry: account.industry ?? '',
-    location: account.location ?? '', employee_range: account.employee_range ?? '', owner: account.owner_user_id === null ? '' : String(account.owner_user_id),
+    location: account.location ?? '', employee_range: account.employee_range ?? '', email: account.email ?? '', phone: account.phone ?? '', notes: account.notes ?? '', owner: account.owner_user_id === null ? '' : String(account.owner_user_id),
   })
   const save = () => {
     const patch: Record<string, unknown> = {}
     if (f.name.trim() !== account.name) patch.name = f.name.trim()
-    for (const k of ['domain', 'website', 'industry', 'location', 'employee_range'] as const) {
+    for (const k of ['domain', 'website', 'industry', 'location', 'employee_range', 'email', 'phone', 'notes'] as const) {
       if (f[k].trim() !== (account[k] ?? '')) patch[k] = f[k].trim() || null
     }
     if (f.owner !== (account.owner_user_id === null ? '' : String(account.owner_user_id))) patch.owner_user_id = f.owner ? Number(f.owner) : null
@@ -473,6 +523,9 @@ function AccountEditForm({ account, directory, busy, onSave, onCancel }: {
         <Input placeholder="Industry" value={f.industry} onChange={(e) => setF({ ...f, industry: e.target.value })} />
         <Input placeholder="Location" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} />
         <Input placeholder="Company size (e.g. 51-200)" value={f.employee_range} onChange={(e) => setF({ ...f, employee_range: e.target.value })} />
+        <Input placeholder="Company email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+        <Input placeholder="Company phone" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        <textarea className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm md:col-span-2" placeholder="Notes" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
         <select className={SELECT} value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })}>
           <option value="">No owner</option>
           {f.owner && !directory?.users.some((u) => String(u.id) === f.owner) && <option value={f.owner}>User #{f.owner}</option>}

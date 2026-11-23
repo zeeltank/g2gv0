@@ -1,14 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Check, Globe2, Plus, Search, X } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ChevronDown, Globe2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { LaravelContext } from '@/lib/laravel-context'
 import {
   addSelection,
-  countryOptions,
   draftIsEmpty,
+  draftSelection,
   emptyDraft,
   regionLabel,
   regionShortLabel,
@@ -16,187 +16,64 @@ import {
   type RegionDraft,
   type RegionSelection,
 } from '@/lib/region-scope'
-import {
-  addCustomLocation,
-  DEFAULT_COUNTRY,
-  getAvailableCities,
-  getAvailableCountries,
-  getAvailableStates,
-} from '@/lib/location-repository'
+import { DEFAULT_COUNTRY } from '@/lib/location-repository'
+import { LocationPicker } from './location-picker'
 
 /**
  * The Region control beside the product picker.
- * Country -> State / Province -> City hierarchy with India as the default country.
- * Provides searchable country selection, pre-seeded Indian states and global territories,
- * custom state and city creation without duplicates, and persists selections.
+ *
+ * Three searchable, dependent dropdowns: Country, State / Province / Region, City. Countries, states and cities come from the location data on the
+ * server (see location-picker.tsx); changing a level clears the levels under it. A new selection starts on India; a place that was already saved is
+ * never replaced by India (the form starts on the saved place's country). Up to five places can be added; they are used for this run, and the
+ * backend validates them again (a state must belong to its country, a city to its state).
  */
 export function RegionSelector({
   value,
   onChange,
   draft = emptyDraft(),
   onDraft = () => {},
-  suggestions = [],
   disabled,
+  context,
+  single = false,
 }: {
   value: RegionSelection[]
   onChange: (next: RegionSelection[]) => void
-  /** What is typed but not added yet. Owned by the screen, so Generate Signals uses it too. */
+  /** What is picked but not added yet. Owned by the screen, so Generate Signals uses it too. */
   draft?: RegionDraft
   onDraft?: (next: RegionDraft) => void
-  /** The product's saved ICP regions, offered as state / province suggestions (read only). */
+  /** Kept for the screen's existing call; the saved ICP regions are no longer offered as free-text suggestions (the lists come from the location data). */
   suggestions?: string[]
   disabled?: boolean
+  /** The signed-in organisation, for the location lists. */
+  context?: LaravelContext
+  /** One place at a time (a list that belongs to one region, such as Prospecting). Adding a place replaces the one before it. */
+  single?: boolean
 }) {
-  const countries = useMemo(() => getAvailableCountries(), [])
-  const { country, state, city } = draft
-
-  // Ensure strict match for existing test assertions
-  const setCountry = (v: string) => onDraft({ country: v, state: '', city: '' })
-  const setState = (v: string) => onDraft({ ...draft, state: v, city: v.trim() === '' ? '' : draft.city })
-  const setCity = (v: string) => onDraft({ ...draft, city: v })
-
   const [problems, setProblems] = useState<string[]>([])
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
 
-  // Custom addition modes
-  const [customCountryMode, setCustomCountryMode] = useState(false)
-  const [customCountryInput, setCustomCountryInput] = useState('')
-  const [customStateMode, setCustomStateMode] = useState(false)
-  const [customStateInput, setCustomStateInput] = useState('')
-  const [customCityMode, setCustomCityMode] = useState(false)
-  const [customCityInput, setCustomCityInput] = useState('')
+  // The country the form starts on: what was picked, else the saved place's country, else India. Never India over a saved place.
+  const savedCountry = value[0]?.country
+  const effectiveCountry = draft.country.trim() || savedCountry || DEFAULT_COUNTRY
+  const startsOnDefault = !draft.country.trim() && !savedCountry
 
-  // Country search filter
-  const [countrySearch, setCountrySearch] = useState('')
-
-  // Preselected country: defaults to India when nothing is specified in draft
-  const effectiveCountry = country.trim() || DEFAULT_COUNTRY
-
-  const filteredCountries = useMemo(() => {
-    if (!countrySearch.trim()) return countries
-    const q = countrySearch.trim().toLowerCase()
-    return countries.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
-  }, [countries, countrySearch])
-
-  const availableStates = useMemo(
-    () => getAvailableStates(effectiveCountry, suggestions),
-    [effectiveCountry, suggestions]
-  )
-
-  const availableCities = useMemo(
-    () => getAvailableCities(effectiveCountry, state),
-    [effectiveCountry, state]
-  )
-
-  const handleCountryChange = (chosen: string) => {
+  const pick = (next: RegionDraft) => {
     setProblems([])
     setSuccessNotice(null)
-    setCustomStateMode(false)
-    setCustomCityMode(false)
-    setCustomStateInput('')
-    setCustomCityInput('')
-
-    if (chosen === '__custom__') {
-      setCustomCountryMode(true)
-      return
-    }
-    setCustomCountryMode(false)
-    setCountry(chosen)
-  }
-
-  const handleAddCustomCountry = () => {
-    const trimmed = customCountryInput.trim()
-    if (!trimmed) {
-      setProblems(['Country name cannot be empty.'])
-      return
-    }
-    // Prevent duplicate: check against available countries
-    const existing = countries.find((c) => c.name.toLowerCase() === trimmed.toLowerCase())
-    const target = existing ? existing.name : trimmed
-    addCustomLocation({ country: target })
-    setCountry(target)
-    setCustomCountryMode(false)
-    setCustomCountryInput('')
-    setProblems([])
-  }
-
-  const handleStateChange = (chosen: string) => {
-    setProblems([])
-    setSuccessNotice(null)
-    setCustomCityMode(false)
-    setCustomCityInput('')
-
-    if (chosen === '__custom__') {
-      setCustomStateMode(true)
-      return
-    }
-    setCustomStateMode(false)
-    setState(chosen)
-  }
-
-  const handleAddCustomState = () => {
-    const trimmed = customStateInput.trim()
-    if (!trimmed) {
-      setProblems(['State / province name cannot be empty.'])
-      return
-    }
-    // Prevent duplicate within country (case-insensitive)
-    const existing = availableStates.find((s) => s.toLowerCase() === trimmed.toLowerCase())
-    const target = existing || trimmed
-    addCustomLocation({ country: effectiveCountry, state: target })
-    setState(target)
-    setCustomStateMode(false)
-    setCustomStateInput('')
-    setProblems([])
-  }
-
-  const handleCityChange = (chosen: string) => {
-    setProblems([])
-    setSuccessNotice(null)
-
-    if (chosen === '__custom__') {
-      setCustomCityMode(true)
-      return
-    }
-    setCustomCityMode(false)
-    setCity(chosen)
-  }
-
-  const handleAddCustomCity = () => {
-    const trimmed = customCityInput.trim()
-    if (!trimmed) {
-      setProblems(['City name cannot be empty.'])
-      return
-    }
-    // Prevent duplicate within state (case-insensitive)
-    const existing = availableCities.find((c) => c.toLowerCase() === trimmed.toLowerCase())
-    const target = existing || trimmed
-    addCustomLocation({ country: effectiveCountry, state, city: target })
-    setCity(target)
-    setCustomCityMode(false)
-    setCustomCityInput('')
-    setProblems([])
+    onDraft(next)
   }
 
   const add = () => {
     setSuccessNotice(null)
-    const countryToAdd = country.trim() || DEFAULT_COUNTRY
-    const place = { country: countryToAdd, state: state.trim() || undefined, city: city.trim() || undefined }
-
-    // Save custom state or city to location store if present
-    if (place.state) {
-      addCustomLocation({ country: countryToAdd, state: place.state, city: place.city })
-    }
-
-    const r = addSelection(value, place)
+    // An untouched form adds what it shows (the saved country, or India for a new selection); the picked codes go with the names.
+    const seed: RegionDraft = draft.country.trim() ? draft : { ...draft, country: effectiveCountry, ...(value[0]?.country_code && !draft.countryCode ? { countryCode: value[0].country_code } : {}) }
+    const place = draftSelection(seed)
+    const r = addSelection(single ? [] : value, place, { cityWithoutState: draft.countryHasStates === false })
     setProblems(r.problems)
     if (r.problems.length === 0) {
       onChange(r.list)
       onDraft(emptyDraft())
-      setCustomCountryMode(false)
-      setCustomStateMode(false)
-      setCustomCityMode(false)
-      setSuccessNotice(`Added ${[place.city, place.state, place.country].filter(Boolean).join(', ')}`)
+      setSuccessNotice(`Added ${[place.city, place.state, place.country].filter((x) => x && x.trim()).join(', ')}`)
     }
   }
 
@@ -222,13 +99,14 @@ export function RegionSelector({
                 <span className="text-muted-foreground"> · {draft.country || '…'} (not added)</span>
               )}
             </span>
+            <ChevronDown className="ml-auto size-4 shrink-0 text-foreground" strokeWidth={2.25} aria-hidden />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-88 sm:w-96 space-y-3.5 p-4 shadow-lg rounded-2xl border border-border/80">
           <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
             <div>
               <p className="text-sm font-bold text-foreground">Where to look</p>
-              <p className="text-[11px] text-muted-foreground">Filter buying signals by geographical location</p>
+              <p className="text-[11px] text-muted-foreground">{single ? 'Choose the place for this list' : 'Filter buying signals by geographical location'}</p>
             </div>
             <Button
               type="button"
@@ -249,11 +127,11 @@ export function RegionSelector({
           {/* Active selections */}
           {value.length === 0 ? (
             <p className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
-              All Regions: research is not limited to a place.
+              {single ? 'All Regions: accounts from every place are shown. Choose a place to add accounts.' : 'All Regions: research is not limited to a place.'}
             </p>
           ) : (
             <div className="space-y-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">Active Locations ({value.length}/5):</span>
+              <span className="text-[11px] font-medium text-muted-foreground">{single ? 'Selected place:' : `Active Locations (${value.length}/5):`}</span>
               <ul aria-label="Selected regions" className="flex flex-wrap gap-1.5">
                 {value.map((s, i) => (
                   <li
@@ -275,180 +153,19 @@ export function RegionSelector({
             </div>
           )}
 
-          {/* Location Management Form */}
+          {/* Location form: Country, State / Province / Region, City */}
           <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">Add Location</span>
-              {effectiveCountry === DEFAULT_COUNTRY && (
+              <span className="text-xs font-semibold text-foreground">{single ? 'Choose place' : 'Add Location'}</span>
+              {startsOnDefault && (
                 <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                   India Selected by Default
                 </span>
               )}
             </div>
 
-            {/* 1. Country Selection */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="region-country-select" className="text-xs font-medium text-foreground">
-                  Country
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setCustomCountryMode((prev) => !prev)}
-                  className="text-[11px] text-primary hover:underline"
-                >
-                  {customCountryMode ? 'Choose from list' : '+ Add custom country'}
-                </button>
-              </div>
+            <LocationPicker context={context ?? ({} as LaravelContext)} draft={draft} onDraft={pick} effectiveCountry={effectiveCountry} disabled={disabled} stateDropdown={single} />
 
-              {customCountryMode ? (
-                <div className="flex gap-1.5">
-                  <Input
-                    placeholder="Enter country name (e.g. Japan)"
-                    value={customCountryInput}
-                    onChange={(e) => setCustomCountryInput(e.target.value)}
-                    className="h-8 text-xs"
-                    maxLength={80}
-                  />
-                  <Button type="button" size="xs" onClick={handleAddCustomCountry} className="h-8 px-2.5 text-xs">
-                    Set
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {countries.length > 10 && (
-                    <div className="relative">
-                      <Search className="absolute left-2 top-2 size-3 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search country…"
-                        value={countrySearch}
-                        onChange={(e) => setCountrySearch(e.target.value)}
-                        className="h-7 w-full rounded-md border border-input bg-background pl-6 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                    </div>
-                  )}
-                  <select
-                    id="region-country-select"
-                    aria-label="Country"
-                    value={country || DEFAULT_COUNTRY}
-                    onChange={(e) => handleCountryChange(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="India">India (Default)</option>
-                    <option value="__custom__">+ Add other country…</option>
-                    <optgroup label="Supported Countries">
-                      {filteredCountries.map((c) => (
-                        <option key={c.code} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* 2. State / Province Selection */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="region-state-select" className="text-xs font-medium text-foreground">
-                  State / Province <span className="text-muted-foreground font-normal">(optional)</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setCustomStateMode((prev) => !prev)}
-                  className="text-[11px] text-primary hover:underline"
-                >
-                  {customStateMode ? 'Choose from list' : '+ Add new state'}
-                </button>
-              </div>
-
-              {customStateMode ? (
-                <div className="flex gap-1.5">
-                  <Input
-                    placeholder="Enter state name (e.g. Haryana)"
-                    value={customStateInput}
-                    onChange={(e) => setCustomStateInput(e.target.value)}
-                    className="h-8 text-xs"
-                    maxLength={80}
-                  />
-                  <Button type="button" size="xs" onClick={handleAddCustomState} className="h-8 px-2.5 text-xs">
-                    Set
-                  </Button>
-                </div>
-              ) : (
-                <select
-                  id="region-state-select"
-                  aria-label="State or province"
-                  value={state}
-                  onChange={(e) => handleStateChange(e.target.value)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">Choose state / province (optional)</option>
-                  <option value="__custom__">+ Add new state / province…</option>
-                  {availableStates.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 3. City Selection */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="region-city-select" className="text-xs font-medium text-foreground">
-                  City <span className="text-muted-foreground font-normal">(optional, needs a state)</span>
-                </label>
-                {state.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomCityMode((prev) => !prev)}
-                    className="text-[11px] text-primary hover:underline"
-                  >
-                    {customCityMode ? 'Choose from list' : '+ Add new city'}
-                  </button>
-                )}
-              </div>
-
-              {customCityMode ? (
-                <div className="flex gap-1.5">
-                  <Input
-                    placeholder="Enter city name (e.g. Surat)"
-                    value={customCityInput}
-                    onChange={(e) => setCustomCityInput(e.target.value)}
-                    className="h-8 text-xs"
-                    maxLength={80}
-                  />
-                  <Button type="button" size="xs" onClick={handleAddCustomCity} className="h-8 px-2.5 text-xs">
-                    Set
-                  </Button>
-                </div>
-              ) : (
-                <select
-                  id="region-city-select"
-                  aria-label="City"
-                  value={city}
-                  disabled={!state.trim()}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                >
-                  <option value="">
-                    {state.trim() ? 'Choose city (optional)' : 'Select state first'}
-                  </option>
-                  {state.trim() && <option value="__custom__">+ Add new city…</option>}
-                  {availableCities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Error alerts */}
             {problems.length > 0 && (
               <ul role="alert" className="list-disc space-y-0.5 pl-4 text-xs text-destructive">
                 {problems.map((p) => (
@@ -457,7 +174,6 @@ export function RegionSelector({
               </ul>
             )}
 
-            {/* Success feedback */}
             {successNotice && (
               <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                 <Check className="size-3.5" />
@@ -465,21 +181,16 @@ export function RegionSelector({
               </div>
             )}
 
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              onClick={add}
-              className="w-full text-xs font-semibold"
-            >
+            <Button type="button" size="sm" variant="default" onClick={add} className="w-full text-xs font-semibold">
               <Plus className="mr-1.5 size-3.5" />
-              Add place
+              {single ? 'Use this place' : 'Add place'}
             </Button>
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Used for this run only. India is selected by default. A chosen location is used when you press Generate Signals.
-            A city or state must be named in the source itself for a signal to qualify.
+            {single
+              ? 'Accounts and contacts you add or import are saved under this place, and only the list of this place is shown. A country shows all of its states; a state shows only itself.'
+              : 'A chosen location is used when you press Generate Signals. For one sub-product it is also saved to that sub-product’s ICP; for Whole Product it is used for this run only. A city or state must be named in the source itself for a signal to qualify.'}
           </p>
         </PopoverContent>
       </Popover>

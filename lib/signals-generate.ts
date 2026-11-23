@@ -29,8 +29,27 @@ export interface GenerateSub {
 
 export type GenerateRefusal = 'no_product' | 'all_products' | 'unknown_product' | 'not_ready' | 'running' | 'providers'
 
+/**
+ * What the server did with the sub-product's ICP Region when the run was accepted. Decided and enforced on the backend; the screen only reports it.
+ * `skipped` covers Whole Product, All Regions and shared sub-products (no ICP is created or changed); `unchanged` means the ICP already had these places.
+ */
+export interface IcpRegionSync {
+  status: 'created' | 'updated' | 'unchanged' | 'skipped'
+  reason?: string | null
+  message?: string | null
+  icp?: { id: number; key: string; name: string; customer_model: string; offer_id: string; offer_name: string; regions: string[] } | null
+}
+
+/** The sentence to show about the ICP, or null when nothing was created or changed (never a message that implies an ICP was updated when it was not). */
+export function describeIcpSync(sync: IcpRegionSync | null | undefined): string | null {
+  if (!sync || (sync.status !== 'created' && sync.status !== 'updated')) return null
+  const text = (sync.message ?? '').trim()
+
+  return text !== '' ? text : null
+}
+
 export type GenerateOutcome =
-  | { started: true; runId: number | null; message: string; run: unknown }
+  | { started: true; runId: number | null; message: string; run: unknown; icpSync: IcpRegionSync | null }
   | { started: false; reason: GenerateRefusal; message: string; missing: string[]; nextStep: string | null }
 
 /** The slice of the backend status this decision reads. */
@@ -42,7 +61,7 @@ export interface GenerateStatus {
 
 export interface GenerateService {
   getStatus: (c: LaravelContext, product?: string, customerModel?: 'b2b' | 'b2c' | 'b2g', offerId?: string | null, regions?: RegionSelection[]) => Promise<{ data: GenerateStatus }>
-  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') => Promise<{ message: string; data?: { run_id?: number; run?: unknown } }>
+  runResearch: (c: LaravelContext, params: undefined, product?: string, regions?: RegionSelection[], offerId?: string | null, customerModel?: 'b2b' | 'b2c' | 'b2g') => Promise<{ message: string; data?: { run_id?: number; run?: unknown; icp_sync?: IcpRegionSync | null } }>
 }
 
 const refuse = (reason: GenerateRefusal, message: string, missing: string[] = [], nextStep: string | null = null): GenerateOutcome =>
@@ -62,23 +81,6 @@ export function decideGenerate(
   if (!product) return { ok: false, outcome: refuse('unknown_product', 'That product is not available.') }
   if (running) return { ok: false, outcome: refuse('running', 'A run is already in progress.') }
 
-  const modelUpper = customerModel.toUpperCase()
-  const prodModel = product.icp_models?.[customerModel]
-  const prodReady = prodModel ? prodModel.ready : (customerModel === 'b2b' ? product.ready : false)
-  if (!prodReady && !sub) {
-    const missing = prodModel?.missing ?? product.missing
-    return { ok: false, outcome: refuse('not_ready', `${product.label} is not ready: its ${modelUpper} ICP must be configured and active first.`, missing, product.next_step ?? null) }
-  }
-
-  if (sub) {
-    const subModel = sub.icp_models?.[customerModel]
-    const subReady = subModel ? subModel.ready : (customerModel === 'b2b' ? sub.ready : false)
-    if (!subReady) {
-      const missing = subModel?.missing ?? sub.missing
-      return { ok: false, outcome: refuse('not_ready', `${sub.name} is not ready: its ${modelUpper} ICP must be completed first.`, missing, 'Edit the product in Product Portfolio and complete its Individual ICP.') }
-    }
-  }
-
   return { ok: true, product }
 }
 
@@ -92,7 +94,7 @@ export async function generateSignals(args: {
   products: GenerateProduct[] | null
   running: boolean
   service: GenerateService
-  /** The places this request is limited to ([] or absent = All Regions). Sent with the request; saved nowhere. */
+  /** The places this request is limited to ([] or absent = All Regions). Sent with the request; the backend also saves them to the ICP of ONE chosen sub-product (never for Whole Product). */
   regions?: RegionSelection[]
   /** Run for this ONE sub-product of the product (its own Individual ICP). Absent = the whole product, as before. */
   sub?: GenerateSub | null
@@ -106,8 +108,8 @@ export async function generateSignals(args: {
 
   const status = (await args.service.getStatus(args.context, product.key, customerModel, args.sub?.offer_id ?? null, args.regions)).data
   if (status.running) return refuse('running', 'A run is already in progress.')
-  if (!status.product || status.product.key !== product.key || (!args.sub && !status.product.ready)) {
-    return refuse('not_ready', `${product.label} is not ready for discovery.`, status.product?.missing ?? product.missing, product.next_step ?? null)
+  if (!status.product || status.product.key !== product.key) {
+    return refuse('unknown_product', `${product.label} is not available.`)
   }
   if (!status.requirements.search_configured || !status.requirements.ai_configured) {
     return refuse('providers', !status.requirements.search_configured
@@ -117,7 +119,7 @@ export async function generateSignals(args: {
 
   const res = await args.service.runResearch(args.context, undefined, product.key, args.regions, args.sub?.offer_id ?? null, customerModel)
 
-  return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null }
+  return { started: true, runId: res.data?.run_id ?? null, message: res.message, run: res.data?.run ?? null, icpSync: res.data?.icp_sync ?? null }
 }
 
 export interface GenerateHandlers {

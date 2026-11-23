@@ -50,14 +50,17 @@ describe('Generate: the line beside the button says what a run costs, or why it 
     assert.equal((k.bodyText().split(COST).length - 1), 1, 'said once')
   })
 
-  it('says why Generate is off in words when the product\'s ICP is not set up (it was a tooltip and a screen-reader line only), and the cost line is gone', async () => {
+  // Changed on purpose in the merge of origin/main (82b4922, "enable universal signal generation"): the screen no longer decides that a profile is "not ready"; the server
+  // creates or completes the sub-product's ICP region itself and says so in the run's notice. So a product whose ICP is not set up keeps Generate on, and the line beside it
+  // is the cost line (it used to say "This profile is not ready for discovery").
+  it('keeps Generate on and says what a run costs when the product\'s ICP is not set up, because the server completes the ICP region', async () => {
     const { k, setSelect } = await openScreen({ search: 'product=g2g', products: withG2gNotReady })
-    assert.equal(generate(k)!.disabled, true)
-    assert.equal(hint(k)!.textContent, 'This profile is not ready for discovery. Add the ideal customer profile')
-    assert.equal(generate(k)!.title, 'Add the ideal customer profile', 'the tooltip is still there')
-    assert.ok(!k.bodyText().includes(COST), '!k.bodyText().includes(COST)')
+    assert.equal(generate(k)!.disabled, false, 'no client-side readiness check holds Generate back')
+    assert.equal(hint(k)!.textContent, COST)
+    assert.equal(generate(k)!.title, '', 'no tooltip blames the profile')
+    assert.ok(!k.bodyText().includes('not ready for discovery'), 'the old "not ready" line is gone')
 
-    // Another ICP type the product HAS set up: a run can start, and the line goes back to the cost.
+    // Another ICP type: the same.
     await setSelect(k.one('#icp-type-select') as HTMLSelectElement, 'b2g')
     assert.equal(generate(k)!.disabled, false)
     assert.equal(hint(k)!.textContent, COST)
@@ -187,12 +190,14 @@ describe('Generate: every way the server can refuse to start a run, in plain wor
     assert.equal(runCalls.runResearch.length, 0, 'nothing was started')
   })
 
-  it('keeps the checks that were already there: nothing is sent for a product that is not ready', async () => {
+  // Changed on purpose in the merge of origin/main (82b4922): readiness is judged by the server now (it completes the sub-product's ICP region), so the click on a product whose
+  // ICP is not set up IS sent. Nothing is sent when no product is chosen (see the All products test above).
+  it('sends the run for a product whose ICP is not set up: the server judges readiness and completes the ICP region', async () => {
     const { k, runCalls } = await openScreen({ search: 'product=g2g', products: withG2gNotReady })
-    assert.ok(generate(k), 'the button is there, and off')
+    assert.ok(generate(k), 'the button is there, and on')
     await k.click(generate(k)!)
     await k.tick(30)
-    assert.equal(runCalls.runResearch.length, 0)
+    assert.equal(runCalls.runResearch.length, 1)
   })
 })
 

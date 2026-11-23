@@ -31,7 +31,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { apiErrorText } from '@/lib/api-messages'
-import { SectionBar } from '@/components/domain/signals/signals-header'
 import { DataConnectorsPanel } from '@/components/domain/signals/data-connectors-panel'
 import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
@@ -55,7 +54,8 @@ export function IngestionEngineView() {
   const selectedProduct = products?.find((p) => p.key === product)
 
   // Input state
-  const [tab, setTab] = useState<'url' | 'document'>('url')
+  // Which of the two tools is open under the product bar.
+  const [section, setSection] = useState<'connectors' | 'document'>('connectors')
   const [urlInput, setUrlInput] = useState('')
   const [fileInput, setFileInput] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -148,7 +148,7 @@ export function IngestionEngineView() {
     const targetUrl = urlInput.trim()
     if (!targetUrl || !ready || submittingRef.current) return
     setActionError(null)
-    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its pages are analysed with its own ICP.'); return }
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -171,7 +171,7 @@ export function IngestionEngineView() {
     e.preventDefault()
     if (!fileInput || !ready || submittingRef.current) return
     setActionError(null)
-    if (!product || !selectedProduct?.ready) { setSubmitError('Choose a configured product first: its documents are analysed with its own ICP.'); return }
+    if (!product) { setSubmitError('Choose a product first.'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -223,139 +223,124 @@ export function IngestionEngineView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-4">
-        <SectionBar
-          description="Add a public web page or a document. Choose the product first: it is analysed with that product's own ICP, and the signals it yields are saved for that product only. Nothing is processed until you submit."
-        />
         <div className="space-y-2">
-          <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} />
+          <ProductSelector products={products} loading={productsLoading} error={productsError} value={product} onChange={setProduct} allowAll={false} fullWidth />
           <ProductSetupNotice product={selectedProduct} />
         </div>
         {actionError && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{actionError}</p>}
       </div>
 
-      <DataConnectorsPanel context={context} productKey={product || null} productReady={Boolean(selectedProduct?.ready)} />
+      {/* Two tools, one click each */}
+      <div role="tablist" aria-label="Ingestion tools" className="grid grid-cols-2 gap-2">
+        {([
+          { key: 'connectors', label: 'Connectors', hint: 'YouTube, LinkedIn, Facebook, Instagram, web pages', Icon: Layers },
+          { key: 'document', label: 'Page or document', hint: 'Analyse one link or file', Icon: FileText },
+        ] as const).map(({ key, label, hint, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={section === key}
+            onClick={() => setSection(key)}
+            className={`flex items-center justify-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section === key ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5'}`}
+          >
+            <Icon className="size-4 shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{label}</span>
+              <span className={`hidden text-[11px] sm:block ${section === key ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{hint}</span>
+            </span>
+          </button>
+        ))}
+      </div>
 
-      {/* Prominent Input Card at Top */}
-      <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-sm">
-        {/* Tab switch */}
-        <div className="flex items-center gap-2 border-b border-border pb-4">
-          <button
-            type="button"
-            onClick={() => setTab('url')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === 'url'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Globe className="size-4" />
-            Website or Article URL
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('document')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-              tab === 'document'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <FileText className="size-4" />
-            Upload Document (PDF, DOCX, TXT)
-          </button>
+      {section === 'connectors' && (
+        <div role="tabpanel">
+      <DataConnectorsPanel
+        context={context}
+        productKey={product || null}
+        products={products}
+        onSyncCompleted={loadSources}
+      />
+        </div>
+      )}
+
+      {section === 'document' && (
+        <div role="tabpanel" className="space-y-6">
+      {/* 2. Analyse a page or document: one long bar; a paperclip attaches a file to the same bar */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">Analyse page or document</h2>
+          <p className="text-xs text-muted-foreground">Paste a website, article or tender link, or attach a file (PDF, DOCX, TXT, XLSX up to 20MB). The signals appear below.</p>
         </div>
 
-        {/* Tab content */}
-        <div className="pt-5">
-          {tab === 'url' ? (
-            <form onSubmit={handleUrlSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground">
-                  Company Website or Article / Tender URL
-                </label>
-                <div className="mt-1.5 flex gap-2">
-                  <div className="relative flex-1">
-                    <LinkIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="url"
-                      required
-                      placeholder="https://example.com or https://news.domain.com/article"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      className="pl-9 text-xs"
-                      disabled={submitting}
-                    />
-                  </div>
-                  <Button type="submit" disabled={submitting || !urlInput.trim()} className="gap-2">
-                    {submitting ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Ingesting...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="size-4" />
-                        Extract & Discover Signals
-                      </>
-                    )}
-                  </Button>
-                </div>
+        <form
+          onSubmit={(e) => (fileInput ? handleFileUpload(e) : handleUrlSubmit(e))}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <div className="relative flex-1">
+            {fileInput ? (
+              <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background pl-3 pr-1 text-xs">
+                <FileText className="size-4 shrink-0 text-primary" />
+                <span className="flex-1 truncate text-foreground">{fileInput.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setFileInput(null)}
+                  disabled={submitting}
+                  className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Remove attached document"
+                >
+                  <XCircle className="size-4" />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Public pages are verified via SSRF guards and respect robots.txt policies.
-              </p>
-            </form>
-          ) : (
-            <form onSubmit={handleFileUpload} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground">
-                  Select Document File (.pdf, .docx, .txt, .xlsx)
-                </label>
-                <div className="mt-1.5 flex flex-col gap-3 sm:flex-row sm:items-center">
+            ) : (
+              <>
+                <LinkIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="url"
+                  placeholder="https://example.com or https://news.domain.com/article"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="pl-9 pr-11 text-xs"
+                  disabled={submitting}
+                  aria-label="Website, article or tender URL"
+                />
+                <label
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                  title="Attach a document"
+                >
+                  <UploadCloud className="size-4" />
+                  <span className="sr-only">Attach a document</span>
                   <input
                     type="file"
-                    required
                     accept=".pdf,.docx,.txt,.xlsx"
                     onChange={(e) => setFileInput(e.target.files?.[0] || null)}
-                    className="block w-full text-xs text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-4 file:py-2 file:text-xs file:font-semibold file:text-foreground hover:file:bg-muted/80"
+                    className="sr-only"
                     disabled={submitting}
                   />
-                  <Button type="submit" disabled={submitting || !fileInput} className="gap-2 shrink-0">
-                    {submitting ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Uploading & Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="size-4" />
-                        Extract & Discover Signals
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Text content is securely parsed into verified segment quotes. Files up to 20MB supported.
-              </p>
-            </form>
-          )}
+                </label>
+              </>
+            )}
+          </div>
+          <Button type="submit" disabled={submitting || (!fileInput && !urlInput.trim())} className="gap-2 shrink-0">
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {fileInput ? 'Analyse document' : 'Find signals'}
+          </Button>
+        </form>
 
-          {submitError && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{submitError}</span>
-            </div>
-          )}
-        </div>
+        {submitError && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
       </div>
 
       {/* Quick Ingestion History Switcher */}
       {sources.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="font-semibold uppercase tracking-wider">Recently Ingested Sources</span>
-            <span>{sources.length} sources analyzed</span>
+            <span className="font-semibold uppercase tracking-wider">Items read</span>
+            <span>{sources.length} analysed</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
             {sources.map((src) => {
@@ -385,7 +370,7 @@ export function IngestionEngineView() {
         </div>
       )}
 
-      {/* RESULTS DISPLAYED DIRECTLY BELOW ON THE SAME PAGE */}
+      {/* Results, directly below the bar */}
       {loadingDetail && !activeDetail ? (
         <div className="space-y-4">
           <Skeleton className="h-40 w-full rounded-2xl" />
@@ -433,7 +418,7 @@ export function IngestionEngineView() {
 
             {/* Processing State Indicator */}
             {activeDetail.processing_status === 'generating' && (
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300">
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 text-xs text-primary">
                 <Loader2 className="size-5 animate-spin" />
                 <div>
                   <p className="font-semibold">Analyzing Content & Discovering Follow-up Signals...</p>
@@ -532,11 +517,11 @@ export function IngestionEngineView() {
               <div className="flex items-center gap-2">
                 <Sparkles className="size-5 text-primary" />
                 <h3 className="text-base font-bold text-foreground">
-                  Generated Opportunity Signals ({activeDetail.findings?.length || 0})
+                  Signals found ({activeDetail.findings?.length || 0})
                 </h3>
               </div>
               <span className="text-xs text-muted-foreground">
-                Linked directly to the main Signals feed
+                Findings stay here; qualified company signals go to Company Opportunities
               </span>
             </div>
 
@@ -610,7 +595,7 @@ export function IngestionEngineView() {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-                No signal findings generated yet. The analyzer is verifying the source content.
+                No signals found in this item yet.
               </div>
             )}
           </div>
@@ -622,6 +607,8 @@ export function IngestionEngineView() {
           <p className="mt-1 text-xs text-muted-foreground">
             Provide a company website URL or upload a document at the top to start analysis.
           </p>
+        </div>
+      )}
         </div>
       )}
 
