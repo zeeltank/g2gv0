@@ -26,6 +26,11 @@ export function ProductChip() {
   return <span className={chipClass('default')}>Product</span>
 }
 
+/** Drawn beside the name of a Service (a Sub-product of type Service): every other Sub-product needs no label, it sits under its Product. */
+export function ServiceChip() {
+  return <span className={chipClass('default')}>Service</span>
+}
+
 export function ArchivedChip() {
   return <span className={chipClass('inactive')}>Archived</span>
 }

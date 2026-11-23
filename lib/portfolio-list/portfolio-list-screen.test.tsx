@@ -34,14 +34,14 @@ describe('the Product Portfolio list: what is on the page', () => {
 
   it('draws every column of mock-up view 2 for an administrator, plus Category and In stock (hidden below the large breakpoint)', async () => {
     const { heads, k } = await open()
-    assert.deepEqual(heads(), ['', 'Name', 'Type', 'SKU', 'Price', 'Category', 'In stock', 'Sold in CRM', 'Readiness', 'Signals', 'ICP'])
+    assert.deepEqual(heads(), ['', 'Name', 'SKU', 'Price', 'Category', 'In stock', 'Sold in CRM', 'Readiness', 'Signals', 'ICP'])
     for (const th of k.all('thead th').filter((t) => ['Category', 'In stock'].includes(t.textContent ?? ''))) assert.match(th.className, /hidden[^"]*lg:table-cell/, `${th.textContent} is hidden on a narrow screen`)
   })
 
-  it('shows a row\'s own values: type, SKU, price, state, readiness, signals and ICP, all in words', async () => {
+  it('shows a row\'s own values: SKU, price, state, readiness, signals and ICP, all in words (a Sub-product sits under its Product and is not labelled; a Service is)', async () => {
     const { rowOf } = await open()
     const fees = rowOf('Fees Intelligence')!.textContent!
-    for (const part of ['Sub-product', 'SCH-02', 'INR 1,20,000.00', 'School ERP', '12.5', 'Sold', 'Live – with client', '2', 'Draft']) assert.ok(fees.includes(part), `Fees Intelligence shows ${part}: ${fees}`)
+    for (const part of ['SCH-02', 'INR 1,20,000.00', 'School ERP', '12.5', 'Sold', 'Live – with client', '2', 'Draft']) assert.ok(fees.includes(part), `Fees Intelligence shows ${part}: ${fees}`)
     const svc = rowOf('ScholarClone Implementation')!.textContent!
     for (const part of ['Service', 'SVC-1', 'Paused']) assert.ok(svc.includes(part), part)
     assert.ok(rowOf('Scholar School ERP')!.textContent!.includes('Not sold'))
@@ -85,7 +85,7 @@ describe('what a caller who may not view prices sees (HR)', () => {
   it('gets no SKU, Price, Category, In stock or Sold in CRM column, no Sold in CRM filter, and no bulk tick that can be set', async () => {
     current = await setup({ rows: hrRows(), can: HR_CAN })
     const { heads, text, facet, k } = current
-    assert.deepEqual(heads(), ['', 'Name', 'Type', 'Readiness', 'Signals', 'ICP'])
+    assert.deepEqual(heads(), ['', 'Name', 'Readiness', 'Signals', 'ICP'])
     for (const word of ['SKU', 'Price', 'Category', 'In stock', 'Sold in CRM']) assert.ok(!heads().includes(word), `no ${word} column for HR`)
     assert.equal(facet('Sold in CRM'), undefined, 'no Sold in CRM filter for HR')
     assert.ok(facet('Status'), 'the other filters are there')

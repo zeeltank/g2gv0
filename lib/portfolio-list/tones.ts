@@ -25,8 +25,11 @@ export const BANNER_TONE: Record<'success' | 'error' | 'info', string> = {
   info: 'border-primary bg-card text-foreground',
 }
 
-/** The group header row of a Product: a muted band with body text. */
-export const GROUP_ROW = 'bg-muted/40 hover:bg-muted/40'
+/**
+ * The group header row of a Product: a solid muted band (the Sub-product rows under it stay on the card), a 4 px accent on its left edge, a heavier rule above it and
+ * more air in its cells, so each Product reads as a section and its Sub-products as the rows of that section. Body text on a solid theme surface only.
+ */
+export const GROUP_ROW = 'border-t-2 border-t-border bg-muted hover:bg-muted [&>td]:pb-3 [&>td]:pt-5 [&>td:first-child]:border-l-4 [&>td:first-child]:border-l-primary'
 
 /** A link inside the list: body text with an underline (`text-primary` on a card is 4.16:1 in the dark theme). */
 export const LINK_TEXT = 'text-foreground underline underline-offset-2 hover:no-underline'

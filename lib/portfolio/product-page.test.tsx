@@ -5,7 +5,7 @@ import { routerHarness } from '../signals/router-harness'
 import { portfolioProducts } from '../signals/opportunity-fixtures'
 import { axeViolations } from '../agent/a11y'
 import { resolveProductTab } from './page-model'
-import { listRow, meta } from './fixtures'
+import { everything, listRow, meta } from './fixtures'
 import { fill, installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
 /** One Product's page in a fake browser: the Signals products it already read, the Sub-products from the unified list, the form in its drawer. */
@@ -37,6 +37,30 @@ describe('a Product page', () => {
     const { k } = await openProduct()
     assert.deepEqual(tabLabels(k).map((t) => t.replace(/\d+$/, '').trim()), ['Overview', 'Sub-products', 'Signals & ICP'])
     assert.equal(k.one('h1')!.textContent, 'ScholarClone')
+  })
+
+  it('opens a page for a Product that only the Portfolio has (the built-in Commercial Bundle): its Sub-products, no setup steps, no Signals tab, never "Product not found"', async () => {
+    // Owner's screenshot, 23 Nov 2026: clicking Commercial Bundle in the list said "There is no product "bundle" in this organisation", because the page looked the Product up in Signals only.
+    const data = everything()
+    data.data.products.push({ ...data.data.products[0], id: 5, key: 'bundle', name: 'Commercial Bundle', signalKey: null, portfolioName: null, subProductCount: 2 })
+    const bundle = await openProduct({ everything: data }, 'bundle')
+    assert.ok(!bundle.k.bodyText().includes('Product not found'))
+    assert.equal(bundle.k.one('h1')!.textContent?.includes('Commercial Bundle'), true, 'the page is the Product\'s own')
+    assert.deepEqual(tabLabels(bundle.k).map((t) => t.replace(/\d+$/, '').trim()), ['Sub-products'], 'its page is its Sub-products')
+    assert.ok(bundle.calls.list.some((c) => c.productId === 5), 'the Sub-products are read with the Product\'s id')
+    assert.ok(!bundle.k.bodyText().includes('Customer and buyer summary'), 'no setup steps or customer summary')
+    assert.ok(!bundle.k.all('a').some((a) => (a.getAttribute('href') ?? '').startsWith('/signals?product=')), 'and no Signals link')
+    await disposeAll()
+
+    const nothing = await openProduct({}, 'no_such_product')
+    assert.ok(nothing.k.bodyText().includes('Product not found'), 'a key that is neither in Signals nor in the Portfolio is still not found')
+  })
+
+  it('says one number for the Sub-products in the header and on the tab: the ACTIVE ones, with the archived ones named apart (the tab also lists them so they can be restored)', async () => {
+    // Owner's screenshot: the header said "1 sub-product" while the tab said 6: the tab counted the archived ones too.
+    const { k } = await openProduct({ listRows: [listRow(), listRow({ id: 12, name: 'Admissions' }), listRow({ id: 13, name: 'Old thing', status: 'archived' })], archivedCount: 2 })
+    assert.ok(k.bodyText().includes('1 sub-product · 2 archived'), `the header says 1 active and 2 archived: ${k.bodyText().slice(0, 300)}`)
+    assert.ok(tabLabels(k).some((t) => /^Sub-products\s*1$/.test(t)), `the tab counts the active Sub-products only: ${tabLabels(k).join(' | ')}`)
   })
 
   it('keeps the four setup steps, the customer and buyer summary and a plain Review opportunities link', async () => {

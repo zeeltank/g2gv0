@@ -42,6 +42,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [tab, setTab] = useState<ProductTabId>('overview')
   const [meta, setMeta] = useState<PmMeta | null>(null)
   const [master, setMaster] = useState<MasterFacts | null>(null)
+  const [masterChecked, setMasterChecked] = useState(false)
+  const [archivedCount, setArchivedCount] = useState(0)
   const [subs, setSubs] = useState<SubProductsData | null>(null)
   const [subsError, setSubsError] = useState('')
   const [subsBusy, setSubsBusy] = useState(false)
@@ -83,21 +85,25 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     }
   }, [product, canonicalKey, productKey])
 
-  // The Product's own record (its id, whether it is shared or archived): found among the Products by the key Signals knows it by.
-  const wantedKey = product?.key
+  // The Product's own record (its id, whether it is shared or archived): found among the Products by the key Signals knows it by, or by the address's own key for a
+  // Product that Signals does not define (the built-in Commercial Bundle and Higher Education are Products of the Portfolio only: they open a page of their own,
+  // with their Sub-products, instead of "Product not found").
+  const wantedKey = product?.key ?? (canonicalKey || productKey)
   const wantedName = product?.label
+  const productsLoaded = products !== null
   useEffect(() => {
-    if (!wantedKey) return
+    if (!wantedKey || !productsLoaded) return
     let live = true
     productRecordService.everything()
       .then((res) => {
         if (!live) return
-        const found = res.data.products.find((p) => p.key === wantedKey || p.signalKey === wantedKey || p.name === wantedName)
+        const found = res.data.products.find((p) => p.key === wantedKey || p.signalKey === wantedKey || (wantedName !== undefined && p.name === wantedName))
         setMaster(found ? { id: found.id, key: found.key, name: found.name, shared: found.shared, status: found.status } : null)
+        setMasterChecked(true)
       })
-      .catch(() => { if (live) setMaster(null) })
+      .catch(() => { if (live) { setMaster(null); setMasterChecked(true) } })
     return () => { live = false }
-  }, [wantedKey, wantedName])
+  }, [wantedKey, wantedName, productsLoaded])
 
   const masterId = master?.id
   const loadSubs = useCallback(async (page: number) => {
@@ -105,8 +111,13 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     setSubsBusy(true)
     setSubsError('')
     try {
-      const res = await productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'all' })
+      const [res, archived] = await Promise.all([
+        productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'all' }),
+        // The list shows archived Sub-products too (so one can be restored from here), but the count in the header and on the tab is the ACTIVE ones, like the Portfolio list's.
+        productRecordService.list({ productId: masterId, page: 1, per: 1, status: 'archived' }).catch(() => null),
+      ])
       setSubs({ rows: res.data, paging: res.meta, can: res.meta.can })
+      setArchivedCount(archived ? archived.meta.total : 0)
     } catch (cause) {
       setSubsError(cause instanceof Error ? cause.message : 'The sub-products could not be loaded.')
     } finally {
@@ -142,39 +153,57 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   )
 
   if (loading || !products) {
-    return <div className="mx-auto max-w-6xl space-y-4 p-4 @xl:p-6"><Skeleton className="h-20 w-full rounded-2xl" /><Skeleton className="h-64 w-full rounded-2xl" /></div>
+    return <div className="w-full space-y-4 p-4 @xl:p-6"><Skeleton className="h-20 w-full rounded-2xl" /><Skeleton className="h-64 w-full rounded-2xl" /></div>
   }
   if (error) {
-    return <div className="mx-auto max-w-6xl space-y-3 p-4 @xl:p-6">{back}<p role="alert" className="text-sm text-foreground">{error ?? 'Products unavailable.'}</p></div>
+    return <div className="w-full space-y-3 p-4 @xl:p-6">{back}<p role="alert" className="text-sm text-foreground">{error ?? 'Products unavailable.'}</p></div>
   }
-  if (!product) {
+  // Still looking for the Product's own record of the Portfolio: a Product that Signals does not define has only that.
+  if (!product && !masterChecked) {
+    return <div className="w-full space-y-4 p-4 @xl:p-6"><Skeleton className="h-20 w-full rounded-2xl" /><Skeleton className="h-64 w-full rounded-2xl" /></div>
+  }
+  if (!product && !master) {
     return (
-      <div className="mx-auto max-w-6xl space-y-3 p-4 @xl:p-6">
+      <div className="w-full space-y-3 p-4 @xl:p-6">
         {back}
         <EmptyState title="Product not found" description={`There is no product "${productKey || 'specified'}" in this organisation.`} action={<Button asChild size="sm"><Link href="/portfolio">Go to Product Portfolio</Link></Button>} />
       </div>
     )
   }
 
-  const forProduct = encodeURIComponent(product.key)
+  const title = product?.label ?? master?.name ?? productKey
+  const forProduct = encodeURIComponent(product?.key ?? master?.key ?? productKey)
   const canAdd = Boolean(can?.createSubProduct) && master?.status !== 'archived'
   // Only an administrator edits a Product's own details, and only one this organisation created (a built-in Product is shared and read only).
-  const canEditProduct = isAdmin && Boolean(product.custom) && !master?.shared && master?.status !== 'archived'
-  const tabs: PageTab[] = TAB_IDS.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? (subs?.paging.total ?? product.offers.length) : undefined }))
+  const canEditProduct = product !== null && isAdmin && Boolean(product.custom) && !master?.shared && master?.status !== 'archived'
+  // One number for the header and the tab: the ACTIVE Sub-products, like the Portfolio list's (the Sub-products tab also lists the archived ones, so they can be restored).
+  const activeCount = subs ? Math.max(0, subs.paging.total - archivedCount) : (product?.offers.length ?? 0)
+  // A Product that exists only in the Portfolio has no setup steps, no customer summary and no signals of its own: its page is its Sub-products.
+  const tabIds: readonly ProductTabId[] = product ? TAB_IDS : ['sub-products']
+  const activeTab: ProductTabId = product ? tab : 'sub-products'
+  const tabs: PageTab[] = tabIds.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? activeCount : undefined }))
+  const description = [
+    `${activeCount} sub-product${activeCount === 1 ? '' : 's'}`,
+    archivedCount > 0 ? `${archivedCount} archived` : null,
+    product ? `${product.opportunities_count} opportunit${product.opportunities_count === 1 ? 'y' : 'ies'}` : null,
+    product?.portfolio_name ? `Portfolio group: ${product.portfolio_name}` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
-    <div className="@container mx-auto max-w-6xl space-y-5 p-4 @xl:p-6">
+    <div className="@container w-full space-y-5 p-4 @xl:p-6">
       {back}
       <PremiumHeader
-        title={product.label}
-        badge={<span className="flex flex-wrap items-center gap-2"><SubProductIcpBadge product={product} />{master?.shared && <SharedChip />}{master?.status === 'archived' && <ArchivedChip />}</span>}
-        description={`${product.offers.length} sub-product${product.offers.length === 1 ? '' : 's'} · ${product.opportunities_count} opportunit${product.opportunities_count === 1 ? 'y' : 'ies'}${product.portfolio_name ? ` · Portfolio group: ${product.portfolio_name}` : ''}`}
+        title={title}
+        badge={<span className="flex flex-wrap items-center gap-2">{product && <SubProductIcpBadge product={product} />}{master?.shared && <SharedChip />}{master?.status === 'archived' && <ArchivedChip />}</span>}
+        description={description}
         actions={
           <>
             {canAdd && <Button size="sm" onClick={() => setDrawer('create-sub-product')}><Plus className="mr-1.5 size-4" aria-hidden="true" />Add sub-product</Button>}
-            <Button asChild size="sm" variant={product.ready ? 'default' : 'outline'}>
-              <Link href={`/signals?product=${forProduct}`}><Sparkles className="mr-1.5 size-4" aria-hidden="true" /> {product.ready ? 'Review opportunities' : 'Go to Company Opportunities'}</Link>
-            </Button>
+            {product && (
+              <Button asChild size="sm" variant={product.ready ? 'default' : 'outline'}>
+                <Link href={`/signals?product=${forProduct}`}><Sparkles className="mr-1.5 size-4" aria-hidden="true" /> {product.ready ? 'Review opportunities' : 'Go to Company Opportunities'}</Link>
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="icon" variant="outline" aria-label="More actions"><MoreHorizontal className="size-4" aria-hidden="true" /></Button>
@@ -194,24 +223,28 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
 
       {notice && <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${NOTICE_TONE[notice.tone]}`}>{notice.text}</div>}
 
-      <PageTabs tabs={tabs} active={tab} onChange={(id) => show(id as ProductTabId)} label="Product sections" idPrefix="product-page" />
+      <PageTabs tabs={tabs} active={activeTab} onChange={(id) => show(id as ProductTabId)} label="Product sections" idPrefix="product-page" />
 
-      <TabPanel id="overview" active={tab} idPrefix="product-page">
-        <div className="space-y-4">
-          {product.generation_note && <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">{product.generation_note}</p>}
-          <ProductSetupSteps product={product} />
-          <ProductProfilePanel product={product} />
-          <p className="text-xs text-muted-foreground">
-            Each sub-product has its own ICP. <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => show('sub-products')}>Open the sub-products</Button> to see which have one and to set the others up.
-          </p>
-        </div>
-      </TabPanel>
-      <TabPanel id="sub-products" active={tab} idPrefix="product-page">
+      {product && (
+        <TabPanel id="overview" active={activeTab} idPrefix="product-page">
+          <div className="space-y-4">
+            {product.generation_note && <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">{product.generation_note}</p>}
+            <ProductSetupSteps product={product} />
+            <ProductProfilePanel product={product} />
+            <p className="text-xs text-muted-foreground">
+              Each sub-product has its own ICP. <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => show('sub-products')}>Open the sub-products</Button> to see which have one and to set the others up.
+            </p>
+          </div>
+        </TabPanel>
+      )}
+      <TabPanel id="sub-products" active={activeTab} idPrefix="product-page">
         <SubProductsTab data={subs} error={subsError} loading={subsBusy} canAdd={canAdd} onAdd={() => setDrawer('create-sub-product')} onPage={(p) => void loadSubs(p)} />
       </TabPanel>
-      <TabPanel id="signals" active={tab} idPrefix="product-page">
-        <ProductSignalsTab data={subs} productKey={product.key} error={subsError} />
-      </TabPanel>
+      {product && (
+        <TabPanel id="signals" active={activeTab} idPrefix="product-page">
+          <ProductSignalsTab data={subs} productKey={product.key} error={subsError} />
+        </TabPanel>
+      )}
 
       <ProductFormDrawer
         open={drawer !== null}
@@ -232,13 +265,15 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
           void loadSubs(1)
         }}
       />
-      <ProductEditDialog
-        context={context}
-        open={editOpen}
-        product={product}
-        onClose={() => setEditOpen(false)}
-        onSaved={() => { setNotice({ tone: 'success', text: 'Product saved.' }); reload() }}
-      />
+      {product && (
+        <ProductEditDialog
+          context={context}
+          open={editOpen}
+          product={product}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setNotice({ tone: 'success', text: 'Product saved.' }); reload() }}
+        />
+      )}
       {confirmDialog}
     </div>
   )
