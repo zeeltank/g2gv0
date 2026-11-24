@@ -54,6 +54,16 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Here is how the pieces fit together.
 
+## 17. ScholarClone in 59 seconds
+
+**Main message.** The whole story in 59 seconds, silent, with made-up school data.
+
+**Say.** Let the film play: 59 seconds, no sound, the words are on the screen. It covers the question, the six products, how they work, who sees what, how they connect and what we would like to talk about.
+
+**Ask.** Which part of that would you want to see first, in your own school?
+
+**Then.** Now the six products and how they fit together.
+
 ## 6. Six products, one idea: see, decide, act.
 
 **Main message.** Six products around one idea, each with an honest status.

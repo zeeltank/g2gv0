@@ -11,16 +11,17 @@ import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin'
 import { Flip } from 'gsap/Flip'
+import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin'
 import { SplitText } from 'gsap/SplitText'
 
 let registered = false
 
 export function setupGsap(): void {
   if (registered) return
-  gsap.registerPlugin(useGSAP, SplitText, DrawSVGPlugin, Flip)
+  gsap.registerPlugin(useGSAP, SplitText, DrawSVGPlugin, Flip, MorphSVGPlugin)
   registered = true
 }
 
 setupGsap()
 
-export { DrawSVGPlugin, Flip, SplitText, gsap, useGSAP }
+export { DrawSVGPlugin, Flip, MorphSVGPlugin, SplitText, gsap, useGSAP }

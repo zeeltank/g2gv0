@@ -134,6 +134,7 @@ for (const s of story.slides) {
     for (const b of film.beats) {
       if (b.start !== at) fail(`film beat ${b.id} starts at ${b.start} s, expected ${at} s`)
       at = b.end
+      if (b.chapter && (STATUS_WORDS.test(b.chapter) || b.chapter.split(/\s+/).length > 4)) fail(`film beat ${b.id}: the chapter label is a status word or longer than 4 words`)
       const words = b.lines.reduce((a, l) => a + l.text.split(/\s+/).length, 0)
       if (words > 70) fail(`film beat ${b.id} carries ${words} words on screen`)
       for (const id of b.claims || []) {
@@ -165,6 +166,22 @@ for (const s of story.slides) {
     if (end.lines.find((l) => l.role === 'close')?.text !== slideLine(15, 'close')) fail('the film end card must carry the approved closing line exactly')
     if (!film.meta?.disclosure || /real|customer|live data/i.test(film.meta.disclosure)) fail('the film needs the plain disclosure "Illustrative school data"')
     if (!film.beats.find((b) => b.id === 'problem')?.lines.some((l) => /illustrative/i.test(l.text))) fail('the film\'s problem beat needs an on-screen illustrative tag')
+  }
+}
+
+// 3e. The PowerPoint appendix (story.appendix): every row cites a verified or owner-confirmed claim and passes the same wording rules.
+for (const a of story.appendix || []) {
+  if (!a.lines?.length) fail(`appendix ${a.id} has no lines`)
+  for (const l of a.lines || []) {
+    const tag = `appendix ${a.id}: "${(l.text || l.q || '').slice(0, 50)}"`
+    if (!l.claim) fail(`${tag} cites no claim`)
+    else if (!claims.has(l.claim)) fail(`${tag} cites unknown claim ${l.claim}`)
+    else if (!['verified', 'owner-confirmed'].includes(claims.get(l.claim).status)) fail(`${tag} rests on a ${claims.get(l.claim).status} claim`)
+    for (const t of [l.label, l.text, l.q, l.a]) {
+      if (!t) continue
+      if (STATUS_WORDS.test(t)) fail(`${tag} holds a status word`)
+      for (const [re, what] of BANNED) if (re.test(t)) fail(`${tag} holds ${what}`)
+    }
   }
 }
 

@@ -11,6 +11,8 @@ export interface FilmLine {
 
 export interface FilmBeat {
   id: string
+  /** The small label shown while the beat plays (may be empty). */
+  chapter: string
   start: number
   end: number
   lines: FilmLine[]

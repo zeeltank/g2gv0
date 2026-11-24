@@ -18,6 +18,7 @@ import S13, { BEATS as B13 } from './s13-connected'
 import S14, { BEATS as B14 } from './s14-principals-day'
 import S15, { BEATS as B15 } from './s15-invitation'
 import S16, { BEATS as B16 } from './s16-see-it-work'
+import S17, { BEATS as B17 } from './s17-film'
 import Short2, { BEATS as BS2 } from './short-2-hidden-challenge'
 import Short3, { BEATS as BS3 } from './short-3-approach'
 import type { SceneProps } from './types'
@@ -47,6 +48,7 @@ export const SCENES: Record<string, SceneDef> = {
   s14: { key: 's14', slides: [14], beats: B14, Component: S14 },
   s15: { key: 's15', slides: [15], beats: B15, Component: S15 },
   s16: { key: 's16', slides: [16], beats: B16, Component: S16 },
+  s17: { key: 's17', slides: [17], beats: B17, Component: S17 },
   'short-2': { key: 'short-2', slides: [2, 4], beats: BS2, Component: Short2 },
   'short-3': { key: 'short-3', slides: [5, 6], beats: BS3, Component: Short3 },
 }

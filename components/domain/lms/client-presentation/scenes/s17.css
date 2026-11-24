@@ -1,0 +1,5 @@
+/* Slide 6 in the order of play: the 59-second film */
+.s17 { background: #02080f; }
+.s17-video { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: contain; background: #02080f; display: block; }
+.s17-replay { position: absolute; right: 48px; bottom: 56px; padding: 14px 32px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.6); background: rgba(2, 8, 15, 0.7); color: #fff; font-family: var(--cp-sans), 'Segoe UI', system-ui, sans-serif; font-weight: 800; font-size: 28px; cursor: pointer; }
+.s17-replay:focus-visible { outline: 4px solid #9fd0ff; outline-offset: 3px; }

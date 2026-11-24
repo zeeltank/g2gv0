@@ -657,6 +657,39 @@
       ]
     },
     {
+      "n": 17,
+      "id": "film",
+      "section": "The film",
+      "takeaway": "The whole story in 59 seconds, silent, with made-up school data.",
+      "on_slide": [
+        {
+          "role": "headline",
+          "text": "ScholarClone in 59 seconds",
+          "kind": "statement"
+        },
+        {
+          "role": "note",
+          "text": "Illustrative motion graphics with made-up school data.",
+          "kind": "label"
+        }
+      ],
+      "visual": "The film plays across the whole stage and starts by itself; a Replay button sits in the corner.",
+      "motion": "The film is the motion: nine beats, five kinds of transition.",
+      "claims": [
+        "C-POS",
+        "C-NAMES",
+        "C-ILL",
+        "C-INV"
+      ],
+      "say": "Let the film play: 59 seconds, no sound, the words are on the screen. It covers the question, the six products, how they work, who sees what, how they connect and what we would like to talk about.",
+      "ask": "Which part of that would you want to see first, in your own school?",
+      "transition": "Now the six products and how they fit together.",
+      "slots": [],
+      "limits": [
+        "The film is motion graphics with made-up school data, not a recording of the live product. Say so if asked; real recordings are shown in a demo session."
+      ]
+    },
+    {
       "n": 6,
       "id": "ecosystem",
       "section": "The answer",
@@ -1702,5 +1735,155 @@
     "screenshots": "Genuine ScholarClone screenshots from an authorised environment only; until received each slot shows a labelled placeholder. Never a fabricated interface.",
     "shapes_frames_components": "Our own frames, shapes and components are allowed; no picture is drawn in code.",
     "swap": "Every image is a slot id in assets.json so any one can be replaced without touching the slide."
-  }
+  },
+  "appendix": [
+    {
+      "id": "views",
+      "title": "Stakeholder views",
+      "notes": "Who sees what. Each row is one claim in the ledger; nothing here is a customer result.",
+      "lines": [
+        {
+          "role": "row",
+          "label": "Principal",
+          "text": "A leadership overview: the school's health, what changed, what is at risk and priority actions on one page.",
+          "claim": "C-INS-EXEC"
+        },
+        {
+          "role": "row",
+          "label": "Teacher",
+          "text": "Competency ratings, a gap view and a development plan with actions. AI can draft questions and content to use.",
+          "claim": "C-CCB-GAP"
+        },
+        {
+          "role": "row",
+          "label": "Student",
+          "text": "A diagnostic of weak, moderate and strong concepts, a plan drawn from it and one next action.",
+          "claim": "C-LRN-DIAG"
+        },
+        {
+          "role": "row",
+          "label": "Student",
+          "text": "Interest questions, a personality questionnaire, and a record of aspirations and how sure the student is.",
+          "claim": "C-CMP-PROF"
+        },
+        {
+          "role": "row",
+          "label": "Operations staff",
+          "text": "Fee collection, daily attendance and marks entry in one school system.",
+          "claim": "C-CORE-FEE"
+        },
+        {
+          "role": "row",
+          "label": "Parents (reached by staff)",
+          "text": "Staff can send SMS, e-mail and notifications to parents, and parent-teacher meetings can be booked.",
+          "claim": "C-CORE-PAR"
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "title": "Reports and connections",
+      "notes": "Reports are what each part of the school can print or review. Connections are only the ones the code makes.",
+      "lines": [
+        {
+          "role": "row",
+          "label": "Attendance",
+          "text": "Daily student and staff attendance, with reports.",
+          "claim": "C-CORE-ATT"
+        },
+        {
+          "role": "row",
+          "label": "Results",
+          "text": "Exam creation, marks entry and result reports.",
+          "claim": "C-CORE-EXM"
+        },
+        {
+          "role": "row",
+          "label": "Admissions",
+          "text": "Enquiry, registration, follow-up and reports.",
+          "claim": "C-CORE-ADM"
+        },
+        {
+          "role": "row",
+          "label": "Payroll",
+          "text": "Payroll types, monthly payroll reports and Form 16 for staff.",
+          "claim": "C-CORE-PAY"
+        },
+        {
+          "role": "row",
+          "label": "Signals",
+          "text": "Signals from fees, attendance, admissions, results, staff, library and transport are gathered in one place.",
+          "claim": "C-INS-SIG"
+        },
+        {
+          "role": "row",
+          "label": "Connects to",
+          "text": "Online fee payment through a payment gateway, and cheque reconciliation.",
+          "claim": "C-CORE-FEE"
+        },
+        {
+          "role": "row",
+          "label": "Across the platform",
+          "text": "Exams and practice become career evidence; attendance and results are compared across classes; results, attendance and assignments are joined into one risk case.",
+          "claim": "C-ONE-EVID"
+        }
+      ]
+    },
+    {
+      "id": "faqs",
+      "title": "Questions we are often asked",
+      "notes": "OWNER TO CONFIRM before the answer is written on a slide: where the platform is hosted, how data is protected, what implementation involves, price and contract terms. None of these has a verified source in the ledger, so none is answered here.",
+      "lines": [
+        {
+          "role": "qa",
+          "q": "What does School Intelligence mean?",
+          "a": "Helping a school understand what its information is telling it, where attention is needed and what action may be appropriate next.",
+          "claim": "C-DEF"
+        },
+        {
+          "role": "qa",
+          "q": "Can fees be collected online?",
+          "a": "Yes: online payment through a payment gateway, and cheque reconciliation.",
+          "claim": "C-CORE-FEE"
+        },
+        {
+          "role": "qa",
+          "q": "Does a student set a learning goal?",
+          "a": "A student records the career they expect and how sure they are. The learning plan is drawn from the diagnostic.",
+          "claim": "C-CMP-CERT"
+        },
+        {
+          "role": "qa",
+          "q": "Does Insight say what caused a problem?",
+          "a": "No. It shows an association between measures, not a cause, and its recommendations wait for a person to approve or reject them.",
+          "claim": "C-INS-GATE"
+        }
+      ]
+    },
+    {
+      "id": "fit",
+      "title": "Who it is for, and how we would begin",
+      "notes": "The four items are the approved invitation. No price, trial, date or number of seats is stated anywhere.",
+      "lines": [
+        {
+          "role": "row",
+          "label": "Built for",
+          "text": "School promoters, trustees, principals, directors and academic leaders in India.",
+          "claim": "C-FIT"
+        },
+        {
+          "role": "row",
+          "label": "We begin with",
+          "text": "A conversation about the Founding 25 Pilot Programme.",
+          "claim": "C-INV"
+        },
+        {
+          "role": "row",
+          "label": "Together we identify",
+          "text": "The challenge that matters most to your school; the first capability to explore; the people who should be involved; the evidence or improvement your school wants to review.",
+          "claim": "C-INV"
+        }
+      ]
+    }
+  ]
 }
