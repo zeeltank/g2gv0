@@ -135,7 +135,11 @@ export function TaskWorkspace() {
     return () => window.clearTimeout(timer)
   }, [searchInput])
 
+  const loadSeq = useRef(0)
   const load = useCallback(async () => {
+    // Only the NEWEST request may write to the screen. The first, unfiltered request is the slow one: without this it
+    // finished after a filter click and put the whole list back (found live: "Mine" showed 1 row, then 25).
+    const seq = ++loadSeq.current
     setLoading(true); setError('')
     // A selection from a different page/filter/scope refers to rows that are
     // about to disappear from `tasks` - carrying it over would let someone
@@ -149,6 +153,7 @@ export function TaskWorkspace() {
         from: filters.from || undefined, to: filters.to || undefined,
         page, perPage: EMPTY_PAGINATION.per_page,
       })
+      if (seq !== loadSeq.current) return
       setTasks(response.data.tasks); setSummary(response.data.summary)
       setPagination(response.data.pagination)
       setStatusOptions(response.data.filters.status_options)
@@ -158,8 +163,8 @@ export function TaskWorkspace() {
       // columns, ordered and colored, with no extra network round trip.
       setPriorityOptions(response.data.filters.priority_options)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load the task workspace.')
-    } finally { setLoading(false) }
+      if (seq === loadSeq.current) setError(reason instanceof Error ? reason.message : 'Unable to load the task workspace.')
+    } finally { if (seq === loadSeq.current) setLoading(false) }
   }, [page, scope, search, status, quick, sort, filters])
   useEffect(() => {
     // Deferred so the load's first setState lands after this render. `reload`
@@ -311,10 +316,10 @@ export function TaskWorkspace() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="relative min-w-0 flex-1 lg:max-w-[40%]"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} aria-label="Search tasks" placeholder="Search tasks, assignees, or projects..." className="h-10 w-full rounded-xl border border-input bg-muted/20 pl-9 pr-3 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" /></div>
             <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-end">
-              <div className="lg:w-48"><Select value={scope} onChange={(value) => { setScope(value as WorkspaceScope); setPage(1) }} className="h-10" options={[
+              <div className="lg:w-48"><Select aria-label="Workspace scope" value={scope} onChange={(value) => { setScope(value as WorkspaceScope); setPage(1) }} className="h-10" options={[
                 { value: 'all', label: 'All Tasks Workspace' }, { value: 'mine', label: 'Assigned to me' }, { value: 'created', label: 'Created by me' }, { value: 'team', label: 'My team' }, { value: 'department', label: 'My department' },
               ]} /></div>
-              <div className="lg:w-40"><Select value={status} onChange={(value) => { setStatus(value); setPage(1) }} className="h-10" options={[
+              <div className="lg:w-40"><Select aria-label="Status filter" value={status} onChange={(value) => { setStatus(value); setPage(1) }} className="h-10" options={[
                 // The tenant's own vocabulary, not a hardcoded four - a custom
                 // status filters by its label, a system one by its category.
                 { value: 'all', label: 'All Statuses' },
@@ -405,7 +410,7 @@ export function TaskWorkspace() {
       <div className="space-y-4 pt-4">
         <div className="flex items-center gap-3 text-sm">
           <label htmlFor="analytics-scope" className="text-muted-foreground">Showing</label>
-          <div className="w-56"><Select value={scope} onChange={(value) => { setScope(value as WorkspaceScope); setPage(1) }} className="h-10" options={[
+          <div className="w-56"><Select aria-label="Workspace scope" value={scope} onChange={(value) => { setScope(value as WorkspaceScope); setPage(1) }} className="h-10" options={[
             { value: 'all', label: 'All Tasks Workspace' }, { value: 'mine', label: 'Assigned to me' }, { value: 'created', label: 'Created by me' }, { value: 'team', label: 'My team' }, { value: 'department', label: 'My department' },
           ]} /></div>
         </div>
@@ -505,7 +510,7 @@ function TaskTable({ tasks, onSelect, onArchive, selectedIds, onToggle, onToggle
   onToggleAll: (checked: boolean) => void
 }) {
   const allSelected = tasks.length > 0 && tasks.every((task) => selectedIds.has(task.id))
-  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="w-10 px-4 py-4"><input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="Select all tasks on this page" /></th><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className={`border-b last:border-0 hover:bg-muted/30 ${selectedIds.has(task.id) ? 'bg-primary/5' : dueBadge(task.due_date, task.status === 'COMPLETED')?.tone === 'overdue' ? 'bg-destructive/[0.03]' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => onToggle(task.id)} aria-label={`Select ${task.title}`} /></td><td className="px-6 py-4"><button onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusText(task)} /></td><td className="whitespace-nowrap px-5 py-4"><div className="space-y-1"><div className="tabular-nums">{formatDueDate(task.due_date)}</div>{['overdue', 'soon'].includes(dueBadge(task.due_date, task.status === 'COMPLETED')?.tone ?? '') && <DueChip due={task.due_date} finished={task.status === 'COMPLETED'} />}</div></td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
+  return <div className="overflow-hidden rounded-2xl border border-primary/10 bg-card shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-primary/[0.045]"><tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><th className="w-10 px-4 py-4"><input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="Select all tasks on this page" /></th><th className="px-6 py-4">Task Name</th><th className="px-5 py-4">Project</th><th className="px-5 py-4">Assignee</th><th className="px-5 py-4">Priority</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Due Date</th><th className="px-6 py-4 text-right">Quick Actions</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id} className={`border-b last:border-0 hover:bg-muted/30 ${selectedIds.has(task.id) ? 'bg-primary/5' : dueBadge(task.due_date, task.status === 'COMPLETED')?.tone === 'overdue' ? 'bg-destructive/[0.03]' : ''}`}><td className="px-4 py-4"><input type="checkbox" checked={selectedIds.has(task.id)} onChange={() => onToggle(task.id)} aria-label={`Select ${task.title}`} /></td><td className="px-6 py-4"><button data-task-open={task.id} onClick={() => onSelect(task)} className="max-w-72 text-left"><p className="font-semibold">{task.title}</p><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{task.description}</p></button></td><td className="px-5 py-4">{task.project}</td><td className="px-5 py-4">{task.assignee}</td><td className="px-5 py-4"><PriorityBadge priority={task.priority} /></td><td className="px-5 py-4"><StatusBadge status={task.status} label={statusText(task)} /></td><td className="whitespace-nowrap px-5 py-4"><div className="space-y-1"><div className="tabular-nums">{formatDueDate(task.due_date)}</div>{['overdue', 'soon'].includes(dueBadge(task.due_date, task.status === 'COMPLETED')?.tone ?? '') && <DueChip due={task.due_date} finished={task.status === 'COMPLETED'} />}</div></td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="View task" onClick={() => onSelect(task)}><Eye className="size-4" /></Button><Button variant="ghost" size="icon" title="Archive task" onClick={() => void onArchive(task)}><Archive className="size-4 text-destructive" /></Button></div></td></tr>)}</tbody></table></div></div>
 }
 
 /** HEX equivalents of this grid's own status dots, so both grouping modes render through one inline-style path. */
@@ -565,7 +570,7 @@ function TaskGrid({ tasks, onSelect, groupBy, priorityOptions }: {
         <div className="space-y-3">{column.tasks.map((task) => {
           const initials = task.assignee.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '—'
           const accent = task.priority === 'High' ? 'border-t-destructive' : task.priority === 'Medium' ? 'border-t-warning' : task.priority === 'Low' ? 'border-t-success' : 'border-t-purple-700'
-          return <button key={task.id} onClick={() => onSelect(task)} className={`w-full rounded-2xl border border-t-2 bg-background p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${accent}`}>
+          return <button key={task.id} data-task-open={task.id} onClick={() => onSelect(task)} className={`w-full rounded-2xl border border-t-2 bg-background p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${accent}`}>
             <PriorityBadge priority={task.priority} className="border-0 bg-transparent px-0 py-0 text-[10px] uppercase" />
             <h4 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold leading-5">{task.title}</h4>
             <div className="mt-4 flex items-center justify-between border-t pt-3 text-[11px] text-muted-foreground">
@@ -636,7 +641,7 @@ function TaskApprovals({ counts, refreshKey, onSelect, onDecision }: {
     {loading ? <div className="flex h-44 items-center justify-center"><Spinner /></div> : <div className="space-y-4">{visible.length ? visible.map((task) => <article key={task.id} className="relative overflow-hidden rounded-3xl border bg-background p-5 pl-8 shadow-sm">
       <span className={`absolute inset-y-0 left-0 w-1.5 ${task.approve_status === 'rejected' ? 'bg-destructive/50' : 'bg-primary/35'}`} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <button onClick={() => onSelect(task)} className="flex min-w-0 items-center gap-4 text-left">
+        <button data-task-open={task.id} onClick={() => onSelect(task)} className="flex min-w-0 items-center gap-4 text-left">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/5 text-xs font-bold text-primary">{task.assignee.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
           <span className="min-w-0"><span className="flex flex-wrap items-center gap-3"><strong className="truncate text-base">{task.title}</strong><span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">TSK-{task.id}</span></span><span className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"><span className="text-primary">●</span><span>{task.project}</span><span className="flex items-center gap-1"><CalendarDays className="size-3.5" />Submitted {formatShortDate(task.updated_at?.slice(0, 10) ?? task.due_date)}</span>{task.approval?.pending && (
             <span className="rounded-lg bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">

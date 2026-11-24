@@ -60,7 +60,7 @@ export function QuickChips({ active, counts, onChange }: {
           >
             {QUICK_LABELS[key]}
             {count !== undefined && (
-              <span className={cn('tabular-nums', on ? 'text-primary-foreground/80' : key === 'overdue' && count > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+              <span className={cn('tabular-nums', on ? 'text-primary-foreground/80' : key === 'overdue' && count > 0 ? 'font-semibold text-red-700 dark:text-red-300' : 'text-muted-foreground')}>
                 {count}
               </span>
             )}

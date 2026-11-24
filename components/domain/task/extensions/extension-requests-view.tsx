@@ -92,12 +92,17 @@ export function ExtensionRequestsView({ onChanged, onOpenTask }: {
     return () => window.clearTimeout(timer)
   }, [searchInput])
 
+  const loadSeq = useRef(0)
   const load = useCallback(async () => {
+    // Only the NEWEST request may write to the screen. The first, unfiltered request is the slow one: without this it
+    // finished after a filter click and put the whole list back (found live: "Mine" showed 1 row, then 25).
+    const seq = ++loadSeq.current
     const context = getLaravelContext()
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setLoading(false); return }
     setLoading(true); setError('')
     try {
       const response = await taskService.getExtensionQueue(context, { ...toQueueParams(filters), includeFilters: firstLoad.current })
+      if (seq !== loadSeq.current) return
       const data = response.data
       setRows(data.requests); setSummary(data.summary); setPagination(data.pagination); setScope(data.scope)
       if (data.filters) setOptions(data.filters)
@@ -110,8 +115,8 @@ export function ExtensionRequestsView({ onChanged, onOpenTask }: {
       }
       firstLoad.current = false
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load the extension requests.')
-    } finally { setLoading(false) }
+      if (seq === loadSeq.current) setError(reason instanceof Error ? reason.message : 'Unable to load the extension requests.')
+    } finally { if (seq === loadSeq.current) setLoading(false) }
   }, [filters])
 
   useEffect(() => { if (urlRead) queueMicrotask(() => { void load() }) }, [load, reload, urlRead])
@@ -217,16 +222,16 @@ export function ExtensionRequestsView({ onChanged, onOpenTask }: {
 
           {notice && (
             <div role="status" className="rounded-xl border border-success/30 bg-success/5 p-3 text-sm">
-              <div className="flex items-start justify-between gap-2"><p className="text-success">{notice.text}</p>
+              <div className="flex items-start justify-between gap-2"><p className="text-green-700 dark:text-green-300">{notice.text}</p>
                 <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss message" className="rounded p-0.5 hover:bg-accent"><X className="size-4" /></button></div>
               {notice.failures.length > 0 && (
-                <ul className="mt-2 space-y-0.5 text-xs text-destructive">
+                <ul className="mt-2 space-y-0.5 text-xs text-red-700 dark:text-red-300">
                   {notice.failures.map((failure, index) => <li key={index}><strong>{failure.title}</strong>: {failure.reason}</li>)}
                 </ul>
               )}
             </div>
           )}
-          {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
+          {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
           <p className="sr-only" aria-live="polite">{loading ? 'Loading requests' : `${pagination.total} request${pagination.total === 1 ? '' : 's'}`}</p>
 
@@ -273,7 +278,7 @@ export function ExtensionRequestsView({ onChanged, onOpenTask }: {
           <span className="text-sm font-medium tabular-nums">{selectedIds.size} selected</span>
           {selectedIds.size < selectable.length && <Button variant="link" size="xs" onClick={() => setSelectedIds(new Set(selectable.map((row) => row.id)))}>Select all {selectable.length} on this page</Button>}
           <Button size="sm" disabled={busy} onClick={() => setApproveIds(Array.from(selectedIds))}>Approve selected</Button>
-          <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={() => { setDeclineIds(Array.from(selectedIds)); setDeclineReason(''); setDeclineAttempted(false) }}>Decline selected…</Button>
+          <Button size="sm" variant="outline" className="text-red-700 dark:text-red-300" disabled={busy} onClick={() => { setDeclineIds(Array.from(selectedIds)); setDeclineReason(''); setDeclineAttempted(false) }}>Decline selected…</Button>
           <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
         </div>
       )}
@@ -321,7 +326,7 @@ export function ExtensionRequestsView({ onChanged, onOpenTask }: {
             aria-invalid={declineAttempted && !declineReason.trim()}
             className={cn('min-h-24 w-full rounded-lg border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/40', declineAttempted && !declineReason.trim() ? 'border-destructive' : 'border-input')}
           />
-          {declineAttempted && !declineReason.trim() && <p className="text-xs text-destructive">Say why it is declined.</p>}
+          {declineAttempted && !declineReason.trim() && <p className="text-xs text-red-700 dark:text-red-300">Say why it is declined.</p>}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setDeclineIds(null)}>Cancel</Button>
             <Button variant="destructive" disabled={busy} onClick={() => { setDeclineAttempted(true); if (declineIds && declineReason.trim()) { const ids = declineIds; setDeclineIds(null); void decide(ids, 'reject', declineReason) } }}>Decline</Button>
@@ -348,7 +353,7 @@ function Kpis({ summary, onPending, onRepeat }: { summary: ExtensionQueueSummary
         const body = (
           <div className={cn('h-full rounded-xl border bg-card p-3 text-left', tile.action && 'transition-colors hover:border-primary/40')}>
             <p className="text-xs font-medium text-muted-foreground">{tile.label}</p>
-            <p className={cn('text-2xl font-bold tabular-nums', tile.tone === 'warn' && 'text-warning')}>{tile.value}</p>
+            <p className={cn('text-2xl font-bold tabular-nums', tile.tone === 'warn' && 'text-amber-700 dark:text-amber-300')}>{tile.value}</p>
             <p className="text-xs text-muted-foreground">{tile.note}</p>
           </div>
         )
@@ -469,21 +474,21 @@ function RequestTable({ rows, selectedIds, allTicked, selectableCount, onToggle,
                   <td className="whitespace-nowrap px-3 py-3 tabular-nums">
                     <span>{original ? `${formatDayShort(original)} → ` : ''}{formatDay(row.requested_date)}</span>
                     {days && <span className="ml-1.5 text-muted-foreground">{days}</span>}
-                    {row.overdue_at_request && <p className="mt-0.5"><span className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">Overdue at request</span></p>}
+                    {row.overdue_at_request && <p className="mt-0.5"><span className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-300">Overdue at request</span></p>}
                   </td>
                   <td className="max-w-56 px-3 py-3"><p className="truncate" title={row.reason ?? undefined}>{row.reason || <span className="text-muted-foreground">-</span>}</p></td>
                   <td className="whitespace-nowrap px-3 py-3 tabular-nums">
                     {row.status === 'pending'
-                      ? <span className={cn(tone === 'late' && 'font-semibold text-destructive', tone === 'warn' && 'font-semibold text-warning')}>{waitingDays(row)} d{tone === 'late' ? ' - long wait' : ''}</span>
+                      ? <span className={cn(tone === 'late' && 'font-semibold text-red-700 dark:text-red-300', tone === 'warn' && 'font-semibold text-amber-700 dark:text-amber-300')}>{waitingDays(row)} d{tone === 'late' ? ' - long wait' : ''}</span>
                       : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-3 py-3 tabular-nums">{(row.nth ?? 1) >= 2 ? <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">{ordinal(row.nth ?? 1)}</span> : <span className="text-muted-foreground">1st</span>}</td>
+                  <td className="px-3 py-3 tabular-nums">{(row.nth ?? 1) >= 2 ? <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">{ordinal(row.nth ?? 1)}</span> : <span className="text-muted-foreground">1st</span>}</td>
                   <td className="px-3 py-3"><StatusBadge status={row.status} label={STATUS_LABELS[row.status]} size="sm" /></td>
                   <td className="px-3 py-3">
                     <div className="flex justify-end gap-1">
                       {row.can_decide && <>
-                        <Button variant="ghost" size="icon" title="Approve" aria-label={`Approve ${row.task_title}`} disabled={busy} onClick={() => onApprove(row)}><Check className="size-4 text-success" /></Button>
-                        <Button variant="ghost" size="icon" title="Decline" aria-label={`Decline ${row.task_title}`} disabled={busy} onClick={() => onDecline(row)}><X className="size-4 text-destructive" /></Button>
+                        <Button variant="ghost" size="icon" title="Approve" aria-label={`Approve ${row.task_title}`} disabled={busy} onClick={() => onApprove(row)}><Check className="size-4 text-green-700 dark:text-green-300" /></Button>
+                        <Button variant="ghost" size="icon" title="Decline" aria-label={`Decline ${row.task_title}`} disabled={busy} onClick={() => onDecline(row)}><X className="size-4 text-red-700 dark:text-red-300" /></Button>
                       </>}
                       {row.can_withdraw && <Button variant="outline" size="xs" disabled={busy} onClick={() => onWithdraw(row)}>Withdraw</Button>}
                       <Button variant="ghost" size="icon" title="Details" aria-label={`Details of ${row.task_title}`} onClick={() => onOpen(row)}><Eye className="size-4" /></Button>

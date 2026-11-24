@@ -204,7 +204,7 @@ function extensionQueueQuery(context: LaravelContext, p: ExtensionQueueParams): 
   set('decided_from', p.decidedFrom); set('decided_to', p.decidedTo)
   set('min_days', p.minDays); set('max_days', p.maxDays)
   set('overdue_at_request', p.overdueAtRequest); set('repeat', p.repeat)
-  set('q', p.q); set('sort', p.sort); set('page', p.page); set('per_page', p.perPage)
+  set('q', p.q); set('sort', p.sort); set('page', p.page); set('per_page', p.perPage); set('include_filters', p.includeFilters)
   return query
 }
 

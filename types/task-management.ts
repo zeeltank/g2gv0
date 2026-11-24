@@ -211,6 +211,8 @@ export interface ExtensionQueueParams {
   sort?: ExtensionQueueSort
   page?: number
   perPage?: number
+  /** Also return the dropdown values. Ask once; they do not change from page to page. */
+  includeFilters?: boolean
 }
 
 export interface ExtensionQueueResponse {
@@ -222,7 +224,16 @@ export interface ExtensionQueueResponse {
     summary: ExtensionQueueSummary
     /** `organisation` for an administrator, `own` for everyone else (their own and those on their tasks). */
     scope: 'organisation' | 'own'
+    /** Dropdown values drawn from what the viewer can see. Only present when the call asked for them (`includeFilters`). */
+    filters: ExtensionFilterOptions | null
   }
+}
+
+export interface ExtensionFilterOptions {
+  requesters: Array<{ id: string; name: string }>
+  deciders: Array<{ id: string; name: string }>
+  departments: Array<{ id: string; name: string }>
+  priorities: string[]
 }
 
 export interface ExtensionBulkResponse {

@@ -113,7 +113,7 @@ export function SubtasksTab({ taskId, subtasks, loading, canManage, onChange, on
           </Button>
         </form>
       )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-700 dark:text-red-300">{error}</p>}
     </div>
   )
 }

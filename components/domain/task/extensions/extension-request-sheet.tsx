@@ -54,7 +54,7 @@ export function ExtensionRequestSheet({ row, busy, onClose, onOpenTask, onApprov
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={row.status} label={STATUS_LABELS[row.status]} />
                 {(row.nth ?? 1) >= 2 && (
-                  <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                  <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
                     {ordinal(row.nth ?? 1)} request on this task
                   </span>
                 )}
@@ -130,7 +130,7 @@ export function ExtensionRequestSheet({ row, busy, onClose, onOpenTask, onApprov
                       aria-invalid={attempted && !remarks.trim()}
                       className={cn('min-h-20 w-full rounded-lg border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/40', attempted && !remarks.trim() ? 'border-destructive' : 'border-input')}
                     />
-                    {attempted && !remarks.trim() && <p className="text-xs text-destructive">The requester is owed a reason.</p>}
+                    {attempted && !remarks.trim() && <p className="text-xs text-red-700 dark:text-red-300">The requester is owed a reason.</p>}
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" disabled={busy} onClick={reset}>Cancel</Button>
                       <Button variant="destructive" size="sm" disabled={busy} onClick={() => void decline()}>Decline request</Button>
@@ -141,7 +141,7 @@ export function ExtensionRequestSheet({ row, busy, onClose, onOpenTask, onApprov
                     {row.can_withdraw && <Button variant="outline" size="sm" disabled={busy} onClick={() => void onWithdraw(row)}>Withdraw request</Button>}
                     {row.can_decide && (
                       <>
-                        <Button variant="outline" size="sm" className="text-destructive" disabled={busy} onClick={() => setDeclining(true)}>Decline…</Button>
+                        <Button variant="outline" size="sm" className="text-red-700 dark:text-red-300" disabled={busy} onClick={() => setDeclining(true)}>Decline…</Button>
                         <Button size="sm" disabled={busy} onClick={() => void onApprove(row)}>Approve</Button>
                       </>
                     )}

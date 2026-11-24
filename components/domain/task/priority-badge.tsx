@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 
 const styles: Record<string, string> = {
-  low: 'border-success/30 bg-success/10 text-success',
-  medium: 'border-warning/40 bg-warning/10 text-warning',
-  high: 'border-destructive/35 bg-destructive/10 text-destructive',
+  low: 'border-success/30 bg-success/10 text-green-700 dark:text-green-300',
+  medium: 'border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-300',
+  high: 'border-destructive/35 bg-destructive/10 text-red-700 dark:text-red-300',
   critical: 'border-purple-800/40 bg-purple-950/15 text-purple-800 dark:text-purple-300',
   urgent: 'border-purple-800/40 bg-purple-950/15 text-purple-800 dark:text-purple-300',
 }

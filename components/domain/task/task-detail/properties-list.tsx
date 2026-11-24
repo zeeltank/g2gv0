@@ -14,10 +14,10 @@ import { RecurrenceRulePicker } from '../recurrence-rule-picker'
 import { dueBadge, formatDay, formatDayShort, relativeTime, type DueTone } from './date-utils'
 
 const TONE_CLASS: Record<DueTone, string> = {
-  overdue: 'border-destructive/40 bg-destructive/10 text-destructive',
-  soon: 'border-warning/40 bg-warning/10 text-warning',
+  overdue: 'border-destructive/40 bg-destructive/10 text-red-700 dark:text-red-300',
+  soon: 'border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-300',
   later: 'border-border bg-muted text-muted-foreground',
-  done: 'border-success/30 bg-success/10 text-success',
+  done: 'border-success/30 bg-success/10 text-green-700 dark:text-green-300',
 }
 
 /** "Overdue 3d" / "Due in 2d" / "Done". The words carry the meaning; the colour only backs them up. */
@@ -59,7 +59,7 @@ function Person({ name }: { name: string }) {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?'
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">{initials}</span>
+      <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">{initials}</span>
       <span className="truncate">{name}</span>
     </span>
   )
@@ -104,6 +104,7 @@ export function PropertiesList({
   ].filter(Boolean)
 
   return (
+    <>
     <dl className="divide-y divide-border/60">
       <Row label="Status"><StatusBadge status={task.status} label={task.status_label || undefined} size="sm" /></Row>
       <Row label="Assignee"><Person name={task.assignee} /></Row>
@@ -151,7 +152,7 @@ export function PropertiesList({
           <div className="space-y-1">
             <p>{describeRecurrence(recurrence)}</p>
             {canManage && (
-              <Button variant="ghost" size="xs" className="-ml-2 text-destructive" onClick={onStopRepeat} disabled={busy === 'recurrence'}>
+              <Button variant="ghost" size="xs" className="-ml-2 text-red-700 dark:text-red-300" onClick={onStopRepeat} disabled={busy === 'recurrence'}>
                 Stop repeating
               </Button>
             )}
@@ -161,7 +162,7 @@ export function PropertiesList({
             <PopoverTrigger asChild>
               <Button variant="outline" size="xs">Set up repeat</Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 space-y-3">
+            <PopoverContent align="end" className="w-80 space-y-3" onEscapeKeyDown={() => setRepeatOpen(false)}>
               <RecurrenceRulePicker value={draft} onChange={setDraft} />
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setRepeatOpen(false)}>Cancel</Button>
@@ -193,10 +194,11 @@ export function PropertiesList({
         </span>
       </Row>
 
-      <div className="pt-3 text-xs text-muted-foreground">
-        {task.created_at && <p>Created {relativeTime(task.created_at)}</p>}
-        {task.updated_at && <p>Updated {relativeTime(task.updated_at)}</p>}
-      </div>
     </dl>
+    <div className="pt-3 text-xs text-muted-foreground">
+      {task.created_at && <p>Created {relativeTime(task.created_at)}</p>}
+      {task.updated_at && <p>Updated {relativeTime(task.updated_at)}</p>}
+    </div>
+    </>
   )
 }

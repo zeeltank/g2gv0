@@ -1,15 +1,14 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { AlertCircle, Archive, CalendarPlus, CheckCircle2, Edit2, Info, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
+import { cn } from '@/lib/utils'
 import { PageTabs, TabPanel, type PageTab } from '@/components/shared/scaffolds/page-tabs'
 import { taskService } from '@/services/task'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
@@ -64,12 +63,37 @@ const NOTICE_ICON = { success: CheckCircle2, info: Info, warning: AlertCircle, d
 
 function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }: Props & { taskId: string }) {
   const detail = useTaskDetail({ taskId, open, onUpdated, onClose })
+  // Read in the first render, before the dialog moves focus into itself: this is the row (or card) that was clicked.
+  const [opener] = useState<HTMLElement | null>(() => (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null))
+
+  /**
+   * Back to what opened the panel. The clicked element is used while it is still on the page; a list that
+   * re-rendered meanwhile has replaced it, so the control marked `data-task-open` for this task is looked up
+   * instead, trying again for a moment in case the list is still loading. With neither, focus is left alone.
+   */
+  const restoreFocus = useCallback(() => {
+    let attempts = 0
+    const attempt = () => {
+      const target = opener && opener.isConnected ? opener : document.querySelector<HTMLElement>(`[data-task-open="${taskId}"]`)
+      if (target) { target.focus(); return }
+      if (++attempts < 8) window.setTimeout(attempt, 250)
+    }
+    attempt()
+  }, [opener, taskId])
+
+  // The panel is removed from the page when it closes (the callers drop the selected task), so Radix's own
+  // close-focus hook never gets to run. Restore focus when this unmounts - but only if no panel took its place:
+  // React's development double-mount unmounts and remounts it at once, and must not move focus out of the dialog.
+  useEffect(() => () => {
+    window.setTimeout(() => { if (!document.querySelector('[role=dialog]')) restoreFocus() }, 0)
+  }, [restoreFocus])
   const { task, workspace, notice, setNotice, busy } = detail
 
   /** Whether the shared assign/edit form is open over this panel. */
   const [editing, setEditing] = useState(false)
   const [tab, setTab] = useState('activity')
   const [descriptionOpen, setDescriptionOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [comment, setComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [scopeOpen, setScopeOpen] = useState(false)
@@ -145,17 +169,25 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
   )
 
   const NoticeIcon = notice ? NOTICE_ICON[notice.tone] : null
+  const act = (action: () => void) => () => { setMenuOpen(false); action() }
 
   return (
     <>
-      {/* open && !editing (not just open): swap, don't stack. The Edit form is its
+      {/* The Sheet steps aside, rather than stacking under it, while the edit form or a confirmation is showing: two Radix
+          modals open at once fight over focus. Everything the panel holds (tab, drafts, loaded data) is kept in this
+          component, so it comes back as it was.
+          open && !editing (not just open): swap, don't stack. The Edit form is its
           own Dialog - two Radix overlays at once compound to near-opaque and leave
           this one's content inert underneath. onUpdated's refetch +
           setEditing(false) flips this back open. */}
-      <Sheet open={open && !editing} onOpenChange={(next) => !next && onClose()}>
+      <Sheet open={open && !editing && !deleteOpen && !scopeOpen && !stopRepeatOpen} onOpenChange={(next) => !next && onClose()}>
         <SheetContent
           side="right"
           aria-describedby={undefined}
+          // Escape belongs to the innermost open layer. The status popover, the repeat popover and the header menu
+          // are separate Radix layers, so without this one Escape closed the whole panel as well as the popover.
+          // Each of them closes itself on Escape (their own onEscapeKeyDown); the panel only stands aside.
+          onEscapeKeyDown={(event) => { if (document.querySelector('[data-radix-popper-content-wrapper]')) event.preventDefault() }}
           className="flex w-full flex-col gap-0 border-l p-0 sm:w-[min(960px,80vw)] sm:max-w-none"
         >
           {/* HEADER: who and where it stands. The right padding clears the built-in close button. */}
@@ -179,35 +211,33 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
                     <Edit2 className="mr-1.5 size-4" aria-hidden="true" />Edit / Reassign
                   </Button>
                 )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                {/* A popover, not a dropdown menu: a Radix dropdown nested inside this Sheet fights it for focus and
+                    never opens (measured), and the popover is the layer this panel already uses for the status. */}
+                <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+                  <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" aria-label="More actions"><MoreHorizontal className="size-4" /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="z-[60] min-w-48">
-                    {canManage && (
-                      <DropdownMenuItem disabled={busy === 'followup'} onSelect={() => void detail.createFollowUp((value) => formatDay(value))}>
-                        <CalendarPlus className="mr-2 size-4" aria-hidden="true" />Create follow-up
-                      </DropdownMenuItem>
-                    )}
-                    {canReview && dashboardContext && (
-                      <>
-                        <DropdownMenuItem onSelect={dashboardContext.onApprove}><CheckCircle2 className="mr-2 size-4" aria-hidden="true" />Approve completion</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={dashboardContext.onReject}><AlertCircle className="mr-2 size-4" aria-hidden="true" />Send back for rework</DropdownMenuItem>
-                      </>
-                    )}
-                    {canArchive && dashboardContext && (
-                      <DropdownMenuItem onSelect={dashboardContext.onArchive}><Archive className="mr-2 size-4" aria-hidden="true" />Archive</DropdownMenuItem>
-                    )}
-                    {can?.delete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={askDelete}>
-                          <Trash2 className="mr-2 size-4" aria-hidden="true" />Delete task
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-56 p-1" onEscapeKeyDown={() => setMenuOpen(false)}>
+                    <div role="group" aria-label="Task actions" className="flex flex-col">
+                      {canManage && (
+                        <MenuAction icon={CalendarPlus} disabled={busy === 'followup'} onClick={act(() => void detail.createFollowUp((value) => formatDay(value)))}>Create follow-up</MenuAction>
+                      )}
+                      {canReview && dashboardContext && (
+                        <>
+                          <MenuAction icon={CheckCircle2} onClick={act(dashboardContext.onApprove)}>Approve completion</MenuAction>
+                          <MenuAction icon={AlertCircle} onClick={act(dashboardContext.onReject)}>Send back for rework</MenuAction>
+                        </>
+                      )}
+                      {canArchive && dashboardContext && <MenuAction icon={Archive} onClick={act(dashboardContext.onArchive)}>Archive</MenuAction>}
+                      {can?.delete && (
+                        <>
+                          <div role="separator" className="my-1 h-px bg-border" />
+                          <MenuAction icon={Trash2} danger onClick={act(askDelete)}>Delete task</MenuAction>
+                        </>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </header>
@@ -402,5 +432,27 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
         onCancel={() => setScopeOpen(false)}
       />
     </>
+  )
+}
+
+function MenuAction({ icon: Icon, children, onClick, disabled, danger }: {
+  icon: typeof Trash2
+  children: string
+  onClick: () => void
+  disabled?: boolean
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-50',
+        danger && 'text-red-700 dark:text-red-300',
+      )}
+    >
+      <Icon className="size-4" aria-hidden="true" />{children}
+    </button>
   )
 }
