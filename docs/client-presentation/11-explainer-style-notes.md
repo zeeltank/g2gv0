@@ -68,3 +68,28 @@ The owner asked for one advanced motion-graphics film, silent with burned-in cap
 - **References** (stills only, motion not seen): the YouTube Short "Master Motion Graphics Complete Free Course" (tile-mask type on a person) and the Pinterest pin "Motion inspiration - Frames" (a light weight against a heavy coloured one, overlap for depth, microtext). Ideas only; no asset was copied.
 - **Known small flaws**: the last audience chip ("Academic leaders") wraps to a second row in the closing seconds of the Benefits beat; the dev-server badge is hidden in the render but appears in a development browser.
 - **Not verified here**: PowerPoint opening the file without a repair prompt and starting the videos by itself (no PowerPoint on this machine; the autoplay timing block is the structure PowerPoint writes and was checked as well-formed XML with matching shape ids); playback on a phone or projector; the outside-leader two-second test; module-owner sign-off.
+
+
+## 8. Film version 2: 3D motion graphics (2026-11-24, night)
+**Owner feedback on version 1:** he liked the film but the pictures repeated (the same rounded boxes, cards and chips taken from the slides); he wants unique, advanced motion graphics, and asked for the best Claude skill or tool to be found by deep research and used with full effort. Then, on the modules frame: "not a proper grid layout, and no meaning connected with these models. Re-design this frame."
+
+**Research** (`D:\client-presentation-assetsesearcheports\Advanced motion film toolchain.md`, five researchers and a report writer): no single skill is installable and better than the stack below; the winning approach is three.js (WebGL2, MIT) for real 3D with a paused GSAP master timeline and a `seek(t)` function, rendered frame by frame on the installed Chrome with the NVIDIA GPU flags. Rejected with reasons: Remotion (licence), OpenMontage (AGPL), Blender Cycles (about 129 hours on this laptop), Spline and Unicorn Studio (hosted), AI video (kept optional, not used), Canva video (paid plan).
+
+**What changed in the picture (every beat has its own world, nothing is a card):**
+| Beat | What the viewer sees |
+|---|---|
+| 1 Hook | a real magnifier (aperture) clip-masks the words; dithered ink resolves to cream under the lens |
+| 2 Problems | a dark desk from above, one pool of light on the student photograph, three paper records at different heights, blue threads that stop just short |
+| 3 Reveal | the ring floods ink to cream; the seal and the approved sentence, underlines drawn on |
+| 4 Modules | one slab with a 3 x 2 blueprint grid; six bays in reading order, each with a real model doing its product's job: desk and chair (Core), encyclopedias falling into line under a lit bulb (Learn), microscope (CCB), a magnifier over dots that resolve to blue (Insight), a compass whose needle settles (Compass), the seal (One); one ring then draws round the whole slab |
+| 5 Workflow and AI | one thread through six equal stations on cream paper, dotted while the information is raw, a literal gap that closes at "Deciding what to do", green at "Taking action", an arc back for review; the Learn path as a centred second thread; the AI line drafted in pencil grey and inked |
+| 6 Stakeholder views | four round windows in four equal columns (three stock photographs, a real wall clock for operations staff), each with role, question, line and answering product in the same places |
+| 7 Connects to + Reports | a 2 x 2 grid of the four parts of the school, three threads with pulses, two report sheets leaving the leadership node |
+| 8 Benefits + Fit | a loose pile of three report sheets that tidies into one column at "without compiling by hand"; who it is for in five equal columns |
+| 9 End card | back on the dark desk of beat 2, now clear: the seal lands, the wordmark, the approved invitation, the closing line held for the last two seconds |
+
+**Layout rule added after the owner's remark:** every beat sits on a fixed grid (columns and baselines are exact), names and lines are set in the same place in every column, and an object is only used if it does what its product does. The beat-4 first draft (five plinths on an arc, objects unrelated to their names) was thrown away.
+
+**Method:** `film-studio/` (see its README): `shot.mjs` for stills during design, `render.mjs` for the film (Chrome DevTools capture, ffmpeg H.264 BT.709). Real CC0 models, HDRIs and textures (credits in `film-studio/CREDITS.json`), stock photographs credited on screen. The words and timings are unchanged from version 1 (`content/film.json`); the checker rules and claims are unchanged.
+
+**Not verified:** the film was reviewed from still frames and encoded frames, not on a phone, projector or in PowerPoint; the stock photographs stand in for a principal, a teacher and a student and are labelled illustrative (the owner decides whether to replace them with consented photographs of real staff); the operations window uses a wall clock, not a photograph; GSAP licence terms for company use were not read by a lawyer.

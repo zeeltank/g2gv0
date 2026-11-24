@@ -43,11 +43,11 @@ if (publish) {
   copyFileSync(file, join(dest, `${name}.mp4`)); copyFileSync(poster, join(dest, `${name}-poster.jpg`))
   const claims = [...new Set(film.beats.flatMap((b) => b.claims || []))]
   writeFileSync(join(root, 'docs/client-presentation/film-register.json'), JSON.stringify({
-    rendered: new Date().toISOString().slice(0, 10), tool: 'scripts/client-presentation/render-film.mjs', file: `film/${name}.mp4`, poster: `film/${name}-poster.jpg`,
+    rendered: new Date().toISOString().slice(0, 10), tool: 'film-studio/render.mjs', file: `film/${name}.mp4`, poster: `film/${name}-poster.jpg`,
     width: w, height: h, seconds: +seconds.toFixed(2), codec, pixel_format: pix, bytes, sha256: createHash('sha256').update(readFileSync(file)).digest('hex'), audio: 'none, by decision (silent, captions on screen)',
-    source: 'Motion graphics rendered frame by frame from /module/lms/learning/client-presentation/film (React + GSAP master timeline, Playwright, ffmpeg H.264), with sub-frame motion blur on the fast windows. Not a screen recording; made-up school data.',
+    source: 'Motion graphics (version 2, 3D) rendered frame by frame from film-studio/: three.js WebGL scenes with real CC0 models, HDRI lights and PBR textures (credits in film-studio/CREDITS.json), one paused GSAP master timeline, captions set in HTML on the same clock, shader transitions; captured through Chrome DevTools on the NVIDIA GPU and encoded with ffmpeg H.264. It is motion graphics with made-up school data, not a screen recording.',
     beats: film.beats.map((b) => ({ id: b.id, chapter: b.chapter, start: b.start, end: b.end })), claims,
-    photos: 'Pexels stock photographs, credited on screen (the student photo and the schoolgirls photo); the logo is the registered brand logo.',
+    photos: 'Pexels stock photographs, credited on screen: Katerina Holmes (student), Fahad Puthawala (teacher), World Sikh Organization of Canada (principal window); illustrative stock imagery, not real ScholarClone users. 3D models and textures: Poly Haven and ambientCG, CC0. The logo is the registered brand logo.',
     privacy_scan: 'passed: the page text held no e-mail address or phone number before rendering',
     confirmed_by_module_owner: null,
   }, null, 2) + '\n', 'utf8')

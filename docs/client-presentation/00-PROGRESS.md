@@ -70,3 +70,10 @@ Owner's words: the videos "do not look like videos, only simple transitions"; wa
 - **PowerPoint**: editable file is 21 slides: film at 6 (autoplay), the five product clips autoplay, four appendix slides at the end. The Motion PowerPoint (per-slide recordings) is retired as the default.
 - Checks: tsc, eslint, 18 unit tests, story checker (film and appendix rules), `verify.mjs` 17 slides, `layout-lint.mjs` 0 fail 0 warn, `register-film.mjs`, encoded-frame review of 9 seams.
 - **Open**: PowerPoint autoplay and repair-prompt check (the owner opens the file once); phone/projector playback; outside-leader test; module-owner sign-off; real screen recordings; the owner's merge.
+
+## Round 4 (2026-11-24, night): film version 2, 3D motion graphics
+Owner: liked the film, but the boxes and cards repeat; wants unique advanced motion graphics, found by deep research and built with the best tools; then, on the modules frame: no proper grid and no meaning, re-design it.
+- **Research done** (report on D:, see section 8 of `11-explainer-style-notes.md`); stack chosen: three.js + one GSAP timeline + Chrome on the NVIDIA GPU. Built in `film-studio/` (uncommitted until this round is committed).
+- **Nine beats rebuilt** as 3D scenes with real CC0 models, HDRIs and textures. Modules frame redesigned as a 3 x 2 blueprint grid with one real object per bay doing its product's job; workflow, stakeholder, connections, benefit and end beats follow the same fixed-grid rule.
+- **Same words, same timings** (`film.json` unchanged), so the checker, claims and PowerPoint slide 6 are unchanged; only the video file changes.
+- **Open:** PowerPoint autoplay and repair-prompt check, phone and projector playback, consented photographs for the three stakeholder windows, GSAP licence read, outside-leader test, module-owner sign-off.
