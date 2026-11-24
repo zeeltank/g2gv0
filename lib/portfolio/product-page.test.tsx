@@ -5,7 +5,7 @@ import { routerHarness } from '../signals/router-harness'
 import { portfolioProducts } from '../signals/opportunity-fixtures'
 import { axeViolations } from '../agent/a11y'
 import { resolveProductTab } from './page-model'
-import { everything, listRow, meta } from './fixtures'
+import { everything, historyRow, listRow, meta } from './fixtures'
 import { fill, installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
 /** One Product's page in a fake browser: the Signals products it already read, the Sub-products from the unified list, the form in its drawer. */
@@ -33,9 +33,9 @@ async function openMoreMenu(k: Awaited<ReturnType<typeof kit>>) {
 describe('a Product page', () => {
   afterEach(disposeAll)
 
-  it('has three tabs: Overview, Sub-products and Signals & ICP', async () => {
+  it('has four tabs: Overview, Sub-products, Signals & ICP and History', async () => {
     const { k } = await openProduct()
-    assert.deepEqual(tabLabels(k).map((t) => t.replace(/\d+$/, '').trim()), ['Overview', 'Sub-products', 'Signals & ICP'])
+    assert.deepEqual(tabLabels(k).map((t) => t.replace(/\d+$/, '').trim()), ['Overview', 'Sub-products', 'Signals & ICP', 'History'])
     assert.equal(k.one('h1')!.textContent, 'ScholarClone')
   })
 
@@ -46,7 +46,7 @@ describe('a Product page', () => {
     const bundle = await openProduct({ everything: data }, 'bundle')
     assert.ok(!bundle.k.bodyText().includes('Product not found'))
     assert.equal(bundle.k.one('h1')!.textContent?.includes('Commercial Bundle'), true, 'the page is the Product\'s own')
-    assert.deepEqual(tabLabels(bundle.k).map((t) => t.replace(/\d+$/, '').trim()), ['Sub-products'], 'its page is its Sub-products')
+    assert.deepEqual(tabLabels(bundle.k).map((t) => t.replace(/\d+$/, '').trim()), ['Sub-products', 'History'], 'its page is its Sub-products and its history')
     assert.ok(bundle.calls.list.some((c) => c.productId === 5), 'the Sub-products are read with the Product\'s id')
     assert.ok(!bundle.k.bodyText().includes('Customer and buyer summary'), 'no setup steps or customer summary')
     assert.ok(!bundle.k.all('a').some((a) => (a.getAttribute('href') ?? '').startsWith('/signals?product=')), 'and no Signals link')
@@ -61,6 +61,32 @@ describe('a Product page', () => {
     const { k } = await openProduct({ listRows: [listRow(), listRow({ id: 12, name: 'Admissions' }), listRow({ id: 13, name: 'Old thing', status: 'archived' })], archivedCount: 2 })
     assert.ok(k.bodyText().includes('1 sub-product · 2 archived'), `the header says 1 active and 2 archived: ${k.bodyText().slice(0, 300)}`)
     assert.ok(tabLabels(k).some((t) => /^Sub-products\s*1$/.test(t)), `the tab counts the active Sub-products only: ${tabLabels(k).join(' | ')}`)
+  })
+
+  it('has a History tab that lists every change of the Product, read with the Product\'s own record id, and says what is kept when there is none', async () => {
+    // Owner, 24 Nov 2026: "verify that the History tab works in the products and sub-products". A Product page had no History tab at all.
+    const withLines = await openProduct({ history: [historyRow({ event: 'updated', type: 'product.master.updated', store: 'record', by: 'Asha Rao', changes: [{ field: 'name', old: 'Scholar', new: 'ScholarClone' }] }), historyRow({ event: 'updated', type: 'product.master.updated', store: 'record', by: 'Asha Rao', changes: [{ field: 'status', old: 'active', new: 'archived' }] })] })
+    await openTab(withLines.k, 'History')
+    await withLines.k.tick(40)
+    assert.deepEqual(withLines.calls.history.map((c) => c.id), [1], 'history is read once, with the Product\'s master id')
+    const text = withLines.k.bodyText()
+    assert.ok(text.includes('Asha Rao'), 'who made the change')
+    assert.ok(/name/i.test(text) && /ScholarClone/.test(text), 'what changed')
+    assert.ok(/archived/.test(text), 'the archive is a line too')
+    await disposeAll()
+
+    const none = await openProduct({ history: [] })
+    await openTab(none.k, 'History')
+    await none.k.tick(40)
+    assert.ok(none.k.bodyText().includes('No changes recorded yet'))
+    assert.ok(none.k.bodyText().includes("Every change to this product's details"), 'and says what a Product\'s history holds (not Sell in CRM details)')
+    // opening a tab writes ?tab= into the (shared) address of the fake window: put it back so the next test starts on the Overview
+    none.k.w.history.replaceState(null, '', '/portfolio/scholarclone')
+  })
+
+  it('does not read the history before the History tab is opened', async () => {
+    const { calls } = await openProduct()
+    assert.deepEqual(calls.history, [], 'no request until the tab is opened')
   })
 
   it('keeps the four setup steps, the customer and buyer summary and a plain Review opportunities link', async () => {
@@ -190,6 +216,7 @@ describe('the Product page tabs of the addresses that already exist', () => {
     assert.equal(resolveProductTab('icp'), 'sub-products')
     assert.equal(resolveProductTab('sub-products'), 'sub-products')
     assert.equal(resolveProductTab('signals'), 'signals')
+    assert.equal(resolveProductTab('history'), 'history', 'the History tab has an address of its own')
     assert.equal(resolveProductTab('nonsense'), 'overview')
     assert.equal(resolveProductTab(null), 'overview')
   })

@@ -14,6 +14,7 @@ import { NOTICE_TONE } from '@/lib/org-accounts/tones'
 import { PRODUCT_TAB_LABELS, resolveProductTab, type ProductTabId } from '@/lib/portfolio/page-model'
 import { normalizeProductKey, configureHref } from '@/lib/product-selection'
 import { productRecordService } from '@/services/product-master/record-service'
+import type { PmHistoryRow, PmPaging } from '@/services/product-master/record-types'
 import type { PmMeta } from '@/services/product-master/types'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { useProducts } from '@/components/domain/signals/product-selector'
@@ -24,8 +25,9 @@ import { ProductFormDrawer } from './product-form-drawer'
 import { ProductProfilePanel } from './product-profile-panel'
 import { ProductSetupSteps } from './product-setup-steps'
 import { ProductSignalsTab, SubProductsTab, type SubProductsData } from './product-sub-products'
+import { HistoryTab } from './sub-product-tabs'
 
-const TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals']
+const TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals', 'history']
 const PER_PAGE = 20
 
 interface MasterFacts { id: number; key: string; name: string; shared: boolean; status: 'active' | 'archived' }
@@ -47,6 +49,9 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [subs, setSubs] = useState<SubProductsData | null>(null)
   const [subsError, setSubsError] = useState('')
   const [subsBusy, setSubsBusy] = useState(false)
+  const [history, setHistory] = useState<{ rows: PmHistoryRow[]; paging: PmPaging } | null>(null)
+  const [historyError, setHistoryError] = useState('')
+  const [historyBusy, setHistoryBusy] = useState(false)
   const [drawer, setDrawer] = useState<'create-sub-product' | 'create-product' | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
@@ -126,6 +131,22 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   }, [masterId])
   useEffect(() => { queueMicrotask(() => { void loadSubs(1) }) }, [loadSubs])
 
+  // The Product's own history (its name, its status, what was archived or restored): the same list the Sub-product page shows, read with the Product's own record id.
+  const loadHistory = useCallback(async (page: number) => {
+    if (masterId === undefined) return
+    setHistoryBusy(true)
+    setHistoryError('')
+    try {
+      const r = await productRecordService.history(masterId, { page, per: 20 })
+      setHistory({ rows: r.data, paging: r.meta })
+    } catch (cause) {
+      setHistoryError(cause instanceof Error ? cause.message : 'Unable to load the history.')
+    } finally {
+      setHistoryBusy(false)
+    }
+  }, [masterId])
+  useEffect(() => { if (tab === 'history') queueMicrotask(() => { void loadHistory(1) }) }, [tab, loadHistory])
+
   const can = meta?.can
   const isAdmin = Boolean(can?.createProduct)
 
@@ -179,8 +200,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   // One number for the header and the tab: the ACTIVE Sub-products, like the Portfolio list's (the Sub-products tab also lists the archived ones, so they can be restored).
   const activeCount = subs ? Math.max(0, subs.paging.total - archivedCount) : (product?.offers.length ?? 0)
   // A Product that exists only in the Portfolio has no setup steps, no customer summary and no signals of its own: its page is its Sub-products.
-  const tabIds: readonly ProductTabId[] = product ? TAB_IDS : ['sub-products']
-  const activeTab: ProductTabId = product ? tab : 'sub-products'
+  const tabIds: readonly ProductTabId[] = product ? TAB_IDS : ['sub-products', 'history']
+  const activeTab: ProductTabId = product ? tab : (tab === 'history' ? 'history' : 'sub-products')
   const tabs: PageTab[] = tabIds.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? activeCount : undefined }))
   const description = [
     `${activeCount} sub-product${activeCount === 1 ? '' : 's'}`,
@@ -245,6 +266,17 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
           <ProductSignalsTab data={subs} productKey={product.key} error={subsError} />
         </TabPanel>
       )}
+
+      <TabPanel id="history" active={activeTab} idPrefix="product-page">
+        <HistoryTab
+          rows={history?.rows ?? null}
+          paging={history?.paging ?? null}
+          error={historyError}
+          loading={historyBusy}
+          onPage={(p) => void loadHistory(p)}
+          emptyDescription="Every change to this product's details, and every time it was archived or restored, is listed here, with who made it and when."
+        />
+      </TabPanel>
 
       <ProductFormDrawer
         open={drawer !== null}

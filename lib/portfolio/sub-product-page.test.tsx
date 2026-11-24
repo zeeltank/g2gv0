@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
 import { routerHarness } from '../signals/router-harness'
 import { axeViolations } from '../agent/a11y'
-import { fullRecord, hrCan, hrRecord, listRow, meta, productRecord, sellRow } from './fixtures'
+import { fullRecord, historyRow, hrCan, hrRecord, listRow, meta, productRecord, sellRow } from './fixtures'
 import { installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
 /** One Sub-product page in a fake browser: the tab kept in the address, every service replaced by a fake that records what the page asks. */
@@ -210,6 +210,21 @@ describe('a Sub-product page: what each tab reads and shows', () => {
     assert.equal(calls.history.length, 1)
     const text = k.bodyText()
     for (const part of ['Changed', 'Sell in CRM', 'Asha Rao', 'Unit price: 1400 → 1500']) assert.ok(text.includes(part), part)
+  })
+
+  it('History: a "Created" line lists what the person filled in, not the fields the system fills (ids, organisation, who and when, the pointers between the stores)', async () => {
+    // Found by the real-browser check of 24 Nov 2026: a Created line said "Sub institute id: empty → 6", "Kind: empty → sub_product", "About: empty → 64".
+    const created = historyRow({ event: 'created', type: 'product.master.created', store: 'record', by: 'Asha Rao', changes: [
+      { field: 'id', old: null, new: 86 }, { field: 'sub_institute_id', old: null, new: 6 }, { field: 'product_key', old: null, new: 'scholarclone/zzh' }, { field: 'kind', old: null, new: 'sub_product' },
+      { field: 'name', old: null, new: 'Scholar Nine' }, { field: 'status', old: null, new: 'active' }, { field: 'origin', old: null, new: 'portfolio' }, { field: 'offer_row_id', old: null, new: 64 },
+      { field: 'crm_product_id', old: null, new: 75 }, { field: 'created_by', old: null, new: 28 }, { field: 'created_at', old: null, new: '2026-11-24 05:23:08' },
+    ] })
+    const { k } = await openPage({ history: [created] })
+    await openTab(k, 'History')
+    await k.tick(20)
+    const text = k.bodyText()
+    for (const kept of ['Created', 'Name: empty → Scholar Nine', 'Status: empty → active']) assert.ok(text.includes(kept), kept)
+    for (const hidden of ['Sub institute id', 'Product key', 'Kind:', 'Origin', 'Offer row id', 'Crm product id', 'Created by', 'Created at']) assert.equal(text.includes(hidden), false, `${hidden} is not shown`)
   })
 
   it('History: pages through a long list', async () => {

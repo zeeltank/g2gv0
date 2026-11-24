@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SectionCard } from '@/components/shared/business/shared'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
 import {
-  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, whenWord, typeWord,
+  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, visibleChanges, whenWord, typeWord,
 } from '@/lib/portfolio/page-model'
 import type { IcpStates } from '@/lib/portfolio/icp-state'
 import type { PmFullRecord, PmHistoryRow, PmPaging, PmSell, PmUsageFull } from '@/services/product-master/record-types'
@@ -123,16 +123,18 @@ export function UsageTab({ usage, error, hrefs }: {
 
 // ============================================================================================================================ History
 
-export function HistoryTab({ rows, paging, error, loading, onPage }: {
+export function HistoryTab({ rows, paging, error, loading, onPage, emptyDescription = 'Every change to its About and its Sell in CRM details is listed here, with who made it and when.' }: {
   rows: PmHistoryRow[] | null
   paging: PmPaging | null
   error: string
   loading: boolean
   onPage: (page: number) => void
+  /** What an empty history says is kept here (a Product has no Sell in CRM details). */
+  emptyDescription?: string
 }) {
   if (error) return notice(error, 'alert')
   if (rows === null) return notice('Loading…')
-  if (rows.length === 0) return <EmptyState title="No changes recorded yet" description="Every change to its About and its Sell in CRM details is listed here, with who made it and when." />
+  if (rows.length === 0) return <EmptyState title="No changes recorded yet" description={emptyDescription} />
 
   return (
     <SectionCard title="History" description="Every change, newest first, with who made it and when.">
@@ -143,9 +145,9 @@ export function HistoryTab({ rows, paging, error, loading, onPage }: {
               <span className="font-medium text-foreground">{eventWord(row)}</span>
               <span className="text-muted-foreground">{STORE_WORD[row.store]} · {row.by ?? 'The system'} · {whenWord(row.at)}</span>
             </p>
-            {row.changes.length > 0 && (
+            {visibleChanges(row.changes).length > 0 && (
               <ul className="space-y-0.5 text-foreground">
-                {row.changes.map((c, j) => <li key={j} className="min-w-0 break-words">{describeChange(c)}</li>)}
+                {visibleChanges(row.changes).map((c, j) => <li key={j} className="min-w-0 break-words">{describeChange(c)}</li>)}
               </ul>
             )}
           </li>

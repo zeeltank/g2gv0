@@ -10,13 +10,13 @@ import { PRODUCT_ONLY_SELL_FIELDS } from './form-model'
  */
 
 export type SubTabId = 'overview' | 'details' | 'bundle' | 'usage' | 'history' | 'signals' | 'custom'
-export type ProductTabId = 'overview' | 'sub-products' | 'signals'
+export type ProductTabId = 'overview' | 'sub-products' | 'signals' | 'history'
 
 export const SUB_TAB_LABELS: Record<SubTabId, string> = {
   overview: 'Overview', details: 'Details', bundle: 'Bundle', usage: 'Usage', history: 'History', signals: 'Signals & ICP', custom: 'Custom Fields',
 }
-export const PRODUCT_TAB_LABELS: Record<ProductTabId, string> = { overview: 'Overview', 'sub-products': 'Sub-products', signals: 'Signals & ICP' }
-export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals']
+export const PRODUCT_TAB_LABELS: Record<ProductTabId, string> = { overview: 'Overview', 'sub-products': 'Sub-products', signals: 'Signals & ICP', history: 'History' }
+export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals', 'history']
 
 /**
  * The tab a Product page opens on, from `?tab=`. The addresses that already exist keep working: `offers` (every link written before the merge) and `icp`
@@ -24,7 +24,8 @@ export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-produc
  */
 export function resolveProductTab(value: string | null | undefined): ProductTabId {
   if (value === 'offers' || value === 'icp' || value === 'sub-products') return 'sub-products'
-  return value === 'signals' ? 'signals' : 'overview'
+  if (value === 'signals') return 'signals'
+  return value === 'history' ? 'history' : 'overview'
 }
 
 export interface TabInput {
@@ -186,6 +187,17 @@ const shown = (field: string | null, value: unknown): string => {
 
   return text.length > 140 ? `${text.slice(0, 137)}…` : text
 }
+
+/**
+ * The fields of a record that only the system fills in (its ids, its organisation, who and when it was made, the pointers between the three stores). A "Created" line of
+ * the History used to list every one of them ("Sub institute id: empty → 6"), which says nothing to a person; they are left out, the person's own fields stay.
+ */
+export const SYSTEM_HISTORY_FIELDS: ReadonlySet<string> = new Set([
+  'id', 'sub_institute_id', 'created_by', 'created_at', 'updated_at', 'product_key', 'key', 'origin', 'kind', 'offer_row_id', 'crm_product_id', 'product_master_id', 'item_type',
+])
+
+/** The changes of a history line a person reads: the system's own fields are left out. */
+export const visibleChanges = (changes: readonly PmHistoryChange[]): PmHistoryChange[] => changes.filter((c) => c.field === null || !SYSTEM_HISTORY_FIELDS.has(c.field))
 
 export function describeChange(change: PmHistoryChange): string {
   if (change.field === 'deleted_at') return change.new === null || change.new === undefined ? 'Brought back from the Recycle Bin' : 'Moved to the Recycle Bin'
