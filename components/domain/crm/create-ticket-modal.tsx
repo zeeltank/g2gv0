@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, CrmTicket, CrmTicketPayload } from '@/types/crm'
@@ -133,6 +134,8 @@ export function CreateTicketModal({ isOpen, onClose, onSaved, ticket, ticketStat
                 id="ticket-product"
                 value={form.productId}
                 onChange={(picked) => set('productId', picked ? picked.productId : null)}
+                scope={PICKER_RULES.ticket.scope}
+                notSoldSelectable={PICKER_RULES.ticket.notSoldSelectable}
                 placeholder="None"
                 clearable
               />

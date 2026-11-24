@@ -207,7 +207,7 @@ export function describeChange(change: PmHistoryChange): string {
 export const STORE_WORD: Record<PmHistoryRow['store'], string> = { about: 'About', sell: 'Sell in CRM', record: 'Record' }
 
 export function eventWord(row: PmHistoryRow): string {
-  return row.event === 'created' ? 'Created' : row.event === 'deleted' ? 'Moved to the Recycle Bin' : 'Changed'
+  return row.event === 'created' ? 'Created' : row.event === 'deleted' ? 'Moved to the Recycle Bin' : row.event === 'moved' ? 'Moved to another Product' : 'Changed'
 }
 
 /** The date of a history line as a person reads it. A value the browser cannot read is shown as it came. */

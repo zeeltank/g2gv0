@@ -65,4 +65,12 @@ const clipsOut = {
 }
 writeFileSync(join(dirname(out), 'clips.json'), JSON.stringify(clipsOut, null, 1) + '\n', 'utf8')
 console.log('wrote clips.json', `(${clipsOut.clips.length} clips)`)
+// The 59-second film: text only, claims stay behind.
+const filmSrc = JSON.parse(readFileSync(join(root, 'docs/client-presentation/content/film.json'), 'utf8'))
+const filmOut = {
+  title: filmSrc.meta.title, length: filmSrc.meta.length_seconds, fps: filmSrc.meta.fps, disclosure: filmSrc.meta.disclosure,
+  beats: filmSrc.beats.map((b) => ({ id: b.id, start: b.start, end: b.end, lines: b.lines.map((l) => ({ role: l.role, text: l.text })) })),
+}
+writeFileSync(join(dirname(out), 'film.json'), JSON.stringify(filmOut, null, 1) + '\n', 'utf8')
+console.log('wrote film.json', `(${filmOut.beats.length} beats)`)
 console.log('wrote', out, `(${body.length} bytes, ${deck.slides.length} slides, ${Object.values(assets).filter((a) => a.src).length}/${Object.keys(assets).length} images placed)`)

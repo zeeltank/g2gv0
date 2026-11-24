@@ -6,6 +6,7 @@
 export const PORTFOLIO_COMPONENTS = [
   'product-form-drawer', 'product-form-about', 'product-form-sell', 'product-form-icp', 'product-form-lists', 'portfolio-chips',
   'sub-product-page', 'sub-product-overview', 'sub-product-tabs', 'sub-product-bundle', 'product-sub-products', 'product-detail-view',
+  'remove-record-dialog', 'move-sub-products-dialog',
 ].map((name) => `components/domain/portfolio/${name}.tsx`)
 
 /** The routes and the pure files that carry words a person reads. */
@@ -14,6 +15,7 @@ export const PORTFOLIO_OTHER = [
   'lib/portfolio/page-model.ts',
   'lib/portfolio/form-model.ts',
   'lib/portfolio/icp-state.ts',
+  'lib/portfolio/removal-model.ts',
   'components/domain/portfolio/product-setup-steps.tsx',
   'components/domain/portfolio/product-icp-section.tsx',
 ]

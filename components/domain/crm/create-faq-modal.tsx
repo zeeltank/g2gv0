@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmFaq, CrmFaqPayload, CrmPicklistValue } from '@/types/crm'
@@ -123,6 +124,8 @@ export function CreateFaqModal({ isOpen, onClose, onSaved, faq, categories, stat
               id="faq-product"
               value={form.productId}
               onChange={(picked) => set('productId', picked ? picked.productId : '')}
+              scope={PICKER_RULES.faq.scope}
+              notSoldSelectable={PICKER_RULES.faq.notSoldSelectable}
               placeholder="Optional - leave blank for a general question"
               clearable
             />

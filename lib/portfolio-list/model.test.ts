@@ -93,9 +93,11 @@ describe('which rows can be ticked for a bulk action', () => {
   it('gives a reason for every row that cannot be ticked, and none for one that can', () => {
     assert.equal(whyNoTick(sold(), ADMIN_CAN), null)
     assert.match(whyNoTick(product(), ADMIN_CAN) ?? '', /Product has no entry/)
-    assert.match(whyNoTick(aboutOnly(), ADMIN_CAN) ?? '', /not sold in CRM/)
-    assert.match(whyNoTick(sold({ state: 'binned' }), ADMIN_CAN) ?? '', /Recycle Bin/)
+    // A Sub-product that is not sold CAN be ticked since Move to another Product works on it (S15 follow-up); a shared one and a caller who may not change Sub-products cannot.
+    assert.equal(whyNoTick(aboutOnly(), ADMIN_CAN), null, 'not sold in CRM: it can still be moved')
+    assert.equal(whyNoTick(sold({ state: 'binned' }), ADMIN_CAN), null, 'in the Recycle Bin: its Sub-product can still be moved')
     assert.match(whyNoTick(sold({ shared: true }), ADMIN_CAN) ?? '', /shared/)
+    assert.match(whyNoTick(aboutOnly(), { editSubProduct: false }) ?? '', /may not change/)
   })
 })
 

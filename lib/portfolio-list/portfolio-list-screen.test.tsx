@@ -82,7 +82,7 @@ describe('what a caller who may not view prices sees (HR)', () => {
   let current: Awaited<ReturnType<typeof setup>> | null = null
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })
 
-  it('gets no SKU, Price, Category, In stock or Sold in CRM column, no Sold in CRM filter, and no bulk tick that can be set', async () => {
+  it('gets no SKU, Price, Category, In stock or Sold in CRM column, no Sold in CRM filter, and no tick for a Sell action (only for Move to another Product)', async () => {
     current = await setup({ rows: hrRows(), can: HR_CAN })
     const { heads, text, facet, k } = current
     assert.deepEqual(heads(), ['', 'Name', 'Readiness', 'Signals', 'ICP'])
@@ -91,7 +91,7 @@ describe('what a caller who may not view prices sees (HR)', () => {
     assert.ok(facet('Status'), 'the other filters are there')
     assert.ok(!text().includes('INR'), 'no price anywhere on the page')
     assert.ok(!text().includes('120000') && !text().includes('1,20,000'), 'no price figure')
-    assert.equal(k.all('tbody input[type="checkbox"]').filter((c) => !(c as HTMLInputElement).disabled).length, 0, 'HR can tick nothing: nothing in the list can be changed by a bulk action')
+    assert.equal(k.all('tbody input[type="checkbox"]').filter((c) => !(c as HTMLInputElement).disabled).length, 4, 'HR may change Sub-products, so each can be ticked for Move to another Product (the Product and the shared one cannot); Reassign and Delete are never offered (lib/portfolio-list/move-delete.test.tsx)')
   })
 
   it('does not invite a search by SKU (the server does not search a SKU the caller may not see), and an administrator is invited to', async () => {

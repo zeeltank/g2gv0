@@ -14,9 +14,18 @@ import { apiClient } from '@/services/core'
 /** What the document pickers ask for. Nothing asks for both at once: no type means every kind the caller may view. */
 export type PickerType = 'product' | 'service'
 
+/**
+ * Which rows a picker lists. `sold` (the default, and what every caller got before) is the Sub-products a document may sell. `all` also lists the active
+ * Sub-products that are paused, have no price or are not sold in CRM at all, each marked with `sold` and `state` (S15 follow-up, contract 4.4).
+ */
+export type PickerScope = 'sold' | 'all'
+
+/** Where a listed row stands for selling: `sold` is offered on new documents, `paused` has an entry that is switched off, `not_sold` has no entry or no price. */
+export type PickerRowState = 'sold' | 'paused' | 'not_sold'
+
 export interface PickerRow {
-  /** The id every line-item table stores (`crm_products.id`). */
-  crmProductId: number
+  /** The id every line-item table stores (`crm_products.id`). Null for a row with no entry in CRM (only in a `scope: 'all'` answer). */
+  crmProductId: number | null
   /** The Product Master id: the page address of the Sub-product. */
   masterId: number
   name: string
@@ -28,12 +37,23 @@ export interface PickerRow {
   currency: string | null
   taxRateId: number | null
   type: PickerType
+  /** Sent only by a `scope: 'all'` answer: false when the row cannot be put on a document. A row that has neither field is a sold one (the default answer). */
+  sold?: boolean
+  state?: PickerRowState
 }
+
+export type ProductLineKind = 'product' | 'sub_product' | 'item'
 
 export interface ProductLineRow {
   id: number
   key: string | null
   name: string
+  /** Sent only with `withSubProducts`; a row without it is a Product. */
+  kind?: ProductLineKind
+  /** The Product above a Sub-product or an item; null for a Product (and for one that has none yet). */
+  parentName?: string | null
+  /** `?withSubProducts=1` rows: false marks a Sub-product or item that is not sold in CRM; null is a Product, which has no Sell side. Absent on the default answer. */
+  sold?: boolean | null
 }
 
 export interface PickerEnvelope<T> {
@@ -63,19 +83,26 @@ interface MasterRecord {
 const idPath = (id: number | string) => encodeURIComponent(String(id))
 
 export const productPickerService = {
-  /** One search of the document picker. `q` is sent only when it holds text; `limit` is the page the server clamps to 50. */
-  search(params: { type?: PickerType; q?: string; limit?: number } = {}): Promise<PickerEnvelope<PickerRow[]>> {
+  /**
+   * One search of the document picker. `q` is sent only when it holds text; `limit` is the page the server clamps to 50. `scope` is sent only as `all`: the
+   * default `sold` is never written into the request, so a caller that does not ask for more is byte for byte what it was.
+   */
+  search(params: { type?: PickerType; q?: string; limit?: number; scope?: PickerScope } = {}): Promise<PickerEnvelope<PickerRow[]>> {
     const query: Record<string, string> = {}
     if (params.type) query.type = params.type
     const q = (params.q ?? '').trim()
     if (q !== '') query.q = q
     if (params.limit) query.limit = String(Math.max(1, Math.min(PICKER_LIMIT_MAX, Math.trunc(params.limit))))
+    if (params.scope === 'all') query.scope = 'all'
     return apiClient.get('/product-master/picker', query)
   },
 
-  /** The Products (level 1) a lead, a campaign or an opportunity may point at: names only, open to any signed-in person. */
-  lines(): Promise<PickerEnvelope<ProductLineRow[]>> {
-    return apiClient.get('/product-master/lines')
+  /**
+   * The Products (level 1) a lead, a campaign or an opportunity may point at: names only, open to any signed-in person. With `withSubProducts` every active Product
+   * is followed by its active Sub-products and items (each with `kind` and `parentName`); without it the answer is the Products alone, as it always was.
+   */
+  lines(params: { withSubProducts?: boolean } = {}): Promise<PickerEnvelope<ProductLineRow[]>> {
+    return apiClient.get('/product-master/lines', params.withSubProducts ? { withSubProducts: '1' } : undefined)
   },
 
   /** The master record that holds a catalogue id, also one the picker no longer offers. */

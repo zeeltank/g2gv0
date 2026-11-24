@@ -51,9 +51,12 @@ export function ClipPlayer({ clipId, ratio, ui = 'hidden', endCard = false, auto
     const el = rootRef.current
     if (!el) return
     const measure = () => {
-      const r = el.getBoundingClientRect()
-      const s = Math.min(r.width / w, r.height / h) || 1
-      setFit({ s, x: (r.width - w * s) / 2, y: (r.height - h * s) / 2 })
+      // Layout size, not getBoundingClientRect: the deck shell scales the whole 1920 x 1080 stage with a CSS transform, and a
+      // transformed rectangle would shrink the clip a second time in any window that is not 1920 wide.
+      const cw = el.clientWidth
+      const ch = el.clientHeight
+      const s = Math.min(cw / w, ch / h) || 1
+      setFit({ s, x: (cw - w * s) / 2, y: (ch - h * s) / 2 })
     }
     measure()
     const ro = new ResizeObserver(measure)

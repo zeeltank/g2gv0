@@ -108,6 +108,15 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
   const secondHook = await page.locator('.s16-player .cl-hook').innerText()
   ok(/fees/i.test(firstHook) && firstHook !== secondHook, `slide 16 did not move to the next product ("${firstHook.slice(0, 30)}" then "${secondHook.slice(0, 30)}")`)
   notes.push('2d slide 16 steps through the five clips: checked')
+  // 2e. in windows smaller than 1920 wide the clip must still fill its box (the shell scales the stage with a CSS transform)
+  for (const vp of [{ width: 1100, height: 620 }, { width: 1366, height: 768 }]) {
+    const small = await newPage(false, vp)
+    await go(small.page, 'slide=16&beat=0'); await small.page.waitForTimeout(2500)
+    const fit = await small.page.evaluate(() => { const a = document.querySelector('.s16-player').getBoundingClientRect(); const b = document.querySelector('.s16-player .cl-stage').getBoundingClientRect(); return { dw: Math.abs(a.width - b.width), dh: Math.abs(a.height - b.height) } })
+    ok(fit.dw <= 2 && fit.dh <= 2, `at ${vp.width}x${vp.height} the clip does not fill its box (off by ${fit.dw.toFixed(0)} x ${fit.dh.toFixed(0)} px)`)
+    await small.ctx.close()
+  }
+  notes.push('2e clip fills its box at 1100x620 and 1366x768: checked')
   // --- 3. reduced motion handled below; 7. presenter window
   const pres = await ctx.newPage()
   await pres.goto(url('view=presenter'), { waitUntil: 'domcontentloaded' }); await pres.waitForTimeout(800)

@@ -77,6 +77,55 @@ describe('the picker request', () => {
   })
 })
 
+describe('the scope of the picker request (S15 follow-up, contract 4.4)', () => {
+  beforeEach(() => signIn('tok-9'))
+
+  it('sends scope=all only when asked for it, and never for the default: a caller that does not ask is byte for byte what it was', async () => {
+    const calls = fakeFetch(() => json(200, { status: 1, data: [] }))
+    await productPickerService.search({ q: 'x' })
+    await productPickerService.search({ q: 'x', scope: 'sold' })
+    await productPickerService.search({ q: 'x', scope: 'all', type: 'product', limit: 20 })
+    assert.equal(calls[0].url.searchParams.has('scope'), false)
+    assert.equal(calls[1].url.searchParams.has('scope'), false, '"sold" is the default and is not written into the request')
+    assert.equal(calls[2].url.searchParams.get('scope'), 'all')
+    assert.equal(calls[2].url.searchParams.get('type'), 'product', 'the other parameters are unchanged')
+    assert.equal(calls[2].url.searchParams.get('limit'), '20')
+    assert.equal(headersOf(calls[2]).Authorization, 'Bearer tok-9')
+  })
+
+  it('hands back the marks of a scope=all row (sold, state) and a null catalogue id for a Sub-product that is not sold', async () => {
+    fakeFetch(() => json(200, { status: 1, data: [{ crmProductId: null, masterId: 30, name: 'Admissions Desk', productName: 'ScholarClone', sku: null, unitPrice: null, currency: null, taxRateId: null, type: 'product', sold: false, state: 'not_sold' }] }))
+    const answer = await productPickerService.search({ scope: 'all' })
+    assert.equal(answer.data[0].crmProductId, null)
+    assert.equal(answer.data[0].sold, false)
+    assert.equal(answer.data[0].state, 'not_sold')
+  })
+})
+
+describe('the Products with their Sub-products (withSubProducts)', () => {
+  beforeEach(() => signIn('tok-9'))
+
+  it('asks GET /product-master/lines?withSubProducts=1 when asked, and the bare address (no query at all) when not', async () => {
+    const calls = fakeFetch(() => json(200, { status: 1, data: [] }))
+    await productPickerService.lines()
+    await productPickerService.lines({})
+    await productPickerService.lines({ withSubProducts: false })
+    await productPickerService.lines({ withSubProducts: true })
+    for (const call of calls) assert.match(call.url.pathname, /\/product-master\/lines$/)
+    assert.equal(calls[0].url.search, '', 'the default request has no query')
+    assert.equal(calls[1].url.search, '')
+    assert.equal(calls[2].url.search, '')
+    assert.equal(calls[3].url.searchParams.get('withSubProducts'), '1')
+    assert.equal(headersOf(calls[3]).Authorization, 'Bearer tok-9')
+  })
+
+  it('hands back each Product followed by its Sub-products, with their kind and the Product above them', async () => {
+    fakeFetch(() => json(200, { status: 1, data: [{ id: 1, key: 'scholarclone', name: 'ScholarClone', kind: 'product', parentName: null }, { id: 31, key: 'fee', name: 'Fee module', kind: 'sub_product', parentName: 'ScholarClone' }] }))
+    const answer = await productPickerService.lines({ withSubProducts: true })
+    assert.deepEqual(answer.data.map((r) => [r.kind, r.parentName]), [['product', null], ['sub_product', 'ScholarClone']])
+  })
+})
+
 describe('the Product list and the read by name', () => {
   beforeEach(() => signIn('tok-9'))
 

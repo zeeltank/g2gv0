@@ -7,10 +7,11 @@ import { productChoicesOf } from '@/lib/product-picker/use-product-choices'
 import type { PmOption } from '@/services/product-master/types'
 
 /**
- * The Product (level 1) box of the lead, campaign and opportunity forms: "No product", every Product by name, and the one the record already holds if the list
- * does not (archived since) under its own name, so a person can still clear it. A native select: a short list that needs no search, it takes a label, and it
- * needs nothing special inside a dialog. The words are Product and Product only. Not drawn when there is nothing to choose and nothing chosen (no right, a
- * server without the master) unless `alwaysShow`. It returns the Product Master id as text ('' for none); the form turns it into a number.
+ * The Product box of the lead, campaign and opportunity forms: "No product", every Product by name with its Sub-products and items indented under it ("Fee module,
+ * under ScholarClone"; one that is not sold in CRM says "(Not sold)" and can still be chosen: the form stores the record's own id), and the one the record already
+ * holds if the list does not (archived since) under its own name, so a person can still clear it. A native select: a short list that needs no search, it takes a
+ * label, and it needs nothing special inside a dialog. Not drawn when there is nothing to choose and nothing chosen (no right, a server without the master)
+ * unless `alwaysShow`. It returns the Product Master id as text ('' for none): a Product's, or a Sub-product's; the form turns it into a number.
  */
 export function ProductPicker({ options, current, value, onChange, label = 'Product', alwaysShow = false, id, fieldAttribute }: {
   options: readonly PmOption[]

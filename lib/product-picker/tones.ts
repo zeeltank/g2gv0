@@ -16,6 +16,8 @@ export const GROUP_HEADING = 'px-3 pb-1 pt-2 text-[11px] font-medium uppercase t
 export const ROW = 'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-foreground'
 export const ROW_ACTIVE = 'bg-muted'
 export const ROW_QUIET = 'block truncate text-[11px] text-muted-foreground'
+/** A listed row that cannot be chosen: the same words on the same surface, a not-allowed pointer, and no highlight (its tag says why). */
+export const ROW_UNAVAILABLE = 'cursor-not-allowed'
 export const MESSAGE = 'px-3 py-6 text-center text-xs text-muted-foreground'
 export const FOOTER = 'border-t border-border/60 px-3 py-1.5 text-[11px] text-muted-foreground'
 export const FAILURE = `${NOTICE_TONE.error} m-2 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs`

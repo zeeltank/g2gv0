@@ -1,6 +1,8 @@
 import { apiClient } from '@/services/core'
 import type { PmEnvelope, PmMeta } from './types'
-import type { PmFullRecord, PmHistoryEnvelope, PmListEnvelope, PmPickerRow, PmSell, PmUsageFull } from './record-types'
+import type {
+  PmFullRecord, PmHistoryEnvelope, PmListEnvelope, PmMoveBody, PmMoveResult, PmPickerRow, PmRemovalPreview, PmRemoveBody, PmRemoveResult, PmSell, PmUsageFull,
+} from './record-types'
 import { productMasterService } from './product-master-service'
 
 /**
@@ -54,10 +56,11 @@ export const productRecordService = {
   /** Products with their Sub-products nested, every status: the Product choices, the IDs already used and the Sub-products "often sold together" can name. */
   everything: () => productMasterService.list({ status: 'all' }),
 
-  /** Products a bundle may hold as parts (sold, active, in the catalogue). */
-  pickerParts(q: string, limit = 20): Promise<PmEnvelope<PmPickerRow[]>> {
+  /** Products a bundle may hold as parts (sold, active, in the catalogue). `scope: 'all'` also lists the ones that are not sold, each marked, so they can be shown and not chosen. */
+  pickerParts(q: string, limit = 20, scope: 'sold' | 'all' = 'sold'): Promise<PmEnvelope<PmPickerRow[]>> {
     const query: Record<string, string> = { type: 'product', limit: String(limit) }
     if (q.trim() !== '') query.q = q.trim()
+    if (scope === 'all') query.scope = 'all'
     return apiClient.get('/product-master/picker', query)
   },
 
@@ -76,6 +79,21 @@ export const productRecordService = {
 
   restore(id: number | string): Promise<PmEnvelope<PmFullRecord>> {
     return apiClient.post(`/product-master/${encodeURIComponent(String(id))}/restore`, {})
+  },
+
+  /** What deleting the record would do: what blocks it (in words), its Sub-products and whether each can go, and the Products they may move to. Changes nothing. */
+  removalPreview(id: number | string): Promise<PmEnvelope<PmRemovalPreview>> {
+    return apiClient.get(`/product-master/${encodeURIComponent(String(id))}/removal`)
+  },
+
+  /** Deletes the record, all or nothing. A Product that has Sub-products needs the answer `{ subProducts: 'move', toProductId }` or `{ subProducts: 'delete' }`; anything else sends an empty body. A 409 means something blocks it and nothing changed. */
+  remove(id: number | string, body: PmRemoveBody = {}): Promise<PmEnvelope<PmRemoveResult>> {
+    return apiClient.post(`/product-master/${encodeURIComponent(String(id))}/remove`, body)
+  },
+
+  /** Moves one or several Sub-products under another Product, in one step. Moving to the Product it is already under is reported in `unchanged`. */
+  move(body: PmMoveBody): Promise<PmEnvelope<PmMoveResult>> {
+    return apiClient.post('/product-master/move', body)
   },
 }
 

@@ -295,6 +295,14 @@
       "badge": "-"
     },
     {
+      "id": "C-FIT",
+      "type": "illustration",
+      "text": "Who it is for: school promoters, trustees, principals, directors and academic leaders in India.",
+      "status": "owner-confirmed",
+      "source": "The owner's master prompt names this audience (meta.audience).",
+      "badge": "-"
+    },
+    {
       "id": "C-Q",
       "type": "question",
       "text": "A question to the school leader.",

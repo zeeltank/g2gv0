@@ -12,6 +12,8 @@ import { SectionCard } from '@/components/shared/business/shared'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
 import { formatMoney } from '@/lib/portfolio/page-model'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
+import { isSelectable, rowKey, rowTag } from '@/lib/product-picker/model'
 import { crmService } from '@/services/crm'
 import { productRecordService } from '@/services/product-master/record-service'
 import type { PmPickerRow, PmSell } from '@/services/product-master/record-types'
@@ -99,12 +101,12 @@ function AddPartDialog({ open, onClose, onAdded, context, productId }: { open: b
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  // Search as the person types: the picker answers sold, active products only, and never the bundle itself.
+  // Search as the person types: the picker lists every active product, the ones that are not sold tagged and not choosable, and never the bundle itself.
   useEffect(() => {
     if (!open) return
     let live = true
     const timer = setTimeout(() => {
-      productRecordService.pickerParts(text, 20)
+      productRecordService.pickerParts(text, 20, PICKER_RULES.bundle.scope)
         .then((r) => { if (live) setOptions(r.data.filter((o) => String(o.crmProductId) !== productId)) })
         .catch(() => { if (live) setOptions([]) })
     }, 200)
@@ -133,7 +135,7 @@ function AddPartDialog({ open, onClose, onAdded, context, productId }: { open: b
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add a part</DialogTitle>
-          <DialogDescription>Choose a sold sub-product and how many of it the bundle holds.</DialogDescription>
+          <DialogDescription>Choose a sold sub-product and how many of it the bundle holds. A sub-product that is not sold in CRM is listed, and cannot be chosen.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Field label="Find a sub-product">{(c) => <Input {...c} value={text} onChange={(e) => setText(e.target.value)} placeholder="Name or SKU" autoComplete="off" />}</Field>
@@ -141,7 +143,10 @@ function AddPartDialog({ open, onClose, onAdded, context, productId }: { open: b
             {(c) => (
               <NativeSelect {...c} value={componentId} onChange={(e) => setComponentId(e.target.value)}>
                 <option value="">Choose a sub-product…</option>
-                {options.map((o) => <option key={o.crmProductId} value={o.crmProductId}>{o.productName ? `${o.productName} › ${o.name}` : o.name}{o.sku ? ` (${o.sku})` : ''}</option>)}
+                {options.map((o) => {
+                  const tag = rowTag(o)
+                  return <option key={rowKey(o)} value={o.crmProductId ?? ''} disabled={!isSelectable(o, PICKER_RULES.bundle.notSoldSelectable)}>{o.productName ? `${o.productName} › ${o.name}` : o.name}{o.sku ? ` (${o.sku})` : ''}{tag ? ` - ${tag}` : ''}</option>
+                })}
               </NativeSelect>
             )}
           </Field>

@@ -28,6 +28,7 @@ import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import type { CrmSalesOrderLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
@@ -128,6 +129,8 @@ export function SalesOrderLineItemTable({ lineItems, onChange, taxRates, currenc
                     value={row.productId}
                     onChange={(picked) => onProductChange(index, picked)}
                     aria-label={`Sub-product for line ${index + 1}`}
+                    scope={PICKER_RULES.salesOrder.scope}
+                    notSoldSelectable={PICKER_RULES.salesOrder.notSoldSelectable}
                   />
                 </TableCell>
                 <TableCell>

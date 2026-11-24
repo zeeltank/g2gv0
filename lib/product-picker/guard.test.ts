@@ -18,7 +18,7 @@ const files = sourceFiles(SOURCE_ROOTS).filter((file) => !OWN.has(file))
 describe('the picker and its consumers are where the guard expects them', () => {
   it('finds every file of the picker and every consumer', () => {
     for (const file of ALL_PICKER_AND_CONSUMER_FILES) assert.ok(existsSync(file), `${file} is listed in lib/product-picker/files.ts but is missing`)
-    assert.equal(PICKER_FILES.length, 9, 'the picker is nine files: the service, four in lib, four components')
+    assert.equal(PICKER_FILES.length, 10, 'the picker is ten files: the service, five in lib (with the list of how each form treats a Sub-product that is not sold), four components')
     assert.equal(CONSUMERS.length, 16, 'sixteen consumer files (the table in files.ts)')
   })
 

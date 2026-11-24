@@ -31,8 +31,43 @@ export interface Task {
   attachments: TaskAttachment[]
 }
 
-export type MyTaskGroup = 'all' | 'today' | 'upcoming' | 'recent' | 'subordinates'
+/**
+ * `today` is what is RUNNING today (started, not past its due date, not
+ * finished); `due_today` is what is DUE today; `upcoming` has not started yet.
+ */
+export type MyTaskGroup = 'all' | 'today' | 'due_today' | 'upcoming' | 'recent' | 'subordinates'
 export type MyTaskPriority = 'High' | 'Medium' | 'Low'
+
+/**
+ * What the caller may do to one task, decided by the server (see
+ * MyTasksController::permissions). Each flag mirrors the check the matching
+ * endpoint makes, so a control is shown exactly when its call can succeed.
+ */
+export interface MyTaskCan {
+  update_status: boolean
+  manage: boolean
+  delete: boolean
+  archive: boolean
+  approve: boolean
+  request_extension: boolean
+  decide_extension: boolean
+}
+
+export interface TaskSubtask {
+  id: string
+  title: string
+  is_done: boolean
+  sort_order: number
+}
+
+/** One line of a task's history: a comment, or an audit event (`type` is its slug). */
+export interface TaskActivityItem {
+  id: string
+  type: string
+  actor: string | null
+  content: string | null
+  created_at: string | null
+}
 
 export interface MyTaskAttachment {
   name: string
@@ -66,7 +101,22 @@ export interface MyTask {
   status_label: string | null
   priority: MyTaskPriority | null
   task_type: string | null
+  /** When the work begins. NULL on tasks made before the start date was required. */
+  planned_start_date?: string | null
   due_date: string | null
+  estimated_hours?: number | null
+  actual_hours?: number | null
+  remaining_hours?: number | null
+  /** Free-form on the server (a JSON column); only plain strings are shown. */
+  acceptance_criteria?: unknown[]
+  /** The approver's decision on finished work, and the reason it was sent back. */
+  approve_status?: 'approved' | 'rejected' | 'pending' | null
+  approved_on?: string | null
+  approve_remarks?: string | null
+  delay_category?: string | null
+  delay_reason?: string | null
+  /** What THIS viewer may do to this task. Only on the single-task read. */
+  can?: MyTaskCan
   remarks: string | null
   /** Which recurring series this occurrence belongs to, if any. */
   recurrence_id: string | null
@@ -77,20 +127,108 @@ export interface MyTask {
   attachment?: MyTaskAttachment | null
 }
 
-/** A deadline-extension request on a task, as the API returns it. */
+export type ExtensionStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn'
+
+/**
+ * A deadline-extension request, as the API returns it - the same shape from a
+ * task's own list and from the organisation-wide queue.
+ *
+ * Dates are `YYYY-MM-DD`. `original_date` is what the task was due on WHEN it
+ * was asked about: approving overwrites the task's own date, so once a request
+ * is approved `current_due_date` is the new date and this is the old one. It is
+ * null for approved requests made before it was kept and not recoverable.
+ */
 export interface DeadlineExtension {
   id: string
   task_id: string
   task_title: string
+  priority?: string | null
   current_due_date: string | null
+  original_date?: string | null
   requested_date: string
+  /** requested_date minus original_date, in days. */
+  days_requested?: number | null
+  /** The task was already past its date on the day they asked. */
+  overdue_at_request?: boolean
+  /** How many requests this task has had up to and including this one (1 = the first). */
+  nth?: number
+  /** Days a pending request has waited; null once decided. */
+  age_days?: number | null
   reason: string | null
-  status: 'pending' | 'approved' | 'rejected'
+  status: ExtensionStatus
   requested_by: string | null
+  requested_by_id?: string | null
+  assignee?: string | null
+  assignee_id?: string | null
+  department?: string | null
   decided_by: string | null
+  decided_by_id?: string | null
   decided_on: string | null
   decision_remarks: string | null
   created_at: string | null
+  /** Whether THIS viewer may approve or decline it now (pending, and an administrator or the task's owner). */
+  can_decide?: boolean
+  /** Whether THIS viewer may take it back (their own, and still pending). */
+  can_withdraw?: boolean
+}
+
+export interface ExtensionQueueSummary {
+  pending: number
+  oldest_pending_days: number | null
+  approved: number
+  rejected: number
+  /** approved / (approved + rejected); withdrawn ones are neither. Null before anything is decided. */
+  approval_rate: number | null
+  avg_decision_hours: number | null
+  /** Tasks asked about more than once. */
+  repeat_extenders: number
+  counts: { awaiting_me: number; mine: number; all: number; decided: number }
+}
+
+export type ExtensionQueueView = 'awaiting_me' | 'mine' | 'all' | 'decided'
+export type ExtensionQueueSort = 'default' | 'newest' | 'oldest' | 'days_desc' | 'due_asc'
+
+/** Every filter the queue endpoint understands. All optional; the screen keeps them in the URL. */
+export interface ExtensionQueueParams {
+  view?: ExtensionQueueView
+  /** Comma-separated statuses. */
+  status?: string
+  requesterId?: string
+  decidedBy?: string
+  departmentId?: string
+  projectId?: string
+  priority?: string
+  requestedFrom?: string
+  requestedTo?: string
+  decidedFrom?: string
+  decidedTo?: string
+  minDays?: string
+  maxDays?: string
+  overdueAtRequest?: boolean
+  /** Only requests that are the second or later on their task. */
+  repeat?: boolean
+  q?: string
+  sort?: ExtensionQueueSort
+  page?: number
+  perPage?: number
+}
+
+export interface ExtensionQueueResponse {
+  status: 1
+  message: string
+  data: {
+    requests: DeadlineExtension[]
+    pagination: TaskPagination
+    summary: ExtensionQueueSummary
+    /** `organisation` for an administrator, `own` for everyone else (their own and those on their tasks). */
+    scope: 'organisation' | 'own'
+  }
+}
+
+export interface ExtensionBulkResponse {
+  status: 1
+  message: string
+  data: { results: Array<{ id: string; ok: boolean; reason: string | null }>; succeeded: number; failed: number }
 }
 
 /** One audit-trail entry, as Administration > Audit Logs renders it. */
@@ -705,12 +843,32 @@ export interface WorkspaceTask {
   comments?: Array<{ id: string; author: string; content: string; created_at: string }>
 }
 
+/** The one-click filters above the Dashboard list. Each maps to a server definition that is also what is COUNTED. */
+export type WorkspaceQuick =
+  | 'mine' | 'overdue' | 'due_today' | 'due_week' | 'unassigned' | 'blocked' | 'needs_review'
+  | 'active' | 'attention' | 'completed_month' | 'approved_review' | 'sent_back'
+export type WorkspaceSort = 'due_desc' | 'due_asc' | 'priority' | 'updated' | 'created'
+
+/** The cards, the chip counts and the Analytics numbers - all counted across the whole scope, not the page on screen. */
+export interface WorkspaceSummary {
+  active: number
+  pending_review: number
+  blocked_overdue: number
+  completed_this_month: number
+  /** Counts for the chips. Blocked is `by_status['ON HOLD']`; needs-review is `pending_review`. */
+  quick: Record<'mine' | 'overdue' | 'due_today' | 'due_week' | 'unassigned' | 'approved_review' | 'sent_back', number>
+  by_status: Record<TaskStatus, number>
+  by_priority: Array<{ priority: string; count: number }>
+  /** Pending extension requests this viewer can decide: the badge on the Extensions tab. */
+  extension_pending: number
+}
+
 export interface WorkspaceResponse {
   status: 1
   message: string
   data: {
     tasks: WorkspaceTask[]
-    summary: { active: number; pending_review: number; blocked_overdue: number; completed_this_month: number }
+    summary: WorkspaceSummary
     pagination: TaskPagination
     filters: {
       statuses: TaskStatus[]

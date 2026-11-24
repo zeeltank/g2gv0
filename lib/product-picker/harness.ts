@@ -8,8 +8,11 @@ import type { PickerRow, ProductLineRow } from '../../services/product-master/pi
  */
 export type Kit = Awaited<ReturnType<typeof kit>>
 
-export interface CatalogueEntry extends PickerRow {
-  /** `sold` is offered by the picker; the others are only found by name (`paused`, `binned`, `not_sold`). */
+export interface CatalogueEntry extends Omit<PickerRow, 'state' | 'sold'> {
+  /**
+   * `sold` is offered by the picker; the others are only found by name (`paused`, `binned`, `not_sold`). A `scope=all` search also lists `paused` and `not_sold`
+   * entries (never `binned`), each with `sold` and `state`; a `not_sold` entry has no catalogue id (`crmProductId: null`).
+   */
   state: 'sold' | 'paused' | 'binned' | 'not_sold'
 }
 
@@ -31,6 +34,8 @@ export interface Reply {
 export interface ApiOptions {
   catalogue?: CatalogueEntry[]
   lines?: ProductLineRow[]
+  /** What `/product-master/lines?withSubProducts=1` answers. Default: the same rows as `lines` (a server that does not know the parameter answers the Products alone). */
+  linesWithSubProducts?: ProductLineRow[]
   /** The picker answers 403 (a person with no right to prices). */
   pickerForbidden?: boolean
   /** The picker answers 500 while this returns true (it is told the text searched for). */
@@ -58,6 +63,21 @@ export const LINES: ProductLineRow[] = [
   { id: 2, key: 'lms-pal', name: 'LMS-PAL' },
 ]
 
+/** The catalogue with one Sub-product that is not sold in CRM at all: no entry, so no catalogue id. */
+export const CATALOGUE_WITH_NOT_SOLD: CatalogueEntry[] = [
+  ...CATALOGUE,
+  { crmProductId: null, masterId: 30, name: 'Admissions Desk', productName: 'ScholarClone', sku: null, unitPrice: null, currency: null, taxRateId: null, type: 'product', state: 'not_sold' },
+]
+
+/** What `/product-master/lines?withSubProducts=1` answers: each Product, then its Sub-products and items (a Sub-product that is not sold says so). */
+export const LINES_WITH_SUBS: ProductLineRow[] = [
+  { id: 1, key: 'scholarclone', name: 'ScholarClone', kind: 'product', parentName: null },
+  { id: 23, key: 'scholarclone/sch-09', name: 'Scholar Nine', kind: 'sub_product', parentName: 'ScholarClone' },
+  { id: 30, key: 'scholarclone/adm-01', name: 'Admissions Desk', kind: 'sub_product', parentName: 'ScholarClone', sold: false },
+  { id: 2, key: 'lms-pal', name: 'LMS-PAL', kind: 'product', parentName: null },
+  { id: 26, key: 'crm/prd-26', name: 'LMS Basic', kind: 'item', parentName: 'LMS-PAL' },
+]
+
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /** What the fake server answers to the catalogue requests (the picker, the Product list, a record by catalogue id or by master id); undefined for anything else. */
@@ -75,14 +95,16 @@ export async function answerCatalogue(call: Pick<Call, 'method' | 'path' | 'quer
     if (options.pickerFails?.(q)) return { status: 500, body: { status: 0, message: 'Server error.' } }
     const type = call.query.get('type')
     const limit = Math.min(50, Number(call.query.get('limit') ?? 20))
+    // `scope=all` lists the paused and not-sold ones too (never one in the Recycle Bin), each marked; the default answer is the sold ones, with no marks.
+    const all = call.query.get('scope') === 'all'
     const rows = catalogue
-      .filter((entry) => entry.state === 'sold' && (!type || entry.type === type) && (q === '' || entry.name.toLowerCase().includes(q) || (entry.sku ?? '').toLowerCase().includes(q)))
+      .filter((entry) => (all ? entry.state !== 'binned' : entry.state === 'sold') && (!type || entry.type === type) && (q === '' || entry.name.toLowerCase().includes(q) || (entry.sku ?? '').toLowerCase().includes(q)))
       .sort((a, b) => (a.productName ?? 'zzzz').localeCompare(b.productName ?? 'zzzz') || a.name.localeCompare(b.name))
       .slice(0, limit)
-      .map(({ state: _state, ...row }) => ({ ...row, unitPrice: options.hidePrices ? null : row.unitPrice }))
+      .map(({ state, ...row }) => ({ ...row, unitPrice: options.hidePrices ? null : row.unitPrice, ...(all ? { sold: state === 'sold', state: state as 'sold' | 'paused' | 'not_sold' } : {}) }))
     return { body: { status: 1, data: rows } }
   }
-  if (path === '/product-master/lines') return { body: { status: 1, data: lines } }
+  if (path === '/product-master/lines') return { body: { status: 1, data: call.query.get('withSubProducts') === '1' ? (options.linesWithSubProducts ?? lines) : lines } }
 
   const byCrm = /^\/product-master\/by-crm\/(\d+)$/.exec(path)
   if (byCrm) {

@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, MoreHorizontal, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { formatMoney, formatQuantity, mayTick, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader } from '@/lib/portfolio-list/model'
+import { formatMoney, formatQuantity, mayTickRow, rowActions, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
 import type { SortKey } from '@/lib/portfolio-list/query'
 import { GROUP_ROW } from '@/lib/portfolio-list/tones'
 import type { PortfolioCan, PortfolioRow } from '@/services/product-master/portfolio-list-types'
@@ -36,6 +37,28 @@ function SortHead({ label, sortKey, active, dir, onSort, className }: {
   )
 }
 
+/** What a row's menu does, told to the list: move it to another Product, or delete it. */
+export type RowActionHandler = (row: PortfolioRow, action: RowAction) => void
+
+/** The "..." menu of a row: Move to another Product and Delete for a Sub-product, Delete product for a Product. Not drawn when the person may do neither. */
+function RowMenu({ row, can, onAction }: { row: PortfolioRow; can: PortfolioCan; onAction: RowActionHandler }) {
+  const actions = rowActions(row, can)
+  if (actions.length === 0) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" aria-label={`Actions for ${row.name}`}>
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {actions.includes('move') && <DropdownMenuItem onSelect={() => onAction(row, 'move')}>Move to another Product</DropdownMenuItem>}
+        {actions.includes('delete') && <DropdownMenuItem onSelect={() => onAction(row, 'delete')}>{row.kind === 'product' ? 'Delete product' : 'Delete'}</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function Dash({ why }: { why?: string }) {
   return <span className="text-muted-foreground" title={why}>—</span>
 }
@@ -50,7 +73,7 @@ function SellValue({ row, value }: { row: PortfolioRow; value: string | null }) 
   return row.hasSell ? <Dash /> : null
 }
 
-function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; columns: number; canAdd: boolean; onAdd: (productId: number) => void }) {
+function GroupRow({ group, columns, canAdd, onAdd, can, onAction }: { group: GroupHeader; columns: number; canAdd: boolean; onAdd: (productId: number) => void; can: PortfolioCan; onAction: RowActionHandler }) {
   const product = group.row
   return (
     <TableRow className={GROUP_ROW} data-group={group.key}>
@@ -70,6 +93,7 @@ function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; colum
                     <Plus className="mr-1 size-3.5" aria-hidden="true" />Add sub-product
                   </Button>
                 )}
+                <RowMenu row={product} can={can} onAction={onAction} />
               </span>
             </>
           ) : (
@@ -90,7 +114,7 @@ function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; colum
  * stock, Sold in CRM) are drawn only for a caller who may view Sell. Every Sub-product row has a tick box: disabled, with its reason, for a row a bulk action
  * cannot change.
  */
-export function PortfolioListTable({ items, can, sort, dir, onSort, selected, onToggle, onToggleAll, canAddSubProduct, onAddSubProduct, busy }: {
+export function PortfolioListTable({ items, can, sort, dir, onSort, selected, onToggle, onToggleAll, canAddSubProduct, onAddSubProduct, onRowAction, busy }: {
   items: DisplayItem[]
   can: PortfolioCan
   sort: SortKey
@@ -101,11 +125,13 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
   onToggleAll: (checked: boolean) => void
   canAddSubProduct: boolean
   onAddSubProduct: (productId: number) => void
+  /** A row's own menu: move it to another Product, or delete it. */
+  onRowAction: RowActionHandler
   busy: boolean
 }) {
   const sell = can.viewSell
   const rows = items.flatMap((i) => (i.kind === 'row' ? [i.row] : []))
-  const tickable = rows.filter((r) => mayTick(r, can))
+  const tickable = rows.filter((r) => mayTickRow(r, can))
   const allTicked = tickable.length > 0 && tickable.every((r) => selected.has(r.id))
   const columns = 5 + (sell ? 5 : 0)
 
@@ -138,7 +164,7 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
         <TableBody>
           {items.map((item, index) => {
             if (item.kind === 'group') {
-              return <GroupRow key={`g-${item.key}-${index}`} group={item} columns={columns} canAdd={canAddSubProduct} onAdd={onAddSubProduct} />
+              return <GroupRow key={`g-${item.key}-${index}`} group={item} columns={columns} canAdd={canAddSubProduct} onAdd={onAddSubProduct} can={can} onAction={onRowAction} />
             }
             const row = item.row
             const why = whyNoTick(row, can)
@@ -162,6 +188,7 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
                     {row.type === 'service' && <ServiceChip />}
                     {row.status === 'archived' && <ArchivedChip />}
                     {row.shared && <SharedChip />}
+                    <span className="ml-auto"><RowMenu row={row} can={can} onAction={onRowAction} /></span>
                   </div>
                 </TableCell>
                 {sell && <TableCell className="font-mono text-xs"><SellValue row={row} value={row.sku ?? null} /></TableCell>}

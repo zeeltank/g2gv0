@@ -1,5 +1,5 @@
 import type { PmListData, PmMeta, PmCan } from '../../services/product-master/types'
-import type { PmFullRecord, PmHistoryRow, PmListRow, PmSell, PmUsageFull } from '../../services/product-master/record-types'
+import type { PmFullRecord, PmHistoryRow, PmListRow, PmRemovalBlock, PmRemovalPreview, PmSell, PmUsageFull } from '../../services/product-master/record-types'
 import type { TaxonomyData } from '../../services/portfolio/types'
 
 /** Data for the unified Product Portfolio form and pages: the shapes hp_erp's ProductMasterController answers (read from the code on 14 Nov 2026). */
@@ -100,4 +100,30 @@ export function listRow(over: Partial<PmListRow> = {}): PmListRow {
     id: 11, kind: 'sub_product', name: 'Fee Collection', key: 'scholarclone/sch-11', status: 'active', productId: 1, productName: 'ScholarClone', type: 'product', state: 'sold', readiness: 'Live – with client',
     signalsFound: 4, icp: 'active', hasAbout: true, hasSell: true, needsProduct: false, shared: false, subProductCount: null, ...over,
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------- delete and move (contract 4.1)
+
+export const SOLD_BLOCK: PmRemovalBlock = { code: 'sold_on_documents', count: 3, message: '3 quotes or orders hold it.' }
+export const POINTER_BLOCK: PmRemovalBlock = { code: 'records_point_at_it', count: 12, message: '12 leads and 2 tickets point at it.' }
+export const SUBS_BLOCK: PmRemovalBlock = { code: 'has_sub_products_blocked', count: 1, message: '1 of its sub-products is held.' }
+
+/** `GET /product-master/{id}/removal` for a Sub-product that nothing holds, with two Products it may move to. */
+export function removalPreview(over: Partial<PmRemovalPreview> = {}): PmRemovalPreview {
+  return { id: 11, kind: 'sub_product', name: 'Fee Collection', canDelete: true, blockedBy: [], subProducts: [], targets: [{ id: 1, name: 'ScholarClone' }, { id: 7, name: 'Enterprise Brain' }], ...over }
+}
+
+/** The same read for the Product ScholarClone, with its two Sub-products (the second one held when `held` is set). */
+export function productRemovalPreview(held = false, over: Partial<PmRemovalPreview> = {}): PmRemovalPreview {
+  return removalPreview({
+    id: 1, kind: 'product', name: 'ScholarClone',
+    canDelete: !held,
+    blockedBy: held ? [SUBS_BLOCK] : [],
+    subProducts: [
+      { id: 11, name: 'Fee Collection', kind: 'sub_product', canDelete: true, blockedBy: [] },
+      { id: 12, name: 'Admissions', kind: 'sub_product', canDelete: !held, blockedBy: held ? [SOLD_BLOCK] : [] },
+    ],
+    targets: [{ id: 9, name: 'Payroll Cloud' }, { id: 7, name: 'Enterprise Brain' }],
+    ...over,
+  })
 }

@@ -64,6 +64,7 @@ const EMPTY_PAGINATION: TaskPagination = {
 const GROUPS: Array<{ value: MyTaskGroup; label: string }> = [
   { value: 'all', label: 'All Tasks' },
   { value: 'today', label: 'Today' },
+  { value: 'due_today', label: 'Today Due' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'recent', label: 'Recent' },
   { value: 'subordinates', label: 'Subordinate Tasks' },
@@ -175,7 +176,7 @@ export function MyTasksView() {
       value: summary.due_today,
       subtitle: 'Requires action today',
       icon: Clock,
-      action: () => { selectGroup('today'); setStatus('all') },
+      action: () => { selectGroup('due_today'); setStatus('all') },
     },
     {
       title: 'On Hold',
@@ -361,6 +362,7 @@ function TaskTable({ tasks, onSelect, selectedIds, onToggle, onToggleAll }: {
               <TableHead>Task</TableHead>
               <TableHead>Assigned By</TableHead>
               <TableHead>Department</TableHead>
+              <TableHead>Start Date</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -373,13 +375,14 @@ function TaskTable({ tasks, onSelect, selectedIds, onToggle, onToggleAll }: {
                 <TableCell><p className="font-medium">{task.title}</p><p className="max-w-sm truncate text-xs text-muted-foreground">{task.description || 'No description'}</p></TableCell>
                 <TableCell>{task.owner}</TableCell>
                 <TableCell>{task.department || '—'}</TableCell>
+                <TableCell>{task.planned_start_date ? formatDate(task.planned_start_date) : '—'}</TableCell>
                 <TableCell><span className="flex items-center gap-2"><CalendarDays className="size-4 text-muted-foreground" />{formatDate(task.due_date)}</span></TableCell>
                 <TableCell><PriorityBadge priority={task.priority ?? task.task_type} /></TableCell>
                 <TableCell><StatusBadge status={task.status} label={task.status_label || undefined} /></TableCell>
               </TableRow>
             ))}
             {tasks.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="h-44 text-center text-muted-foreground">No tasks match the selected filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="h-44 text-center text-muted-foreground">No tasks match the selected filters.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

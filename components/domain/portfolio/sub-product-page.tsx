@@ -24,6 +24,8 @@ import type { PmFullRecord, PmHistoryRow, PmListCan, PmListRow, PmPaging, PmUsag
 import type { PmMeta } from '@/services/product-master/types'
 import { ArchivedChip, ReadinessChip, SellChip, SharedChip, SignalsChip } from './portfolio-chips'
 import { ProductFormDrawer } from './product-form-drawer'
+import { MoveSubProductsDialog } from './move-sub-products-dialog'
+import { RemoveRecordDialog, type RemoveTarget } from './remove-record-dialog'
 import { BundleTab } from './sub-product-bundle'
 import { OverviewTab } from './sub-product-overview'
 import { DetailsTab, HistoryTab, SignalsIcpTab, UsageTab } from './sub-product-tabs'
@@ -85,6 +87,9 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
   const [notice, setNotice] = useState<Notice | null>(null)
   const [busy, setBusy] = useState(false)
   const [drawer, setDrawer] = useState(false)
+  // Delete and Move: each dialog is drawn only while it is open, so every question starts from a fresh read.
+  const [removing, setRemoving] = useState<RemoveTarget | null>(null)
+  const [moving, setMoving] = useState(false)
 
   const employees = useAssignableEmployees(context, record?.sell != null)
 
@@ -204,6 +209,9 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
   const canEdit = writable && Boolean(can?.editSubProduct)
   const canArchive = writable && Boolean(can?.archive)
   const canRestore = writable && Boolean(can?.restore)
+  // Delete has the same gate as Archive; Move changes where the record sits, which is an edit.
+  const canRemove = canArchive
+  const canMove = canEdit
   const canEditParts = Boolean(can?.editItem.product)
   const sell = record?.sell ?? null
   const canDeleteSell = writable && isAdmin && sell !== null && sell.state !== 'binned'
@@ -211,9 +219,9 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
   const refresh = () => { setStale((n) => n + 1); void load(true); void loadFacts() }
   const say = (tone: Notice['tone'], text: string) => setNotice({ tone, text })
 
-  const changeStatus = async (archive: boolean) => {
+  const changeStatus = async (archive: boolean, alreadyAsked = false) => {
     if (!record || busy) return
-    if (archive && !(await confirm({
+    if (archive && !alreadyAsked && !(await confirm({
       title: `Archive ${record.name}?`,
       description: 'It leaves the pickers and the default list. Its About and its Sell in CRM entry are not deleted, and you can restore it later.',
       confirmLabel: 'Archive',
@@ -296,6 +304,8 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
             {canArchive && record.status === 'active' && <Button variant="outline" onClick={() => void changeStatus(true)} disabled={busy}>Archive</Button>}
             {canRestore && record.status === 'archived' && <Button variant="outline" onClick={() => void changeStatus(false)} disabled={busy}>Restore</Button>}
             {canDeleteSell && <Button variant="outline" onClick={() => void deleteFromSell()} disabled={busy}>Delete from Sell in CRM</Button>}
+            {canMove && <Button variant="outline" onClick={() => setMoving(true)} disabled={busy}>Move to another Product</Button>}
+            {canRemove && <Button variant="outline" onClick={() => setRemoving({ id: record.id, name: record.name, kind: record.kind })} disabled={busy}>Delete</Button>}
             {busy && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Working" />}
           </>
         )}
@@ -380,6 +390,22 @@ export function SubProductPage({ id, onBack, onNameKnown, hrefs = DEFAULT_HREFS 
           mode="edit"
           recordId={record.id}
           onSaved={() => { say('success', 'Saved.'); refresh() }}
+        />
+      )}
+      {removing && (
+        <RemoveRecordDialog
+          record={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={() => { setRemoving(null); onBack() }}
+          onArchiveInstead={canArchive && record?.status === 'active' ? () => { setRemoving(null); void changeStatus(true, true) } : undefined}
+          onMoveInstead={canMove ? () => { setRemoving(null); setMoving(true) } : undefined}
+        />
+      )}
+      {moving && record && (
+        <MoveSubProductsDialog
+          subjects={[{ id: record.id, name: record.name }]}
+          onClose={() => setMoving(false)}
+          onMoved={(message) => { setMoving(false); say('success', message); refresh() }}
         />
       )}
       {confirmDialog}
