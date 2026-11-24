@@ -8,24 +8,13 @@
 import { useEffect, useState } from 'react'
 import { isLaravelContextReady, type LaravelContext } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import { productMasterService } from '@/services/product-master/product-master-service'
+import { useProductChoices } from '@/lib/product-picker/use-product-choices'
 import type { PmOption } from '@/services/product-master/types'
 import type { OpportunityLossReasonOption } from '@/types/crm'
 
-/** The products the Product Master lists, for the form's Product box. */
+/** The Products (level 1) the shared Product list offers, for the form's Product box (one read, `GET /product-master/lines`; slice 15, P3-C). */
 export function useProductOptions(context: LaravelContext, enabled: boolean): PmOption[] {
-  const [options, setOptions] = useState<PmOption[]>([])
-
-  useEffect(() => {
-    if (!enabled || !isLaravelContextReady(context)) return
-    let active = true
-    productMasterService.options()
-      .then((response) => { if (active) setOptions(Array.isArray(response.data) ? response.data : []) })
-      .catch(() => { /* no Product box */ })
-    return () => { active = false }
-  }, [context, enabled])
-
-  return options
+  return useProductChoices(enabled && isLaravelContextReady(context))
 }
 
 /** The coded reasons the server accepts, from the stage list the board reads; an older server does not send them, and then the form asks for words only. */

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { fallbackHeading, isOtherDay } from '@/lib/signal-fallback'
 import { formatRunDate } from '@/lib/run-dates'
+import { replaceRow } from '@/lib/signals/opportunity-row'
 import { ApiError } from '@/services/core'
 import { opportunitiesService, type Opportunity, type OpportunityListResponse } from '@/services/signals/opportunities'
 import { SignalCard } from '@/components/domain/signals/scholar-signals-view'
@@ -52,12 +53,8 @@ export function FallbackSignals({
     return () => { live = false }
   }, [load, refreshKey])
 
-  const act = async (o: Opportunity, action: 'review' | 'follow-up' | 'dismiss') => {
-    try {
-      await opportunitiesService.act(context, o.id, action)
-      void load()
-    } catch { /* the card keeps its state; the next load shows the truth */ }
-  }
+  // A card changed (a decision, a lead): the row is replaced in place; the card keeps its state if the server refused (it says so itself).
+  const changed = useCallback((next: Opportunity) => setData((current) => (current ? replaceRow(current, next) : current)), [])
 
   if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>
   if (!data) return <div className="space-y-3" aria-busy="true"><Skeleton className="h-40 w-full rounded-2xl" /></div>
@@ -75,7 +72,7 @@ export function FallbackSignals({
         </p>
       </div>
       <div className="space-y-4">
-        {data.data.map((o) => <SignalCard key={o.id} o={o} onAct={act} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} />)}
+        {data.data.map((o) => <SignalCard key={o.id} o={o} reasons={data.filters?.review_reasons ?? []} products={data.filters?.products} onChanged={changed} runDateLabel={o.report_date ? formatRunDate(o.report_date) : null} />)}
       </div>
       {data.meta.last_page > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm">

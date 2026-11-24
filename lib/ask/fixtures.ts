@@ -8,7 +8,7 @@ export const NOW = '2026-11-04T09:30:00+00:00'
 
 export const LEAD: AskCitation = { type: 'lead', id: '201', label: 'Rahul Sharma (L-0201)', url: '/module/crm/marketing/leads/201' }
 export const ORG: AskCitation = { type: 'organization', id: '135', label: 'Tapovan Vidya Vihar', url: '/module/crm/marketing/organizations/135' }
-export const SIGNAL: AskCitation = { type: 'signal', id: '39', label: 'Tapovan is opening a new CBSE campus', url: '/module/crm/signal-review?status=all&q=Tapovan' }
+export const SIGNAL: AskCitation = { type: 'signal', id: '39', label: 'Tapovan is opening a new CBSE campus', url: '/signals?status=all&q=Tapovan' }
 
 export function message(over: Partial<AskMessage> = {}): AskMessage {
   return { id: 11, role: 'assistant', text: 'Tapovan has one open opportunity.', status: 'answered', citations: [ORG], created_at: NOW, ...over }

@@ -60,7 +60,12 @@ describe('Choosing one sub-product of a product', () => {
 
   it('the signal screen selects a master product and one of its sub-products', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(screen, /useSelectedProduct\(context, products, \{ allowAll: false, allowSub: true \}\)/)
+    // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the screen no longer calls useSelectedProduct({ allowAll: false, allowSub: true }); it resolves "all", a
+    // Product Master number, a product or a product with one sub-product (`key::SUB-ID`) from the address in one tested function. A sub-product is still
+    // chosen as `scope.choice`, and split into the product and the offer exactly as before.
+    assert.match(screen, /resolveProductScope\(\{ product: query\.filters\.product \?\? '', asksTheList: asksTheList\(searchParams\), remembered, products \}\)/)
+    assert.match(screen, /const choice = scope\?\.kind === 'product' \? scope\.choice : null/)
+    assert.match(screen, /const \{ productKey: product, offerId \} = splitChoice\(choice\)/)
     assert.match(screen, /selected\?\.offers\.map\(\(offer\)/)
     assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions(?:, \w+)?\)/)
     assert.match(screen, /id="sub-product-select"/)

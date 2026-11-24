@@ -11,10 +11,10 @@ import {
 import {
   formatAmount, linkedRecords, MISSING_SOURCE_TEXT, NO_VALUE, NOT_CONFIRMABLE_TEXT, placeConflictText, scoreText, shownText, sourceTypeLabel, whyNowFacts,
 } from '@/lib/org-accounts/display'
-import { recordHref, signalReviewHref, type OrgLinks } from '@/lib/org-accounts/links'
+import { recordHref, signalHref, type OrgLinks } from '@/lib/org-accounts/links'
 import { CONFIRM_LABEL, REJECT_LABEL, type LinkAction } from '@/lib/org-accounts/suggestions'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
-import { formatDay, safeHttpUrl } from '@/lib/signal-review/signal-display'
+import { formatDay, safeHttpUrl } from '@/lib/signals/signal-display'
 import { cn } from '@/lib/utils'
 import type { Org360, OrgSuggestion } from '@/services/org-accounts/types'
 import { LifecycleChip, SignalDatePill, SignalStateChip, SourceTag } from './org-account-parts'
@@ -194,18 +194,18 @@ export function LinkedRecordsCard({ org, links, matches, matchesError, canEdit, 
 
 // ── Signals ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The latest signals found about this organisation, each with its status in words, its date and the page it was found on. Decisions are made in Signal Review. */
+/** The latest signals found about this organisation, each with its status in words, its date and the page it was found on. Decisions are made in Company Opportunities. */
 export function SignalsSection({ org, links }: { org: Org360; links: OrgLinks }) {
   const { total, needing_decision, decided, latest } = org.signals
   return (
     <Collapsible title="Signals" count={total}>
       <p className="mb-3 text-sm text-muted-foreground">
-        {total} in total · {needing_decision} need a decision · {decided} decided. Decisions are made in Signal Review.
+        {total} in total · {needing_decision} need a decision · {decided} decided. Decisions are made in Company Opportunities.
       </p>
       {latest.length === 0 ? <Empty>No signals have been found about this organisation yet.</Empty> : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {latest.map((line) => {
-            const review = signalReviewHref(links, line.title)
+            const review = signalHref(links, line.title)
             const evidence = safeHttpUrl(line.source_url)
             return (
               <li key={line.id} data-signal={line.id} className="flex flex-wrap items-start justify-between gap-2 p-3">

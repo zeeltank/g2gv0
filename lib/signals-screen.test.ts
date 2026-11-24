@@ -5,6 +5,7 @@ import { describe, it } from 'node:test'
 import type { NavModule } from './gtg-navigation'
 import { collapseSignalsNav, SIGNALS_TABS, visibleSignalsTabs } from './signals-nav'
 import { isPickableDay, rangeText, recentDays, relativeLabel, shiftDay, todayIn } from './signal-dates'
+import { DEFAULT_PER_PAGE, PER_PAGE_CHOICES } from './signals/opportunity-query'
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8')
 
@@ -44,8 +45,26 @@ describe('Signals sidebar', () => {
 
   it('the four tabs go to the existing routes (nothing is a placeholder)', () => {
     assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/portfolio/page.tsx', 'portfolio'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
+    // REWRITTEN ON PURPOSE (slice 15, P3-A, 14 Nov 2026): the Product Portfolio is a product page with its own sidebar entry, not a Signals page (owner, 13 Nov: "no Company
+    // Opportunities, Ingestion Engine, Partner Network button"), so its page is drawn OUTSIDE the Signals frame. The other two tabs keep the frame, as strictly as before.
+    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
+    const portfolioPage = read('app/portfolio/page.tsx')
+    assert.doesNotMatch(portfolioPage, /import[^\n]*SignalsFrame|<SignalsFrame/, 'the Product Portfolio page neither imports nor draws the Signals frame (and so draws no Signals buttons)')
+    // CHANGED ON PURPOSE (24 Nov 2026, owner: no Product Portfolio entry in the sidebar, the list is the Market Signals tab): the old list address only redirects to the tab.
+    assert.match(portfolioPage, /redirect\(portfolioRedirectTarget\(await searchParams\)\)/, 'the list address sends a visitor to the tab, keeping the query')
+    assert.doesNotMatch(portfolioPage, /<PortfolioList/, 'and draws no list of its own')
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
+  })
+
+  it('keeps the four tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
+    // Owner, 23 Nov 2026: "in Market Signals when I click the Product Portfolio tab the other tabs vanish: I want the 4 tabs there for fast switching, but not in the Product Portfolio module."
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio', '/partners'], 'the tab goes to a route inside Signals')
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'], 'while the menu row it stands for is still /portfolio')
+    assert.match(read('components/domain/signals/signals-header.tsx'), /href=\{t\.route\}/, 'the header links each tab to its route')
+    const tabPage = read('app/signals/portfolio/page.tsx')
+    assert.match(tabPage, /<SignalsFrame active="portfolio">/, 'the tab page draws the Signals frame with the Product Portfolio tab active')
+    assert.match(tabPage, /<PortfolioList canManage=\{canManage\} embedded \/>/, 'and the same list, embedded')
+    assert.doesNotMatch(read('app/portfolio/page.tsx'), /import[^\n]*SignalsFrame|<SignalsFrame|<PortfolioList[^>]*embedded/, 'the module page has no Signals tabs and is not embedded')
   })
 
 
@@ -106,11 +125,18 @@ describe('Signals dates', () => {
     assert.equal(rangeText(1, 5, 0), null)
   })
 
-  it('the signal list asks the server for five per page, and resets to page one on a filter change', () => {
+  // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the page size is a choice kept in the address (`per`: 5, 20 or 50; five when the address says nothing) and
+  // the page is the address's too, so the old pins on a fixed `SIGNALS_PER_PAGE = 5` and on `setPage(1); setData(null)` in an effect are replaced by pins
+  // on the same two rules in their new form: five by default, and back to page one when the SCOPE changes (but not on the first render, so a link that
+  // opens on page three stays on page three).
+  it('the signal list asks the server for five per page unless the address says 20 or 50, and goes back to page one when its scope changes', () => {
+    assert.equal(DEFAULT_PER_PAGE, 5)
+    assert.deepEqual([...PER_PAGE_CHOICES], ['5', '20', '50'])
     const list = read('components/domain/signals/signal-list.tsx')
-    assert.match(list, /SIGNALS_PER_PAGE = 5/)
-    assert.match(list, /perPage: SIGNALS_PER_PAGE/)
-    assert.match(list, /setPage\(1\); setData\(null\)/)
+    assert.match(list, /\.\.\.listRequest\(\{ q, sort, dir: 'desc', page, filters: \{ product: '', status, freshness, fit, per \} \}\)/)
+    assert.equal(/SIGNALS_PER_PAGE/.test(list), false, 'no second, fixed page size beside the address\'s')
+    assert.match(list, /if \(lastScope\.current === scope\) return/)
+    assert.match(list, /setData\(null\); setError\(null\); setSourceTab\('all'\)\s*\n\s*if \(page > 1\) setPage\(1\)/)
     const opps = read('components/domain/signals/company-opportunities.tsx')
     assert.match(opps, /void run\.generate\(c\.list, icpType\)/)
     assert.match(opps, /disabled=\{!selected \|\| run\.running\}/)

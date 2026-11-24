@@ -572,7 +572,7 @@ describe('OrgAgentPanel: what a person is shown', () => {
   it('links a record inside the application and shows the organisation itself and a possible link as text', async () => {
     const { k, card } = await setup({ overrides: { state: async () => ({ status: 1, data: orgState({ pending: [proposal({ evidence: [SIGNAL, CRM_ORG, SELF, PAIR] })], recent: [] }) }) } })
     const links = Array.from(card(1)!.querySelectorAll('a')).map((a) => a.getAttribute('href'))
-    assert.deepEqual(links, ['/module/crm/signal-review?status=all&q=Hillcrest', '/module/crm/marketing/organizations/135'])
+    assert.deepEqual(links, ['/signals?status=all&q=Hillcrest', '/module/crm/marketing/organizations/135'])
     assert.ok(card(1)!.textContent!.includes('This organisation: Hillcrest Academy'))
     assert.ok(card(1)!.textContent!.includes('Possible link: Possible link: Hillcrest Academy Pvt'))
     assert.ok(k.bodyText().length > 0)
@@ -585,7 +585,7 @@ describe('OrgAgentPanel: what a model wrote is text, never markup and never a li
   it('shows markup in a brief, a note, a reason and a label as the characters it is made of', async () => {
     const evil = '<img src=x onerror="window.__pwned = 1"><script>window.__pwned = 2</script><b>bold</b>'
     const state = orgState({
-      last_run: run({ brief: `Brief ${evil}`, brief_evidence: [{ type: 'signal', id: '1', label: `Label ${evil}`, url: '/module/crm/signal-review' }] }),
+      last_run: run({ brief: `Brief ${evil}`, brief_evidence: [{ type: 'signal', id: '1', label: `Label ${evil}`, url: '/signals' }] }),
       pending: [proposal({ summary: `Add a note: ${evil}`, reason: `Because ${evil}`, evidence: [{ type: 'signal', id: '1', label: `Cited ${evil}`, url: '/x' }] })], recent: [dismissed({ decision_note: `Note ${evil}` })],
     })
     const { k } = await setup({ overrides: { state: async () => ({ status: 1, data: state }) } })

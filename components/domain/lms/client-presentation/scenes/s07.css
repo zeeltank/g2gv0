@@ -1,0 +1,20 @@
+/* Slide 7: Scholar Core */
+.s07-badge { position: absolute; left: 140px; top: 80px; }
+.s07-h { position: absolute; left: 140px; top: 100px; width: 780px; margin: 0; font-size: 60px; line-height: 1.06; color: var(--cp-text-ink); }
+.s07-rows { position: absolute; left: 140px; top: 380px; width: 780px; margin: 0; padding: 0; list-style: none; }
+.s07-row { border-top: 1.5px solid rgba(12, 42, 74, 0.28); padding: 18px 0 16px; }
+.s07-row:last-child { border-bottom: 1.5px solid rgba(12, 42, 74, 0.28); }
+.s07-row-head { display: flex; align-items: baseline; gap: 22px; }
+.s07-n { display: inline-block; width: 40px; font-size: 21px; letter-spacing: 0.18em; font-weight: 800; color: var(--cp-blue-d); }
+.s07-name { font-size: 42px; font-weight: 700; color: var(--cp-text-ink); font-family: var(--cp-display), Georgia, serif; }
+.s07-row[data-open='false'] .s07-name { color: rgba(12, 42, 74, 0.5); }
+.s07-row-body { overflow: hidden; }
+.s07-row-body p { margin: 10px 0 2px 62px; font-size: 27px; line-height: 1.36; font-weight: 500; color: var(--cp-text-body); }
+.s07-situation { position: absolute; left: 140px; top: 820px; width: 780px; margin: 0; font-size: 23px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); padding-left: 18px; border-left: 3px dashed rgba(12, 42, 74, 0.4); }
+.s07-value { position: absolute; left: 140px; top: 925px; width: 780px; margin: 0; font-size: 23px; line-height: 1.38; font-weight: 600; color: var(--cp-text-ink); padding-left: 18px; border-left: 3px solid var(--cp-green-d); }
+.s07-shotwrap { position: absolute; left: 1000px; top: 190px; width: 780px; height: 439px; }
+.s07-shot { left: 0; top: 0; width: 780px; height: 439px; }
+.s07-more { position: absolute; left: 1000px; top: 800px; width: 780px; margin: 0; font-size: 28px; line-height: 1.4; font-weight: 600; color: var(--cp-text-ink); }
+.s07-more::before { content: ''; display: block; width: 60px; height: 3px; background: var(--cp-green-d); margin-bottom: 18px; }
+
+.s07-row-body p::first-letter { text-transform: uppercase; }

@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, CrmProduct, CrmTicket, CrmTicketPayload } from '@/types/crm'
+import type { CrmPicklistValue, CrmTicket, CrmTicketPayload } from '@/types/crm'
 import { useAssignableEmployees } from './lead-employees'
 import { useOrganizationOptions } from './organization-options'
 import { useContactOptions } from './contact-options'
@@ -41,18 +42,6 @@ export function CreateTicketModal({ isOpen, onClose, onSaved, ticket, ticketStat
   const contacts = useContactOptions(context, isOpen)
   const assets = useAssetOptions(context, isOpen)
   const serviceContracts = useServiceContractOptions(context, isOpen)
-
-  const [products, setProducts] = useState<CrmProduct[]>([])
-
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([productsRes, servicesRes]) => setProducts([...productsRes.data.items, ...servicesRes.data.items]))
-      .catch(() => { /* the form still works with an empty picker */ })
-  }, [isOpen, context])
 
   const [seededFrom, setSeededFrom] = useState<CrmTicket | null | 'unset'>('unset')
   const [form, setForm] = useState<CrmTicketPayload>(emptyForm(ticketStatuses))
@@ -139,12 +128,13 @@ export function CreateTicketModal({ isOpen, onClose, onSaved, ticket, ticketStat
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Product / Service</Label>
-              <SearchableSelect
-                value={form.productId ?? ''}
-                onChange={(v) => set('productId', v || null)}
-                options={products.map((p) => ({ value: p.id, label: p.name }))}
+              <Label htmlFor="ticket-product">Sub-product</Label>
+              <SubProductPicker
+                id="ticket-product"
+                value={form.productId}
+                onChange={(picked) => set('productId', picked ? picked.productId : null)}
                 placeholder="None"
+                clearable
               />
             </div>
             <div className="space-y-1.5">

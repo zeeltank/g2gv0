@@ -18,10 +18,11 @@ describe('Product Details & ICP link', () => {
     assert.equal(configureHref('g2g'), '/portfolio/g2g')
   })
 
-  it('points at a route that exists, and the old ?product= link still lands on that product', () => {
+  // The second half of this test (the old `/portfolio?product=<key>` link redirecting to that product's page) read the retired portfolio-view.tsx; the unified list
+  // has no such redirect (S15 WPD2 test map, 23 Nov 2026, G1), so it is not pinned here.
+  it('points at a route that exists', () => {
     assert.ok(existsSync(join(root, 'app/portfolio/[product]/page.tsx')))
     assert.ok(existsSync(join(root, 'app/portfolio/page.tsx')))
-    assert.match(read('components/domain/portfolio/portfolio-view.tsx'), /router\.replace\(configureHref\(linked\)\)/)
   })
 
   it('has a link to the product\'s sub-products (where each ICP is set), an old ?tab=icp link lands there, and an unknown tab falls back to the overview', () => {
@@ -69,9 +70,23 @@ describe('Routes and navigation', () => {
   // covered by "keeps the four routes" above, and this file's actual per-department signals
   // now come from DepartmentSignalsPanel, outside this test's scope.
 
-  it('offers no "All products" choice and never passes "all" to a run on the Company opportunities screen', () => {
+  // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the screen now offers "All products" for READING (the Signal Review's abilities moved here), so the old pin
+  // `allowAll: false` is replaced by pins of the same strictness on the other half of the rule: a run is never started for anything but one product.
+  it('offers "All products" for reading, and never passes "all" (or a Product Master number) to a run', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(screen, /allowAll: false/)
+    // The scope comes from one function that is tested on its own (lib/signals/opportunity-query.test.ts); "All products" is an option of the Main Product box.
+    assert.match(screen, /resolveProductScope\(\{ product: query\.filters\.product \?\? '', asksTheList: asksTheList\(searchParams\), remembered, products \}\)/)
+    assert.match(screen, /<option value="all">All products<\/option>/)
+    // A run belongs to a Portfolio product found by KEY: the "all" and "master" scopes have none, so the run hook is given null.
+    assert.match(screen, /const choice = scope\?\.kind === 'product' \? scope\.choice : null/)
+    assert.match(screen, /const selected = products\?\.find\(\(p\) => p\.key === product\) \?\? null/)
+    // Changed on purpose in the merge of origin/main (82b4922): the screen passes the products reload to the run (the server may create the sub-product's ICP region) and
+    // Generate is no longer held back by a client-side readiness check, so only "nothing chosen" and "a run is going" turn it off.
+    assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions, reloadProducts\)/)
+    assert.match(screen, /disabled=\{!selected \|\| run\.running\}/)
+    assert.doesNotMatch(screen, /\|\| !ready\}/, 'Generate is not disabled by a readiness flag any more')
+    assert.equal(/useSelectedProduct/.test(screen), false, 'the old hook defaults to "all" where all is allowed; this screen resolves its scope itself')
+    // The product dropdown component this screen does not use still has no "All products".
     const dropdown = read('components/domain/signals/product-selector.tsx')
     assert.equal(/All products/.test(dropdown.slice(dropdown.indexOf('export function ProductDropdown'))), false)
   })
@@ -125,15 +140,24 @@ describe('One list and the research-date selector', () => {
     assert.match(screen, /Generate Signals/)
   })
 
-  it('keeps the review actions on each signal', () => {
+  // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the three lenient buttons ("Mark reviewed", "Contacted", "Not relevant") are replaced by the Signal Review's
+  // decision dialog, so the old pin on those three labels is replaced by pins on the same abilities in their new form.
+  it('keeps the review actions on each signal, now the Signal Review\'s: a decision dialog, the lead action, the history and the fit', () => {
     const card = read('components/domain/signals/scholar-signals-view.tsx')
-    for (const label of ['Mark reviewed', 'Contacted', 'Not relevant']) assert.ok(card.includes(label), label)
+    const actions = read('components/domain/signals/signal-card-actions.tsx')
+    assert.match(card, /<SignalCardActions card=\{card\} signal=\{o\} reasons=\{reasons\} \/>/)
+    assert.match(card, /<SignalCardDetails card=\{card\} signal=\{o\} products=\{products\} \/>/)
+    assert.equal(/onAct|Mark reviewed|Promote to CRM Lead|promoteToCrm|opportunitiesService\.act/.test(card), false, 'the lenient buttons and the unconfirmed lead button are gone')
+    for (const wired of ['availableDecisions', 'useSignalDecision', 'useSignalLead', 'SignalDecisionDialog', 'SignalHistoryList', 'SignalFitScore', 'LeadFeedbackMessage']) assert.ok(actions.includes(wired), wired)
+    const decisions = read('lib/signals/decision-actions.ts')
+    for (const label of ['Contacted', 'Reviewed', 'Not relevant', 'Reopen']) assert.ok(decisions.includes(label), label)
   })
 })
 
 describe('Premium workspace and honest forms', () => {
   it('wraps all four module pages in the scoped premium theme', () => {
-    for (const page of ['signals', 'ingestion', 'portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
+    // the Product Portfolio tab's page is app/signals/portfolio (app/portfolio/page.tsx only redirects to it, since 24 Nov 2026)
+    for (const page of ['signals', 'ingestion', 'signals/portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
   })
 
   it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {
@@ -144,8 +168,9 @@ describe('Premium workspace and honest forms', () => {
   })
 
   it('shows failures inline: no native alert() in the four modules', () => {
-    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-view.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
-      assert.equal(/alert\(/.test(read(f)), false, f)
+    // The Product Portfolio is now the unified list (portfolio-view.tsx is retired): its screen, its More menu and its one form are read in its place.
+    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-more-menu.tsx', 'components/domain/portfolio/product-form-drawer.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
+      assert.equal(/\balert\(/.test(read(f)), false, f)
     }
   })
 

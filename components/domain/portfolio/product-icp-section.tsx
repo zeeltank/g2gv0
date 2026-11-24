@@ -52,7 +52,7 @@ export function ProductIcpSection({
     Ideal Customer Profile — {model === 'b2b' ? 'B2B Customer Acquisition' : model === 'b2c' ? 'B2B Partner Acquisition' : 'B2G (Government)'}
   </h3>
         <p className="text-xs text-muted-foreground">
-          The product details above describe what this product is and offers. The Individual Ideal Customer Profile (ICP) describes which customers suit THIS product. It is saved separately, linked to this product only, and saved as a draft: it is never active until you activate it on the product&apos;s ICP page. Another product&apos;s ICP is never changed.
+          The About describes what this sub-product is and does. The Individual Ideal Customer Profile (ICP) describes which customers suit THIS sub-product. It is saved with the rest of this form, for this sub-product only: another sub-product&apos;s ICP is never changed.
         </p>
       </div>
 

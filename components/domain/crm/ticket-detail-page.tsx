@@ -21,6 +21,7 @@ import { CreateTicketModal } from './create-ticket-modal'
 import { useAssignableEmployees } from './lead-employees'
 import { CrmDocumentTab } from './crm-document-tab'
 import { CrmEmailTab } from './crm-email-tab'
+import { ProductPageLink } from '@/components/domain/portfolio/product-page-link'
 import { SendEmailDialog } from './send-email-dialog'
 import { CrmScheduleTab } from './crm-schedule-tab'
 import { TicketSlaBadge } from './ticket-sla-badge'
@@ -256,7 +257,7 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
               <ReadField label="Category" value={ticket.category && <IconValue icon={Tag}>{ticket.category}</IconValue>} />
               <LinkedField label="Organization" name={ticket.organizationName} href={ticket.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${ticket.organizationId}` : null} />
               <LinkedField label="Contact" name={ticket.contactName} href={ticket.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${ticket.contactId}` : null} />
-              <LinkedField label="Product / Service" name={ticket.productName} href={ticket.productId ? resolveAccessLink('/module/crm/sales/products') + `/${ticket.productId}` : null} />
+              <ReadField label="Sub-product" value={ticket.productId ? <ProductPageLink crmProductId={ticket.productId}>{ticket.productName || `#${ticket.productId}`}</ProductPageLink> : null} />
               <LinkedField label="Asset" name={ticket.assetName} href={ticket.assetId ? resolveAccessLink('/module/crm/support/assets') + `/${ticket.assetId}` : null} />
               <LinkedField label="Service Contract" name={ticket.serviceContractNo} href={ticket.serviceContractId ? resolveAccessLink('/module/crm/support/service-contracts') + `/${ticket.serviceContractId}` : null} />
               <ReadField label="Hours" value={ticket.hours !== null ? <IconValue icon={Clock}>{ticket.hours}</IconValue> : null} />

@@ -1,0 +1,306 @@
+{
+ "disclosure": "Illustrative school data",
+ "length": 15,
+ "clips": [
+  {
+   "id": "core",
+   "product": "Scholar Core",
+   "descriptor": "Intelligent School Operations",
+   "slide": 7,
+   "lines": [
+    {
+     "role": "hook",
+     "text": "Fees, attendance and marks. One system?"
+    },
+    {
+     "role": "card-title",
+     "text": "Fee collection"
+    },
+    {
+     "role": "card-title",
+     "text": "Attendance"
+    },
+    {
+     "role": "card-title",
+     "text": "Marks entry"
+    },
+    {
+     "role": "card-detail",
+     "text": "Class 8-B"
+    },
+    {
+     "role": "card-detail",
+     "text": "Class 8-B, Monday"
+    },
+    {
+     "role": "card-detail",
+     "text": "Science unit test"
+    },
+    {
+     "role": "card-from",
+     "text": "Collecting"
+    },
+    {
+     "role": "card-from",
+     "text": "Marking"
+    },
+    {
+     "role": "card-from",
+     "text": "Entering"
+    },
+    {
+     "role": "card-to",
+     "text": "Received"
+    },
+    {
+     "role": "card-to",
+     "text": "Marked"
+    },
+    {
+     "role": "card-to",
+     "text": "Saved"
+    },
+    {
+     "role": "outcome",
+     "text": "Fees, daily attendance and marks, in one school system."
+    }
+   ]
+  },
+  {
+   "id": "learn",
+   "product": "Scholar Learn",
+   "descriptor": "AI-Powered Personalised Learning",
+   "slide": 8,
+   "lines": [
+    {
+     "role": "hook",
+     "text": "Which concepts is this student weak in?"
+    },
+    {
+     "role": "card-title",
+     "text": "Diagnostic result"
+    },
+    {
+     "role": "row-label",
+     "text": "Fractions"
+    },
+    {
+     "role": "row-label",
+     "text": "Decimals"
+    },
+    {
+     "role": "row-label",
+     "text": "Ratio"
+    },
+    {
+     "role": "row-band",
+     "text": "Weak"
+    },
+    {
+     "role": "row-band",
+     "text": "Moderate"
+    },
+    {
+     "role": "row-band",
+     "text": "Strong"
+    },
+    {
+     "role": "step",
+     "text": "A plan drawn from the diagnosis"
+    },
+    {
+     "role": "step",
+     "text": "Practice adjusts as the student answers"
+    },
+    {
+     "role": "next-label",
+     "text": "Next action"
+    },
+    {
+     "role": "next-value",
+     "text": "Review fractions"
+    },
+    {
+     "role": "outcome",
+     "text": "A diagnosis, a plan, and one next action after practice."
+    }
+   ]
+  },
+  {
+   "id": "ccb",
+   "product": "Scholar CCB",
+   "descriptor": "Competence and Capability Intelligence",
+   "slide": 10,
+   "lines": [
+    {
+     "role": "hook",
+     "text": "Where does a teacher need development?"
+    },
+    {
+     "role": "card-title",
+     "text": "Competency ratings"
+    },
+    {
+     "role": "card-detail",
+     "text": "One teacher, shown without a name"
+    },
+    {
+     "role": "row-label",
+     "text": "Assessment design"
+    },
+    {
+     "role": "row-label",
+     "text": "Student engagement"
+    },
+    {
+     "role": "row-label",
+     "text": "Subject knowledge"
+    },
+    {
+     "role": "row-state",
+     "text": "Gap"
+    },
+    {
+     "role": "row-state",
+     "text": "Met"
+    },
+    {
+     "role": "row-state",
+     "text": "Met"
+    },
+    {
+     "role": "plan-title",
+     "text": "Development plan"
+    },
+    {
+     "role": "plan-action",
+     "text": "Attend an assessment workshop"
+    },
+    {
+     "role": "plan-action",
+     "text": "Observe a peer lesson"
+    },
+    {
+     "role": "plan-from",
+     "text": "To do"
+    },
+    {
+     "role": "plan-from",
+     "text": "To do"
+    },
+    {
+     "role": "plan-to",
+     "text": "Done"
+    },
+    {
+     "role": "plan-to",
+     "text": "Done"
+    },
+    {
+     "role": "outcome",
+     "text": "Ratings, a gap view and a development plan with actions."
+    }
+   ]
+  },
+  {
+   "id": "insight",
+   "product": "Scholar Insight",
+   "descriptor": "School Intelligence",
+   "slide": 11,
+   "lines": [
+    {
+     "role": "hook",
+     "text": "What needs attention today?"
+    },
+    {
+     "role": "signal",
+     "text": "Fall in assessment results"
+    },
+    {
+     "role": "signal",
+     "text": "Attendance risk"
+    },
+    {
+     "role": "signal",
+     "text": "Missed assignments"
+    },
+    {
+     "role": "case-title",
+     "text": "One case, with a recommended action"
+    },
+    {
+     "role": "decision",
+     "text": "Approve"
+    },
+    {
+     "role": "decision",
+     "text": "Reject"
+    },
+    {
+     "role": "decided",
+     "text": "Decided by a person"
+    },
+    {
+     "role": "outcome",
+     "text": "Recommendations wait for a person to approve or reject them."
+    }
+   ]
+  },
+  {
+   "id": "compass",
+   "product": "Scholar Compass",
+   "descriptor": "Student Career Intelligence",
+   "slide": 12,
+   "lines": [
+    {
+     "role": "hook",
+     "text": "What do a student's interests say about careers?"
+    },
+    {
+     "role": "chip",
+     "text": "Interest questions"
+    },
+    {
+     "role": "chip",
+     "text": "Personality questionnaire"
+    },
+    {
+     "role": "chip",
+     "text": "Aspiration: Doctor"
+    },
+    {
+     "role": "chip",
+     "text": "How sure: Fairly sure"
+    },
+    {
+     "role": "card-title",
+     "text": "Career alignment"
+    },
+    {
+     "role": "meter-label",
+     "text": "Interests"
+    },
+    {
+     "role": "meter-label",
+     "text": "Learning evidence"
+    },
+    {
+     "role": "meter-note",
+     "text": "Matches the aspiration"
+    },
+    {
+     "role": "meter-note",
+     "text": "Not enough evidence yet"
+    },
+    {
+     "role": "honest",
+     "text": "When the evidence is thin, the result says so."
+    },
+    {
+     "role": "outcome",
+     "text": "Interests, aspirations and learning evidence, compared honestly."
+    }
+   ]
+  }
+ ]
+}

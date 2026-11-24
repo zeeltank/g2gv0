@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import { ApiError } from '../../services/core'
 import type { AgentApi } from '../../services/agent/api-types'
 import type { AgentRunsResponse } from '../../services/agent/types'

@@ -16,7 +16,7 @@ import { recordHref, type OrgLinks } from '@/lib/org-accounts/links'
 import {
   clearFiltersPatch, DISCOVERED_QUERY, discoveredParams, discoveredState, LIFECYCLE_CHOICES, rangeText,
 } from '@/lib/org-accounts/scope-model'
-import { formatDay } from '@/lib/signal-review/signal-display'
+import { formatDay } from '@/lib/signals/signal-display'
 import { cn } from '@/lib/utils'
 import type { OrgAccountsApi } from '@/services/org-accounts/api-types'
 import { orgAccountsService } from '@/services/org-accounts/org-accounts-service'

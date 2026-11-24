@@ -28,7 +28,7 @@ describe('the question', () => {
 describe('links: only a path inside the application or an http(s) address is ever drawn as a link', () => {
   it('accepts a path from the root, with its query', () => {
     assert.deepEqual(safeLink('/module/crm/marketing/leads/201'), { href: '/module/crm/marketing/leads/201', external: false })
-    assert.deepEqual(safeLink('/module/crm/signal-review?status=all&q=Tapovan%20School'), { href: '/module/crm/signal-review?status=all&q=Tapovan%20School', external: false })
+    assert.deepEqual(safeLink('/signals?status=all&q=Tapovan%20School'), { href: '/signals?status=all&q=Tapovan%20School', external: false })
   })
 
   it('accepts http and https addresses and marks them as outside the application', () => {

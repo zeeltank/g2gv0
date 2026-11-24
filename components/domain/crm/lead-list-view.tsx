@@ -17,8 +17,7 @@ import {
   NOTHING_SEEN, noteSeen, productChoices, productFilterValue, showProductFilter, SOURCE_CHOICES, viewConditions, visibleColumns,
 } from '@/lib/leads/model'
 import { crmService } from '@/services/crm'
-import { productMasterService } from '@/services/product-master/product-master-service'
-import type { PmOption } from '@/services/product-master/types'
+import { useProductChoices } from '@/lib/product-picker/use-product-choices'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
 import { BulkSendMessageDialog, type MessageChannel } from './bulk-send-message-dialog'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
@@ -117,7 +116,6 @@ export function LeadListView() {
   // The Product column shows once any lead has had a product, and keeps its place while paging.
   const [seen, setSeen] = useState(NOTHING_SEEN)
   const columns = visibleColumns(seen, filters)
-  const [productOptions, setProductOptions] = useState<PmOption[]>([])
 
   const load = useCallback(async () => {
     if (!isLaravelContextReady(context)) { setError('Your ERP session is unavailable. Please sign in again.'); setIsLoading(false); return }
@@ -161,16 +159,9 @@ export function LeadListView() {
       .catch(() => { /* the form still works with empty dropdowns */ })
   }, [context])
 
-  // The Product box's choices come from the Product Master. If they cannot be read (no session, no right, a server without it) the list works exactly as
-  // before and the box is simply not drawn.
-  useEffect(() => {
-    if (!isLaravelContextReady(context)) return
-    let cancelled = false
-    productMasterService.options()
-      .then((response) => { if (!cancelled) setProductOptions(Array.isArray(response.data) ? response.data : []) })
-      .catch(() => { /* no Product box */ })
-    return () => { cancelled = true }
-  }, [context])
+  // The Product facet's choices are the Products (level 1) of the shared Product list. If they cannot be read (no session, a server without it) the list works
+  // exactly as before and the facet is simply not drawn.
+  const productOptions = useProductChoices(isLaravelContextReady(context))
 
   const changeFilter = (name: 'product_id' | 'consent' | 'has_signal', value: string) => {
     setPage(1)

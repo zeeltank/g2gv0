@@ -18,6 +18,7 @@ describe('new product key', () => {
   it('refuses invalid keys, reserved words and bad names before asking the server', () => {
     for (const k of ['', 'ab', 'Has Space', '1abc', 'a-b-c', 'x'.repeat(21)]) assert.ok(validateNewProduct(k, 'Name').key, k)
     assert.ok(validateNewProduct('all', 'Name').key)
+    assert.ok(validateNewProduct('products', 'Name').key, 'a key of products would be the address of a Sub-product page (/portfolio/products/[id])')
     assert.ok(validateNewProduct('fine_key', '').label)
     assert.ok(validateNewProduct('fine_key', 'x'.repeat(51)).label)
   })
@@ -31,22 +32,27 @@ describe('new product key', () => {
   })
 })
 
+// RE-POINTED (S15 WPD2, 23 Nov 2026): portfolio-view.tsx and new-product-dialog.tsx are retired. "Add product" and "Add sub-product" are two buttons of the unified list
+// (portfolio-list.tsx), and both open the one form drawer, whose "Add product" form makes a Product.
 describe('New Product and the opportunity comparison are separate from what existed', () => {
-  const view = read('components/domain/portfolio/portfolio-view.tsx')
-  const dialog = read('components/domain/portfolio/new-product-dialog.tsx')
+  const list = read('components/domain/portfolio/portfolio-list.tsx')
+  const drawer = read('components/domain/portfolio/product-form-drawer.tsx')
 
-  it('New Product is its own admin-only action and Add Product still adds an offer', () => {
-    assert.match(view, /setNewProductOpen\(true\)/)
-    assert.match(view, /\{isAdmin && \(\s*<Button size="sm" onClick=\{\(\) => setNewProductOpen\(true\)\}/)
-    assert.match(view, /Add Product/)
-    assert.match(view, /onClick=\{\(\) => setCreateOpen\(true\)\}/)
-    assert.match(view, /<NewProductDialog/)
+  it('Add product is its own administrator-only action and Add sub-product still adds a Sub-product', () => {
+    assert.match(list, /\{can\.createProduct && <Button[^>]*onClick=\{\(\) => setDrawer\(\{ mode: 'create-product' \}\)\}/)
+    assert.match(list, /\{can\.createSubProduct && <Button[^>]*onClick=\{\(\) => setDrawer\(\{ mode: 'create-sub-product', defaultProductId: productIdOf\(query\) \}\)\}/)
+    assert.match(list, /Add product/)
+    assert.match(list, /Add sub-product/)
+    // The mode picks the form: a Product gets its own small form, everything else the Sub-product form.
+    assert.match(drawer, /props\.mode === 'create-product'\s*\?\s*<AddProductForm/)
+    assert.match(drawer, /<SubProductForm key=\{`sub-\$\{session\}`\} \{\.\.\.props\} \/>/)
   })
 
-  it('creating a product calls only the product-creation API and then opens that product\'s sub-products (where its ICPs are set)', () => {
-    assert.match(dialog, /productIcpService\.createProduct/)
-    assert.doesNotMatch(dialog, /portfolioService/)
-    assert.match(view, /router\.push\(offersHref\(key\)\)/)
+  // NARROWED: the old dialog also opened the new product's sub-products (`router.push(offersHref(key))`) once it was created; the list now reads again and says "Saved." (test map G3).
+  it('creating a product calls only the product-creation API', () => {
+    const addProduct = drawer.slice(drawer.indexOf('function AddProductForm'), drawer.indexOf('function SubProductForm'))
+    assert.match(addProduct, /productRecordService\.create\(\{ kind: 'product', name: name\.trim\(\), key \}\)/)
+    assert.doesNotMatch(addProduct, /portfolioService|productIcpService/)
   })
 
   it('the signal card offers the comparison, which only reads', () => {

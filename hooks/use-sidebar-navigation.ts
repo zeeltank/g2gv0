@@ -301,6 +301,9 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     if (accessLink === '/ingestion') return '/ingestion'
     if (accessLink === '/portfolio') return '/portfolio'
     if (accessLink === '/partners') return '/partners'
+    // An old address a person could see before the Products and Services entries became the Product Portfolio (lib/signals-nav.ts) still resolves, to itself:
+    // its page redirects (keeping the query), so a link built as resolveAccessLink(old address) + '/' + id still opens the right record.
+    if (collapsed.retired.includes(accessLink)) return accessLink
     return getRouteByAccessLink(modules, accessLink) ?? '/dashboard'
   }
 

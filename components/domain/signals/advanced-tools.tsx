@@ -68,14 +68,14 @@ export function AdvancedTools({
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="outline" onClick={onRefresh}><RefreshCw className="mr-1.5 size-4" /> Refresh</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setProviders(true)}><ShieldCheck className="mr-1.5 size-4" /> Providers</Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => void showHistory()}><History className="mr-1.5 size-4" /> Report history</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => void showHistory()} title="This product's research reports and the sources each one read. How the runs went and what they cost is under Run health & cost."><History className="mr-1.5 size-4" /> Report history</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setProfileOpen(true)}><Settings2 className="mr-1.5 size-4" /> Company profile</Button>
         </div>
       </div>
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle>{productLabel} research history</DialogTitle><DialogDescription>Every run for this product is kept, including skipped and failed ones.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{productLabel} research history</DialogTitle><DialogDescription>Every run for this product is kept, including skipped and failed ones, with the sources each one read. Health and cost, across all products, are under Run health &amp; cost.</DialogDescription></DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto">
             {historyError ? <p className="text-sm text-destructive" role="alert">{historyError}</p>
               : !history ? <Skeleton className="h-24" />

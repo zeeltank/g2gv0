@@ -22,7 +22,8 @@ async function open(opts: Setup = {}) {
   const saved: string[] = []
   const screen = await screenKit({
     respond: (call: Call) => {
-      if (call.path.endsWith('/product-master/options')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: opts.options ?? options }
+      // Slice 15, P3-C: the box offers the Products (level 1) from /product-master/lines: names only, no Sub-products.
+      if (call.path.endsWith('/product-master/lines')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: ((opts.options ?? options) as Array<{ id: number; key: string; name: string; kind: string }>).filter((o) => o.kind === 'product').map(({ id, key, name }) => ({ id, key, name })) }
       if (call.path.endsWith('/table_data')) return [{ id: 2, first_name: 'Asha', last_name: 'Menon' }, { id: 3, first_name: 'Ravi', last_name: 'Iyer' }]
       if (call.path.includes('/crm/campaigns')) {
         if (opts.saveStatus) return { status: 0, message: opts.saveMessage ?? 'Product not found.', code: 'product_not_found', __status: opts.saveStatus }
@@ -68,11 +69,11 @@ async function open(opts: Setup = {}) {
 describe('the campaign form: the optional Product', () => {
   afterEach(async () => { await disposeAll() })
 
-  it('is a labelled box with "No product" first and every product the Product Master lists', async () => {
+  it('is a labelled box with "No product" first and every Product the shared Product list offers (Products only, never Sub-products)', async () => {
     const s = await open()
     assert.ok(s.box(), 'the Product box is drawn')
     assert.equal(s.labelOf(s.box()!), 'Product (optional)')
-    assert.deepEqual(s.optionLabels(), ['No product', 'ScholarClone', 'ScholarClone › School ERP', 'G2G'])
+    assert.deepEqual(s.optionLabels(), ['No product', 'ScholarClone', 'G2G'])
     assert.equal(s.box()!.value, '', 'a new campaign starts with no product')
     s.restore()
   })
@@ -81,11 +82,11 @@ describe('the campaign form: the optional Product', () => {
     const s = await open()
     await s.name('Diwali outreach')
     await s.assignTo('Asha')
-    await s.choose('9')
+    await s.choose('12')
     await s.save('Create Campaign')
     const [call] = s.sent()
     assert.equal(call.method, 'POST')
-    assert.equal((call.body as Record<string, unknown>).product_master_id, 9)
+    assert.equal((call.body as Record<string, unknown>).product_master_id, 12)
     assert.equal((call.body as Record<string, unknown>).name, 'Diwali outreach')
     assert.deepEqual(s.saved, ['Campaign created.'])
     s.restore()
@@ -142,7 +143,7 @@ describe('the campaign form: the optional Product', () => {
 
   it('keeps a product the list no longer holds (archived since) under its own name, so it can be seen and cleared', async () => {
     const s = await open({ campaign: campaign({ product: { id: 77, key: 'old', name: 'Old Product' } }) })
-    assert.deepEqual(s.optionLabels(), ['No product', 'ScholarClone', 'ScholarClone › School ERP', 'G2G', 'Old Product'])
+    assert.deepEqual(s.optionLabels(), ['No product', 'ScholarClone', 'G2G', 'Old Product'])
     assert.equal(s.box()!.value, '77')
     s.restore()
   })
@@ -161,7 +162,7 @@ describe('the campaign form: the optional Product', () => {
 
   it('shows the server\'s refusal of a product in the dialog and does not close it', async () => {
     const s = await open({ campaign: campaign({ product: null }), saveStatus: 422, saveMessage: 'Product not found.' })
-    await s.choose('9')
+    await s.choose('12')
     await s.save('Save Changes')
     says(s.k.bodyText(), 'Product not found.')
     assert.deepEqual(s.saved, [], 'nothing was saved')

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LaravelContext } from '@/lib/laravel-context'
-import { ApiError } from '@/services/core'
 import { opportunitiesService, type ResearchRun, type ResearchStatusResponse } from '@/services/signals/opportunities'
 import type { ProductInfo } from '@/services/portfolio/types'
 import { describeIcpSync, runGuardedGenerate, type GenerateSub } from '@/lib/signals-generate'
 import type { RegionSelection } from '@/lib/region-scope'
 import { describeFinishedRun, type RunNotice } from '@/lib/signal-run-notice'
 import { regionSignature } from '@/lib/signal-run-view'
+import { describeStartFailure, failureContext, failureNotice } from '@/lib/signals/run-failure'
 
 const POLL_MS = 2500
 // A run always reaches an end state on the backend (finished, failed, or closed by the reaper within ~15 minutes), so the poll runs until it sees one.
@@ -17,8 +17,6 @@ const POLL_MAX = 960
 const POLL_FAILURES_MAX = 12   // consecutive failed polls (about 30 s) before the screen says it lost contact
 
 export type GenerateNotice = RunNotice
-
-const errText = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
 export { describeFinishedRun }
 
@@ -193,10 +191,15 @@ export function useGenerateSignals(
       },
       failed: (e) => {
         setRunning(false)
-        setNotice({ tone: 'error', text: errText(e, 'Could not start the run.') })
+        // The server's refusal in plain words (the Signal Review's Generate dialog said them too): a cool-down with the minutes, what a product still lacks,
+        // not allowed, signed out, no connection, a broken server. A refusal that only means "a run is going" is not an error: look, and follow it if it is
+        // this product's (adopt), or say it is another product's.
+        const refusal = describeStartFailure(e, failureContext({ product: productKey ?? '', model, offer: offerId ?? '' }, products ?? []))
+        setNotice(failureNotice(refusal))
+        if (refusal.kind === 'running') void loadStatus().then(adopt)
       },
     })
-  }, [context, productKey, offerId, products, running, follow, loadStatus, customerModel, onIcpSynced])
+  }, [context, productKey, offerId, products, running, follow, loadStatus, adopt, customerModel, onIcpSynced])
 
   return { status, running, activeRun, notice, refreshKey, completedCount, generate, reloadStatus: loadStatus, refresh: () => { setRefreshKey((k) => k + 1); void loadStatus() }, clearNotice: () => setNotice(null), customerModel, setCustomerModel }
 }

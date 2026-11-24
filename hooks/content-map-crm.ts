@@ -15,8 +15,6 @@ const CampaignListView = createLazyComponent(() => import('@/domain/crm/campaign
 // Sales phase. Each of these is a real, working list view screen.
 const OpportunityListView = createLazyComponent(() => import('@/domain/crm/opportunity-list-view').then((m) => ({ default: m.OpportunityListView })))
 const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-view').then((m) => ({ default: m.QuoteListView })))
-const ProductListView = createLazyComponent(() => import('@/domain/crm/product-list-view').then((m) => ({ default: m.ProductListView })))
-const ServiceListView = createLazyComponent(() => import('@/domain/crm/service-list-view').then((m) => ({ default: m.ServiceListView })))
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const PriceBookListView = createLazyComponent(() => import('@/domain/crm/price-book-list-view').then((m) => ({ default: m.PriceBookListView })))
 const SalesOrderListView = createLazyComponent(() => import('@/domain/crm/sales-order-list-view').then((m) => ({ default: m.SalesOrderListView })))
@@ -41,7 +39,6 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
-const SignalReviewView = createLazyComponent(() => import('@/domain/crm/signal-review-view').then((m) => ({ default: m.SignalReviewView })))
 
 // Marketing Automation & AI Agent Runs
 const AutomationRulesView = createLazyComponent(() => import('@/domain/crm/automation-rules-view').then((m) => ({ default: m.AutomationRulesView })))
@@ -70,9 +67,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 2. Market Signals & Social Listening
   { accessLink: '/module/crm/signals', component: MarketSignalsView },
   { accessLink: '/signals', component: MarketSignalsView },
-  // Signal Review (agentic CRM slice 2): decide on signals with the evidence in view, and keep the reason. Beside the original Signals screen, which is unchanged.
-  { accessLink: '/module/crm/signal-review', component: SignalReviewView },
-  { accessLink: '/signal-review', component: SignalReviewView },
+  // Signal Review has no entry here any more: it was merged into Company Opportunities (13 Nov 2026). Its two old addresses are redirect pages under app/, which send
+  // a visitor to /signals with the query kept; the menu row stays in the database and the sidebar hides it in code (lib/signals-nav.ts).
   { accessLink: '/module/crm/marketing/signal-inbox', component: MarketSignalsView },
 
   // 3. Prospecting & ICP Discovery
@@ -114,11 +110,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 13. CPQ: Quotes
   { accessLink: '/module/crm/sales/quotes', component: QuoteListView },
 
-  // 14. CPQ: Products Catalog
-  { accessLink: '/module/crm/sales/products', component: ProductListView },
-
-  // 15. CPQ: Services Catalog
-  { accessLink: '/module/crm/sales/services', component: ServiceListView },
+  // 14 and 15. Products and Services were merged into the Product Portfolio (/portfolio) on 13 Nov 2026 (owner decision, slice 15). Their old addresses, with
+  // their detail and line pages, are redirect pages under app/module/crm/sales, so nothing is mapped here.
 
   // 16. CPQ: Price Books
   { accessLink: '/module/crm/sales/price-books', component: PriceBookListView },

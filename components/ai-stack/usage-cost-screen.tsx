@@ -39,7 +39,7 @@ import { fetchModuleUsage, type AiModuleTokens, type AiModuleUsage } from '@/lib
 import type { AgentRun } from '@/lib/agents/types';
 // One money formatter for rupees and dollars (the Runs tab of Signal Review uses it too). Each figure is shown in the currency the server reports for it and
 // is never converted: there is no exchange rate in this system, and inventing one would make a provider bill unreconcilable with this screen.
-import { formatMoney } from '@/lib/signal-review/format';
+import { formatMoney } from '@/lib/signals/format';
 
 import {
   AiStackCard,

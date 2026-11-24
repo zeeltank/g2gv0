@@ -29,7 +29,8 @@ async function open(opts: Setup = {}) {
     search: opts.search ?? '',
     respond: (call) => {
       if (call.path.endsWith('/crm/leads')) { opts.onList?.(call); return listAnswer(opts.leads ?? [lead(), lead({ id: '42', firstName: 'Ravi', lastName: 'Iyer', email: null })], opts.total) }
-      if (call.path.endsWith('/product-master/options')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: opts.options ?? [] }
+      // Slice 15, P3-C: the Product facet offers the Products (level 1) from /product-master/lines: names only, no Sub-products.
+      if (call.path.endsWith('/product-master/lines')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: ((opts.options ?? []) as Array<{ id: number; key: string; name: string; kind: string }>).filter((o) => o.kind === 'product').map(({ id, key, name }) => ({ id, key, name })) }
       if (call.path.endsWith('/crm/picklist-values')) return { status: 1, message: 'ok', data: { leads: {} } }
       return undefined
     },
@@ -116,10 +117,10 @@ describe('the Leads screen: product, consent and signal', () => {
     s.restore()
   })
 
-  it('draws the Product box with every product the Product Master lists', async () => {
+  it('draws the Product box with every Product the shared Product list offers (Products only, never Sub-products)', async () => {
     const s = await open({ options })
     const box = s.box('Product')!
-    assert.deepEqual(Array.from(box.options).map((o) => o.textContent), ['All products', 'ScholarClone', 'ScholarClone › School ERP', 'G2G'])
+    assert.deepEqual(Array.from(box.options).map((o) => o.textContent), ['All products', 'ScholarClone', 'G2G'])
     s.restore()
   })
 
@@ -135,9 +136,9 @@ describe('the Leads screen: product, consent and signal', () => {
   it('choosing a product writes it to the address, asks the server for it, and the column stays even if nothing matches', async () => {
     const s = await open({ options, leads: [] })
     assert.equal(s.heads().includes('Product'), false)
-    await s.choose('Product', '9')
-    assert.equal(s.router.lastSearch(), 'product_id=9')
-    assert.equal(s.lastListQuery().get('product_id'), '9')
+    await s.choose('Product', '12')
+    assert.equal(s.router.lastSearch(), 'product_id=12')
+    assert.equal(s.lastListQuery().get('product_id'), '12')
     assert.ok(s.heads().includes('Product'), 'a filter on the product shows its column')
     assert.ok(s.k.bodyText().includes('No leads match these filters.'))
     assert.equal(s.k.bodyText().includes('No leads yet'), false)
@@ -146,7 +147,7 @@ describe('the Leads screen: product, consent and signal', () => {
 
   it('the empty and loading rows span exactly the columns that are drawn (the Product column included)', async () => {
     const s = await open({ options, leads: [] })
-    await s.choose('Product', '9')
+    await s.choose('Product', '12')
     const empty = s.k.one('tbody td[colspan]') as HTMLTableCellElement
     assert.equal(Number(empty.getAttribute('colspan')), s.k.all('thead th').length, 'the empty message spans the whole table')
     s.restore()

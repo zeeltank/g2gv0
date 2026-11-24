@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import type { PickedSubProduct } from '@/lib/product-picker/model'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
@@ -24,27 +25,12 @@ function AddPriceBookItemDialog({ isOpen, onClose, onAdded, priceBookId, existin
   isOpen: boolean; onClose: () => void; onAdded: () => void; priceBookId: string; existingProductIds: Set<string>
 }) {
   const context = useMemo(() => getLaravelContext(), [])
-  const [options, setOptions] = useState<Array<{ id: string; label: string; unitPrice: number | null }>>([])
-  const [productId, setProductId] = useState('')
+  // What the picker handed back: the catalogue id as text, and the base price the form shows and starts the list price from.
+  const [picked, setPicked] = useState<PickedSubProduct | null>(null)
+  const productId = picked?.productId ?? ''
   const [listPrice, setListPrice] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!isOpen || !isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 100, sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([products, services]) => setOptions(
-        [...products.data.items, ...services.data.items]
-          .filter((p) => !existingProductIds.has(p.id))
-          .map((p) => ({ id: p.id, label: p.name, unitPrice: p.unitPrice })),
-      ))
-      .catch(() => { /* the form still works with an empty picker */ })
-  }, [isOpen, context, existingProductIds])
-
-  const selected = options.find((o) => o.id === productId)
 
   const submit = async () => {
     if (!productId || !listPrice.trim()) return
@@ -52,7 +38,7 @@ function AddPriceBookItemDialog({ isOpen, onClose, onAdded, priceBookId, existin
     setError('')
     try {
       await crmService.addPriceBookItem(context, priceBookId, productId, Number(listPrice))
-      setProductId('')
+      setPicked(null)
       setListPrice('')
       onAdded()
       onClose()
@@ -67,19 +53,19 @@ function AddPriceBookItemDialog({ isOpen, onClose, onAdded, priceBookId, existin
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Product Price</DialogTitle>
-          <DialogDescription>Set this product or service&apos;s price in this book - overrides its base price only here.</DialogDescription>
+          <DialogTitle>Add Sub-product Price</DialogTitle>
+          <DialogDescription>Set this Sub-product&apos;s price in this book - overrides its base price only here.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Product / Service</Label>
-            <SearchableSelect
+            <Label htmlFor="pb-item-product">Sub-product</Label>
+            <SubProductPicker
+              id="pb-item-product"
               value={productId}
-              onChange={(v) => { setProductId(v); const opt = options.find((o) => o.id === v); setListPrice(opt?.unitPrice != null ? String(opt.unitPrice) : '') }}
-              options={options.map((o) => ({ value: o.id, label: o.label }))}
-              placeholder="Choose one…"
+              excluded={existingProductIds}
+              onChange={(next) => { setPicked(next); setListPrice(next?.unitPrice != null ? String(next.unitPrice) : '') }}
             />
-            {selected?.unitPrice != null && <p className="text-xs text-muted-foreground">Base price: {selected.unitPrice.toFixed(2)}</p>}
+            {picked?.unitPrice != null && <p className="text-xs text-muted-foreground">Base price: {picked.unitPrice.toFixed(2)}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pb-item-price">List Price *</Label>
@@ -169,12 +155,12 @@ export function PriceBookDetailPage({ priceBook, onSaved, onBack }: Props) {
       </SectionCard>
 
       <SectionCard
-        title="Product Prices"
-        description="Per-product override price in this book - each product's base price (set on the product itself) is used instead for anything not listed here."
+        title="Sub-product Prices"
+        description="Per-Sub-product override price in this book - each Sub-product's base price (set on the Sub-product itself) is used instead for anything not listed here."
         actions={(
           <Button size="sm" variant="outline" onClick={() => setAddItemOpen(true)}>
             <Plus className="mr-1.5 size-4" aria-hidden="true" />
-            Add Product Price
+            Add Sub-product Price
           </Button>
         )}
       >
@@ -187,12 +173,12 @@ export function PriceBookDetailPage({ priceBook, onSaved, onBack }: Props) {
         {!itemsLoading && items.length === 0 && (
           <EmptyState
             icon={<Tag className="size-8" aria-hidden="true" />}
-            title="No product prices yet"
-            description="Add a product or service to set what it costs in this price book."
+            title="No Sub-product prices yet"
+            description="Add a Sub-product to set what it costs in this price book."
             action={(
               <Button size="sm" onClick={() => setAddItemOpen(true)}>
                 <Plus className="mr-1.5 size-4" aria-hidden="true" />
-                Add Product Price
+                Add Sub-product Price
               </Button>
             )}
           />
@@ -207,7 +193,7 @@ export function PriceBookDetailPage({ priceBook, onSaved, onBack }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {item.itemType === 'service' ? 'Service' : 'Product'}
+                    {item.itemType === 'service' ? 'Service' : 'Sub-product'}
                     {item.basePrice !== null ? ` · Base ${item.basePrice.toFixed(2)}` : ''}
                   </p>
                 </div>

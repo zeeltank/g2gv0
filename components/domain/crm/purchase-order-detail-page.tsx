@@ -15,7 +15,7 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, CrmProduct, CrmPurchaseOrder, CrmPurchaseOrderLineItemInput, CrmPurchaseOrderStatusHistoryEntry, CrmTaxRate } from '@/types/crm'
+import type { CrmPicklistValue, CrmPurchaseOrder, CrmPurchaseOrderLineItemInput, CrmPurchaseOrderStatusHistoryEntry, CrmTaxRate } from '@/types/crm'
 import { CreatePurchaseOrderModal } from './create-purchase-order-modal'
 import { PurchaseOrderLineItemTable } from './purchase-order-line-item-table'
 import { useAssignableEmployees } from './lead-employees'
@@ -63,7 +63,6 @@ export function PurchaseOrderDetailPage({ purchaseOrder, onSaved, onBack, poStag
   const [lineItems, setLineItems] = useState<CrmPurchaseOrderLineItemInput[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(true)
   const [savingLineItems, setSavingLineItems] = useState(false)
-  const [products, setProducts] = useState<CrmProduct[]>([])
   const [taxRates, setTaxRates] = useState<CrmTaxRate[]>([])
 
   const [history, setHistory] = useState<CrmPurchaseOrderStatusHistoryEntry[]>([])
@@ -113,16 +112,10 @@ export function PurchaseOrderDetailPage({ purchaseOrder, onSaved, onBack, poStag
 
   useEffect(() => {
     if (!isLaravelContextReady(context)) return
-    Promise.all([
-      crmService.getProducts(context, 'product', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getProducts(context, 'service', { perPage: 200, sortBy: 'name', sortDir: 'asc' }),
-      crmService.getTaxRates(context),
-    ])
-      .then(([productsRes, servicesRes, taxRatesRes]) => {
-        setProducts([...productsRes.data.items, ...servicesRes.data.items])
-        setTaxRates(taxRatesRes.data)
-      })
-      .catch(() => { /* the line-item builder still works with empty pickers */ })
+    // The Sub-products are searched by the picker on each line; only the tax rates are read here.
+    crmService.getTaxRates(context)
+      .then((taxRatesRes) => setTaxRates(taxRatesRes.data))
+      .catch(() => { /* the line-item builder still works with no tax rates to choose */ })
   }, [context])
 
   const saveLineItems = async () => {
@@ -288,7 +281,7 @@ export function PurchaseOrderDetailPage({ purchaseOrder, onSaved, onBack, poStag
             </div>
           ) : (
             <div className="space-y-3">
-              <PurchaseOrderLineItemTable lineItems={lineItems} onChange={setLineItems} products={products} taxRates={taxRates} currency={purchaseOrder.currency} />
+              <PurchaseOrderLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={purchaseOrder.currency} />
               <div className="flex items-center gap-3 pt-2">
                 <Button disabled={savingLineItems} onClick={() => void saveLineItems()}>
                   {savingLineItems && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}

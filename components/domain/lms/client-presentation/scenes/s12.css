@@ -1,0 +1,21 @@
+/* Slide 12: Scholar Compass */
+.s12-badge { position: absolute; left: 860px; top: 72px; }
+.s12-h { position: absolute; left: 860px; top: 90px; width: 920px; margin: 0; font-size: 62px; line-height: 1.05; color: var(--cp-text-ink); }
+.s12-photo { left: 140px; top: 100px; width: 600px; height: 400px; border-radius: 4px; box-shadow: 0 36px 70px -28px rgba(12, 42, 74, 0.55); }
+.s12-tag { position: absolute; left: 140px; top: 530px; padding: 8px 16px; border: 2px solid var(--cp-text-ink); border-radius: 6px; font-size: 20px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cp-text-ink); transform: rotate(-1.2deg); }
+.s12-shot { left: 140px; top: 640px; width: 600px; height: 337px; }
+.s12-rows { position: absolute; left: 860px; top: 300px; width: 920px; display: grid; gap: 14px; }
+.s12-row { margin: 0; padding-left: 20px; border-left: 3px solid var(--cp-blue-d); font-size: 26px; line-height: 1.36; font-weight: 500; color: var(--cp-text-body); }
+.s12-diagram { position: absolute; }
+.s12-c { position: absolute; border-radius: 50%; display: grid; place-items: center; text-align: center; border: 3px solid var(--cp-blue-d); background: rgba(10, 106, 208, 0.16); mix-blend-mode: multiply; }
+.s12-c-1 { border-color: var(--cp-green-d); background: rgba(76, 154, 20, 0.2); }
+.s12-c span { font-size: 25px; line-height: 1.15; font-weight: 800; color: var(--cp-text-ink); padding: 0; width: 120px; }
+.s12-c-0 span { transform: translateX(-62px); }
+.s12-c-1 span { transform: translateX(62px); }
+.s12-asp { position: absolute; left: 50%; top: -8px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 7px 18px; border: 2px solid var(--cp-text-ink); border-radius: 999px; background: var(--cp-paper); font-size: 22px; font-weight: 700; color: var(--cp-text-ink); white-space: nowrap; }
+.s12-asp i { width: 12px; height: 12px; background: var(--cp-text-ink); transform: rotate(45deg); }
+.s12-results { position: absolute; left: 1480px; top: 560px; width: 320px; margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.s12-res { padding: 16px 20px; border: 2px solid rgba(12, 42, 74, 0.28); border-radius: 8px; font-size: 26px; font-weight: 700; color: rgba(12, 42, 74, 0.55); opacity: 1; transition: all 0.4s ease; }
+.s12-res[data-on='true'] { border-color: var(--cp-blue-d); background: var(--cp-blue-d); color: #fff; }
+.s12-res[data-honest='true'][data-on='true'] { border-style: dashed; border-color: var(--cp-text-ink); background: var(--cp-text-ink); }
+.s12-limit { position: absolute; left: 860px; top: 930px; width: 920px; margin: 0; font-size: 27px; font-style: italic; font-weight: 600; color: var(--cp-text-ink); }

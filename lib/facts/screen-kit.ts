@@ -1,13 +1,14 @@
 import type { ReactElement } from 'react'
 import { kit } from '../scaffolds/dom-test-kit'
-import { routerHarness } from '../signal-review/router-harness'
+import { routerHarness } from '../signals/router-harness'
 import { h } from '../scaffolds/h'
 
 /**
  * A whole CRM screen in a fake browser: the real component, the real sidebar hook (fed a small menu from the browser's own storage, which is where the hook
  * looks first), a stand-in router that keeps the address, a signed-in session, and `fetch` replaced by `respond` (for the parts of the screen that are not the
  * facts API: the contact list, the organization 360). The facts API itself is handed to the component as a fake service, so a test sees exactly what the
- * screen asked of it. Same method as lib/product-master/screen-kit.ts (duplicated on purpose so the two tracks' files stay apart).
+ * screen asked of it. Same method as lib/portfolio-list/screen-kit.ts (duplicated on purpose so the tracks' files stay apart; the kit of the old Products screens, which this
+ * one was first copied from, was removed with them).
  * Import after dom-test-kit (it needs the fake DOM) and from inside the test.
  */
 export interface Call {

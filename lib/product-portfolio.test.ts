@@ -203,33 +203,35 @@ describe('how a comparison reads', () => {
   })
 })
 
+// RE-POINTED (S15 WPD2, 23 Nov 2026): portfolio-view.tsx and product-form-dialog.tsx are retired; the screen is the unified list (portfolio-list.tsx) and the form is the one
+// drawer (product-form-drawer.tsx). The old test "Delete is a button that confirms first and shows the server's reason when a product is in use" is deleted: it read only the
+// retired view's offer hard delete, which owner decisions D-8 and D-9 replaced with Archive (proved by behaviour in lib/portfolio/sub-product-page.test.tsx "asks before
+// archiving, keeps the record when the answer is no, and archives when it is yes" and lib/portfolio/sub-product-page-carried.test.tsx "says what the server answered when archiving is refused, and the record stays as it was").
 describe('Product Portfolio wiring', () => {
-  const view = read('components/domain/portfolio/portfolio-view.tsx')
-  const dialog = read('components/domain/portfolio/product-form-dialog.tsx')
+  const list = read('components/domain/portfolio/portfolio-list.tsx')
+  const drawer = read('components/domain/portfolio/product-form-drawer.tsx')
 
   it('Add Product and Edit open a real form (they used to set state that nothing rendered)', () => {
-    assert.match(view, /<ProductFormDialog/)
-    assert.match(view, /open=\{createOpen \|\| editOffer !== null\}/)
-    assert.match(view, /product=\{editOffer\}/)
-    assert.match(view, /Add Product/)
-    assert.match(dialog, /portfolioService\.createOffer/)
-    assert.match(dialog, /portfolioService\.updateOffer/)
-  })
-
-  it('Delete is a button that confirms first and shows the server\'s reason when a product is in use', () => {
-    assert.match(view, /aria-label=\{`Delete \$\{offer\.name\}`\}/)
-    assert.match(view, /window\.confirm\(deleteConfirmation\(offer\.name\)\)/)
-    assert.match(view, /setActionError\(apiErrorText\(err, 'Failed to delete the product\.'\)\)/)
+    assert.match(list, /<ProductFormDrawer\s+open=\{drawer !== null\}/)
+    assert.match(list, /Add product/)
+    assert.match(list, /Add sub-product/)
+    assert.match(read('components/domain/portfolio/sub-product-page.tsx'), /<ProductFormDrawer\s+open=\{drawer\}\s+onOpenChange=\{setDrawer\}\s+mode="edit"/)
+    assert.match(drawer, /productRecordService\.create\(body\)/)
+    assert.match(drawer, /productRecordService\.update\(record\.id, body\)/)
   })
 
   it('a change to the portfolio refreshes the list and the products, on the portfolio and on the product page', () => {
-    assert.match(view, /reloadProducts\(\)/)
+    assert.match(list, /onSaved=\{\(\) => \{ setDrawer\(null\); setNotice\(\{ tone: 'success', text: 'Saved\.' \}\); void load\(\) \}\}/)
     const detail = read('components/domain/portfolio/product-detail-view.tsx')
-    assert.match(detail, /onSaved=\{\(\) => \{ setCreateOpen\(false\); reload\(\) \}\}/)
+    // REWRITTEN ON PURPOSE (slice 15, P3-B, 14 Nov 2026): the Product page adds a Sub-product through the one form drawer (ProductFormDrawer), not the old dialog.
+    // Same strictness: a save must reload the products (the counts and the setup steps) AND the Sub-products list, in the same handler.
+    assert.match(detail, /<ProductFormDrawer[\s\S]*onSaved=\{async \(saved\) => \{[\s\S]*reload\(\)[\s\S]*void loadSubs\(1\)/)
+    assert.doesNotMatch(detail, /ProductFormDialog/, 'the old dialog is not used on the Product page any more')
   })
 
   it('the main-product ICP editor, its product picker and its comparison are gone: ICPs are set on sub-products', () => {
-    for (const f of ['product-icp-editor.tsx', 'icp-product-picker.tsx', 'icp-comparison.tsx']) {
+    // The five components retired on 23 Nov 2026 (S15 WPD2) stay retired with them: nothing renders them, and a copy would be a second form for the same thing.
+    for (const f of ['product-icp-editor.tsx', 'icp-product-picker.tsx', 'icp-comparison.tsx', 'portfolio-view.tsx', 'product-form-dialog.tsx', 'main-product-form-dialog.tsx', 'main-product-delete-dialog.tsx', 'new-product-dialog.tsx']) {
       assert.ok(!existsSync(join(root, 'components/domain/portfolio', f)), `${f} was removed`)
     }
     const service = read('services/signals/product-icp.ts')
