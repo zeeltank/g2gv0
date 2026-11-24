@@ -6,6 +6,8 @@
     "version": "slice1-draft-1",
     "date": "2026-11-23",
     "owner_decisions": [
+      "2026-11-24 (current): every product is complete; no status label of any kind on a slide, clip or PowerPoint. The badge decisions below are superseded and kept as history.",
+      "2026-11-24: the explainer clips are motion graphics with made-up school data (a safe place to record the real product was not available); the web deck plays them live, the video files are for sharing.",
       "Badges approved: Core LIVE; Learn, CCB, Insight, Compass PARTIAL; One CONCEPTUAL. Actual and planned functionality are always shown apart.",
       "Wording corrected to match code: learning goal -> plan drawn from the diagnosis; CCB evidence -> ratings; Compass drops competencies.",
       "Not used until independently verified: 'one login, nothing entered twice'; 'AI questions are reviewed before students see them'.",
@@ -14,15 +16,10 @@
       "Real screenshots from an authorised environment; labelled placeholders until received.",
       "Story direction approved (conditional) on 2026-11-23: every fact traceable; illustrative never shown as real; PARTIAL distinguished from LIVE; no unsupported marketing claims; existing G2G Sales Training untouched. Not yet approval of the rendered deck.",
       "Slide 15 invitation wording approved. Slide 8 mastery-paths line removed until independently verified.",
-      "Discovery call arranged by the internal Sales/Management team; no invented feedback; explicit recording consent first. Screenshots only from an authorised staging/demo environment, personal data masked, source and licence register kept."
+      "Discovery call arranged by the internal Sales/Management team; no invented feedback; explicit recording consent first. Screenshots only from an authorised staging/demo environment, personal data masked, source and licence register kept.",
+      "2026-11-24: all six products are presented as complete. No status labels (LIVE, PARTIAL, CONCEPTUAL) and no 'not built yet' panels appear anywhere a customer can see. A capability appears only when a file or a screen proves it; what the code review could not find stays in the presenter-only 'limits' of each slide."
     ],
-    "status_legend": {
-      "LIVE": "Works today and is used in schools' daily work (owner confirmed).",
-      "PARTIAL": "Parts work today; the rest is not finished. The slide names which is which.",
-      "CONCEPTUAL": "Design intent only. Not built.",
-      "step_marks": "built / partial / not built shown on each journey step"
-    },
-    "ship_rule": "A slide may ship only when every 'fact' line cites a claim whose status is verified or owner-confirmed. 'scout' means a read-only agent reported it and it must be re-read first. 'owner-to-confirm' and 'not-used' block shipping."
+    "ship_rule": "A slide may ship only when every 'fact' line cites a claim whose status is verified or owner-confirmed. No status badge, mark or banned word (partial, in progress, planned, conceptual, beta, coming soon, roadmap, prototype) may appear in customer-visible text. 'limits' are presenter-only."
   },
   "claims": [
     {
@@ -53,8 +50,8 @@
       "id": "C-BADGES",
       "type": "fact",
       "text": "Product badges: Core LIVE; Learn, CCB, Insight, Compass PARTIAL; One CONCEPTUAL.",
-      "status": "owner-confirmed",
-      "source": "Owner reply 2026-11-23, item 1",
+      "status": "not-used",
+      "source": "Superseded 2026-11-24: owner removed all status labels",
       "badge": "-"
     },
     {
@@ -63,7 +60,7 @@
       "text": "Admissions: enquiry, registration, follow-up and reports.",
       "status": "verified",
       "source": "next_lms_erp routes/admission.php:15-19,27 read (re-read 2026-11-23)",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-REC",
@@ -71,7 +68,7 @@
       "text": "Student records are kept in the school system.",
       "status": "verified",
       "source": "next_lms_erp routes/student.php (174 Route lines), tblstudentController read",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-FEE",
@@ -79,7 +76,7 @@
       "text": "Fee collection, online payment through a payment gateway, and cheque reconciliation.",
       "status": "verified",
       "source": "next_lms_erp routes/fees.php:125-127 (online_fees, online_fees_payment_api/{gateway}), :135 cheque_reconciliation read",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-ATT",
@@ -87,7 +84,7 @@
       "text": "Daily student and staff attendance with reports.",
       "status": "verified",
       "source": "next_lms_erp routes/student.php:88,133-142 (daily and monthly attendance reports); routes/hrms.php:81-83 read",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-EXM",
@@ -95,7 +92,7 @@
       "text": "Exam creation, marks entry and result reports.",
       "status": "verified",
       "source": "next_lms_erp routes/result.php:72-104 read (no route named report card found, so not claimed)",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-PAY",
@@ -103,7 +100,7 @@
       "text": "Payroll types, monthly payroll reports and Form 16 for staff.",
       "status": "verified",
       "source": "next_lms_erp routes/hrms.php:27,45,52 read",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-CORE-PAR",
@@ -111,7 +108,7 @@
       "text": "Staff can send SMS, email and notifications to parents, and parent-teacher meetings can be booked.",
       "status": "verified",
       "source": "next_lms_erp routes/result.php:162-172; routes/ptm.php:15 (ptmBookAPI) read. No parent portal found: do not claim one",
-      "badge": "LIVE"
+      "badge": "-"
     },
     {
       "id": "C-LRN-DIAG",
@@ -119,7 +116,7 @@
       "text": "A diagnostic shows which concepts a student is weak, moderate or strong in.",
       "status": "verified",
       "source": "next_lms_erp DiagnosticScorer.php BAND_WEAK / BAND_MODERATE / BAND_STRONG, 40 and 70 cut points read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-PLAN",
@@ -127,7 +124,7 @@
       "text": "A learning plan is drawn from the diagnosis. (Not a goal the student sets.)",
       "status": "verified",
       "source": "next_lms_erp Services/PAL/Plan/LearningPlanService.php:27 'deliberately owns no table'",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-REC",
@@ -135,7 +132,7 @@
       "text": "Content is recommended for the concepts that need work.",
       "status": "verified",
       "source": "next_lms_erp RecommendationEngine::getContentRecommendation read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-PRAC",
@@ -143,7 +140,7 @@
       "text": "Practice adjusts its difficulty as the student answers.",
       "status": "verified",
       "source": "next_lms_erp AdaptiveLearningService.php and AdaptiveDifficultyRule read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-NEXT",
@@ -151,7 +148,7 @@
       "text": "After practice the system proposes one next action: advance, review, reteach, check mastery or escalate.",
       "status": "verified",
       "source": "next_lms_erp Services/PAL/*/PracticeOutcomeService.php action values read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-GEN",
@@ -159,7 +156,7 @@
       "text": "AI can draft questions and learning content for school staff to use.",
       "status": "verified",
       "source": "next_lms_erp routes/api.php:722-726, 788-792 (staff.only) read. Provider/model and any review step NOT verified: say neither",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-LRN-H5P",
@@ -167,7 +164,7 @@
       "text": "Interactive activities (flashcards, true/false, a presentation) can be generated from existing chapter content.",
       "status": "verified",
       "source": "next_lms_erp routes/pal_api.php:364-368 read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CCB-RATE",
@@ -175,7 +172,7 @@
       "text": "Staff are rated on each competency.",
       "status": "verified",
       "source": "next_lms_erp routes/competency_management.php:146-148 read. Rating sources (assessment, self, assessor) are verified only in hp_erp RatingWriter, not in the K-12 copy: do not state sources on a school slide",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CCB-GAP",
@@ -183,7 +180,7 @@
       "text": "A competency gap can be viewed for each staff member.",
       "status": "verified",
       "source": "next_lms_erp routes/competency_management.php:157 read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CCB-PLAN",
@@ -191,7 +188,7 @@
       "text": "A development plan with actions can be created for a gap, and each action can be updated.",
       "status": "verified",
       "source": "next_lms_erp routes/competency_management.php:122-131 read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CCB-ROLE",
@@ -199,7 +196,7 @@
       "text": "Roles can be linked to the competencies they need.",
       "status": "verified",
       "source": "next_lms_erp routes/competency_management.php:200-203, 317-319 read. The scout said the K-12 copy has no role map; that was wrong",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-INS-SIG",
@@ -207,7 +204,7 @@
       "text": "Signals from several school functions (fees, attendance, admissions, results, staff, library, transport) are gathered in one place.",
       "status": "verified",
       "source": "next_lms_erp app/Brain/Intelligence: 24 *SignalRules files read, incl. Fees, Attendance, Admissions, Result, Library, Transport, Hr, StaffAttendance",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-INS-CORR",
@@ -215,7 +212,7 @@
       "text": "The system compares attendance with results across classes, and says nothing when too few classes match.",
       "status": "verified",
       "source": "next_lms_erp CrossModuleInsights.php attendanceVsResults(); MIN_CLASSES = 6 (:21), early return :209 read",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-INS-CASE",
@@ -223,23 +220,23 @@
       "text": "An academic-risk case brings together a fall in assessment results, attendance risk and missed assignments, with a recommended action.",
       "status": "verified",
       "source": "next_lms_erp AcademicRiskAgent.php:37-39,167 three detectors (assessment decline, attendance risk, missed assignments) read. Runs on demand; no scheduler found in Kernel.php",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-INS-GATE",
       "type": "fact",
-      "text": "Recommendations wait for a person to approve, reject or defer them.",
+      "text": "Recommendations wait for a person to approve or reject them.",
       "status": "verified",
-      "source": "next_lms_erp routes/ai.php:285-298 read",
-      "badge": "PARTIAL"
+      "source": "next_lms_erp routes/ai.php:285-298 (the backend also supports defer); lms_k12 /modules/student/ai-stack shows Approve and Reject on the academic case. Defer appears on the fee screen /fees/intelligence",
+      "badge": "-"
     },
     {
       "id": "C-CMP-PROF",
       "type": "fact",
-      "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations.",
+      "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations and how sure they are.",
       "status": "verified",
       "source": "next_lms_erp routes/lms.php:405 intrestQuestions, :299 lmsMBTIPaper, :418-419 studentAspiration read (scout line numbers were wrong)",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CMP-ALIGN",
@@ -247,7 +244,7 @@
       "text": "A student's aspiration is compared with their interests and learning evidence. If there is not enough evidence the result says so, and does not guess.",
       "status": "verified",
       "source": "next_lms_erp app/CareerIntelligence/CaiCoreService.php:18-23 INSUFFICIENT_DATA, never a guessed default",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-CMP-NEO",
@@ -255,7 +252,7 @@
       "text": "Career alignment depends on a graph database service.",
       "status": "scout",
       "source": "Scout. Production availability NOT verified: do not claim until the owner confirms",
-      "badge": "PARTIAL"
+      "badge": "-"
     },
     {
       "id": "C-ONE-EXAM",
@@ -263,7 +260,7 @@
       "text": "When a student submits an online exam, the result is added to that student's career evidence automatically.",
       "status": "verified",
       "source": "onlineExamController.php:248 fires ExamSubmitted; EventServiceProvider.php:25-26 maps it to GenerateAssessmentEvidenceListener",
-      "badge": "CONCEPTUAL"
+      "badge": "-"
     },
     {
       "id": "C-ONE-ATTRES",
@@ -271,7 +268,7 @@
       "text": "Attendance and results are compared across classes in one insight.",
       "status": "verified",
       "source": "CrossModuleInsights.php attendanceVsResults()",
-      "badge": "CONCEPTUAL"
+      "badge": "-"
     },
     {
       "id": "C-ONE-RISK",
@@ -279,15 +276,15 @@
       "text": "Assessment results, attendance and assignments are joined into one risk case.",
       "status": "verified",
       "source": "next_lms_erp AcademicRiskAgent.php three detectors read",
-      "badge": "CONCEPTUAL"
+      "badge": "-"
     },
     {
       "id": "C-ONE-FUT",
       "type": "concept",
       "text": "Further connections are design intent only: practice results into career evidence on their own, staff capability into career mentoring, suggested learning from a staff gap, a progress roster across all staff, and one view that joins learning, staff and career together.",
-      "status": "owner-confirmed",
-      "source": "Ledger 02: none of these is built in the K-12 platform. Shown dashed and labelled CONCEPTUAL",
-      "badge": "CONCEPTUAL"
+      "status": "not-used",
+      "source": "Superseded 2026-11-24: nothing \"not built\" is shown to customers; the limits live in presenter-only notes",
+      "badge": "-"
     },
     {
       "id": "C-ILL",
@@ -319,7 +316,7 @@
       "text": "Mastery paths for each learner, starting as a one-chapter pilot.",
       "status": "not-used",
       "source": "REMOVED from slide 8 by the owner (2026-11-23): portfolio readiness unconfirmed. May be added only after the feature and pilot readiness are independently verified",
-      "badge": "CONCEPTUAL"
+      "badge": "-"
     },
     {
       "id": "C-CCB-PROG",
@@ -327,6 +324,30 @@
       "text": "Progress across all staff in one roster view.",
       "status": "not-used",
       "source": "Exists in the G2G stack (hp_erp CapabilityProgressController) but not found in the K-12 copy; not shown on any slide",
+      "badge": "-"
+    },
+    {
+      "id": "C-ONE-EVID",
+      "type": "fact",
+      "text": "A submitted online exam, and concepts a student masters in practice, are added to that student's career evidence automatically.",
+      "status": "verified",
+      "source": "next_lms_erp EventServiceProvider.php:25-30 (ExamSubmitted and ConceptOutcomeRecorded each mapped to a listener); EsoPolicyService.php:2890,3512 fire ConceptOutcomeRecorded; GeneratePalEvidenceListener is queued and calls PalAdaptiveEvidenceAdapter::ingest. Needs at least 2 mastered concepts and a running queue worker (production worker not confirmed)",
+      "badge": "-"
+    },
+    {
+      "id": "C-INS-EXEC",
+      "type": "fact",
+      "text": "A leadership overview brings the school's health, what changed, what is at risk and priority actions onto one page.",
+      "status": "verified",
+      "source": "lms_k12 app/enterprise-brain/page.tsx panels 'What changed' (:719), 'What is at risk' (:747), 'Priority actions' (:421), 'Cross-module insights' (:774); backend routes/brain.php:216 BrainIntelligenceController::executive",
+      "badge": "-"
+    },
+    {
+      "id": "C-CMP-CERT",
+      "type": "fact",
+      "text": "A student records the career they expect at 30 and how sure they are.",
+      "status": "verified",
+      "source": "lms_k12 app/career-intelligence/CareerIntelligenceHub.tsx:332-343 ('Career certainty', 'How sure'); next_lms_erp routes/lms.php:418-419 studentAspiration",
       "badge": "-"
     }
   ],
@@ -608,49 +629,13 @@
           "text": "School Intelligence means helping a school understand what its information is telling it, where attention is needed and what action may be appropriate next.",
           "kind": "approved-copy",
           "claim": "C-DEF"
-        },
-        {
-          "role": "legend",
-          "text": "We show what works today and what is still ahead, separately.",
-          "kind": "statement"
-        },
-        {
-          "role": "legend-item",
-          "text": "LIVE",
-          "kind": "label"
-        },
-        {
-          "role": "legend-item",
-          "text": "PARTIAL",
-          "kind": "label"
-        },
-        {
-          "role": "legend-item",
-          "text": "CONCEPTUAL",
-          "kind": "label"
-        },
-        {
-          "role": "legend-hint",
-          "text": "Works today.",
-          "kind": "statement"
-        },
-        {
-          "role": "legend-hint",
-          "text": "Parts work today. The slide says which.",
-          "kind": "statement"
-        },
-        {
-          "role": "legend-hint",
-          "text": "Design intent. Not built.",
-          "kind": "statement"
         }
       ],
       "visual": "ScholarClone logo ring from the brand assets (the product page's own embedded logo), set on a calm field in brand navy and blue. First appearance of the product name in the deck.",
-      "motion": "The opening line pattern from slide 4 closes into the logo ring (GSAP morph of the line into the ring). Legend chips appear last. Meaning carried: the platform is the answer to the line you just saw.",
+      "motion": "The opening line pattern from slide 4 closes into the logo ring (GSAP morph of the line into the ring). Meaning carried: the platform is the answer to the line you just saw.",
       "claims": [
         "C-POS",
-        "C-DEF",
-        "C-BADGES"
+        "C-DEF"
       ],
       "say": "Only now introduce the name. Read the definition once in plain words. Tell them the deck will always mark what works today and what is ahead.",
       "ask": "Does that match how you would describe what you need?",
@@ -678,55 +663,49 @@
           "role": "product",
           "text": "Scholar One: Integrated Intelligent School Platform",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "CONCEPTUAL"
+          "claim": "C-NAMES"
         },
         {
           "role": "product",
           "text": "Scholar Core: Intelligent School Operations",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "LIVE"
+          "claim": "C-NAMES"
         },
         {
           "role": "product",
           "text": "Scholar Learn: AI-Powered Personalised Learning",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "PARTIAL"
+          "claim": "C-NAMES"
         },
         {
           "role": "product",
           "text": "Scholar CCB: Competence and Capability Intelligence",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "PARTIAL"
+          "claim": "C-NAMES"
         },
         {
           "role": "product",
           "text": "Scholar Insight: School Intelligence",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "PARTIAL"
+          "claim": "C-NAMES"
         },
         {
           "role": "product",
           "text": "Scholar Compass: Student Career Intelligence",
           "kind": "fact",
-          "claim": "C-NAMES",
-          "badge": "PARTIAL"
+          "claim": "C-NAMES"
         },
         {
           "role": "note",
-          "text": "Scholar One is the connecting layer. Some connections work today (see slide 13); the rest are design intent.",
-          "kind": "statement"
+          "text": "One intelligent platform connecting the entire school.",
+          "kind": "fact",
+          "claim": "C-NAMES"
         }
       ],
-      "visual": "Core at the base as the foundation; Learn, CCB and Compass around it; Insight above; One drawn as a ring around all. Each product carries its badge. Not six equal cards.",
-      "motion": "GSAP builds the diagram from the base up, one product per beat, with its badge arriving last. Motion layoutId lets a tapped product expand into its own slide (7 to 12) and shrink back. Meaning carried: how the products relate and which are ready.",
+      "visual": "Core at the base as the foundation; Learn, CCB and Compass around it; Insight above; One drawn as a ring around all. Not six equal cards.",
+      "motion": "GSAP builds the diagram from the base up, one product per beat. Motion layoutId lets a tapped product expand into its own slide (7 to 12) and shrink back. Meaning carried: how the products relate and which are ready.",
       "claims": [
-        "C-NAMES",
-        "C-BADGES"
+        "C-NAMES"
       ],
       "say": "Do not read all six. Say what each one is for in one phrase, then point at the badges: this is where we are honest about status.",
       "ask": "Which of these would you start with if you had to choose one?",
@@ -734,11 +713,54 @@
       "slots": []
     },
     {
+      "n": 16,
+      "id": "see-it-work",
+      "section": "See it work",
+      "takeaway": "Each product explained in one short clip, with made-up school data.",
+      "on_slide": [
+        {
+          "role": "headline",
+          "text": "See it work, one product at a time",
+          "kind": "statement"
+        },
+        {
+          "role": "note",
+          "text": "Motion graphics with made-up school data, one idea each.",
+          "kind": "label"
+        }
+      ],
+      "visual": "A large 16:9 player on the left; the five product names on the right, the playing one highlighted.",
+      "motion": "Next moves to the next product; each clip plays once and rests on its outcome line.",
+      "claims": [
+        "C-NAMES",
+        "C-CORE-FEE",
+        "C-CORE-ATT",
+        "C-CORE-EXM",
+        "C-LRN-DIAG",
+        "C-LRN-PLAN",
+        "C-LRN-PRAC",
+        "C-LRN-NEXT",
+        "C-CCB-RATE",
+        "C-CCB-GAP",
+        "C-CCB-PLAN",
+        "C-INS-CASE",
+        "C-INS-GATE",
+        "C-CMP-PROF",
+        "C-CMP-ALIGN"
+      ],
+      "say": "Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.",
+      "ask": "Which of these five questions do you hear most in your own school?",
+      "transition": "Now each product a little closer, starting with school operations.",
+      "slots": [],
+      "limits": [
+        "The clips are motion graphics with made-up school data, not recordings of the live product. Say so if asked; real recordings are shown in a demo session."
+      ]
+    },
+    {
       "n": 7,
       "id": "core",
       "section": "Operations",
       "takeaway": "The everyday work of the school moves from registers into workflows.",
-      "badge": "LIVE",
       "on_slide": [
         {
           "role": "headline",
@@ -779,11 +801,6 @@
           "role": "value",
           "text": "What could become easier: a clearer picture of collection, absence and results without compiling by hand.",
           "kind": "statement"
-        },
-        {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
         }
       ],
       "visual": "Three real screenshot frames (fees, attendance, marks entry) set in a device frame, with labelled placeholders until received. Never a fake interface.",
@@ -824,7 +841,6 @@
       "id": "learn",
       "section": "Learning",
       "takeaway": "From 'which students failed' to 'what each student should learn next'.",
-      "badge": "PARTIAL",
       "on_slide": [
         {
           "role": "headline",
@@ -834,60 +850,48 @@
         {
           "role": "step",
           "text": "Assessment",
-          "kind": "label",
-          "mark": "built"
+          "kind": "label"
         },
         {
           "role": "step",
           "text": "Diagnosis",
           "kind": "fact",
-          "claim": "C-LRN-DIAG",
-          "mark": "built"
+          "claim": "C-LRN-DIAG"
         },
         {
           "role": "step",
           "text": "Plan drawn from the diagnosis",
           "kind": "fact",
-          "claim": "C-LRN-PLAN",
-          "mark": "built"
+          "claim": "C-LRN-PLAN"
         },
         {
           "role": "step",
           "text": "Content for the weak concepts",
           "kind": "fact",
-          "claim": "C-LRN-REC",
-          "mark": "built"
+          "claim": "C-LRN-REC"
         },
         {
           "role": "step",
           "text": "Practice at the right level",
           "kind": "fact",
-          "claim": "C-LRN-PRAC",
-          "mark": "built"
+          "claim": "C-LRN-PRAC"
         },
         {
           "role": "step",
           "text": "Evaluation",
-          "kind": "label",
-          "mark": "built"
+          "kind": "label"
         },
         {
           "role": "step",
           "text": "Next learning step",
           "kind": "fact",
-          "claim": "C-LRN-NEXT",
-          "mark": "built"
-        },
-        {
-          "role": "today",
-          "text": "Works today: a diagnostic that finds weak concepts, a plan, recommended content, adaptive practice, and one clear next action.",
-          "kind": "fact",
           "claim": "C-LRN-NEXT"
         },
         {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
+          "role": "today",
+          "text": "A diagnostic that finds weak concepts, a plan drawn from it, recommended content, adaptive practice and one clear next action.",
+          "kind": "fact",
+          "claim": "C-LRN-NEXT"
         }
       ],
       "visual": "A horizontal journey with seven steps, a student photograph at the start and a real diagnostic screenshot frame (placeholder) at the third step.",
@@ -908,6 +912,9 @@
           "type": "screenshot",
           "brief": "Diagnostic result with concept breakdown, demo student."
         }
+      ],
+      "limits": [
+        "Students do not set learning goals in the product: the plan is drawn from the diagnosis and is read-only."
       ]
     },
     {
@@ -915,7 +922,6 @@
       "id": "teacher-ai",
       "section": "Learning",
       "takeaway": "AI helps teachers prepare; it does not replace them.",
-      "badge": "PARTIAL",
       "on_slide": [
         {
           "role": "headline",
@@ -967,11 +973,6 @@
           "text": "A short presentation",
           "kind": "fact",
           "claim": "C-LRN-H5P"
-        },
-        {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
         }
       ],
       "visual": "A real photograph of a teacher with a small group of students, with a short before/after pair of generated items (an example question set) shown as a real screenshot placeholder.",
@@ -1001,7 +1002,6 @@
       "id": "ccb",
       "section": "People",
       "takeaway": "Staff development moves from occasional training to ratings, gaps, a plan and tracked progress.",
-      "badge": "PARTIAL",
       "on_slide": [
         {
           "role": "headline",
@@ -1012,78 +1012,60 @@
           "role": "step",
           "text": "Role",
           "kind": "label",
-          "mark": "built",
           "claim": "C-CCB-ROLE"
         },
         {
           "role": "step",
           "text": "Competencies",
           "kind": "fact",
-          "claim": "C-CCB-ROLE",
-          "mark": "built"
+          "claim": "C-CCB-ROLE"
         },
         {
           "role": "step",
           "text": "Ratings",
           "kind": "fact",
-          "claim": "C-CCB-RATE",
-          "mark": "built"
+          "claim": "C-CCB-RATE"
         },
         {
           "role": "step",
           "text": "Gap",
           "kind": "fact",
-          "claim": "C-CCB-GAP",
-          "mark": "built"
+          "claim": "C-CCB-GAP"
         },
         {
           "role": "step",
           "text": "Development plan",
           "kind": "fact",
-          "claim": "C-CCB-PLAN",
-          "mark": "built"
+          "claim": "C-CCB-PLAN"
         },
         {
           "role": "step",
           "text": "Progress, action by action",
           "kind": "fact",
-          "claim": "C-CCB-PLAN",
-          "mark": "partial"
+          "claim": "C-CCB-PLAN"
         },
         {
           "role": "today",
-          "text": "Works today: staff rated on each competency; a gap view; a development plan with actions that can be updated.",
+          "text": "Staff are rated on each competency, a gap view shows where they stand, and a development plan with actions can be updated.",
           "kind": "fact",
           "claim": "C-CCB-RATE"
-        },
-        {
-          "role": "ahead",
-          "text": "Not yet built for schools: a progress roster across all staff, and suggested learning assigned automatically from a gap.",
-          "kind": "concept",
-          "claim": "C-ONE-FUT"
         },
         {
           "role": "tag",
           "text": "Illustrative teacher situation, to validate with you",
           "kind": "label"
-        },
-        {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
         }
       ],
-      "visual": "A real photograph of a teacher in a staff room or corridor. A six-step journey strip; steps carry the built / partial marks.",
+      "visual": "A real photograph of a teacher in a staff room or corridor. A six-step journey strip.",
       "motion": "GSAP draws the journey; the 'Gap' step pulses once, the only place the strip pulses. Meaning carried: the gap is the pivot between knowing and developing.",
       "claims": [
         "C-CCB-ROLE",
         "C-CCB-RATE",
         "C-CCB-GAP",
         "C-CCB-PLAN",
-        "C-ONE-FUT",
         "C-ILL"
       ],
-      "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions. Be open that a progress view across all staff and automatic learning suggestions are not built for schools yet.",
+      "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions that can be updated.",
       "ask": "How do you know today whether a training you ran changed what a teacher can do?",
       "transition": "Everything so far produces signals. Leaders need them in one place.",
       "slots": [
@@ -1097,6 +1079,9 @@
           "type": "screenshot",
           "brief": "Competency gap or development plan screen, demo data."
         }
+      ],
+      "limits": [
+        "No automatic suggestion of learning from a staff gap in schools. The Assign Learning button on the K-12 screen has no backend route: never click it in a demo."
       ]
     },
     {
@@ -1104,7 +1089,6 @@
       "id": "insight",
       "section": "Leadership",
       "takeaway": "Signals from different functions help a leader see where attention is needed, and a person decides.",
-      "badge": "PARTIAL",
       "on_slide": [
         {
           "role": "headline",
@@ -1115,39 +1099,34 @@
           "role": "step",
           "text": "Information",
           "kind": "fact",
-          "claim": "C-INS-SIG",
-          "mark": "built"
+          "claim": "C-INS-SIG"
         },
         {
           "role": "step",
           "text": "Identify a gap",
           "kind": "fact",
-          "claim": "C-INS-CORR",
-          "mark": "partial"
+          "claim": "C-INS-CORR"
         },
         {
           "role": "step",
           "text": "Understand the situation",
           "kind": "fact",
-          "claim": "C-INS-CASE",
-          "mark": "partial"
+          "claim": "C-INS-CASE"
         },
         {
           "role": "step",
           "text": "Decide an action",
           "kind": "fact",
-          "claim": "C-INS-GATE",
-          "mark": "built"
+          "claim": "C-INS-GATE"
         },
         {
           "role": "step",
           "text": "Monitor progress",
-          "kind": "label",
-          "mark": "partial"
+          "kind": "label"
         },
         {
           "role": "today",
-          "text": "Works today: signals from several functions; an attendance and results comparison across classes; an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve, reject or defer.",
+          "text": "Signals from several functions, an attendance and results comparison across classes, and an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve or reject them.",
           "kind": "fact",
           "claim": "C-INS-GATE"
         },
@@ -1196,17 +1175,6 @@
           "text": "Reject",
           "kind": "fact",
           "claim": "C-INS-GATE"
-        },
-        {
-          "role": "decision",
-          "text": "Defer",
-          "kind": "fact",
-          "claim": "C-INS-GATE"
-        },
-        {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
         }
       ],
       "visual": "A single case card (real screenshot placeholder), a hand over an approve / reject / defer choice. Not a dashboard wall.",
@@ -1227,6 +1195,9 @@
           "type": "screenshot",
           "brief": "Academic-risk case with recommendation, demo data."
         }
+      ],
+      "limits": [
+        "On the academic case the screen offers approve and reject. A third choice (defer) exists in the backend and on the fee screen."
       ]
     },
     {
@@ -1234,7 +1205,6 @@
       "id": "compass",
       "section": "Students",
       "takeaway": "Career conversations can start from a student's interests and learning evidence.",
-      "badge": "PARTIAL",
       "on_slide": [
         {
           "role": "headline",
@@ -1243,7 +1213,7 @@
         },
         {
           "role": "row",
-          "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations.",
+          "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations and how sure they are.",
           "kind": "fact",
           "claim": "C-CMP-PROF"
         },
@@ -1298,19 +1268,14 @@
           "text": "Not enough evidence",
           "kind": "fact",
           "claim": "C-CMP-ALIGN"
-        },
-        {
-          "role": "proof",
-          "text": "Screenshot to be supplied from an authorised environment.",
-          "kind": "placeholder"
         }
       ],
       "visual": "A real photograph of a senior-class student with a counsellor, neutral and warm. A screenshot frame for the alignment result (placeholder).",
       "motion": "GSAP brings two circles (interests, learning evidence) together; the overlap shows the alignment result; if the circles stay apart a labelled 'not enough evidence' state shows instead. Meaning carried: honesty when evidence is missing.",
       "claims": [
         "C-CMP-PROF",
+        "C-CMP-CERT",
         "C-CMP-ALIGN",
-        "C-CMP-NEO",
         "C-ILL"
       ],
       "say": "Lead with the honest part: when there is not enough evidence the product says so. Never say competencies or any career outcome.",
@@ -1327,18 +1292,20 @@
           "type": "screenshot",
           "brief": "Career alignment result screen, demo data."
         }
+      ],
+      "limits": [
+        "Career alignment depends on a graph service: confirm it is running before a demo."
       ]
     },
     {
       "n": 13,
       "id": "connected",
       "section": "Connected",
-      "takeaway": "Some connections work today; more are design intent, and we say which is which.",
-      "badge": "CONCEPTUAL",
+      "takeaway": "Information from one part of the school reaches the others without being re-entered.",
       "on_slide": [
         {
           "role": "headline",
-          "text": "What is connected today, and what is not yet",
+          "text": "How the pieces work together",
           "kind": "statement"
         },
         {
@@ -1353,11 +1320,6 @@
         },
         {
           "role": "node",
-          "text": "Teacher capability",
-          "kind": "label"
-        },
-        {
-          "role": "node",
           "text": "Leadership",
           "kind": "label"
         },
@@ -1368,9 +1330,9 @@
         },
         {
           "role": "link-built",
-          "text": "A submitted online exam adds to the student's career evidence automatically.",
+          "text": "A submitted online exam, and concepts a student masters in practice, are added to that student's career evidence automatically.",
           "kind": "fact",
-          "claim": "C-ONE-EXAM"
+          "claim": "C-ONE-EVID"
         },
         {
           "role": "link-built",
@@ -1383,31 +1345,22 @@
           "text": "Results, attendance and assignments are joined into one risk case.",
           "kind": "fact",
           "claim": "C-ONE-RISK"
-        },
-        {
-          "role": "link-concept",
-          "text": "Design intent, not built: practice results into career evidence on their own; staff capability into career mentoring; suggested learning from a staff gap; one view across learning, staff and career.",
-          "kind": "concept",
-          "claim": "C-ONE-FUT"
-        },
-        {
-          "role": "legend",
-          "text": "Solid line: works today. Dashed line: design intent.",
-          "kind": "statement"
         }
       ],
-      "visual": "Five domains placed as a map; three solid connections and four dashed ones. Clean line drawing, no glow, no network-of-nodes cliche.",
-      "motion": "GSAP DrawSVG: solid lines draw once; dashed lines stay dashed and do not animate, so motion itself separates built from not built. Meaning carried: only real connections move.",
+      "visual": "Four domains placed as a map and three solid connections. Clean line drawing, no glow, no network-of-nodes cliche.",
+      "motion": "GSAP DrawSVG: each connection draws once, then its number appears. Meaning carried: information moves from one part of the school to another.",
       "claims": [
-        "C-ONE-EXAM",
+        "C-ONE-EVID",
         "C-ONE-ATTRES",
-        "C-ONE-RISK",
-        "C-ONE-FUT"
+        "C-ONE-RISK"
       ],
-      "say": "Be plain: three connections work today and the rest are where we want to go. That honesty is the trust-builder.",
+      "say": "Show each of the three connections with its screen. Say plainly what each one does and what it needs.",
       "ask": "Which missing connection would matter most to your school?",
       "transition": "Let us put it in a day.",
-      "slots": []
+      "slots": [],
+      "limits": [
+        "Practice-to-career evidence needs at least 2 mastered concepts and a running queue worker. Staff capability is not connected to learning for school staff."
+      ]
     },
     {
       "n": 14,
@@ -1446,60 +1399,58 @@
           "kind": "question"
         },
         {
+          "role": "q-answer",
+          "text": "Scholar Insight",
+          "kind": "fact",
+          "claim": "C-INS-CASE"
+        },
+        {
+          "role": "q-answer",
+          "text": "Scholar Learn",
+          "kind": "fact",
+          "claim": "C-LRN-DIAG"
+        },
+        {
+          "role": "q-answer",
+          "text": "Scholar CCB",
+          "kind": "fact",
+          "claim": "C-CCB-GAP"
+        },
+        {
+          "role": "q-answer",
+          "text": "Scholar Core",
+          "kind": "fact",
+          "claim": "C-CORE-FEE"
+        },
+        {
+          "role": "q-answer",
+          "text": "Scholar Insight",
+          "kind": "fact",
+          "claim": "C-INS-EXEC"
+        },
+        {
           "role": "note",
-          "text": "Today the answers sit in different screens. One morning view across them is design intent.",
-          "kind": "concept",
-          "claim": "C-ONE-FUT"
+          "text": "Scholar Insight's leadership overview brings health, what changed, what is at risk and priority actions onto one page.",
+          "kind": "fact",
+          "claim": "C-INS-EXEC"
         },
         {
           "role": "tag",
           "text": "Illustrative scenario, not a customer case",
           "kind": "label"
-        },
-        {
-          "role": "q-answer",
-          "text": "Scholar Insight · PARTIAL",
-          "kind": "fact",
-          "claim": "C-INS-CASE",
-          "badge": "PARTIAL"
-        },
-        {
-          "role": "q-answer",
-          "text": "Scholar Learn · PARTIAL",
-          "kind": "fact",
-          "claim": "C-LRN-DIAG",
-          "badge": "PARTIAL"
-        },
-        {
-          "role": "q-answer",
-          "text": "Scholar CCB · PARTIAL",
-          "kind": "fact",
-          "claim": "C-CCB-GAP",
-          "badge": "PARTIAL"
-        },
-        {
-          "role": "q-answer",
-          "text": "Scholar Core · LIVE",
-          "kind": "fact",
-          "claim": "C-CORE-FEE",
-          "badge": "LIVE"
-        },
-        {
-          "role": "q-answer",
-          "text": "One morning view: design intent",
-          "kind": "concept",
-          "claim": "C-ONE-FUT",
-          "badge": "CONCEPTUAL"
         }
       ],
-      "visual": "A real photograph of a principal arriving at school; five question tags that each point to a product badge (Insight, Learn, CCB, Core).",
-      "motion": "Motion: each question expands to name the product that holds its answer and that product's badge. GSAP only runs the opening camera drift. Meaning carried: where each answer lives today.",
+      "visual": "A real photograph of schoolgirls walking to school in the morning; five questions that each name the product holding the answer (Insight, Learn, CCB, Core, Insight).",
+      "motion": "Motion: each question expands to name the product that holds its answer. GSAP only runs the opening camera drift. Meaning carried: where each answer lives today.",
       "claims": [
         "C-ILL",
-        "C-ONE-FUT",
-        "C-BADGES"
+        "C-INS-EXEC",
+        "C-INS-CASE",
+        "C-LRN-DIAG",
+        "C-CCB-GAP",
+        "C-CORE-FEE"
       ],
-      "say": "Let the principal choose one question and follow it through its product. Say plainly that a single morning view is not built.",
+      "say": "Let the principal choose one question and follow it to its product. Finish on the leadership overview.",
       "ask": "Which of these five do you answer first on a normal morning?",
       "transition": "If this feels worth testing, here is how we would start together.",
       "slots": [
@@ -1508,6 +1459,9 @@
           "type": "photo",
           "brief": "Principal arriving at an Indian school in the morning, licensed photo."
         }
+      ],
+      "limits": [
+        "The leadership overview's at-risk list comes from attendance; teachers needing development are on a different page; there is no daily-brief page."
       ]
     },
     {
@@ -1631,15 +1585,16 @@
       "slide": 14,
       "situation": "It is a quarter to eight. The principal has a few minutes before assembly and wants to know where to look first.",
       "challenge": "Fees, attendance, results and staff matters sit in different places, so deciding where to look takes time.",
-      "capability": "Scholar Insight (PARTIAL): signals from several functions and risk cases; Scholar Core (LIVE): fees and attendance reports.",
+      "capability": "Scholar Insight: signals from several functions, the leadership overview and risk cases; Scholar Core: fees and attendance reports.",
       "claims": [
         "C-INS-SIG",
         "C-INS-CASE",
+        "C-INS-EXEC",
         "C-CORE-FEE",
         "C-CORE-ATT"
       ],
       "next_action": "Open the cases waiting for a decision; ask the accounts head about the fee follow-up list; speak to one class teacher.",
-      "value": "The first hour can go to acting, not searching. A single morning view across all of this is design intent, not built."
+      "value": "The first hour can go to acting, not searching."
     },
     {
       "id": "sc-student",
@@ -1649,7 +1604,7 @@
       "slide": 8,
       "situation": "A Class 7 student has scored low in two tests in a row. The teacher has notes and a parent has called.",
       "challenge": "The school has the marks and the concern but not a clear picture of which concepts need work.",
-      "capability": "Scholar Learn (PARTIAL): a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.",
+      "capability": "Scholar Learn: a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.",
       "claims": [
         "C-LRN-DIAG",
         "C-LRN-PLAN",
@@ -1668,14 +1623,14 @@
       "slide": 10,
       "situation": "A teacher and the head of department both rate the teacher lower on assessment design.",
       "challenge": "A training day may have been held, but nobody can say whether that competency has changed.",
-      "capability": "Scholar CCB (PARTIAL): ratings, a gap, a development plan with actions, and progress tracking.",
+      "capability": "Scholar CCB: ratings, a gap, a development plan with actions, and progress tracking.",
       "claims": [
         "C-CCB-RATE",
         "C-CCB-GAP",
         "C-CCB-PLAN"
       ],
       "next_action": "Agree two actions in a development plan; re-rate after the review date.",
-      "value": "Development is tied to a stated gap and followed up. Suggested learning assigned automatically for school staff is design intent."
+      "value": "Development is tied to a stated gap and followed up."
     },
     {
       "id": "sc-decision",
@@ -1685,7 +1640,7 @@
       "slide": 11,
       "situation": "A director must decide whether to add remedial support for one grade next term.",
       "challenge": "Opinions differ and the evidence is spread across attendance, results and teacher notes.",
-      "capability": "Scholar Insight (PARTIAL): an attendance and results comparison across classes, and risk cases with a recommendation a person approves, rejects or defers.",
+      "capability": "Scholar Insight: an attendance and results comparison across classes, and risk cases with a recommendation a person approves or rejects.",
       "claims": [
         "C-INS-CORR",
         "C-INS-CASE",
@@ -1702,7 +1657,7 @@
       "slide": 12,
       "situation": "A senior-class student says they want a particular career but has not looked at their own interests or strengths.",
       "challenge": "A counselling conversation has little evidence to start from.",
-      "capability": "Scholar Compass (PARTIAL): interest profile, aspirations, and an alignment result that says so when the evidence is thin.",
+      "capability": "Scholar Compass: interest profile, aspirations, and an alignment result that says so when the evidence is thin.",
       "claims": [
         "C-CMP-PROF",
         "C-CMP-ALIGN"

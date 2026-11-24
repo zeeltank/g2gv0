@@ -2,49 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
-import { BADGE_COPY, type Asset, type Badge, type Mark } from '@/lib/client-presentation/deck'
-
-/** Status badge. A glyph, a word and a colour: LIVE is a solid dot, PARTIAL a half dot, CONCEPTUAL a dashed ring. */
-export function StatusBadge({ badge, className, style }: { badge: Badge; className?: string; style?: CSSProperties }) {
-  return (
-    <span className={`cp-badge ${className ?? ''}`} data-b={badge} title={BADGE_COPY[badge].hint} style={style}>
-      <BadgeGlyph badge={badge} />
-      {BADGE_COPY[badge].word}
-    </span>
-  )
-}
-
-export function BadgeGlyph({ badge }: { badge: Badge }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {badge === 'LIVE' && <circle cx="12" cy="12" r="8" fill="currentColor" />}
-      {badge === 'PARTIAL' && (
-        <>
-          <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2.5" />
-          <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
-        </>
-      )}
-      {badge === 'CONCEPTUAL' && <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="3.6 3.2" />}
-    </svg>
-  )
-}
-
-/** One step of a journey: built (solid), partial (half), concept (dashed). */
-export function StepMark({ mark, size = 30 }: { mark: Mark | undefined; size?: number }) {
-  const m = mark ?? 'built'
-  return (
-    <svg className="cp-mark" viewBox="0 0 30 30" width={size} height={size} role="img" aria-label={m === 'built' ? 'Works today' : m === 'partial' ? 'Partly built' : 'Not built'}>
-      {m === 'built' && <circle cx="15" cy="15" r="11" fill="currentColor" />}
-      {m === 'partial' && (
-        <>
-          <circle cx="15" cy="15" r="11" fill="none" stroke="currentColor" strokeWidth="3" />
-          <path d="M15 4a11 11 0 0 1 0 22z" fill="currentColor" />
-        </>
-      )}
-      {m === 'concept' && <circle cx="15" cy="15" r="11" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="5 4.4" />}
-    </svg>
-  )
-}
+import type { Asset } from '@/lib/client-presentation/deck'
 
 /**
  * A photograph slot. While no photo has been authorised and placed it shows a neutral field (never a stand-in picture),

@@ -64,7 +64,17 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Start with the part that runs the school every day.
 
-## 7. The everyday work of the school, off the registers and into workflows  [LIVE]
+## 16. See it work, one product at a time
+
+**Main message.** Each product explained in one short clip, with made-up school data.
+
+**Say.** Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.
+
+**Ask.** Which of these five questions do you hear most in your own school?
+
+**Then.** Now each product a little closer, starting with school operations.
+
+## 7. The everyday work of the school, off the registers and into workflows
 
 **Main message.** The everyday work of the school moves from registers into workflows.
 
@@ -74,7 +84,7 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Operations tell you what happened. Learning shows what to do about it for a student.
 
-## 8. From 'who failed' to 'what to learn next'  [PARTIAL]
+## 8. From 'who failed' to 'what to learn next'
 
 **Main message.** From 'which students failed' to 'what each student should learn next'.
 
@@ -84,7 +94,7 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Teachers carry the rest of this load. Here is where AI helps them.
 
-## 9. Less time preparing, more time coaching  [PARTIAL]
+## 9. Less time preparing, more time coaching
 
 **Main message.** AI helps teachers prepare; it does not replace them.
 
@@ -94,17 +104,17 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Teachers also need support to grow. Here is how that can be tracked.
 
-## 10. From occasional training to continuing development  [PARTIAL]
+## 10. From occasional training to continuing development
 
 **Main message.** Staff development moves from occasional training to ratings, gaps, a plan and tracked progress.
 
-**Say.** Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions. Be open that a progress view across all staff and automatic learning suggestions are not built for schools yet.
+**Say.** Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions that can be updated.
 
 **Ask.** How do you know today whether a training you ran changed what a teacher can do?
 
 **Then.** Everything so far produces signals. Leaders need them in one place.
 
-## 11. See where attention is needed. Decide. Review.  [PARTIAL]
+## 11. See where attention is needed. Decide. Review.
 
 **Main message.** Signals from different functions help a leader see where attention is needed, and a person decides.
 
@@ -114,7 +124,7 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** One more thread: where does a student's future fit in?
 
-## 12. A career conversation that starts from evidence  [PARTIAL]
+## 12. A career conversation that starts from evidence
 
 **Main message.** Career conversations can start from a student's interests and learning evidence.
 
@@ -124,11 +134,11 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Now the part that matters most: how these connect.
 
-## 13. What is connected today, and what is not yet  [CONCEPTUAL]
+## 13. How the pieces work together
 
-**Main message.** Some connections work today; more are design intent, and we say which is which.
+**Main message.** Information from one part of the school reaches the others without being re-entered.
 
-**Say.** Be plain: three connections work today and the rest are where we want to go. That honesty is the trust-builder.
+**Say.** Show each of the three connections with its screen. Say plainly what each one does and what it needs.
 
 **Ask.** Which missing connection would matter most to your school?
 
@@ -138,7 +148,7 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Main message.** A principal's five questions already have answers in different places; one morning view is the next step.
 
-**Say.** Let the principal choose one question and follow it through its product. Say plainly that a single morning view is not built.
+**Say.** Let the principal choose one question and follow it to its product. Finish on the leadership overview.
 
 **Ask.** Which of these five do you answer first on a normal morning?
 

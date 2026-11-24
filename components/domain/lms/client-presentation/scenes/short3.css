@@ -8,7 +8,5 @@
 .ss3-row:last-child { border-bottom: 1.5px solid rgba(255, 255, 255, 0.2); }
 .ss3-name { grid-row: 1; grid-column: 1; font-size: 44px; line-height: 1.05; color: #fff; }
 .ss3-desc { grid-row: 2; grid-column: 1; margin-top: 6px; font-size: 24px; font-weight: 500; color: #b7c7da; }
-.ss3-row .cp-badge { grid-row: 1 / span 2; grid-column: 2; }
-.ss3-legend { position: absolute; left: 140px; right: 140px; bottom: 74px; display: flex; gap: 44px; flex-wrap: wrap; }
 .ss3-key { display: inline-flex; align-items: center; gap: 16px; }
 .ss3-key em { font-style: normal; font-size: 22px; font-weight: 500; color: #cfdced; }

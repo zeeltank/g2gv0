@@ -1,13 +1,11 @@
 /* Slide 11: Scholar Insight */
 .s11-wash { position: absolute; inset: 0; background: radial-gradient(1000px 700px at 65% 45%, rgba(16, 136, 246, 0.16), transparent 70%), radial-gradient(900px 600px at 0% 0%, rgba(11, 60, 115, 0.55), transparent 70%); }
-.s11-badge { position: absolute; left: 140px; top: 72px; }
 .s11-h { position: absolute; left: 140px; top: 126px; width: 1100px; margin: 0; font-size: 66px; line-height: 1.05; color: #fff; }
 .s11-tag { position: absolute; left: 1230px; top: 150px; padding: 8px 16px; border: 2px solid #b7c7da; border-radius: 6px; font-size: 20px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #eaf2fb; transform: rotate(1.4deg); }
 .s11-steps { position: absolute; left: 140px; top: 330px; width: 520px; margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .s11-step { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1.5px solid rgba(255, 255, 255, 0.16); font-size: 29px; font-weight: 600; color: #eaf2fb; }
-.s11-step[data-mark='partial'] { color: #f3c066; }
-.s11-mk { display: grid; place-items: center; width: 30px; color: #9fd0ff; }
-.s11-step[data-mark='partial'] .s11-mk { color: #f3c066; }
+.s11-mk { display: grid; place-items: center; width: 30px; }
+.s11-mk i { display: block; width: 16px; height: 16px; border-radius: 50%; background: #9fd0ff; box-shadow: 0 0 0 5px rgba(159, 208, 255, 0.2); }
 .s11-sn { display: inline-block; width: 34px; font-size: 20px; letter-spacing: 0.2em; font-weight: 800; color: #7fb6ff; }
 .s11-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .s11-thread { position: absolute; left: 690px; width: 190px; height: 52px; display: flex; align-items: center; justify-content: flex-end; text-align: right; font-size: 21px; line-height: 1.15; font-weight: 600; color: #eaf2fb; }
@@ -16,4 +14,4 @@
 .s11-dec { position: absolute; width: 230px; padding: 14px 24px; border: 2px solid #9fd0ff; border-radius: 8px; background: rgba(11, 37, 64, 0.8); font-size: 30px; font-weight: 700; color: #fff; text-align: center; }
 .s11-today { position: absolute; left: 140px; top: 760px; width: 1010px; margin: 0; padding: 24px 30px; background: rgba(116, 205, 35, 0.08); border: 1.5px solid rgba(116, 205, 35, 0.5); border-left: 8px solid #74cd23; border-radius: 6px; font-size: 25px; line-height: 1.4; font-weight: 500; color: #eaf2fb; }
 .s11-limit { position: absolute; left: 690px; top: 668px; width: 560px; margin: 0; font-size: 26px; font-style: italic; font-weight: 600; color: #9fd0ff; }
-.s11-shot { left: 1250px; top: 730px; width: 530px; height: 290px; }
+.s11-shot { left: 1265px; top: 735px; width: 515px; height: 290px; }

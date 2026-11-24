@@ -7,15 +7,10 @@
  */
 import deckJson from './generated/scholarclone.deck.json'
 
-export type Badge = 'LIVE' | 'PARTIAL' | 'CONCEPTUAL'
-export type Mark = 'built' | 'partial' | 'concept'
-
 export interface Line {
   role: string
   text: string
   kind: string
-  mark?: Mark
-  badge?: Badge
 }
 
 export interface Slot {
@@ -28,11 +23,12 @@ export interface Slide {
   n: number
   id: string
   section: string
-  badge: Badge | null
   lines: Line[]
   say: string
   ask: string
   transition: string
+  /** Presenter-only cautions (what to avoid clicking or claiming). Never rendered on a slide. */
+  limits: string[]
   slots: Slot[]
 }
 
@@ -75,7 +71,7 @@ export const DECK_KEYS = Object.keys(DECKS)
 
 export function parseDeck(raw: unknown): Deck {
   const d = raw as Deck
-  if (!d || !Array.isArray(d.slides) || d.slides.length < 12 || d.slides.length > 15) throw new Error('deck: needs 12 to 15 slides')
+  if (!d || !Array.isArray(d.slides) || d.slides.length < 12 || d.slides.length > 18) throw new Error('deck: needs 12 to 18 slides')
   const seen = new Set<number>()
   for (const s of d.slides) {
     if (seen.has(s.n)) throw new Error(`deck: duplicate slide ${s.n}`)
@@ -100,10 +96,3 @@ export function slideByN(deck: Deck, n: number): Slide {
 
 /** Used by scenes that show an image: the slot's real file, or null while the photo has not been authorised and placed. */
 export const assetOf = (deck: Deck, slot: string): Asset | null => deck.assets[slot] ?? null
-
-/** Status badge language shown on slides. A glyph and a word, so colour is never the only signal. */
-export const BADGE_COPY: Record<Badge, { word: string; hint: string }> = {
-  LIVE: { word: 'LIVE', hint: 'Works today' },
-  PARTIAL: { word: 'PARTIAL', hint: 'Parts work today' },
-  CONCEPTUAL: { word: 'CONCEPTUAL', hint: 'Design intent, not built' },
-}

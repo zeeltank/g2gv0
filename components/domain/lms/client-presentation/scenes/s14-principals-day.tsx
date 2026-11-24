@@ -3,32 +3,26 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRef } from 'react'
 
-import { assetOf, linesOf, textOf, textsOf, type Badge } from '@/lib/client-presentation/deck'
+import { assetOf, textOf, textsOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { gsap } from '../motion/gsap'
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { Photo, StatusBadge } from '../ui/primitives'
+import { Photo } from '../ui/primitives'
 
 import './s14.css'
 import type { SceneProps } from './types'
 
 /**
- * A principal's morning. Five questions the principal asks; each opens to name where its answer lives today and how complete that
- * product is. The last answer is a design intent (one morning view), not a feature, and is drawn as one.
+ * A principal's morning. Five questions the principal asks; each opens to name the product that holds its answer. The slide ends on the
+ * leadership overview, which brings health, what changed, what is at risk and priority actions onto one page.
  */
 export const BEATS = 5
-
-/** "Scholar Insight · PARTIAL" -> name "Scholar Insight" and the badge in the line; otherwise the whole text is the name. */
-function splitAnswer(text: string, badge: Badge | undefined): { name: string; inline: boolean } {
-  const m = /^(.*) · (LIVE|PARTIAL|CONCEPTUAL)$/.exec(text)
-  return m && badge ? { name: m[1], inline: true } : { name: text, inline: false }
-}
 
 export default function Scene({ deck, slide, beat, beats, entry, reduced }: SceneProps) {
   const ref = useRef<HTMLDivElement>(null)
   const questions = textsOf(slide, 'q')
-  const answers = linesOf(slide, 'q-answer')
+  const answers = textsOf(slide, 'q-answer')
   const open = beat >= 1 ? beat - 1 : -1
 
   useBeatTimeline(ref, (tl, { q }) => {
@@ -54,11 +48,9 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
         <ol className="s14-qs">
           {questions.map((qt, i) => {
-            const a = answers[i]
-            const { name, inline } = splitAnswer(a.text, a.badge)
             const isOpen = open === i
             return (
-              <li key={qt} className="s14-q" data-open={isOpen} data-concept={a.badge === 'CONCEPTUAL'}>
+              <li key={qt} className="s14-q" data-open={isOpen}>
                 <div className="s14-q-row">
                   <span className="s14-q-n">{`0${i + 1}`}</span>
                   <span className="s14-q-t">{qt}</span>
@@ -73,14 +65,13 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
                       transition={{ duration: reduced ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}
                     >
                       <div className="s14-a-in">
-                        <span className="s14-a-name">{name}{inline ? ' · ' : ''}</span>
-                        {a.badge && <StatusBadge badge={a.badge} />}
+                        <span className="s14-a-name">{answers[i]}</span>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
                 {/* Every answer stays in the page for readers who do not step through, and for the text check. */}
-                {!isOpen && <span className="cp-sr">{a.text}</span>}
+                {!isOpen && <span className="cp-sr">{answers[i]}</span>}
               </li>
             )
           })}

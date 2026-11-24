@@ -4,6 +4,8 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Owner decisions applied**
 
+- 2026-11-24 (current): every product is complete; no status label of any kind on a slide, clip or PowerPoint. The badge decisions below are superseded and kept as history.
+- 2026-11-24: the explainer clips are motion graphics with made-up school data (a safe place to record the real product was not available); the web deck plays them live, the video files are for sharing.
 - Badges approved: Core LIVE; Learn, CCB, Insight, Compass PARTIAL; One CONCEPTUAL. Actual and planned functionality are always shown apart.
 - Wording corrected to match code: learning goal -> plan drawn from the diagnosis; CCB evidence -> ratings; Compass drops competencies.
 - Not used until independently verified: 'one login, nothing entered twice'; 'AI questions are reviewed before students see them'.
@@ -13,6 +15,7 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Story direction approved (conditional) on 2026-11-23: every fact traceable; illustrative never shown as real; PARTIAL distinguished from LIVE; no unsupported marketing claims; existing G2G Sales Training untouched. Not yet approval of the rendered deck.
 - Slide 15 invitation wording approved. Slide 8 mastery-paths line removed until independently verified.
 - Discovery call arranged by the internal Sales/Management team; no invented feedback; explicit recording consent first. Screenshots only from an authorised staging/demo environment, personal data masked, source and licence register kept.
+- 2026-11-24: all six products are presented as complete. No status labels (LIVE, PARTIAL, CONCEPTUAL) and no 'not built yet' panels appear anywhere a customer can see. A capability appears only when a file or a screen proves it; what the code review could not find stays in the presenter-only 'limits' of each slide.
 
 ## Slide 1: hook
 
@@ -131,17 +134,10 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - ScholarClone
 - An integrated intelligent K–12 platform designed to help schools connect information, support better decisions and take meaningful action.  _[C-POS: owner-confirmed]_
 - School Intelligence means helping a school understand what its information is telling it, where attention is needed and what action may be appropriate next.  _[C-DEF: owner-confirmed]_
-- We show what works today and what is still ahead, separately.
-- LIVE
-- PARTIAL
-- CONCEPTUAL
-- Works today.
-- Parts work today. The slide says which.
-- Design intent. Not built.
 
 **Visual.** ScholarClone logo ring from the brand assets (the product page's own embedded logo), set on a calm field in brand navy and blue. First appearance of the product name in the deck.
 
-**Motion (and what it means).** The opening line pattern from slide 4 closes into the logo ring (GSAP morph of the line into the ring). Legend chips appear last. Meaning carried: the platform is the answer to the line you just saw.
+**Motion (and what it means).** The opening line pattern from slide 4 closes into the logo ring (GSAP morph of the line into the ring). Meaning carried: the platform is the answer to the line you just saw.
 
 **Say.** Only now introduce the name. Read the definition once in plain words. Tell them the deck will always mark what works today and what is ahead.
 
@@ -164,11 +160,11 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Scholar CCB: Competence and Capability Intelligence  _[C-NAMES: verified]_
 - Scholar Insight: School Intelligence  _[C-NAMES: verified]_
 - Scholar Compass: Student Career Intelligence  _[C-NAMES: verified]_
-- Scholar One is the connecting layer. Some connections work today (see slide 13); the rest are design intent.
+- One intelligent platform connecting the entire school.  _[C-NAMES: verified]_
 
-**Visual.** Core at the base as the foundation; Learn, CCB and Compass around it; Insight above; One drawn as a ring around all. Each product carries its badge. Not six equal cards.
+**Visual.** Core at the base as the foundation; Learn, CCB and Compass around it; Insight above; One drawn as a ring around all. Not six equal cards.
 
-**Motion (and what it means).** GSAP builds the diagram from the base up, one product per beat, with its badge arriving last. Motion layoutId lets a tapped product expand into its own slide (7 to 12) and shrink back. Meaning carried: how the products relate and which are ready.
+**Motion (and what it means).** GSAP builds the diagram from the base up, one product per beat. Motion layoutId lets a tapped product expand into its own slide (7 to 12) and shrink back. Meaning carried: how the products relate and which are ready.
 
 **Say.** Do not read all six. Say what each one is for in one phrase, then point at the badges: this is where we are honest about status.
 
@@ -176,7 +172,26 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Transition.** Start with the part that runs the school every day.
 
-## Slide 7: core  [LIVE]
+## Slide 16: see-it-work
+
+**Takeaway.** Each product explained in one short clip, with made-up school data.
+
+**On the slide**
+
+- See it work, one product at a time
+- Motion graphics with made-up school data, one idea each.
+
+**Visual.** A large 16:9 player on the left; the five product names on the right, the playing one highlighted.
+
+**Motion (and what it means).** Next moves to the next product; each clip plays once and rests on its outcome line.
+
+**Say.** Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.
+
+**Ask.** Which of these five questions do you hear most in your own school?
+
+**Transition.** Now each product a little closer, starting with school operations.
+
+## Slide 7: core
 
 **Takeaway.** The everyday work of the school moves from registers into workflows.
 
@@ -189,7 +204,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Also: admissions, student records, staff payroll, and messages to parents.  _[C-CORE-ADM: verified]_
 - School situation (typical, to validate): collection, registers and marks are kept by hand and compiled at the end.  _[C-ILL: owner-confirmed]_
 - What could become easier: a clearer picture of collection, absence and results without compiling by hand.
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** Three real screenshot frames (fees, attendance, marks entry) set in a device frame, with labelled placeholders until received. Never a fake interface.
 
@@ -203,22 +217,21 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** shot-fees (screenshot): Fee collection screen, demo data, authorised environment. | shot-attendance (screenshot): Student attendance marking screen, demo data. | shot-marks (screenshot): Marks entry or report card screen, demo data.
 
-## Slide 8: learn  [PARTIAL]
+## Slide 8: learn
 
 **Takeaway.** From 'which students failed' to 'what each student should learn next'.
 
 **On the slide**
 
 - From 'who failed' to 'what to learn next'
-- (built) Assessment
-- (built) Diagnosis  _[C-LRN-DIAG: verified]_
-- (built) Plan drawn from the diagnosis  _[C-LRN-PLAN: verified]_
-- (built) Content for the weak concepts  _[C-LRN-REC: verified]_
-- (built) Practice at the right level  _[C-LRN-PRAC: verified]_
-- (built) Evaluation
-- (built) Next learning step  _[C-LRN-NEXT: verified]_
-- Works today: a diagnostic that finds weak concepts, a plan, recommended content, adaptive practice, and one clear next action.  _[C-LRN-NEXT: verified]_
-- Screenshot to be supplied from an authorised environment.
+- Assessment
+- Diagnosis  _[C-LRN-DIAG: verified]_
+- Plan drawn from the diagnosis  _[C-LRN-PLAN: verified]_
+- Content for the weak concepts  _[C-LRN-REC: verified]_
+- Practice at the right level  _[C-LRN-PRAC: verified]_
+- Evaluation
+- Next learning step  _[C-LRN-NEXT: verified]_
+- A diagnostic that finds weak concepts, a plan drawn from it, recommended content, adaptive practice and one clear next action.  _[C-LRN-NEXT: verified]_
 
 **Visual.** A horizontal journey with seven steps, a student photograph at the start and a real diagnostic screenshot frame (placeholder) at the third step.
 
@@ -232,7 +245,7 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** shot-diagnostic (screenshot): Diagnostic result with concept breakdown, demo student.
 
-## Slide 9: teacher-ai  [PARTIAL]
+## Slide 9: teacher-ai
 
 **Takeaway.** AI helps teachers prepare; it does not replace them.
 
@@ -247,7 +260,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Flashcards  _[C-LRN-H5P: verified]_
 - True/false questions  _[C-LRN-H5P: verified]_
 - A short presentation  _[C-LRN-H5P: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A real photograph of a teacher with a small group of students, with a short before/after pair of generated items (an example question set) shown as a real screenshot placeholder.
 
@@ -261,29 +273,27 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** img-teacher (photo): Indian school teacher with small group of students, natural light. Licensed photo. | shot-generate (screenshot): Question or content generation screen, demo data.
 
-## Slide 10: ccb  [PARTIAL]
+## Slide 10: ccb
 
 **Takeaway.** Staff development moves from occasional training to ratings, gaps, a plan and tracked progress.
 
 **On the slide**
 
 - From occasional training to continuing development
-- (built) Role  _[C-CCB-ROLE: verified]_
-- (built) Competencies  _[C-CCB-ROLE: verified]_
-- (built) Ratings  _[C-CCB-RATE: verified]_
-- (built) Gap  _[C-CCB-GAP: verified]_
-- (built) Development plan  _[C-CCB-PLAN: verified]_
-- (partial) Progress, action by action  _[C-CCB-PLAN: verified]_
-- Works today: staff rated on each competency; a gap view; a development plan with actions that can be updated.  _[C-CCB-RATE: verified]_
-- Not yet built for schools: a progress roster across all staff, and suggested learning assigned automatically from a gap.  _[C-ONE-FUT: owner-confirmed]_
+- Role  _[C-CCB-ROLE: verified]_
+- Competencies  _[C-CCB-ROLE: verified]_
+- Ratings  _[C-CCB-RATE: verified]_
+- Gap  _[C-CCB-GAP: verified]_
+- Development plan  _[C-CCB-PLAN: verified]_
+- Progress, action by action  _[C-CCB-PLAN: verified]_
+- Staff are rated on each competency, a gap view shows where they stand, and a development plan with actions can be updated.  _[C-CCB-RATE: verified]_
 - Illustrative teacher situation, to validate with you
-- Screenshot to be supplied from an authorised environment.
 
-**Visual.** A real photograph of a teacher in a staff room or corridor. A six-step journey strip; steps carry the built / partial marks.
+**Visual.** A real photograph of a teacher in a staff room or corridor. A six-step journey strip.
 
 **Motion (and what it means).** GSAP draws the journey; the 'Gap' step pulses once, the only place the strip pulses. Meaning carried: the gap is the pivot between knowing and developing.
 
-**Say.** Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions. Be open that a progress view across all staff and automatic learning suggestions are not built for schools yet.
+**Say.** Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions that can be updated.
 
 **Ask.** How do you know today whether a training you ran changed what a teacher can do?
 
@@ -291,19 +301,19 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** img-staffroom (photo): Teacher in school corridor or staff room, Indian context, licensed photo. | shot-gap (screenshot): Competency gap or development plan screen, demo data.
 
-## Slide 11: insight  [PARTIAL]
+## Slide 11: insight
 
 **Takeaway.** Signals from different functions help a leader see where attention is needed, and a person decides.
 
 **On the slide**
 
 - See where attention is needed. Decide. Review.
-- (built) Information  _[C-INS-SIG: verified]_
-- (partial) Identify a gap  _[C-INS-CORR: verified]_
-- (partial) Understand the situation  _[C-INS-CASE: verified]_
-- (built) Decide an action  _[C-INS-GATE: verified]_
-- (partial) Monitor progress
-- Works today: signals from several functions; an attendance and results comparison across classes; an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve, reject or defer.  _[C-INS-GATE: verified]_
+- Information  _[C-INS-SIG: verified]_
+- Identify a gap  _[C-INS-CORR: verified]_
+- Understand the situation  _[C-INS-CASE: verified]_
+- Decide an action  _[C-INS-GATE: verified]_
+- Monitor progress
+- Signals from several functions, an attendance and results comparison across classes, and an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve or reject them.  _[C-INS-GATE: verified]_
 - This shows association between measures, not cause.
 - Illustrative case, to validate with you
 - Fall in assessment results  _[C-INS-CASE: verified]_
@@ -312,8 +322,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - One case, with a recommended action  _[C-INS-CASE: verified]_
 - Approve  _[C-INS-GATE: verified]_
 - Reject  _[C-INS-GATE: verified]_
-- Defer  _[C-INS-GATE: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A single case card (real screenshot placeholder), a hand over an approve / reject / defer choice. Not a dashboard wall.
 
@@ -327,14 +335,14 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** shot-case (screenshot): Academic-risk case with recommendation, demo data.
 
-## Slide 12: compass  [PARTIAL]
+## Slide 12: compass
 
 **Takeaway.** Career conversations can start from a student's interests and learning evidence.
 
 **On the slide**
 
 - A career conversation that starts from evidence
-- Students can answer interest questions and a personality questionnaire, and record their aspirations.  _[C-CMP-PROF: verified]_
+- Students can answer interest questions and a personality questionnaire, and record their aspirations and how sure they are.  _[C-CMP-PROF: verified]_
 - An aspiration is compared with interests and learning evidence. When the evidence is thin, the result says so and does not guess.  _[C-CMP-ALIGN: verified]_
 - This guides exploration. It does not forecast a student's career.
 - Illustrative situation, to validate with you
@@ -344,7 +352,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Aligned  _[C-CMP-ALIGN: verified]_
 - Not aligned  _[C-CMP-ALIGN: verified]_
 - Not enough evidence  _[C-CMP-ALIGN: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A real photograph of a senior-class student with a counsellor, neutral and warm. A screenshot frame for the alignment result (placeholder).
 
@@ -358,29 +365,26 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Image slots.** img-counsel (photo): Senior student with a school counsellor, Indian context, licensed photo. | shot-alignment (screenshot): Career alignment result screen, demo data.
 
-## Slide 13: connected  [CONCEPTUAL]
+## Slide 13: connected
 
-**Takeaway.** Some connections work today; more are design intent, and we say which is which.
+**Takeaway.** Information from one part of the school reaches the others without being re-entered.
 
 **On the slide**
 
-- What is connected today, and what is not yet
+- How the pieces work together
 - School operations
 - Student learning
-- Teacher capability
 - Leadership
 - Career exploration
-- A submitted online exam adds to the student's career evidence automatically.  _[C-ONE-EXAM: verified]_
+- A submitted online exam, and concepts a student masters in practice, are added to that student's career evidence automatically.  _[C-ONE-EVID: verified]_
 - Attendance and results are compared across classes.  _[C-ONE-ATTRES: verified]_
 - Results, attendance and assignments are joined into one risk case.  _[C-ONE-RISK: verified]_
-- Design intent, not built: practice results into career evidence on their own; staff capability into career mentoring; suggested learning from a staff gap; one view across learning, staff and career.  _[C-ONE-FUT: owner-confirmed]_
-- Solid line: works today. Dashed line: design intent.
 
-**Visual.** Five domains placed as a map; three solid connections and four dashed ones. Clean line drawing, no glow, no network-of-nodes cliche.
+**Visual.** Four domains placed as a map and three solid connections. Clean line drawing, no glow, no network-of-nodes cliche.
 
-**Motion (and what it means).** GSAP DrawSVG: solid lines draw once; dashed lines stay dashed and do not animate, so motion itself separates built from not built. Meaning carried: only real connections move.
+**Motion (and what it means).** GSAP DrawSVG: each connection draws once, then its number appears. Meaning carried: information moves from one part of the school to another.
 
-**Say.** Be plain: three connections work today and the rest are where we want to go. That honesty is the trust-builder.
+**Say.** Show each of the three connections with its screen. Say plainly what each one does and what it needs.
 
 **Ask.** Which missing connection would matter most to your school?
 
@@ -398,19 +402,19 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Where do teachers need development?
 - Which operational issues need action?
 - What comes first today?
-- Today the answers sit in different screens. One morning view across them is design intent.  _[C-ONE-FUT: owner-confirmed]_
+- Scholar Insight  _[C-INS-CASE: verified]_
+- Scholar Learn  _[C-LRN-DIAG: verified]_
+- Scholar CCB  _[C-CCB-GAP: verified]_
+- Scholar Core  _[C-CORE-FEE: verified]_
+- Scholar Insight  _[C-INS-EXEC: verified]_
+- Scholar Insight's leadership overview brings health, what changed, what is at risk and priority actions onto one page.  _[C-INS-EXEC: verified]_
 - Illustrative scenario, not a customer case
-- Scholar Insight · PARTIAL  _[C-INS-CASE: verified]_
-- Scholar Learn · PARTIAL  _[C-LRN-DIAG: verified]_
-- Scholar CCB · PARTIAL  _[C-CCB-GAP: verified]_
-- Scholar Core · LIVE  _[C-CORE-FEE: verified]_
-- One morning view: design intent  _[C-ONE-FUT: owner-confirmed]_
 
-**Visual.** A real photograph of a principal arriving at school; five question tags that each point to a product badge (Insight, Learn, CCB, Core).
+**Visual.** A real photograph of schoolgirls walking to school in the morning; five questions that each name the product holding the answer (Insight, Learn, CCB, Core, Insight).
 
-**Motion (and what it means).** Motion: each question expands to name the product that holds its answer and that product's badge. GSAP only runs the opening camera drift. Meaning carried: where each answer lives today.
+**Motion (and what it means).** Motion: each question expands to name the product that holds its answer. GSAP only runs the opening camera drift. Meaning carried: where each answer lives today.
 
-**Say.** Let the principal choose one question and follow it through its product. Say plainly that a single morning view is not built.
+**Say.** Let the principal choose one question and follow it to its product. Finish on the leadership overview.
 
 **Ask.** Which of these five do you answer first on a normal morning?
 
@@ -457,15 +461,15 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 - **Situation:** It is a quarter to eight. The principal has a few minutes before assembly and wants to know where to look first.
 - **Current challenge:** Fees, attendance, results and staff matters sit in different places, so deciding where to look takes time.
-- **ScholarClone capability:** Scholar Insight (PARTIAL): signals from several functions and risk cases; Scholar Core (LIVE): fees and attendance reports.
+- **ScholarClone capability:** Scholar Insight: signals from several functions, the leadership overview and risk cases; Scholar Core: fees and attendance reports.
 - **Possible next action:** Open the cases waiting for a decision; ask the accounts head about the fee follow-up list; speak to one class teacher.
-- **Value:** The first hour can go to acting, not searching. A single morning view across all of this is design intent, not built.
+- **Value:** The first hour can go to acting, not searching.
 
 ### 2. A student who is struggling  _[Illustrative, slide 8]_
 
 - **Situation:** A Class 7 student has scored low in two tests in a row. The teacher has notes and a parent has called.
 - **Current challenge:** The school has the marks and the concern but not a clear picture of which concepts need work.
-- **ScholarClone capability:** Scholar Learn (PARTIAL): a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.
+- **ScholarClone capability:** Scholar Learn: a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.
 - **Possible next action:** Start with the concepts marked weak; practise at the right level; use the next action after practice.
 - **Value:** The conversation with the parent can name specific concepts and a plan.
 
@@ -473,15 +477,15 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 - **Situation:** A teacher and the head of department both rate the teacher lower on assessment design.
 - **Current challenge:** A training day may have been held, but nobody can say whether that competency has changed.
-- **ScholarClone capability:** Scholar CCB (PARTIAL): ratings, a gap, a development plan with actions, and progress tracking.
+- **ScholarClone capability:** Scholar CCB: ratings, a gap, a development plan with actions, and progress tracking.
 - **Possible next action:** Agree two actions in a development plan; re-rate after the review date.
-- **Value:** Development is tied to a stated gap and followed up. Suggested learning assigned automatically for school staff is design intent.
+- **Value:** Development is tied to a stated gap and followed up.
 
 ### 4. A school leader making a difficult decision  _[Illustrative, slide 11]_
 
 - **Situation:** A director must decide whether to add remedial support for one grade next term.
 - **Current challenge:** Opinions differ and the evidence is spread across attendance, results and teacher notes.
-- **ScholarClone capability:** Scholar Insight (PARTIAL): an attendance and results comparison across classes, and risk cases with a recommendation a person approves, rejects or defers.
+- **ScholarClone capability:** Scholar Insight: an attendance and results comparison across classes, and risk cases with a recommendation a person approves or rejects.
 - **Possible next action:** Review the comparison and the cases; record the decision.
 - **Value:** The decision is made with evidence on screen, and the decision is recorded. The comparison shows a link, not a cause.
 
@@ -489,7 +493,7 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 - **Situation:** A senior-class student says they want a particular career but has not looked at their own interests or strengths.
 - **Current challenge:** A counselling conversation has little evidence to start from.
-- **ScholarClone capability:** Scholar Compass (PARTIAL): interest profile, aspirations, and an alignment result that says so when the evidence is thin.
+- **ScholarClone capability:** Scholar Compass: interest profile, aspirations, and an alignment result that says so when the evidence is thin.
 - **Possible next action:** Use the result to open the conversation; add evidence where it is thin.
 - **Value:** The conversation starts from evidence. Nothing is promised about the student's career.
 

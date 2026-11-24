@@ -6,7 +6,7 @@ import { assetOf, textOf, textsOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { Photo, ShotFrame, StatusBadge } from '../ui/primitives'
+import { Photo } from '../ui/primitives'
 
 import './s09.css'
 import type { SceneProps } from './types'
@@ -29,7 +29,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
   useBeatTimeline(ref, (tl, { q }) => {
     tl.fromTo(q('.s09-photo'), { autoAlpha: 0, scale: 1.08 }, { autoAlpha: 1, scale: 1, duration: 1.8, ease: 'power2.out' }, 0)
-    tl.fromTo(q('.s09-badge, .s09-h'), { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0.3)
+    tl.fromTo(q('.s09-h'), { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0.3)
     tl.fromTo(q('.s09-row'), { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.8, stagger: 0.14 }, 0.9)
     tl.addLabel('b0', 2.2)
     // b1: one source becomes three forms.
@@ -38,7 +38,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
     tl.fromTo(q('.s09-out'), { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 0.7, stagger: 0.12 }, 'b0+=1.0')
     tl.addLabel('b1', 'b0+=2.0')
     // b2: what it frees up, and who stays in charge.
-    tl.fromTo(q('.s09-value, .s09-principle, .s09-shot'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out' }, 'b1+=0.1')
+    tl.fromTo(q('.s09-value, .s09-principle'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out' }, 'b1+=0.1')
     tl.addLabel('b2', 'b1+=1.6')
   }, { beat, beats, entry, reduced })
 
@@ -48,7 +48,6 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
         <Photo asset={assetOf(deck, 'img-teacher')} alt="A teacher with a small group of students" className="s09-photo" />
         <div className="s09-fade" />
       </div>
-      <div className="s09-badge">{slide.badge && <StatusBadge badge={slide.badge} />}</div>
       <h2 className="cp-display s09-h">{textOf(slide, 'headline')}</h2>
       <div className="s09-rows">
         {rows.map((t) => <p key={t} className="s09-row">{t}</p>)}
@@ -62,7 +61,6 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
       <p className="s09-value">{textOf(slide, 'value')}</p>
       <p className="cp-display s09-principle">{textOf(slide, 'principle')}</p>
-      <ShotFrame asset={assetOf(deck, 'shot-generate')} label={slide.slots.find((s) => s.id === 'shot-generate')?.brief ?? ''} proof={textOf(slide, 'proof')} className="s09-shot" />
     </div>
   )
 }

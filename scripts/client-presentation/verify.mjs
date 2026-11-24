@@ -17,7 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1] }
 const base = arg('base', 'http://localhost:3210'); const out = arg('out', null)
 const deck = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/scholarclone.deck.json'), 'utf8'))
-const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 4, 14: 5, 15: 1 }
+const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1, 16: 4 }
 const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
@@ -48,14 +48,14 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
 // --- 1. text presence, full deck
 {
   const { ctx, page } = await newPage()
-  for (let n = 1; n <= 15; n++) {
+  for (let n = 1; n <= 16; n++) {
     await go(page, `slide=${n}&beat=${BEATS[n]}`)
     await page.waitForTimeout(1400)
     const t = norm(await sceneText(page))
     const missing = slideLines(n).filter((l) => !t.includes(norm(l.text)))
     ok(missing.length === 0, `slide ${n}: missing on screen: ${missing.map((l) => `"${l.text.slice(0, 40)}"`).join(', ')}`)
   }
-  notes.push('1a text presence: 15 slides checked')
+  notes.push('1a text presence: 16 slides checked')
   // short-version scenes by keyboard
   await go(page, 'mode=short')
   const seq = [['short-2', [2, 4], 3, 2], ['short-3', [5, 6], 3, 2]]
@@ -92,6 +92,22 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
   t = norm(await sceneText(page))
   ok(t.includes(norm(slideLines(8).find((l) => l.role === 'headline').text)), 'Scholar Learn tile did not open its slide')
   notes.push('2b ecosystem tile opens its scene: checked')
+  // 2c. a product slide opens its explainer across the stage, and Close comes back to the slide
+  await go(page, 'slide=7&beat=3'); await page.waitForTimeout(1500)
+  await page.getByRole('button', { name: /Watch the Scholar Core explainer/ }).click(); await page.waitForTimeout(1500)
+  ok(await page.locator('.cl-overlay .cl-hook').count() === 1, 'the explainer did not open over slide 7')
+  await page.getByRole('button', { name: 'Close' }).click(); await page.waitForTimeout(600)
+  ok(await page.locator('.cl-overlay').count() === 0, 'Close did not close the explainer')
+  t = norm(await sceneText(page))
+  ok(t.includes(norm(slideLines(7).find((l) => l.role === 'headline').text)), 'slide 7 is not back after Close')
+  notes.push('2c product slide opens its explainer and closes back: checked')
+  // 2d. slide 16 plays one product at a time; Next moves to the next
+  await go(page, 'slide=16&beat=0'); await page.waitForTimeout(2500)
+  const firstHook = await page.locator('.s16-player .cl-hook').innerText()
+  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(2500)
+  const secondHook = await page.locator('.s16-player .cl-hook').innerText()
+  ok(/fees/i.test(firstHook) && firstHook !== secondHook, `slide 16 did not move to the next product ("${firstHook.slice(0, 30)}" then "${secondHook.slice(0, 30)}")`)
+  notes.push('2d slide 16 steps through the five clips: checked')
   // --- 3. reduced motion handled below; 7. presenter window
   const pres = await ctx.newPage()
   await pres.goto(url('view=presenter'), { waitUntil: 'domcontentloaded' }); await pres.waitForTimeout(800)
@@ -125,7 +141,7 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
   const { ctx, page } = await newPage(false, { width: 1366, height: 768 })
   const axeSrc = readFileSync(join(root, 'node_modules/axe-core/axe.min.js'), 'utf8')
   let serious = 0
-  for (let n = 1; n <= 15; n++) {
+  for (let n = 1; n <= 16; n++) {
     await go(page, `slide=${n}&beat=${BEATS[n]}`); await page.waitForTimeout(1500)
     const over = await page.evaluate(() => {
       const f = document.querySelector('.cp-frame'); const r = f.getBoundingClientRect(); const sc = r.width / 1920
@@ -147,7 +163,7 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
     if (bad.length) notes.push(`axe slide ${n}: ` + bad.map((v) => `${v.id}(${v.impact}, ${v.n}) ${v.html.join(' || ')}`).join(', '))
     ok(bad.length === 0, `slide ${n}: axe serious/critical: ${bad.map((v) => v.id).join(', ')}`)
   }
-  notes.push(`4 bounds + 5 axe at 1366x768: 15 slides, serious/critical violations: ${serious}`)
+  notes.push(`4 bounds + 5 axe at 1366x768: 16 slides, serious/critical violations: ${serious}`)
   fails.push(...page.errs)
   await ctx.close()
 }

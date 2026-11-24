@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 
 import { DECKS, slideByN, type Deck } from '@/lib/client-presentation/deck'
-import { detour as navDetour, goto as navGoto, initial, keyAt, next as navNext, prev as navPrev, progress, returnFromDetour, setMode, type Mode, type NavState } from '@/lib/client-presentation/navigation'
+import { detour as navDetour, orderOf, goto as navGoto, initial, keyAt, next as navNext, prev as navPrev, progress, returnFromDetour, setMode, type Mode, type NavState } from '@/lib/client-presentation/navigation'
 import { rootVars } from '@/lib/client-presentation/palette'
 
 import './styles/base.css'
@@ -148,7 +148,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
     if (embedded && typeof window !== 'undefined' && window.parent !== window) {
       const pct = Math.round(progress(state, beatsOf) * 100)
       const last = keyAt(state) === 's15' && state.beat >= beatsOf('s15')
-      window.parent.postMessage({ src: 'g2g-client-presentation', key: productKey, type: last ? 'completed' : 'progress', slide: scene.slides[0], percent: pct }, window.location.origin)
+      window.parent.postMessage({ src: 'g2g-client-presentation', key: productKey, type: last ? 'completed' : 'progress', slide: scene.slides[0], step: state.pos + 1, of: orderOf(state.mode).length, mode: state.mode, percent: pct }, window.location.origin)
     }
   }, [embedded, productKey, scene.slides, state])
 
@@ -176,12 +176,12 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
         </AnimatePresence>
       </div>
 
-      <div aria-live="polite" className="cp-sr">{`${slide.section}: slide ${slide.n} of ${deck.slides.length}`}</div>
+      <div aria-live="polite" className="cp-sr">{`${slide.section}: slide ${state.pos + 1} of ${orderOf(state.mode).length}`}</div>
 
       <div className="cp-ui">
         <div className="cp-ui-pill">
           <button type="button" onClick={() => dispatch({ t: 'prev' })} aria-label="Previous">‹ Back</button>
-          <span style={{ padding: '0 8px', opacity: 0.8 }}>{state.mode === 'short' ? `Short ${state.pos + 1}/5` : `${slide.n}/${deck.slides.length}`}</span>
+          <span style={{ padding: '0 8px', opacity: 0.8 }}>{state.mode === 'short' ? `Short ${state.pos + 1}/5` : `${state.pos + 1}/${orderOf(state.mode).length}`}</span>
           <button type="button" onClick={() => dispatch({ t: 'next' })} aria-label="Next" disabled={atEnd || lastOfShort && state.beat >= beatsOf('s15')}>Next ›</button>
           <span className="cp-sep" />
           {state.back && <button type="button" onClick={() => dispatch({ t: 'return' })}>↩ Return to journey</button>}

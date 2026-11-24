@@ -46,6 +46,8 @@ import { useMyLearning, type FlatLesson } from '@/hooks/use-my-learning'
 import { SalesTrainingLauncher } from '@/components/domain/lms/sales-training/sales-training-launcher'
 import { SalesTrainingCards, SalesTrainingCourseView } from '@/components/domain/lms/sales-training/sales-training-course'
 import { SALES_PRODUCTS, salesTrainingKeyOf, type SalesProductKey } from '@/lib/sales-training/deck'
+import { ClientPresentationLauncher } from '@/components/domain/lms/client-presentation/client-presentation-launcher'
+import { clientPresentationLinkOf } from '@/lib/client-presentation/link'
 import {
   AuthoringDeleteDialog,
   ChapterFormSheet,
@@ -83,10 +85,12 @@ function formatDate(value: string | null) {
 function lessonKind(
   fileType: string | null,
   src?: string | null,
-): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'sales' | 'unknown' {
+): 'video' | 'pdf' | 'image' | 'office' | 'link' | 'sales' | 'presentation' | 'unknown' {
   const type = (fileType ?? '').toLowerCase()
   // A link to the sales-training player plays inside the lesson, whatever type the lesson was saved as.
   if (salesTrainingKeyOf(src)) return 'sales'
+  // So does a link to the customer presentation.
+  if (clientPresentationLinkOf(src)) return 'presentation'
   if (type === 'mp4' || type === 'video') return 'video'
   if (type === 'pdf') return 'pdf'
   if (type === 'jpg' || type === 'jpeg' || type === 'png' || type === 'image') return 'image'
@@ -512,6 +516,20 @@ function LessonViewer({
       <SalesTrainingLauncher
         key={lesson.id}
         productKey={salesKey}
+        title={lesson.title}
+        completed={lesson.status === 'completed'}
+        onProgress={() => onPositionSave(0)}
+        onComplete={onComplete}
+      />
+    )
+  }
+
+  const presentationLink = clientPresentationLinkOf(src)
+  if (kind === 'presentation' && presentationLink) {
+    return (
+      <ClientPresentationLauncher
+        key={lesson.id}
+        link={presentationLink}
         title={lesson.title}
         completed={lesson.status === 'completed'}
         onProgress={() => onPositionSave(0)}
