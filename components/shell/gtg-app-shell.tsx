@@ -22,6 +22,7 @@ import { consumeSidebarFirstOpenExpansion } from '@/lib/sidebar-first-open'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { isAiCoreEnabled, isChatLifecycleEnabled, isModuleChatEnabled } from '@/lib/ai-core/flag'
 import { useActiveModule } from '@/hooks/use-active-module'
+import { isIntelligencePath } from '@/lib/intelligence-center/nav'
 import { askAssistant } from '@/lib/intelligence/ai-conversations'
 import { fetchPageContext } from '@/lib/intelligence/ai-workspace'
 import { readPage } from '@/lib/page-context/dom-snapshot'
@@ -270,6 +271,11 @@ export function GtgAppShell({
      * breadcrumb follow the URL, which is the only thing that knows the truth.
      */
     if (loading || modules.length === 0) return
+
+    if (isIntelligencePath(pathname)) {
+      setActive(null)
+      return
+    }
 
     const parsed = parseRoutePath(pathname)
     if (parsed) {
@@ -1106,7 +1112,7 @@ export function GtgAppShell({
    * on the dashboard before it knew where it was.
    */
   const resolvedActive: ActiveNav = active ?? { moduleId: '', menuId: '', submenuId: '' }
-  const breadcrumbItems = resolveBreadcrumb(resolvedActive, modules)
+  const breadcrumbItems = isIntelligencePath(pathname) ? [] : resolveBreadcrumb(resolvedActive, modules)
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   /*

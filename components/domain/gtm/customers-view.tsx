@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { customerService, type CustomerAlerts, type CustomerList } from '@/services/gtm/customers'
 import { GtmPageHeader, MeasuredTag, StatTile, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { ContextualInsights } from '@/components/domain/intelligence'
 import { BandBadge, CustomerDialog } from './customers-detail'
 import { RenewalsTab, fmtAmount } from './customers-renewals'
 import { CustomerAgentPanel } from './customers-agent'
@@ -49,6 +50,8 @@ export function CustomersView() {
   return (
     <div className="p-6">
       <GtmPageHeader title="Customers" description="Customer health, renewals and expansion. Health is computed from your own records and always shows its working; where data is missing it says so instead of guessing." />
+
+      <ContextualInsights surface="gtm_customers" />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (

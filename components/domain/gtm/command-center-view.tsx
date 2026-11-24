@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
 import { gtmService, type GtmOverview } from '@/services/gtm/gtm'
 import { money } from './deals-view'
+import { ContextualInsights } from '@/components/domain/intelligence'
 import { EstimateTag, GtmPageHeader, MeasuredTag, StatTile, errMsg, useGtmReady } from './gtm-shared'
 
 const MORE_PAGES: [string, string][] = [
@@ -63,6 +64,8 @@ export function CommandCenterView() {
         title="GTM Command Center"
         description="Live view of your target accounts, buying signals and outreach activity. Measured figures are counted from your records; AI estimates are labelled."
       />
+
+      <ContextualInsights surface="gtm_command_center" />
 
       <section className="mb-6 grid gap-3 md:grid-cols-2">
         <ReadinessRow ok={data.readiness.ai.configured} label="AI provider" okText="Configured" badText="Not configured — AI analysis is unavailable. Set it up in AI & Intelligence → Providers." />

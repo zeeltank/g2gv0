@@ -15,6 +15,7 @@ import {
   type DealDetail, type DealStage, type ForecastCategory, type GtmAccount, type GtmDeal, type GtmDirectory, type GtmPlaybook, type PipelineSummary,
 } from '@/services/gtm/gtm'
 import { EstimateTag, GtmPageHeader, MeasuredTag, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { ContextualInsights } from '@/components/domain/intelligence'
 
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 const TEXTAREA = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
@@ -65,6 +66,8 @@ export function DealsView() {
         description="Your pipeline. Counts and values are totals of your deal records, shown per currency. Health flags come from fixed rules, not from AI."
         actions={<Button onClick={() => setCreating(true)}><Plus className="mr-1 size-4" />New deal</Button>}
       />
+
+      <ContextualInsights surface="gtm_deals" />
 
       {pipeline && (
         <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-4 text-sm">
