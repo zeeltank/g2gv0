@@ -6,7 +6,6 @@ import { textOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { StatusBadge } from '../ui/primitives'
 
 import type { SceneProps } from './types'
 
@@ -26,7 +25,6 @@ export function GenericScene({ slide, beat, beats, entry, reduced }: SceneProps)
     <div ref={ref} className="cp-scene" data-theme="paper" style={{ padding: '110px 140px', ...themeVars('paper') }}>
       <div className="cp-kicker" data-g>{slide.section}</div>
       <h2 className="cp-display cp-h2" data-g style={{ margin: '18px 0 36px', maxWidth: 1400 }}>{head}</h2>
-      {slide.badge && <div data-g style={{ marginBottom: 28 }}><StatusBadge badge={slide.badge} /></div>}
       <ul className="cp-body" style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 14, maxWidth: 1500 }}>
         {slide.lines.filter((l) => l.role !== 'headline').map((l, i) => (
           <li key={i} data-g>{l.text}</li>

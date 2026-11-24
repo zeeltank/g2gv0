@@ -1,15 +1,12 @@
 /* Slide 10: Scholar CCB */
 .s10-wash { position: absolute; inset: 0; background: radial-gradient(900px 700px at 70% 30%, rgba(10, 106, 208, 0.08), transparent 70%); }
-.s10-badge { position: absolute; left: 140px; top: 72px; }
-.s10-h { position: absolute; left: 140px; top: 128px; width: 740px; margin: 0; font-size: 62px; line-height: 1.05; color: var(--cp-text-ink); }
+.s10-h { position: absolute; left: 140px; top: 110px; width: 740px; margin: 0; font-size: 62px; line-height: 1.05; color: var(--cp-text-ink); }
 .s10-tag { position: absolute; left: 140px; top: 350px; padding: 8px 16px; border: 2px solid var(--cp-text-ink); border-radius: 6px; font-size: 20px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cp-text-ink); transform: rotate(-1.2deg); }
 .s10-today { position: absolute; left: 140px; top: 440px; width: 720px; margin: 0; padding: 24px 30px; background: rgba(36, 90, 7, 0.07); border: 1.5px solid rgba(36, 90, 7, 0.4); border-left: 8px solid var(--cp-green-d); border-radius: 6px; font-size: 27px; line-height: 1.38; font-weight: 500; color: var(--cp-text-ink); }
-.s10-ahead { position: absolute; left: 140px; top: 690px; width: 720px; margin: 0; padding: 22px 28px; border: 2.5px dashed rgba(12, 42, 74, 0.5); border-radius: 6px; font-size: 25px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); }
 .s10-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .s10-step { position: absolute; left: 920px; width: 860px; height: 60px; display: flex; align-items: center; gap: 0; }
-.s10-mk { position: relative; z-index: 1; width: 42px; height: 42px; margin-left: 59px; display: grid; place-items: center; background: var(--cp-paper); border-radius: 50%; color: var(--cp-blue-d); }
-.s10-step[data-mark='partial'] .s10-mk { color: #7a4e00; }
+.s10-mk { position: relative; z-index: 1; width: 42px; height: 42px; margin-left: 59px; display: grid; place-items: center; background: var(--cp-paper); border-radius: 50%; }
+.s10-mk i { display: block; width: 24px; height: 24px; border-radius: 50%; background: var(--cp-blue-d); box-shadow: 0 0 0 6px rgba(10, 106, 208, 0.16); }
 .s10-num { display: inline-block; width: 40px; margin-left: 28px; font-size: 21px; letter-spacing: 0.18em; font-weight: 800; color: var(--cp-blue-d); }
 .s10-name { margin-left: 22px; font-size: 46px; line-height: 1; color: var(--cp-text-ink); }
-.s10-state { margin-left: auto; font-size: 20px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cp-text-body); }
 .s10-shot { left: 920px; top: 700px; width: 860px; height: 310px; }

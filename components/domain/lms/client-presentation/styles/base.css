@@ -44,16 +44,6 @@
 .cp-scene[data-theme='paper'] .cp-soft { color: var(--cp-text-body); }
 .cp-split-mask { overflow: hidden; display: inline-block; vertical-align: top; padding-bottom: 0.08em; }
 
-/* Status badge: glyph + word + colour, so colour is never the only signal */
-.cp-badge {
-  display: inline-flex; align-items: center; gap: 12px; padding: 9px 20px 9px 15px; border-radius: 999px;
-  font: 800 21px/1 var(--cp-sans), system-ui, sans-serif; letter-spacing: 0.13em; white-space: nowrap;
-}
-.cp-badge[data-b='LIVE'] { color: var(--cp-live-fg); background: var(--cp-live-bg); }
-.cp-badge[data-b='PARTIAL'] { color: var(--cp-partial-fg); background: var(--cp-partial-bg); }
-.cp-badge[data-b='CONCEPTUAL'] { color: var(--cp-concept-fg); background: var(--cp-concept-bg); outline: 2px dashed currentColor; outline-offset: -4px; }
-.cp-badge svg { width: 22px; height: 22px; flex: none; }
-
 /* Photos */
 .cp-photo { position: absolute; overflow: hidden; background: #0a1b2e; }
 .cp-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -74,9 +64,6 @@
 .cp-shot-body span { font-size: 22px; font-weight: 500; }
 .cp-shot > img { position: absolute; left: 0; right: 0; bottom: 0; top: 46px; width: 100%; height: calc(100% - 46px); object-fit: cover; object-position: top left; }
 .cp-scene[data-theme='paper'] .cp-shot { box-shadow: 0 30px 70px -28px rgba(12,42,74,0.45), 0 0 0 1px rgba(12,42,74,0.1); }
-
-/* Journey marks: built / partial / not built, shown with shape as well as colour */
-.cp-mark { width: 30px; height: 30px; flex: none; }
 
 /* Chrome around the stage */
 .cp-ui { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 18px 0 22px; opacity: 0; transition: opacity 0.35s ease; z-index: 5; pointer-events: none; }
@@ -102,6 +89,8 @@
 .cp-presenter .cp-p-block b { display: block; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.65; margin-bottom: 8px; }
 .cp-presenter .cp-p-block p { margin: 0; font-size: 22px; line-height: 1.45; font-weight: 500; }
 .cp-presenter .cp-p-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.cp-presenter .cp-p-careful { background: #3a2a0b; }
+.cp-presenter .cp-p-careful p { color: #f6e3b5; margin-bottom: 8px; }
 .cp-presenter button { all: unset; cursor: pointer; padding: 14px 22px; border-radius: 10px; background: #1088f6; color: #fff; font-weight: 700; font-size: 17px; }
 .cp-presenter button.cp-quiet { background: #1c3552; }
 .cp-presenter button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

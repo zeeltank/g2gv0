@@ -13,7 +13,7 @@ const [W, H] = String(arg('vp', '1920x1080')).split('x').map(Number)
 const slides = String(arg('slides', '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15')).split(',').map(Number)
 const beatsArg = String(arg('beats', 'last')); const short = process.argv.includes('--short'); const reduced = process.argv.includes('--reduced'); const live = process.argv.includes('--live')
 const settle = Number(arg('wait', 700))
-const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 4, 14: 5, 15: 1 }
+const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1 }
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')

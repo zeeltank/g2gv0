@@ -17,7 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1] }
 const base = arg('base', 'http://localhost:3210'); const out = arg('out', null)
 const deck = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/scholarclone.deck.json'), 'utf8'))
-const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 4, 14: 5, 15: 1 }
+const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1 }
 const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')

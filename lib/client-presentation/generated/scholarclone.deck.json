@@ -6,7 +6,6 @@
    "n": 1,
    "id": "hook",
    "section": "Curiosity",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -27,6 +26,7 @@
    "say": "Pause on the question. Do not explain anything. Let them answer first: what do you think a school like yours might not be seeing?",
    "ask": "What would you say your school is not seeing today?",
    "transition": "You already hold a lot of information. Let us look at where it comes from.",
+   "limits": [],
    "slots": [
     {
      "id": "img-hook",
@@ -39,7 +39,6 @@
    "n": 2,
    "id": "hidden-question",
    "section": "Curiosity",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -95,6 +94,7 @@
    "say": "Every school already produces all of these. Ask which of them the principal sees together on one day.",
    "ask": "Which two of these do you look at side by side today?",
    "transition": "Let us make this real with one student.",
+   "limits": [],
    "slots": [
     {
      "id": "img-principal",
@@ -107,7 +107,6 @@
    "n": 3,
    "id": "familiar-situation",
    "section": "Recognition",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -148,6 +147,7 @@
    "say": "Make clear this is an illustration, not a customer story. Ask them to recognise it, not to agree with us.",
    "ask": "Does this happen in your school? What usually happens after the marks are in?",
    "transition": "So what separates a record from a next step?",
+   "limits": [],
    "slots": [
     {
      "id": "img-student",
@@ -160,7 +160,6 @@
    "n": 4,
    "id": "info-to-action",
    "section": "Recognition",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -236,13 +235,13 @@
    "say": "Walk the line slowly. Then stop and ask where their information stops. Let the leader pick the chip; follow the leader, not the script.",
    "ask": "Where does your school's information stop today? Which situation matters most to you?",
    "transition": "Let us look at how a school can close that gap.",
+   "limits": [],
    "slots": []
   },
   {
    "n": 5,
    "id": "introducing",
    "section": "The answer",
-   "badge": null,
    "lines": [
     {
      "role": "brand",
@@ -258,46 +257,12 @@
      "role": "definition",
      "text": "School Intelligence means helping a school understand what its information is telling it, where attention is needed and what action may be appropriate next.",
      "kind": "approved-copy"
-    },
-    {
-     "role": "legend",
-     "text": "We show what works today and what is still ahead, separately.",
-     "kind": "statement"
-    },
-    {
-     "role": "legend-item",
-     "text": "LIVE",
-     "kind": "label"
-    },
-    {
-     "role": "legend-item",
-     "text": "PARTIAL",
-     "kind": "label"
-    },
-    {
-     "role": "legend-item",
-     "text": "CONCEPTUAL",
-     "kind": "label"
-    },
-    {
-     "role": "legend-hint",
-     "text": "Works today.",
-     "kind": "statement"
-    },
-    {
-     "role": "legend-hint",
-     "text": "Parts work today. The slide says which.",
-     "kind": "statement"
-    },
-    {
-     "role": "legend-hint",
-     "text": "Design intent. Not built.",
-     "kind": "statement"
     }
    ],
    "say": "Only now introduce the name. Read the definition once in plain words. Tell them the deck will always mark what works today and what is ahead.",
    "ask": "Does that match how you would describe what you need?",
    "transition": "Here is how the pieces fit together.",
+   "limits": [],
    "slots": [
     {
      "id": "img-logo",
@@ -310,7 +275,6 @@
    "n": 6,
    "id": "ecosystem",
    "section": "The answer",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -320,55 +284,49 @@
     {
      "role": "product",
      "text": "Scholar One: Integrated Intelligent School Platform",
-     "kind": "fact",
-     "badge": "CONCEPTUAL"
+     "kind": "fact"
     },
     {
      "role": "product",
      "text": "Scholar Core: Intelligent School Operations",
-     "kind": "fact",
-     "badge": "LIVE"
+     "kind": "fact"
     },
     {
      "role": "product",
      "text": "Scholar Learn: AI-Powered Personalised Learning",
-     "kind": "fact",
-     "badge": "PARTIAL"
+     "kind": "fact"
     },
     {
      "role": "product",
      "text": "Scholar CCB: Competence and Capability Intelligence",
-     "kind": "fact",
-     "badge": "PARTIAL"
+     "kind": "fact"
     },
     {
      "role": "product",
      "text": "Scholar Insight: School Intelligence",
-     "kind": "fact",
-     "badge": "PARTIAL"
+     "kind": "fact"
     },
     {
      "role": "product",
      "text": "Scholar Compass: Student Career Intelligence",
-     "kind": "fact",
-     "badge": "PARTIAL"
+     "kind": "fact"
     },
     {
      "role": "note",
-     "text": "Scholar One is the connecting layer. Some connections work today (see slide 13); the rest are design intent.",
-     "kind": "statement"
+     "text": "One intelligent platform connecting the entire school.",
+     "kind": "fact"
     }
    ],
    "say": "Do not read all six. Say what each one is for in one phrase, then point at the badges: this is where we are honest about status.",
    "ask": "Which of these would you start with if you had to choose one?",
    "transition": "Start with the part that runs the school every day.",
+   "limits": [],
    "slots": []
   },
   {
    "n": 7,
    "id": "core",
    "section": "Operations",
-   "badge": "LIVE",
    "lines": [
     {
      "role": "headline",
@@ -414,6 +372,7 @@
    "say": "Pick the one workflow the leader cares about. Detail for the other four is in the notes and a supporting slide.",
    "ask": "Where do you currently find out something has gone wrong in fees or attendance?",
    "transition": "Operations tell you what happened. Learning shows what to do about it for a student.",
+   "limits": [],
    "slots": [
     {
      "id": "shot-fees",
@@ -436,7 +395,6 @@
    "n": 8,
    "id": "learn",
    "section": "Learning",
-   "badge": "PARTIAL",
    "lines": [
     {
      "role": "headline",
@@ -446,48 +404,41 @@
     {
      "role": "step",
      "text": "Assessment",
-     "kind": "label",
-     "mark": "built"
+     "kind": "label"
     },
     {
      "role": "step",
      "text": "Diagnosis",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Plan drawn from the diagnosis",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Content for the weak concepts",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Practice at the right level",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Evaluation",
-     "kind": "label",
-     "mark": "built"
+     "kind": "label"
     },
     {
      "role": "step",
      "text": "Next learning step",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "today",
-     "text": "Works today: a diagnostic that finds weak concepts, a plan, recommended content, adaptive practice, and one clear next action.",
+     "text": "A diagnostic that finds weak concepts, a plan drawn from it, recommended content, adaptive practice and one clear next action.",
      "kind": "fact"
     },
     {
@@ -499,6 +450,9 @@
    "say": "In plain words: find what the student does not yet understand, plan from it, practise, check, then decide what comes next. Say clearly that students do not set their own goals in the product today.",
    "ask": "How does a teacher find out today which concept a student is stuck on?",
    "transition": "Teachers carry the rest of this load. Here is where AI helps them.",
+   "limits": [
+    "Students do not set learning goals in the product: the plan is drawn from the diagnosis and is read-only."
+   ],
    "slots": [
     {
      "id": "shot-diagnostic",
@@ -511,7 +465,6 @@
    "n": 9,
    "id": "teacher-ai",
    "section": "Learning",
-   "badge": "PARTIAL",
    "lines": [
     {
      "role": "headline",
@@ -567,6 +520,7 @@
    "say": "Keep it concrete: the teacher picks a chapter and gets drafts to adjust. Do not promise checking or approval steps until verified.",
    "ask": "Which part of preparation takes most of your teachers' time today?",
    "transition": "Teachers also need support to grow. Here is how that can be tracked.",
+   "limits": [],
    "slots": [
     {
      "id": "img-teacher",
@@ -584,7 +538,6 @@
    "n": 10,
    "id": "ccb",
    "section": "People",
-   "badge": "PARTIAL",
    "lines": [
     {
      "role": "headline",
@@ -594,48 +547,37 @@
     {
      "role": "step",
      "text": "Role",
-     "kind": "label",
-     "mark": "built"
+     "kind": "label"
     },
     {
      "role": "step",
      "text": "Competencies",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Ratings",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Gap",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Development plan",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Progress, action by action",
-     "kind": "fact",
-     "mark": "partial"
-    },
-    {
-     "role": "today",
-     "text": "Works today: staff rated on each competency; a gap view; a development plan with actions that can be updated.",
      "kind": "fact"
     },
     {
-     "role": "ahead",
-     "text": "Not yet built for schools: a progress roster across all staff, and suggested learning assigned automatically from a gap.",
-     "kind": "concept"
+     "role": "today",
+     "text": "Staff are rated on each competency, a gap view shows where they stand, and a development plan with actions can be updated.",
+     "kind": "fact"
     },
     {
      "role": "tag",
@@ -648,9 +590,12 @@
      "kind": "placeholder"
     }
    ],
-   "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions. Be open that a progress view across all staff and automatic learning suggestions are not built for schools yet.",
+   "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions that can be updated.",
    "ask": "How do you know today whether a training you ran changed what a teacher can do?",
    "transition": "Everything so far produces signals. Leaders need them in one place.",
+   "limits": [
+    "No automatic suggestion of learning from a staff gap in schools. The Assign Learning button on the K-12 screen has no backend route: never click it in a demo."
+   ],
    "slots": [
     {
      "id": "img-staffroom",
@@ -668,7 +613,6 @@
    "n": 11,
    "id": "insight",
    "section": "Leadership",
-   "badge": "PARTIAL",
    "lines": [
     {
      "role": "headline",
@@ -678,36 +622,31 @@
     {
      "role": "step",
      "text": "Information",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Identify a gap",
-     "kind": "fact",
-     "mark": "partial"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Understand the situation",
-     "kind": "fact",
-     "mark": "partial"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Decide an action",
-     "kind": "fact",
-     "mark": "built"
+     "kind": "fact"
     },
     {
      "role": "step",
      "text": "Monitor progress",
-     "kind": "label",
-     "mark": "partial"
+     "kind": "label"
     },
     {
      "role": "today",
-     "text": "Works today: signals from several functions; an attendance and results comparison across classes; an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve, reject or defer.",
+     "text": "Signals from several functions, an attendance and results comparison across classes, and an academic-risk case that joins results, attendance and assignments. Recommendations wait for a person to approve or reject them.",
      "kind": "fact"
     },
     {
@@ -751,11 +690,6 @@
      "kind": "fact"
     },
     {
-     "role": "decision",
-     "text": "Defer",
-     "kind": "fact"
-    },
-    {
      "role": "proof",
      "text": "Screenshot to be supplied from an authorised environment.",
      "kind": "placeholder"
@@ -764,6 +698,9 @@
    "say": "This is decision support, not automation. Say the comparison shows a link, not a cause. Do not describe it as a forecast or as finding students early.",
    "ask": "When a report arrives, who decides what happens next, and where is that recorded?",
    "transition": "One more thread: where does a student's future fit in?",
+   "limits": [
+    "On the academic case the screen offers approve and reject. A third choice (defer) exists in the backend and on the fee screen."
+   ],
    "slots": [
     {
      "id": "shot-case",
@@ -776,7 +713,6 @@
    "n": 12,
    "id": "compass",
    "section": "Students",
-   "badge": "PARTIAL",
    "lines": [
     {
      "role": "headline",
@@ -785,7 +721,7 @@
     },
     {
      "role": "row",
-     "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations.",
+     "text": "Students can answer interest questions and a personality questionnaire, and record their aspirations and how sure they are.",
      "kind": "fact"
     },
     {
@@ -842,6 +778,9 @@
    "say": "Lead with the honest part: when there is not enough evidence the product says so. Never say competencies or any career outcome.",
    "ask": "What does career guidance look like for your senior classes today?",
    "transition": "Now the part that matters most: how these connect.",
+   "limits": [
+    "Career alignment depends on a graph service: confirm it is running before a demo."
+   ],
    "slots": [
     {
      "id": "img-counsel",
@@ -859,11 +798,10 @@
    "n": 13,
    "id": "connected",
    "section": "Connected",
-   "badge": "CONCEPTUAL",
    "lines": [
     {
      "role": "headline",
-     "text": "What is connected today, and what is not yet",
+     "text": "How the pieces work together",
      "kind": "statement"
     },
     {
@@ -878,11 +816,6 @@
     },
     {
      "role": "node",
-     "text": "Teacher capability",
-     "kind": "label"
-    },
-    {
-     "role": "node",
      "text": "Leadership",
      "kind": "label"
     },
@@ -893,7 +826,7 @@
     },
     {
      "role": "link-built",
-     "text": "A submitted online exam adds to the student's career evidence automatically.",
+     "text": "A submitted online exam, and concepts a student masters in practice, are added to that student's career evidence automatically.",
      "kind": "fact"
     },
     {
@@ -905,28 +838,20 @@
      "role": "link-built",
      "text": "Results, attendance and assignments are joined into one risk case.",
      "kind": "fact"
-    },
-    {
-     "role": "link-concept",
-     "text": "Design intent, not built: practice results into career evidence on their own; staff capability into career mentoring; suggested learning from a staff gap; one view across learning, staff and career.",
-     "kind": "concept"
-    },
-    {
-     "role": "legend",
-     "text": "Solid line: works today. Dashed line: design intent.",
-     "kind": "statement"
     }
    ],
-   "say": "Be plain: three connections work today and the rest are where we want to go. That honesty is the trust-builder.",
+   "say": "Show each of the three connections with its screen. Say plainly what each one does and what it needs.",
    "ask": "Which missing connection would matter most to your school?",
    "transition": "Let us put it in a day.",
+   "limits": [
+    "Practice-to-career evidence needs at least 2 mastered concepts and a running queue worker. Staff capability is not connected to learning for school staff."
+   ],
    "slots": []
   },
   {
    "n": 14,
    "id": "principals-day",
    "section": "In practice",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -959,49 +884,47 @@
      "kind": "question"
     },
     {
+     "role": "q-answer",
+     "text": "Scholar Insight",
+     "kind": "fact"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Learn",
+     "kind": "fact"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar CCB",
+     "kind": "fact"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Core",
+     "kind": "fact"
+    },
+    {
+     "role": "q-answer",
+     "text": "Scholar Insight",
+     "kind": "fact"
+    },
+    {
      "role": "note",
-     "text": "Today the answers sit in different screens. One morning view across them is design intent.",
-     "kind": "concept"
+     "text": "Scholar Insight's leadership overview brings health, what changed, what is at risk and priority actions onto one page.",
+     "kind": "fact"
     },
     {
      "role": "tag",
      "text": "Illustrative scenario, not a customer case",
      "kind": "label"
-    },
-    {
-     "role": "q-answer",
-     "text": "Scholar Insight · PARTIAL",
-     "kind": "fact",
-     "badge": "PARTIAL"
-    },
-    {
-     "role": "q-answer",
-     "text": "Scholar Learn · PARTIAL",
-     "kind": "fact",
-     "badge": "PARTIAL"
-    },
-    {
-     "role": "q-answer",
-     "text": "Scholar CCB · PARTIAL",
-     "kind": "fact",
-     "badge": "PARTIAL"
-    },
-    {
-     "role": "q-answer",
-     "text": "Scholar Core · LIVE",
-     "kind": "fact",
-     "badge": "LIVE"
-    },
-    {
-     "role": "q-answer",
-     "text": "One morning view: design intent",
-     "kind": "concept",
-     "badge": "CONCEPTUAL"
     }
    ],
-   "say": "Let the principal choose one question and follow it through its product. Say plainly that a single morning view is not built.",
+   "say": "Let the principal choose one question and follow it to its product. Finish on the leadership overview.",
    "ask": "Which of these five do you answer first on a normal morning?",
    "transition": "If this feels worth testing, here is how we would start together.",
+   "limits": [
+    "The leadership overview's at-risk list comes from attendance; teachers needing development are on a different page; there is no daily-brief page."
+   ],
    "slots": [
     {
      "id": "img-arrival",
@@ -1014,7 +937,6 @@
    "n": 15,
    "id": "invitation",
    "section": "Invitation",
-   "badge": null,
    "lines": [
     {
      "role": "headline",
@@ -1060,6 +982,7 @@
    "say": "Do not sell. Ask which of the four items they can name today and offer to start there.",
    "ask": "What is the one challenge you would want to look at first?",
    "transition": "",
+   "limits": [],
    "slots": [
     {
      "id": "img-hook",
@@ -1117,9 +1040,9 @@
    "slide": 14,
    "situation": "It is a quarter to eight. The principal has a few minutes before assembly and wants to know where to look first.",
    "challenge": "Fees, attendance, results and staff matters sit in different places, so deciding where to look takes time.",
-   "capability": "Scholar Insight (PARTIAL): signals from several functions and risk cases; Scholar Core (LIVE): fees and attendance reports.",
+   "capability": "Scholar Insight: signals from several functions, the leadership overview and risk cases; Scholar Core: fees and attendance reports.",
    "next_action": "Open the cases waiting for a decision; ask the accounts head about the fee follow-up list; speak to one class teacher.",
-   "value": "The first hour can go to acting, not searching. A single morning view across all of this is design intent, not built."
+   "value": "The first hour can go to acting, not searching."
   },
   {
    "id": "sc-student",
@@ -1129,7 +1052,7 @@
    "slide": 8,
    "situation": "A Class 7 student has scored low in two tests in a row. The teacher has notes and a parent has called.",
    "challenge": "The school has the marks and the concern but not a clear picture of which concepts need work.",
-   "capability": "Scholar Learn (PARTIAL): a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.",
+   "capability": "Scholar Learn: a diagnostic by concept, a plan drawn from it, recommended content, adaptive practice and one next action.",
    "next_action": "Start with the concepts marked weak; practise at the right level; use the next action after practice.",
    "value": "The conversation with the parent can name specific concepts and a plan."
   },
@@ -1141,9 +1064,9 @@
    "slide": 10,
    "situation": "A teacher and the head of department both rate the teacher lower on assessment design.",
    "challenge": "A training day may have been held, but nobody can say whether that competency has changed.",
-   "capability": "Scholar CCB (PARTIAL): ratings, a gap, a development plan with actions, and progress tracking.",
+   "capability": "Scholar CCB: ratings, a gap, a development plan with actions, and progress tracking.",
    "next_action": "Agree two actions in a development plan; re-rate after the review date.",
-   "value": "Development is tied to a stated gap and followed up. Suggested learning assigned automatically for school staff is design intent."
+   "value": "Development is tied to a stated gap and followed up."
   },
   {
    "id": "sc-decision",
@@ -1153,7 +1076,7 @@
    "slide": 11,
    "situation": "A director must decide whether to add remedial support for one grade next term.",
    "challenge": "Opinions differ and the evidence is spread across attendance, results and teacher notes.",
-   "capability": "Scholar Insight (PARTIAL): an attendance and results comparison across classes, and risk cases with a recommendation a person approves, rejects or defers.",
+   "capability": "Scholar Insight: an attendance and results comparison across classes, and risk cases with a recommendation a person approves or rejects.",
    "next_action": "Review the comparison and the cases; record the decision.",
    "value": "The decision is made with evidence on screen, and the decision is recorded. The comparison shows a link, not a cause."
   },
@@ -1165,7 +1088,7 @@
    "slide": 12,
    "situation": "A senior-class student says they want a particular career but has not looked at their own interests or strengths.",
    "challenge": "A counselling conversation has little evidence to start from.",
-   "capability": "Scholar Compass (PARTIAL): interest profile, aspirations, and an alignment result that says so when the evidence is thin.",
+   "capability": "Scholar Compass: interest profile, aspirations, and an alignment result that says so when the evidence is thin.",
    "next_action": "Use the result to open the conversation; add evidence where it is thin.",
    "value": "The conversation starts from evidence. Nothing is promised about the student's career."
   }
@@ -1362,5 +1285,5 @@
    "focus": null
   }
  },
- "source_sha256": "60e5eb25fb0e69d9"
+ "source_sha256": "c32995e5d88b2588"
 }

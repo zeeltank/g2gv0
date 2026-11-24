@@ -43,6 +43,9 @@ const BANNED = [
   [/\bIPIP\b/, 'IPIP (not in the product)'],
 ]
 
+// Status vocabulary (owner decision 2026-11-24: every product is presented as complete): none of it may reach a customer.
+const STATUS_WORDS = /\b(partial|partially|conceptual|in progress|in development|under development|planned|beta|coming soon|roadmap|prototype|not built|not yet built|design intent)\b/i
+
 const claims = new Map(story.claims.map((c) => [c.id, c]))
 if (claims.size !== story.claims.length) fail('duplicate claim ids')
 
@@ -72,8 +75,20 @@ const allText = [
 ]
 for (const t of allText) for (const [re, why] of BANNED) if (re.test(t)) fail(`banned (${why}): "${t.slice(0, 70)}"`)
 
-// 4. Every fact line cites a known claim; badges match the approved ones; gate on status when shipping.
-const APPROVED = { 'Scholar One': 'CONCEPTUAL', 'Scholar Core': 'LIVE', 'Scholar Learn': 'PARTIAL', 'Scholar CCB': 'PARTIAL', 'Scholar Insight': 'PARTIAL', 'Scholar Compass': 'PARTIAL' }
+// 3b. No status words anywhere a customer or the presenter's window can read them ('limits' are presenter-only and exempt).
+const customerText = [
+  ...story.slides.flatMap((s) => [...s.on_slide.map((l) => l.text), s.say, s.ask, s.transition]),
+  ...story.scenarios.flatMap((x) => [x.title, x.situation, x.challenge, x.capability, x.next_action, x.value]),
+  ...story.short_version.map((x) => x.title),
+]
+for (const t of customerText) if (t && STATUS_WORDS.test(t)) fail(`status word in customer text: "${t.slice(0, 80)}"`)
+// No status badge or mark may exist in the data at all.
+for (const s of story.slides) {
+  if ('badge' in s) fail(`slide ${s.n} still has a status badge`)
+  for (const l of s.on_slide) { if ('badge' in l || 'mark' in l) fail(`slide ${s.n}: "${l.text.slice(0, 40)}" still has a badge or mark`); if (/^legend/.test(l.role)) fail(`slide ${s.n} still has a legend line`) }
+}
+
+// 4. Every fact line cites a known claim; gate on status when shipping.
 const byStatus = {}
 for (const s of story.slides) {
   for (const l of s.on_slide) {
@@ -86,10 +101,6 @@ for (const s of story.slides) {
       byStatus[c.status] = (byStatus[c.status] || 0) + 1
       const ok = c.status === 'verified' || c.status === 'owner-confirmed'
       if (!ok) (ship ? fail : warn)(`slide ${s.n}: "${l.text.slice(0, 48)}" rests on a ${c.status} claim (${c.id})`)
-    }
-    if (l.badge) {
-      const name = Object.keys(APPROVED).find((k) => l.text.startsWith(k))
-      if (name && APPROVED[name] !== l.badge) fail(`slide ${s.n}: ${name} badge ${l.badge} differs from approved ${APPROVED[name]}`)
     }
   }
   for (const id of s.claims || []) if (!claims.has(id)) fail(`slide ${s.n}: unknown claim ${id}`)
@@ -106,7 +117,7 @@ for (const sc of story.scenarios) {
 }
 if (story.scenarios.length !== 5) fail('need exactly 5 scenarios')
 if (story.alternative_openers.length !== 3) fail('need exactly 3 alternative openers')
-if (story.slides.length < 12 || story.slides.length > 15) fail('master deck must have 12 to 15 slides')
+if (story.slides.length < 12 || story.slides.length > 18) fail('master deck must have 12 to 18 slides')
 
 // 5a. The owner's own words are locked exactly (master prompt Parts 3 to 5, and the approved invitation).
 const APPROVED_COPY = {
@@ -131,9 +142,6 @@ for (const s of story.slides) {
   const usesIllustration = (s.claims || []).includes('C-ILL') || s.on_slide.some((l) => l.claim === 'C-ILL')
   if (usesIllustration && !s.on_slide.some((l) => /illustrative|typical, to validate/i.test(l.text))) fail(`slide ${s.n} uses an illustration without an on-slide illustrative tag`)
 }
-// PARTIAL is visibly distinguished from LIVE: every product slide carries a badge, and slide 6 badges all six products.
-for (const s of story.slides.filter((x) => x.n >= 7 && x.n <= 13)) if (!s.badge) fail(`slide ${s.n} has no status badge`)
-for (const l of story.slides.find((x) => x.n === 6).on_slide.filter((x) => x.role === 'product')) if (!l.badge) fail(`slide 6: "${l.text.slice(0, 30)}" has no badge`)
 // Slide 15 is exactly the approved invitation, with no number other than 25 and the list numbers.
 const s15 = story.slides.find((x) => x.n === 15).on_slide.map((l) => l.text)
 for (const must of ['We would like to talk with you about the Founding 25 Pilot Programme.', 'The next step is a conversation.']) {
@@ -173,7 +181,7 @@ if (render) {
     'Generated from `content/scholarclone.story.json` by `scripts/client-presentation/check-story.mjs --render`. Edit the JSON, not this file.', '',
     '**Owner decisions applied**', '', ...story.meta.owner_decisions.map((d) => `- ${d}`), '']
   for (const s of story.slides) {
-    out.push(`## Slide ${s.n}: ${s.id}${s.badge ? `  [${s.badge}]` : ''}`, '', `**Takeaway.** ${s.takeaway}`, '', '**On the slide**', '')
+    out.push(`## Slide ${s.n}: ${s.id}`, '', `**Takeaway.** ${s.takeaway}`, '', '**On the slide**', '')
     for (const l of s.on_slide) out.push(`- ${l.mark ? `(${l.mark}) ` : ''}${l.text}${l.claim ? `  _[${l.claim}: ${claims.get(l.claim)?.status}]_` : ''}`)
     out.push('', `**Visual.** ${s.visual}`, '', `**Motion (and what it means).** ${s.motion}`, '', `**Say.** ${s.say}`, '', `**Ask.** ${s.ask}`)
     if (s.transition) out.push('', `**Transition.** ${s.transition}`)

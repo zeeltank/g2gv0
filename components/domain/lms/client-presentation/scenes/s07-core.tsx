@@ -7,7 +7,7 @@ import { assetOf, linesOf, textOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { ShotFrame, StatusBadge } from '../ui/primitives'
+import { ShotFrame } from '../ui/primitives'
 
 import './s07.css'
 import type { SceneProps } from './types'
@@ -40,7 +40,6 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
   return (
     <div ref={ref} className="cp-scene" data-theme="paper" style={themeVars('paper')}>
-      <div className="s07-badge">{slide.badge && <StatusBadge badge={slide.badge} />}</div>
       <h2 className="cp-display s07-h">{textOf(slide, 'headline')}</h2>
 
       <ol className="s07-rows">

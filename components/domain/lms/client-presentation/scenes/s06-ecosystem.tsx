@@ -7,7 +7,6 @@ import { linesOf, textOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { StatusBadge } from '../ui/primitives'
 
 import './s06.css'
 import type { SceneProps } from './types'
@@ -15,7 +14,7 @@ import { PRODUCT_SCENE, splitName } from './util'
 
 /**
  * Six products and how they relate: Core is the foundation, Learn, CCB and Compass stand on it, Insight spans above, and Scholar One
- * is the dashed ring that is meant to connect them (CONCEPTUAL). Built bottom-up, one layer per beat. Tapping a product opens it.
+ * is the ring that connects them. Built bottom-up, one layer per beat. Tapping a product opens it.
  */
 export const BEATS = 4
 
@@ -23,7 +22,7 @@ const BEAT_OF: Record<string, number> = { 'Scholar Core': 1, 'Scholar Learn': 2,
 
 export default function Scene({ slide, beat, beats, entry, reduced, nav }: SceneProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const products = linesOf(slide, 'product').map((l) => ({ ...splitName(l.text), badge: l.badge! }))
+  const products = linesOf(slide, 'product').map((l) => ({ ...splitName(l.text) }))
   const by = (n: string) => products.find((p) => p.name === n)!
   const one = by('Scholar One')
 
@@ -49,7 +48,6 @@ export default function Scene({ slide, beat, beats, entry, reduced, nav }: Scene
         key={name}
         type="button"
         className={`s06-tile ${cls}`}
-        data-badge={p.badge}
         tabIndex={live ? 0 : -1}
         disabled={!live}
         whileHover={reduced ? undefined : { y: -5 }}
@@ -59,7 +57,6 @@ export default function Scene({ slide, beat, beats, entry, reduced, nav }: Scene
       >
         <span className="s06-name cp-display">{p.name}</span>
         <span className="s06-desc">{p.desc}</span>
-        <StatusBadge badge={p.badge} />
       </motion.button>
     )
   }
@@ -74,7 +71,6 @@ export default function Scene({ slide, beat, beats, entry, reduced, nav }: Scene
       <div className="s06-onetab">
         <span className="s06-onename cp-display">{one.name}</span>
         <span className="s06-desc">{one.desc}</span>
-        <StatusBadge badge={one.badge} />
       </div>
 
       <div className="s06-insight-wrap">{tile('Scholar Insight', 's06-insight')}</div>

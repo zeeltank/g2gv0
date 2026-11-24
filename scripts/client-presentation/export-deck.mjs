@@ -35,16 +35,13 @@ const deck = {
     n: s.n,
     id: s.id,
     section: s.section,
-    badge: s.badge ?? null,
     lines: s.on_slide.map((l) => {
-      const o = { role: l.role, text: l.text, kind: l.kind }
-      if (l.mark) o.mark = l.mark
-      if (l.badge) o.badge = l.badge
-      return o
+      return { role: l.role, text: l.text, kind: l.kind }
     }),
     say: s.say,
     ask: s.ask,
     transition: s.transition || '',
+    limits: s.limits ?? [],
     slots: s.slots.map((x) => ({ id: x.id, type: x.type, brief: x.brief })),
   })),
   short: story.short_version.map((x) => ({ n: x.n, title: x.title, uses: x.uses })),

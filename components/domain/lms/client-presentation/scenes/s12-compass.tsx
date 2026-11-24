@@ -6,7 +6,7 @@ import { assetOf, textOf, textsOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { Photo, ShotFrame, StatusBadge } from '../ui/primitives'
+import { Photo, ShotFrame } from '../ui/primitives'
 
 import './s12.css'
 import type { SceneProps } from './types'
@@ -52,7 +52,6 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
   return (
     <div ref={ref} className="cp-scene" data-theme="paper" style={themeVars('paper')}>
-      <div className="s12-badge">{slide.badge && <StatusBadge badge={slide.badge} />}</div>
       <h2 className="cp-display s12-h">{textOf(slide, 'headline')}</h2>
 
       <Photo asset={assetOf(deck, 'img-counsel')} alt="An adult and a student talking calmly across a table" className="s12-photo" />

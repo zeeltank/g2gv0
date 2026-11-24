@@ -7,7 +7,6 @@ import { orderOf, type Mode } from '@/lib/client-presentation/navigation'
 
 import './styles/base.css'
 import { SCENES } from './scenes'
-import { StatusBadge } from './ui/primitives'
 
 const CHANNEL = 'g2g-client-presentation'
 
@@ -52,12 +51,14 @@ export function PresenterView({ productKey }: { productKey: string }) {
       <h1>Presenter notes · {st.mode === 'short' ? 'five-slide version' : 'full deck'}</h1>
       <h2>{slide.n}. {slide.lines.find((l) => l.role === 'headline')?.text ?? slide.id}</h2>
       <div className="cp-p-row">
-        {slide.badge && <StatusBadge badge={slide.badge} />}
         <span>Step {st.beat} of {scene.beats}</span>
       </div>
       <div className="cp-p-block"><b>Say</b><p>{slide.say}</p></div>
       <div className="cp-p-block"><b>Ask</b><p>{slide.ask}</p></div>
       {slide.transition && <div className="cp-p-block"><b>Then</b><p>{slide.transition}</p></div>}
+      {slide.limits.length > 0 && (
+        <div className="cp-p-block cp-p-careful"><b>Careful (presenter only, never on the slide)</b>{slide.limits.map((l) => <p key={l}>{l}</p>)}</div>
+      )}
       {nextSlide && <div className="cp-p-block"><b>Next slide</b><p>{nextSlide.n}. {nextSlide.lines.find((l) => l.role === 'headline')?.text}</p></div>}
       <div className="cp-p-row">
         <button type="button" className="cp-quiet" onClick={() => ch.current?.postMessage({ t: 'cmd-prev' })}>‹ Previous</button>

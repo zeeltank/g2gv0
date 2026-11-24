@@ -18,6 +18,4 @@
 .s14-a { overflow: hidden; }
 .s14-a-in { display: flex; align-items: center; gap: 4px; padding: 16px 0 4px 58px; }
 .s14-a-name { font-size: 30px; font-weight: 700; color: var(--cp-text-body); }
-.s14-a-in .cp-badge { margin-left: 6px; }
-.s14-q[data-concept='true'][data-open='true'] .s14-a-name { font-style: italic; }
-.s14-note { margin: auto 0 0; padding: 16px 22px; border: 2px dashed rgba(12, 42, 74, 0.4); border-radius: 12px; font-size: 25px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); }
+.s14-note { margin: auto 0 0; padding: 18px 24px; border-left: 6px solid var(--cp-blue-d); background: rgba(10, 106, 208, 0.06); border-radius: 4px; font-size: 25px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); }

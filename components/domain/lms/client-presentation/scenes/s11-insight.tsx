@@ -6,13 +6,13 @@ import { assetOf, linesOf, textOf, textsOf } from '@/lib/client-presentation/dec
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { ShotFrame, StatusBadge, StepMark } from '../ui/primitives'
+import { ShotFrame } from '../ui/primitives'
 
 import './s11.css'
 import type { SceneProps } from './types'
 
 /**
- * Scholar Insight (PARTIAL): decision support, not a dashboard. Three signals converge into one case, which forks into the three
+ * Scholar Insight: decision support, not a dashboard. Three signals converge into one case, which forks into the three
  * things a person can do with a recommendation. The diagram is a schematic of how a case is formed; it mimics no screen.
  */
 export const BEATS = 3
@@ -29,7 +29,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
   const decisions = textsOf(slide, 'decision')
 
   useBeatTimeline(ref, (tl, { q }) => {
-    tl.fromTo(q('.s11-badge, .s11-h, .s11-tag'), { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0)
+    tl.fromTo(q('.s11-h, .s11-tag'), { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0)
     tl.fromTo(q('.s11-step'), { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 0.7, stagger: 0.1 }, 0.6)
     tl.fromTo(q('.s11-thread'), { autoAlpha: 0, x: -30 }, { autoAlpha: 1, x: 0, duration: 0.8, stagger: 0.14, ease: 'power3.out' }, 1.0)
     tl.addLabel('b0', 2.4)
@@ -41,7 +41,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
     tl.fromTo(q('.s11-out'), { drawSVG: '0% 0%', autoAlpha: 1 }, { drawSVG: '0% 100%', duration: 1.0, stagger: 0.12, ease: 'power2.inOut' }, 'b1+=0.1')
     tl.fromTo(q('.s11-dec'), { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 0.7, stagger: 0.12 }, 'b1+=0.8')
     tl.addLabel('b2', 'b1+=1.8')
-    // b3: what works today, the honest limit, and where it appears.
+    // b3: what the product does, the honest limit of the reading, and where it appears.
     tl.fromTo(q('.s11-today, .s11-limit, .s11-shot'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.14, ease: 'power3.out' }, 'b2+=0.1')
     tl.addLabel('b3', 'b2+=1.6')
   }, { beat, beats, entry, reduced })
@@ -49,14 +49,13 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
   return (
     <div ref={ref} className="cp-scene" data-theme="ink" style={themeVars('ink')}>
       <div className="s11-wash" />
-      <div className="s11-badge">{slide.badge && <StatusBadge badge={slide.badge} />}</div>
       <h2 className="cp-display s11-h">{textOf(slide, 'headline')}</h2>
       <span className="s11-tag">{textOf(slide, 'tag')}</span>
 
       <ol className="s11-steps">
         {steps.map((l, i) => (
-          <li key={l.text} className="s11-step" data-mark={l.mark ?? 'built'}>
-            <span className="s11-mk"><StepMark mark={l.mark} size={28} /></span>
+          <li key={l.text} className="s11-step">
+            <span className="s11-mk"><i /></span>
             <span className="s11-sn">{`0${i + 1}`}</span>
             {l.text}
           </li>

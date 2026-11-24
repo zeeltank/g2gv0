@@ -3,8 +3,7 @@
 .s09-photo { inset: 0; }
 .s09-photo > img { object-position: 52% 50%; }
 .s09-fade { position: absolute; inset: 0; background: linear-gradient(270deg, transparent 55%, var(--cp-paper) 100%), linear-gradient(0deg, rgba(6, 24, 43, 0.3), transparent 28%); pointer-events: none; }
-.s09-badge { position: absolute; left: 140px; top: 72px; }
-.s09-h { position: absolute; left: 140px; top: 128px; width: 860px; margin: 0; font-size: 64px; line-height: 1.05; color: var(--cp-text-ink); }
+.s09-h { position: absolute; left: 140px; top: 90px; width: 860px; margin: 0; font-size: 64px; line-height: 1.05; color: var(--cp-text-ink); }
 .s09-rows { position: absolute; left: 140px; top: 330px; width: 860px; display: grid; gap: 16px; }
 .s09-row { margin: 0; padding-left: 20px; border-left: 3px solid var(--cp-blue-d); font-size: 27px; line-height: 1.36; font-weight: 500; color: var(--cp-text-body); }
 .s09-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
