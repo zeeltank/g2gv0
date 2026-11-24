@@ -43,3 +43,5 @@ Real screen recordings of the product; any measured result for a school; a custo
 
 ## Update 2026-11-24: the 59-second film leads
 The film is now the lead piece: it carries the whole story (question, six products, how they work, who sees what, how they connect, the invitation) in 59 silent seconds with the words on screen. Use it first in a meeting (slide 6, starts by itself), as the post that introduces the series, and as the link in a first e-mail. The five 15-second clips are the follow-ups, one a week as planned above. The film's last frame carries only the approved invitation; any post text adds a way to reply and nothing else (no price, trial, date or seat count). Files: `public/client-presentation/film/scholarclone-59s.mp4` (1920 x 1080), register in `film-register.json`. A 9:16 cut for phones is not made yet.
+
+Update (night): the film was rebuilt as 3D motion graphics (film version 2); same words and length, different pictures. See section 8 of `11-explainer-style-notes.md`.

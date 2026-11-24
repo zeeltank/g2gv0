@@ -68,7 +68,7 @@ export function StatusControl({ task, options, editable, busy, onSave }: {
         {badge}
         <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 space-y-3">
+      <PopoverContent align="start" className="w-80 space-y-3" onEscapeKeyDown={() => setOpen(false)}>
         <p className="text-sm font-semibold">Change status</p>
         <div role="radiogroup" aria-label="New status" className="space-y-1">
           {choices.map((option) => {
@@ -104,7 +104,7 @@ export function StatusControl({ task, options, editable, busy, onSave }: {
               missingRemarks ? 'border-destructive' : 'border-input',
             )}
           />
-          {missingRemarks && <p className="text-xs text-destructive">Say why the status is changing.</p>}
+          {missingRemarks && <p className="text-xs text-red-700 dark:text-red-300">Say why the status is changing.</p>}
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>

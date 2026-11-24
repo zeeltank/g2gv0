@@ -106,7 +106,7 @@ export function ExtensionTab({ task, extensions, busy, onRequest, onDecide, onWi
                     aria-invalid={attempted && !remarks.trim()}
                     className={cn('min-h-16 w-full rounded-lg border bg-background p-2 text-sm outline-none focus:ring-2 focus:ring-primary/40', attempted && !remarks.trim() ? 'border-destructive' : 'border-input')}
                   />
-                  {attempted && !remarks.trim() && <p className="text-xs text-destructive">The requester is owed a reason.</p>}
+                  {attempted && !remarks.trim() && <p className="text-xs text-red-700 dark:text-red-300">The requester is owed a reason.</p>}
                   <div className="flex gap-2">
                     <Button size="sm" variant="destructive" disabled={busy} onClick={() => void confirmReject(extension.id)}>Decline request</Button>
                     <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setRejecting(null); setRemarks(''); setAttempted(false) }}>Cancel</Button>
@@ -115,7 +115,7 @@ export function ExtensionTab({ task, extensions, busy, onRequest, onDecide, onWi
               ) : (
                 <div className="mt-3 flex gap-2">
                   <Button size="sm" disabled={busy} onClick={() => void onDecide(extension.id, 'approve', '')}>Approve</Button>
-                  <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={() => { setRejecting(extension.id); setRemarks(''); setAttempted(false) }}>Decline…</Button>
+                  <Button size="sm" variant="outline" className="text-red-700 dark:text-red-300" disabled={busy} onClick={() => { setRejecting(extension.id); setRemarks(''); setAttempted(false) }}>Decline…</Button>
                 </div>
               )
             )}

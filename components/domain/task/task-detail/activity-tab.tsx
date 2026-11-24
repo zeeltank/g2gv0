@@ -90,7 +90,7 @@ export function ActivityTab({ taskId, version }: { taskId: string; version: numb
       </div>
 
       {loading && <div className="flex h-24 items-center justify-center"><Spinner /></div>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-700 dark:text-red-300">{error}</p>}
 
       {!loading && !error && visible.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
