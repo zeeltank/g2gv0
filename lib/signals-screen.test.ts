@@ -50,7 +50,9 @@ describe('Signals sidebar', () => {
     for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
     const portfolioPage = read('app/portfolio/page.tsx')
     assert.doesNotMatch(portfolioPage, /import[^\n]*SignalsFrame|<SignalsFrame/, 'the Product Portfolio page neither imports nor draws the Signals frame (and so draws no Signals buttons)')
-    assert.match(portfolioPage, /<PortfolioList canManage=\{canManage\} \/>/, 'it draws the unified list')
+    // CHANGED ON PURPOSE (24 Nov 2026, owner: no Product Portfolio entry in the sidebar, the list is the Market Signals tab): the old list address only redirects to the tab.
+    assert.match(portfolioPage, /redirect\(portfolioRedirectTarget\(await searchParams\)\)/, 'the list address sends a visitor to the tab, keeping the query')
+    assert.doesNotMatch(portfolioPage, /<PortfolioList/, 'and draws no list of its own')
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
 

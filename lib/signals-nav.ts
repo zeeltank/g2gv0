@@ -53,19 +53,18 @@ export interface CollapsedSignalsNav {
 }
 
 /*
- * PRODUCTS AND SERVICES BECAME ONE SCREEN (owner decision of 13 Nov 2026, slice 15: the Product Portfolio). Their two menu ROWS (468 and 469) stay in the
- * database with status 1, because a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds a row keeps holding it.
- * What changes is only what the sidebar DRAWS, here, in code:
- *   - the Products row is shown as "Product Portfolio" and opens /portfolio, in the slot Products had;
- *   - the Services row is shown only to a person who has Services but not Products, and opens /portfolio?type=service;
- *   - a visit to /portfolio highlights that entry (not Market Signals) whenever the person has it; a person with neither keeps the Market Signals highlight.
- * The rows are found by their access_link, never by a numeric id (the ids differ between hosts).
+ * PRODUCTS AND SERVICES BECAME ONE SCREEN, AND THE SIDEBAR DRAWS NEITHER (owner decisions of 13 Nov and 24 Nov 2026, slice 15). Their two menu ROWS (468 and
+ * 469) stay in the database with status 1, because a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds a row keeps
+ * holding it. What changes is only what the sidebar DRAWS, here, in code:
+ *   - the Products row is NOT drawn: the Product Portfolio is the "Product Portfolio" tab of Market Signals (/signals/portfolio), so a second sidebar entry would be a twin
+ *     of it (owner, 24 Nov 2026: "we already have it in the Market Signals tab, remove it from the side bar");
+ *   - the Services row is NOT drawn either (it opened the same list on Services; the tab has the Type filter);
+ *   - a visit to /portfolio/... (the Product and Sub-product pages) and to the old Products and Services addresses highlights Market Signals, the module the tab belongs to.
+ * The rows are found by their access_link, never by a numeric id (the ids differ between hosts), and a row that has children is never touched.
  */
 const PRODUCTS_PATH = '/module/crm/sales/products'
 const SERVICES_PATH = '/module/crm/sales/services'
 const PORTFOLIO_PATH = '/portfolio'
-const PORTFOLIO_SERVICES_PATH = '/portfolio?type=service'
-const PRODUCT_PORTFOLIO_LABEL = 'Product Portfolio'
 
 const linkOf = (n: NavNode): string => (n.accessLink ?? '').trim().toLowerCase().replace(/\/+$/, '')
 
@@ -112,31 +111,29 @@ interface ProductsFold {
   retired: string[]
 }
 
-/** See the comment above `PRODUCTS_PATH`. Pure: the menu tree is not changed in place. */
-function foldProductsNav(modules: NavModule[]): ProductsFold {
+/**
+ * See the comment above `PRODUCTS_PATH`. Pure: the menu tree is not changed in place. `ownersSoFar` holds the owners the Signals group already set: the Product Portfolio
+ * pages and the two old addresses are owned by Market Signals when the person has that group (and by nothing when they do not).
+ */
+function foldProductsNav(modules: NavModule[], ownersSoFar: Record<string, ActiveNav>): ProductsFold {
   const products = locate(modules, isProductsNode)
   const services = locate(modules, isServicesNode)
   const owners: Record<string, ActiveNav> = {}
   const retired: string[] = []
   if (!products && !services) return { modules, owners, retired }
 
-  const shown = products ?? services!
-  owners[PORTFOLIO_PATH] = shown
+  const signalsOwner = ownersSoFar[PORTFOLIO_PATH]
   if (products) {
-    owners[PRODUCTS_PATH] = products
+    if (signalsOwner) owners[PRODUCTS_PATH] = signalsOwner
     retired.push(PRODUCTS_PATH)
   }
   if (services) {
-    // A Services-only person opens the Services entry; a Products holder has no Services entry, so the old address maps to the Product Portfolio.
-    owners[SERVICES_PATH] = shown
+    if (signalsOwner) owners[SERVICES_PATH] = signalsOwner
     retired.push(SERVICES_PATH)
   }
 
-  const folded = mapNodes(modules, (node) => {
-    if (isProductsNode(node)) return { ...node, label: PRODUCT_PORTFOLIO_LABEL, accessLink: PORTFOLIO_PATH }
-    if (isServicesNode(node)) return products ? null : { ...node, accessLink: PORTFOLIO_SERVICES_PATH }
-    return node
-  })
+  // Neither row is drawn.
+  const folded = mapNodes(modules, (node) => (isProductsNode(node) || isServicesNode(node) ? null : node))
 
   return { modules: folded, owners, retired }
 }
@@ -271,9 +268,9 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const uniqueFound = [...new Set(found)]
   // The Signal Review row is dropped from whichever tree comes back, so it never reaches the sidebar, even for a person whose menu holds no Signals row at all.
   const shown = withoutSignalReview(uniqueFound.length === 0 ? modules : next)
-  // Products and Services are one entry in the sidebar now (owner decision of 13 Nov 2026). The fold's owners come last, so a visit to /portfolio highlights the
-  // Product Portfolio entry rather than Market Signals when the person has it.
-  const products = foldProductsNav(shown)
+  // Products and Services are not drawn in the sidebar any more (owner decisions of 13 and 24 Nov 2026): the Product Portfolio is a tab of Market Signals. The old
+  // Products and Services addresses are owned by Market Signals too, so a visit that is still being redirected highlights it.
+  const products = foldProductsNav(shown, owners)
   return { modules: products.modules, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners: { ...owners, ...products.owners }, retired: products.retired }
 }
 

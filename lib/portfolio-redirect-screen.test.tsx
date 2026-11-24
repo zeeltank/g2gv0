@@ -49,7 +49,7 @@ describe('a catalogue id (the old /products/{id} and /services/{id})', () => {
     const { text, k, router } = current
     assert.ok(text().includes('This product could not be found'))
     assert.deepEqual(router.written, [], 'it does not redirect anywhere')
-    assert.equal(k.all('a').find((a) => a.textContent === 'Go to the Product Portfolio')?.getAttribute('href'), '/portfolio')
+    assert.equal(k.all('a').find((a) => a.textContent === 'Go to the Product Portfolio')?.getAttribute('href'), '/signals/portfolio')
   })
 
   it('says the same for a refusal (403) and never shows the server\'s words', async () => {

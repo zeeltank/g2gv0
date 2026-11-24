@@ -39,6 +39,9 @@ Owner gave standing permission (mixed photo sourcing, exclude CC BY-SA, proceed 
 - **PowerPoint backup**: `D:\client-presentation-assets\out\ScholarClone-Client-Presentation.pptx` (15 slides) and `...-Short.pptx` (5 slides), built by `build-pptx.mjs` from the same story and images: notes on every slide, slide-jump scenario links (slide 4 chips, product names on slide 6, Return links), fade transition on every slide, status badges as native shapes. pptx skill `validate.py` passes; a text-box geometry check finds 0 overlaps. NOT verified: how it looks in PowerPoint (no PowerPoint or LibreOffice here), the GSAP-style animation (a .pptx cannot carry it), fonts (Georgia/Calibri are used, not Fraunces/Manrope).
 - **My Learning wiring**: `10-my-learning-wiring-plan.md` (not executed). A link lesson to the new route needs no edit to existing files. Needs the owner's go: deploy, and the db3 steps on course 207 (confirm it is theirs).
 
+## Live wiring: DONE 2026-11-23 evening (owner's explicit go)
+Merged to main by the owner (PR #381, production deploy 280d3ae succeeded). Vercel had failed once on bb50024; fixed by self-hosting the fonts (b86e370, see memory g2g-vercel-failed-on-google-font-fetch). db3: course 207 now has 2 link lessons, is visible, and is enrolled for the 11 active tenant-6 users (details in 10-my-learning-wiring-plan.md). The old Sales Training cards are unchanged.
+
 ## Still open (owner / outside)
 Real screenshots from an authorised environment; two photos (principal, staffroom) or AI images when credits return; first recorded discovery call; the three alternative openers exist as concepts only (no built variants); G2G deck (Slice 6) not started: needs its own story brief; independent 5-leader test and module-owner sign-offs not done; production build/bundle size not measured.
 

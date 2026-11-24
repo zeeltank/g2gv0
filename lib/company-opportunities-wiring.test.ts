@@ -156,7 +156,8 @@ describe('One list and the research-date selector', () => {
 
 describe('Premium workspace and honest forms', () => {
   it('wraps all four module pages in the scoped premium theme', () => {
-    for (const page of ['signals', 'ingestion', 'portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
+    // the Product Portfolio tab's page is app/signals/portfolio (app/portfolio/page.tsx only redirects to it, since 24 Nov 2026)
+    for (const page of ['signals', 'ingestion', 'signals/portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
   })
 
   it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {
