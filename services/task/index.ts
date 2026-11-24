@@ -17,6 +17,9 @@ import type {
   CalendarSharesResponse,
   IcsImportResult,
   DueRemindersResponse,
+  ExtensionBulkResponse,
+  ExtensionQueueParams,
+  ExtensionQueueResponse,
   MyTask,
   ReminderResponse,
   ReminderSetting,
@@ -31,10 +34,14 @@ import type {
   ProjectPayload,
   ProjectRecord,
   ProjectStatus,
+  TaskActivityItem,
   TaskPagination,
   TaskStatus,
+  TaskSubtask,
+  WorkspaceQuick,
   WorkspaceResponse,
   WorkspaceScope,
+  WorkspaceSort,
   WorkspaceTask,
   DeadlineExtension,
   TaskAuditLog,
@@ -180,6 +187,25 @@ function auditLogParams(
     ...(params.from ? { from: params.from } : {}),
     ...(params.to ? { to: params.to } : {}),
   }
+}
+
+/** The queue's query string, from the camelCase params the screen holds. Empty values are left out. */
+function extensionQueueQuery(context: LaravelContext, p: ExtensionQueueParams): Record<string, string> {
+  const query: Record<string, string> = {
+    token: context.token, sub_institute_id: String(context.subInstituteId), syear: String(context.syear),
+  }
+  const set = (key: string, value: string | number | boolean | undefined) => {
+    if (value === undefined || value === '' || value === false) return
+    query[key] = value === true ? '1' : String(value)
+  }
+  set('view', p.view); set('status', p.status); set('requester_id', p.requesterId); set('decided_by', p.decidedBy)
+  set('department_id', p.departmentId); set('project_id', p.projectId); set('priority', p.priority)
+  set('requested_from', p.requestedFrom); set('requested_to', p.requestedTo)
+  set('decided_from', p.decidedFrom); set('decided_to', p.decidedTo)
+  set('min_days', p.minDays); set('max_days', p.maxDays)
+  set('overdue_at_request', p.overdueAtRequest); set('repeat', p.repeat)
+  set('q', p.q); set('sort', p.sort); set('page', p.page); set('per_page', p.perPage)
+  return query
 }
 
 export const taskService = {
@@ -445,6 +471,22 @@ export const taskService = {
       requested_date: payload.requestedDate,
       reason: payload.reason,
     }),
+  /** The organisation-wide queue: paginated, filtered, scoped by role, with its headline numbers. */
+  getExtensionQueue: (context: LaravelContext, params: ExtensionQueueParams = {}) =>
+    apiClient.get<ExtensionQueueResponse>('/task-management/deadline-extensions/queue', extensionQueueQuery(context, params)),
+  /** The same rows as the queue, as a CSV download (a link the browser follows). */
+  extensionQueueExportUrl: (context: LaravelContext, params: ExtensionQueueParams = {}) =>
+    buildApiUrl('/task-management/deadline-extensions/queue/export', extensionQueueQuery(context, { ...params, page: undefined, perPage: undefined })),
+  /** Each request is authorised and reported on its own; the count in the message is what actually changed. */
+  bulkDecideExtensions: (context: LaravelContext, ids: string[], decision: 'approve' | 'reject', remarks = '') =>
+    apiClient.post<ExtensionBulkResponse>('/task-management/deadline-extensions/bulk-decision', {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, ids: ids.map(Number), decision, remarks,
+    }),
+  /** The requester takes a pending request back. */
+  withdrawDeadlineExtension: (context: LaravelContext, id: string, remarks = '') =>
+    apiClient.patch<{ status: 1; message: string }>(`/task-management/deadline-extensions/${id}/withdraw`, {
+      token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, remarks,
+    }),
   decideDeadlineExtension: (context: LaravelContext, id: string, decision: 'approve' | 'reject', remarks = '') =>
     apiClient.patch<{ status: 1; message: string }>(`/task-management/deadline-extensions/${id}/decision`, {
       token: context.token,
@@ -570,9 +612,41 @@ export const taskService = {
     status: string,
     remarks: string,
   ) =>
-    apiClient.patch<{ status: 1; message: string; data: Pick<MyTask, 'id' | 'status' | 'status_label' | 'remarks'> }>(
+    apiClient.patch<{
+      status: 1; message: string
+      data: Pick<MyTask, 'id' | 'status' | 'status_label' | 'remarks'>
+      /** e.g. `predecessor_open`: finished while a task it depends on is not. The save still went through. */
+      warnings?: Array<{ code: string; message: string; task_id?: string | number }>
+    }>(
       `/task-management/my-tasks/${id}/status`,
       { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, status, remarks },
+    ),
+
+  /** A task's history - audit events and comments merged, newest first. */
+  getTaskActivity: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: 1; message: string; data: { activity: TaskActivityItem[] } }>(
+      `/task-management/workspace/${id}/activity`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  getTaskSubtasks: (context: LaravelContext, id: string) =>
+    apiClient.get<{ status: 1; message: string; data: { subtasks: TaskSubtask[]; done: number; total: number } }>(
+      `/task-management/workspace/${id}/subtasks`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  addTaskSubtask: (context: LaravelContext, id: string, title: string) =>
+    apiClient.post<{ status: 1; message: string; data: { id: string } }>(
+      `/task-management/workspace/${id}/subtasks`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear, title },
+    ),
+  toggleTaskSubtask: (context: LaravelContext, id: string, subtaskId: string) =>
+    apiClient.patch<{ status: 1; message: string; data: { id: string; is_done: boolean } }>(
+      `/task-management/workspace/${id}/subtasks/${subtaskId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
+    ),
+  deleteTaskSubtask: (context: LaravelContext, id: string, subtaskId: string) =>
+    apiClient.delete<{ status: 1; message: string }>(
+      `/task-management/workspace/${id}/subtasks/${subtaskId}`,
+      { token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear },
     ),
 
   getWorkspace: (context: LaravelContext, params: {
@@ -580,10 +654,14 @@ export const taskService = {
     // label, not one of the four system categories.
     scope?: WorkspaceScope; search?: string; status?: string; priority?: string
     projectId?: string; assigneeId?: string; from?: string; to?: string; page?: number; perPage?: number
+    /** One of the one-click filters; its count is in the summary. */
+    quick?: WorkspaceQuick
+    sort?: WorkspaceSort
   } = {}) =>
     apiClient.get<WorkspaceResponse>('/task-management/workspace', {
       token: context.token, sub_institute_id: context.subInstituteId, syear: context.syear,
       scope: params.scope ?? 'all', ...(params.search ? { search: params.search } : {}),
+      ...(params.quick ? { quick: params.quick } : {}), ...(params.sort ? { sort: params.sort } : {}),
       ...(params.status ? { status: params.status } : {}), ...(params.priority ? { priority: params.priority } : {}),
       ...(params.projectId ? { project_id: params.projectId } : {}),
       ...(params.assigneeId ? { assignee_id: params.assigneeId } : {}),

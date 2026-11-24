@@ -56,7 +56,7 @@ describe('the Sub-product form and page components keep to those looks (a scan, 
   const files = PORTFOLIO_COMPONENTS.map((f) => path.resolve(f))
 
   it('finds every component it scans', () => {
-    assert.equal(PORTFOLIO_COMPONENTS.length, 12, 'twelve components are scanned')
+    assert.equal(PORTFOLIO_COMPONENTS.length, 14, 'fourteen components are scanned (twelve, and the Delete and Move dialogs)')
     for (const file of PORTFOLIO_FILES) assert.ok(existsSync(path.resolve(file)), `${file} exists`)
   })
 

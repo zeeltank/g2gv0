@@ -43,17 +43,17 @@ describe('bulk actions', () => {
     assert.ok(current.button('Delete (to the Recycle Bin)'))
   })
 
-  it('cannot tick a Product, a Sub-product that is not sold, or (for HR) anything: the box is disabled and says why', async () => {
+  it('ticks a Sub-product that is not sold too (it can be moved), but not a shared one, and not for a caller who may not change Sub-products: the box is disabled and says why', async () => {
     current = await setup({ intercept: bulkWorld() })
     const box = (name: string) => current!.rowOf(name)!.querySelector('input[type="checkbox"]') as HTMLInputElement
-    assert.equal(box('Scholar School ERP').disabled, true)
-    assert.match(box('Scholar School ERP').title, /not sold in CRM/)
+    assert.equal(box('Scholar School ERP').disabled, false, 'not sold in CRM: Move to another Product works on it')
     assert.equal(box('Fees Intelligence').disabled, false)
     assert.equal(box('ScholarClone Implementation').disabled, false, 'a paused service can be changed')
     await disposeAll()
     current.restore()
-    current = await setup({ rows: hrRows(), can: HR_CAN })
-    for (const input of current.k.all('tbody input[type="checkbox"]')) assert.equal((input as HTMLInputElement).disabled, true, 'HR ticks nothing')
+    current = await setup({ rows: hrRows(), can: { ...HR_CAN, editSubProduct: false } })
+    for (const input of current.k.all('tbody input[type="checkbox"]')) assert.equal((input as HTMLInputElement).disabled, true, 'a caller who may not change Sub-products ticks nothing')
+    assert.match((current.k.all('tbody input[type="checkbox"]')[0] as HTMLInputElement).title, /may not change/)
   })
 
   it('"select all" ticks every row that can be changed on the page and no other', async () => {
@@ -61,7 +61,7 @@ describe('bulk actions', () => {
     const all = current.k.one('thead input[type="checkbox"]') as HTMLInputElement
     await current.k.click(all)
     await current.k.tick(20)
-    assert.ok(current.text().includes('3 selected'), 'the sold Sub-product, the paused service and the stray: not the About-only one, not the Products')
+    assert.ok(current.text().includes('4 selected'), 'every Sub-product and item that can be moved: the About-only one, the sold one, the paused service and the stray; not the Products')
     await current.k.click(all)
     await current.k.tick(400)
     assert.ok(!current.text().includes('selected'), 'the bar goes when nothing is ticked (after its short exit animation)')

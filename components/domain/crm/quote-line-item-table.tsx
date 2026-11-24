@@ -26,6 +26,7 @@ import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
+import { PICKER_RULES, type ConsumerRule } from '@/lib/product-picker/consumer-rules'
 import type { CrmPriceBookItem, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
@@ -65,6 +66,8 @@ interface Props {
   currency: string | null
   /** The quote's selected price book's own per-product prices, if any - a newly-picked product defaults to its override here instead of its base unitPrice. */
   priceBookItems?: CrmPriceBookItem[]
+  /** How the picker treats a Sub-product that is not sold: the quote's line of lib/product-picker/consumer-rules.ts unless the page says otherwise (the invoice passes its own). */
+  pickerRule?: ConsumerRule
 }
 
 const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
@@ -72,7 +75,7 @@ const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, priceBookItems = [] }: Props) {
+export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, priceBookItems = [], pickerRule = PICKER_RULES.quote }: Props) {
   const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates])
 
   const taxOptions = [{ label: 'No tax', value: 'none' }, ...taxRates.map((t) => ({ label: `${t.name} (${t.percentage}%)`, value: t.id }))]
@@ -134,6 +137,8 @@ export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, pr
                     value={row.productId}
                     onChange={(picked) => onProductChange(index, picked)}
                     aria-label={`Sub-product for line ${index + 1}`}
+                    scope={pickerRule.scope}
+                    notSoldSelectable={pickerRule.notSoldSelectable}
                   />
                 </TableCell>
                 <TableCell>

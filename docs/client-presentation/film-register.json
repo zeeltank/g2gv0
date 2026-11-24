@@ -1,0 +1,94 @@
+{
+  "rendered": "2026-11-24",
+  "tool": "scripts/client-presentation/render-film.mjs",
+  "file": "film/scholarclone-59s.mp4",
+  "poster": "film/scholarclone-59s-poster.jpg",
+  "width": 1920,
+  "height": 1080,
+  "seconds": 59,
+  "codec": "h264",
+  "pixel_format": "yuv420p",
+  "bytes": 11200202,
+  "sha256": "a854f4260ac94850ef448d65b8f15f88104589648d2e392b79d438cb02363285",
+  "audio": "none, by decision (silent, captions on screen)",
+  "source": "Motion graphics rendered frame by frame from /module/lms/learning/client-presentation/film (React + GSAP master timeline, Playwright, ffmpeg H.264), with sub-frame motion blur on the fast windows. Not a screen recording; made-up school data.",
+  "beats": [
+    {
+      "id": "hook",
+      "chapter": "",
+      "start": 0,
+      "end": 4
+    },
+    {
+      "id": "problem",
+      "chapter": "Problems",
+      "start": 4,
+      "end": 10.5
+    },
+    {
+      "id": "reveal",
+      "chapter": "Summary",
+      "start": 10.5,
+      "end": 18.5
+    },
+    {
+      "id": "modules",
+      "chapter": "Modules",
+      "start": 18.5,
+      "end": 25
+    },
+    {
+      "id": "workflow",
+      "chapter": "Workflows + AI",
+      "start": 25,
+      "end": 32.5
+    },
+    {
+      "id": "views",
+      "chapter": "Stakeholder views",
+      "start": 32.5,
+      "end": 40
+    },
+    {
+      "id": "connects",
+      "chapter": "Connects to + Reports",
+      "start": 40,
+      "end": 45.5
+    },
+    {
+      "id": "claim",
+      "chapter": "Benefits + Fit",
+      "start": 45.5,
+      "end": 51.5
+    },
+    {
+      "id": "end",
+      "chapter": "",
+      "start": 51.5,
+      "end": 59
+    }
+  ],
+  "claims": [
+    "C-ILL",
+    "C-POS",
+    "C-NAMES",
+    "C-LRN-DIAG",
+    "C-LRN-PLAN",
+    "C-LRN-PRAC",
+    "C-LRN-NEXT",
+    "C-LRN-GEN",
+    "C-INS-EXEC",
+    "C-CCB-GAP",
+    "C-CORE-FEE",
+    "C-CORE-ATT",
+    "C-CORE-EXM",
+    "C-ONE-EVID",
+    "C-ONE-ATTRES",
+    "C-ONE-RISK",
+    "C-FIT",
+    "C-INV"
+  ],
+  "photos": "Pexels stock photographs, credited on screen (the student photo and the schoolgirls photo); the logo is the registered brand logo.",
+  "privacy_scan": "passed: the page text held no e-mail address or phone number before rendering",
+  "confirmed_by_module_owner": null
+}

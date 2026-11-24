@@ -1,4 +1,5 @@
 import type { CrmBulkActionResponse } from '@/types/crm'
+import { mayMoveRow } from '@/lib/portfolio/removal-model'
 import type {
   MatchDecisionRow, MatchRow, MatchesData, PortfolioCan, PortfolioIcpState, PortfolioItemType, PortfolioRow, PortfolioSellState,
 } from '@/services/product-master/portfolio-list-types'
@@ -150,15 +151,43 @@ export function mayTick(row: PortfolioRow, can: Pick<PortfolioCan, 'editSubProdu
   return row.kind !== 'product' && row.hasSell && (row.state === 'sold' || row.state === 'paused') && !row.shared && can.editSubProduct && sellKeysPresent(row)
 }
 
+/**
+ * A row can be TICKED when a bulk action can work on it: the Sell actions (Reassign, Delete to the Recycle Bin) need a live entry in CRM (`mayTick`), and Move to
+ * another Product needs only that it is a Sub-product or an item of this organisation that the caller may change (`mayMoveRow`), sold or not.
+ */
+export function mayTickRow(row: PortfolioRow, can: Pick<PortfolioCan, 'editSubProduct'>): boolean {
+  return mayTick(row, can) || mayMoveRow(row, can)
+}
+
 /** Why a row has no tick, in a short sentence for the disabled box's name. Null when it can be ticked. */
 export function whyNoTick(row: PortfolioRow, can: Pick<PortfolioCan, 'editSubProduct'>): string | null {
-  if (mayTick(row, can)) return null
+  if (mayTickRow(row, can)) return null
   if (row.kind === 'product') return 'A Product has no entry in CRM to change here'
   if (row.shared) return 'A shared record is read only'
-  if (!row.hasSell) return 'It is not sold in CRM, so there is nothing to change here'
-  if (row.state === 'binned') return 'It is already in the Recycle Bin'
   return 'You may not change it'
 }
+
+export type RowAction = 'move' | 'delete'
+
+/**
+ * What a row's own menu offers: a Sub-product or an item can be moved to another Product or deleted by a person who may change Sub-products; a Product can only be
+ * deleted, and only by an administrator (the same gates as Archive). A shared record is read only and has no menu.
+ */
+export function rowActions(row: Pick<PortfolioRow, 'kind' | 'shared'>, can: Pick<PortfolioCan, 'editSubProduct' | 'createProduct'>): RowAction[] {
+  if (row.shared) return []
+  if (row.kind === 'product') return can.createProduct ? ['delete'] : []
+  return can.editSubProduct ? ['move', 'delete'] : []
+}
+
+/**
+ * Whether Reassign and Delete (to the Recycle Bin) work on everything that is ticked. They act on entries in CRM, so a ticked Sub-product that is not sold in CRM
+ * (which can still be moved) makes them unavailable; the bar then says so, and the person unticks it or uses Move.
+ */
+export function sellActionsFit(rows: readonly PortfolioRow[], can: Pick<PortfolioCan, 'editSubProduct'>): boolean {
+  return rows.every((row) => mayTick(row, can))
+}
+
+export const SELL_ACTIONS_NOTE = 'Reassign and Delete are for sub-products that are sold in CRM. Untick the others to use them.'
 
 // ---------------------------------------------------------------------------------------------------------------------------- bulk actions
 

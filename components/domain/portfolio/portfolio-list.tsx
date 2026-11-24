@@ -16,18 +16,22 @@ import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { configureHref, normalizeProductKey } from '@/lib/product-selection'
 import { createLatestOnly } from '@/lib/signal-run-view'
-import { displayItems, listScreenState, matchesToReview, mayTick, mergeBulkAnswers, planBulk, type ListScreenState } from '@/lib/portfolio-list/model'
+import { displayItems, listScreenState, matchesToReview, mayTickRow, mergeBulkAnswers, planBulk, SELL_ACTIONS_NOTE, sellActionsFit, type ListScreenState, type RowAction } from '@/lib/portfolio-list/model'
+import { moveActionShown } from '@/lib/portfolio/removal-model'
 import { clearFiltersPatch, effectiveSort, isNarrowed, listRequest, PORTFOLIO_QUERY, productIdOf, type SortKey } from '@/lib/portfolio-list/query'
 import { BANNER_TONE } from '@/lib/portfolio-list/tones'
 import { ApiError } from '@/services/core'
 import type { CrmBulkActionResponse } from '@/types/crm'
 import { portfolioListService } from '@/services/product-master/portfolio-list-service'
-import type { MatchesData, PortfolioCan, PortfolioItemType, PortfolioListEnvelope } from '@/services/product-master/portfolio-list-types'
+import { productRecordService } from '@/services/product-master/record-service'
+import type { MatchesData, PortfolioCan, PortfolioItemType, PortfolioListEnvelope, PortfolioRow } from '@/services/product-master/portfolio-list-types'
+import { MoveSubProductsDialog, type MoveSubject } from './move-sub-products-dialog'
 import { MatchesBanner, MatchesReview } from './portfolio-matches'
 import { ProductFormDrawer, type ProductFormMode } from './product-form-drawer'
 import { PortfolioListTable } from './portfolio-list-table'
 import { PortfolioListToolbar } from './portfolio-list-toolbar'
 import { PortfolioMoreMenu } from './portfolio-more-menu'
+import { RemoveRecordDialog, type RemoveTarget } from './remove-record-dialog'
 
 const NOTHING: PortfolioCan = { createProduct: false, createSubProduct: false, editSubProduct: false, viewSell: false, confirmMatches: false }
 
@@ -62,6 +66,9 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
   const [bulkBusy, setBulkBusy] = useState(false)
   // Which form is open: a new Product (administrators), or a new Sub-product, with the Product it starts under when the list is about one.
   const [drawer, setDrawer] = useState<{ mode: ProductFormMode; defaultProductId?: number } | null>(null)
+  // Delete and Move: each dialog is drawn only while it is open, so every question starts from a fresh read.
+  const [removing, setRemoving] = useState<RemoveTarget | null>(null)
+  const [moving, setMoving] = useState<MoveSubject[] | null>(null)
   const latest = useRef(createLatestOnly())
 
   // An old address with a Product's KEY (`/portfolio?product=scholarclone`: saved links, old Ask answers) opens that Product's page; the list's own Product filter is a number.
@@ -155,7 +162,7 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
   const selectedRows = useMemo(() => rows.filter((r) => selected.has(r.id)), [rows, selected])
   const toggle = useCallback((id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n }), [])
   const toggleAll = useCallback((checked: boolean) => {
-    setSelected(checked ? new Set(rows.filter((r) => mayTick(r, can)).map((r) => r.id)) : new Set())
+    setSelected(checked ? new Set(rows.filter((r) => mayTickRow(r, can)).map((r) => r.id)) : new Set())
   }, [rows, can])
 
   const runBulk = useCallback(async (verb: 'Deleted' | 'Reassigned', send: (type: PortfolioItemType, ids: number[]) => Promise<Awaited<ReturnType<typeof portfolioListService.bulkDelete>>>) => {
@@ -200,6 +207,24 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
   const onReassign = useCallback((assigneeId: string) => {
     void runBulk('Reassigned', (type, ids) => portfolioListService.bulkAssign(context, type, ids, assigneeId))
   }, [runBulk, context])
+
+  // A row's own menu: Move to another Product, or Delete (which asks first, and says what holds the record when something does).
+  const onRowAction = useCallback((row: PortfolioRow, action: RowAction) => {
+    if (action === 'delete') setRemoving({ id: row.id, name: row.name, kind: row.kind })
+    else setMoving([{ id: row.id, name: row.name }])
+  }, [])
+
+  // "Archive instead", from the Delete dialog of a record something holds: nothing is lost, and the server says so when it cannot (a Product whose Sub-products are not archived).
+  const archiveInstead = useCallback(async (record: RemoveTarget) => {
+    setRemoving(null)
+    try {
+      await productRecordService.archive(record.id)
+      setNotice({ tone: 'success', text: `Archived ${record.name}.` })
+      void load()
+    } catch (cause) {
+      setNotice({ tone: 'error', text: errorText(cause, 'It could not be archived.') })
+    }
+  }, [load])
 
   const afterDecision = useCallback((text: string) => {
     setNotice({ tone: 'success', text })
@@ -317,6 +342,7 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
                 onToggleAll={toggleAll}
                 canAddSubProduct={can.createSubProduct}
                 onAddSubProduct={(productId) => setDrawer({ mode: 'create-sub-product', defaultProductId: productId })}
+                onRowAction={onRowAction}
                 busy={loading}
               />
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
@@ -340,7 +366,28 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
         onDelete={() => void onDelete()}
         onClear={() => setSelected(new Set())}
         deleteLabel="Delete (to the Recycle Bin)"
+        unavailableNote={sellActionsFit(selectedRows, can) ? undefined : SELL_ACTIONS_NOTE}
+        extraActions={moveActionShown(selectedRows, can) && (
+          <Button type="button" size="sm" variant="outline" disabled={bulkBusy} onClick={() => setMoving(selectedRows.map((row) => ({ id: row.id, name: row.name })))}>
+            Move to another Product
+          </Button>
+        )}
       />
+      {removing && (
+        <RemoveRecordDialog
+          record={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={(message) => { setRemoving(null); setSelected(new Set()); setNotice({ tone: 'success', text: message }); void load() }}
+          onArchiveInstead={(record) => void archiveInstead(record)}
+        />
+      )}
+      {moving && (
+        <MoveSubProductsDialog
+          subjects={moving}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => { setMoving(null); setSelected(new Set()); setNotice({ tone: 'success', text: message }); void load() }}
+        />
+      )}
       {/* The one form that adds a Product or a Sub-product (it loads nothing until it is opened). Built by the form track; the list only opens it and reads again after a save. */}
       <ProductFormDrawer
         open={drawer !== null}

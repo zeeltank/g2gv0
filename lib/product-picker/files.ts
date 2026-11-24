@@ -11,6 +11,7 @@ export const PICKER_FILES: readonly string[] = [
   'lib/product-picker/resolver.ts',
   'lib/product-picker/tones.ts',
   'lib/product-picker/use-product-choices.ts',
+  'lib/product-picker/consumer-rules.ts',
   'components/domain/portfolio/product-picker.tsx',
   'components/domain/portfolio/product-picker-list.tsx',
   'components/domain/portfolio/product-picker-level-one.tsx',

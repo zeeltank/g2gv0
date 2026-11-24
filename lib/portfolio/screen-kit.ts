@@ -4,8 +4,8 @@ import { ApiError } from '../../services/core'
 import type { PmEnvelope, PmMeta } from '../../services/product-master/types'
 import type { PmFullRecord } from '../../services/product-master/record-types'
 import type { CrmProductBundleItem } from '../../types/crm'
-import type { PmHistoryRow, PmListRow, PmUsageFull } from '../../services/product-master/record-types'
-import { everything, fullRecord, historyRow, listRow, meta as metaFixture, taxonomy, usageFull } from './fixtures'
+import type { PmHistoryRow, PmListRow, PmMoveBody, PmRemovalPreview, PmRemoveBody, PmUsageFull } from '../../services/product-master/record-types'
+import { everything, fullRecord, historyRow, listRow, meta as metaFixture, removalPreview, taxonomy, usageFull } from './fixtures'
 
 /**
  * Test support for the Sub-product form and pages: a fake browser, every service the screens talk to replaced by a fake that records what it is asked, and
@@ -32,6 +32,12 @@ export interface Calls {
   bundleRemoves: Array<{ productId: string; rowId: string }>
   readiness: Array<{ id: number | string; confirmed: boolean; note?: string }>
   pickerQueries: string[]
+  /** The scope each bundle-part search asked for (`sold` when it sent none). */
+  pickerScopes: string[]
+  /** The ids whose removal preview was read, the deletes sent (id and body) and the moves sent. */
+  previews: Array<number | string>
+  removed: Array<{ id: number | string; body: PmRemoveBody }>
+  moved: PmMoveBody[]
   /** Every request that reached the network layer (the custom fields call the platform API directly). */
   fetched: string[]
 }
@@ -66,16 +72,22 @@ export interface World {
   usageRefused?: boolean
   history?: PmHistoryRow[]
   bundle?: CrmProductBundleItem[]
-  pickerRows?: Array<{ crmProductId: number; masterId: number; name: string; productName: string | null; sku: string | null; unitPrice: number | null; currency: string | null; taxRateId: number | null; type: 'product' | 'service' }>
+  pickerRows?: Array<{ crmProductId: number | null; masterId: number; name: string; productName: string | null; sku: string | null; unitPrice: number | null; currency: string | null; taxRateId: number | null; type: 'product' | 'service'; sold?: boolean; state?: 'sold' | 'paused' | 'not_sold' }>
   customFields?: boolean
   deleteFails?: boolean
+  /** What `GET /{id}/removal` answers (default: a Sub-product that nothing holds). */
+  removal?: PmRemovalPreview
+  removalFails?: boolean
+  /** A refusal for the delete (409 `blocked`, 422 `choose_sub_products`, 403) and for the move. */
+  removeRefuse?: () => ApiError
+  moveRefuse?: () => ApiError
 }
 
 const ok = <T>(data: T): PmEnvelope<T> => ({ status: 1, data })
 
 /** Installs the fakes and the session; returns the call log. Import the services only AFTER the kit has installed the fake DOM. */
 export async function installWorld(k: Kit, world: World = {}): Promise<Calls> {
-  const calls: Calls = { get: [], create: [], update: [], archive: [], restore: [], checkConfig: [], uploads: [], offers: [], list: [], usage: [], history: [], deleted: [], bundleAdds: [], bundleRemoves: [], readiness: [], pickerQueries: [], fetched: [] }
+  const calls: Calls = { get: [], create: [], update: [], archive: [], restore: [], checkConfig: [], uploads: [], offers: [], list: [], usage: [], history: [], deleted: [], bundleAdds: [], bundleRemoves: [], readiness: [], pickerQueries: [], pickerScopes: [], previews: [], removed: [], moved: [], fetched: [] }
   if (world.session === false) k.w.localStorage.removeItem('userData')
   else k.w.localStorage.setItem('userData', JSON.stringify({ token: 'test-token', sub_institute_id: 1, user_id: 2 }))
   Object.defineProperty(globalThis, 'self', { value: k.w, configurable: true, writable: true })
@@ -125,7 +137,26 @@ export async function installWorld(k: Kit, world: World = {}): Promise<Calls> {
       const rows = world.history ?? [historyRow()]
       return { status: 1, data: rows, meta: { total: rows.length, page: params.page ?? 1, perPage: 20, lastPage: world.lastPage ?? 1 } }
     },
-    pickerParts: async (q: string) => { calls.pickerQueries.push(q); return ok(world.pickerRows ?? []) },
+    pickerParts: async (q: string, _limit?: number, scope?: string) => { calls.pickerQueries.push(q); calls.pickerScopes.push(scope ?? 'sold'); return ok(world.pickerRows ?? []) },
+    removalPreview: async (id: number | string) => {
+      calls.previews.push(id)
+      if (world.removalFails) throw new ApiError('The preview could not be read.', 500)
+      return ok(world.removal ?? removalPreview({ id: Number(id) }))
+    },
+    remove: async (id: number | string, body: PmRemoveBody = {}) => {
+      calls.removed.push({ id, body })
+      if (world.removeRefuse) throw world.removeRefuse()
+      const preview = world.removal
+      const subs = preview?.subProducts.map((s) => s.id) ?? []
+      return ok(body && 'subProducts' in body && body.subProducts === 'move'
+        ? { removed: [Number(id)], moved: subs, toProductId: body.toProductId }
+        : { removed: [Number(id), ...(body && 'subProducts' in body && body.subProducts === 'delete' ? subs : [])] })
+    },
+    move: async (body: PmMoveBody) => {
+      calls.moved.push(body)
+      if (world.moveRefuse) throw world.moveRefuse()
+      return ok({ moved: body.subProductIds, unchanged: [], toProductId: body.toProductId })
+    },
     archive: async (id: number | string) => { calls.archive.push(id); return ok({ ...(record ?? fullRecord()), status: 'archived' as const }) },
     restore: async (id: number | string) => { calls.restore.push(id); return ok({ ...(record ?? fullRecord()), status: 'active' as const }) },
     update: async (id: number | string, body: Record<string, unknown>) => {

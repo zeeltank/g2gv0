@@ -24,6 +24,7 @@ import { ArchivedChip, SharedChip } from './portfolio-chips'
 import { ProductFormDrawer } from './product-form-drawer'
 import { ProductProfilePanel } from './product-profile-panel'
 import { ProductSetupSteps } from './product-setup-steps'
+import { RemoveRecordDialog, type RemoveTarget } from './remove-record-dialog'
 import { ProductSignalsTab, SubProductsTab, type SubProductsData } from './product-sub-products'
 import { HistoryTab } from './sub-product-tabs'
 
@@ -56,6 +57,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  // Delete product: the ask-each-time dialog is drawn only while it is open, so every question starts from a fresh read.
+  const [removing, setRemoving] = useState<RemoveTarget | null>(null)
 
   const show = useCallback((next: ProductTabId) => {
     setTab(next)
@@ -150,9 +153,9 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const can = meta?.can
   const isAdmin = Boolean(can?.createProduct)
 
-  const changeStatus = async (archive: boolean) => {
+  const changeStatus = async (archive: boolean, alreadyAsked = false) => {
     if (!master || busy) return
-    if (archive && !(await confirm({
+    if (archive && !alreadyAsked && !(await confirm({
       title: `Archive ${master.name}?`,
       description: 'It leaves the pickers and the default list. Its sub-products must be archived first. Nothing is deleted, and you can restore it later.',
       confirmLabel: 'Archive',
@@ -235,6 +238,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
                 {canEditProduct && <DropdownMenuItem onSelect={() => setEditOpen(true)}>Edit this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'active' && <DropdownMenuItem onSelect={() => void changeStatus(true)}>Archive this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'archived' && <DropdownMenuItem onSelect={() => void changeStatus(false)}>Restore this product</DropdownMenuItem>}
+                {isAdmin && master && !master.shared && <DropdownMenuItem onSelect={() => setRemoving({ id: master.id, name: master.name, kind: 'product' })}>Delete product</DropdownMenuItem>}
                 <DropdownMenuItem asChild><Link href="/signals/portfolio">Browse the full portfolio</Link></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -304,6 +308,14 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
           product={product}
           onClose={() => setEditOpen(false)}
           onSaved={() => { setNotice({ tone: 'success', text: 'Product saved.' }); reload() }}
+        />
+      )}
+      {removing && (
+        <RemoveRecordDialog
+          record={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={() => { setRemoving(null); router.push('/signals/portfolio') }}
+          onArchiveInstead={master?.status === 'active' ? () => { setRemoving(null); void changeStatus(true, true) } : undefined}
         />
       )}
       {confirmDialog}

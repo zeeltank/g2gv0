@@ -4,10 +4,10 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
-import { failureOf, groupByProduct, limitFor, moveActive, notOfferedWords, pickedFromRow, searchText, SEARCH_DEBOUNCE_MS, valueKey, withoutExcluded, type PickedSubProduct, type PickerFailure } from '@/lib/product-picker/model'
+import { failureOf, firstSelectable, groupByProduct, isSelectable, limitFor, moveAmongSelectable, notOfferedWords, pickedFromRow, searchText, SEARCH_DEBOUNCE_MS, valueKey, withoutExcluded, type PickedSubProduct, type PickerFailure } from '@/lib/product-picker/model'
 import { describeCrmProduct, rememberCrmProduct } from '@/lib/product-picker/resolver'
 import { BOX, BOX_EMPTY, POPOVER, RETRY, STATE_WORD } from '@/lib/product-picker/tones'
-import { productPickerService, type DescribedProduct, type PickerRow, type PickerType } from '@/services/product-master/picker-service'
+import { productPickerService, type DescribedProduct, type PickerRow, type PickerScope, type PickerType } from '@/services/product-master/picker-service'
 import { PickerList } from './product-picker-list'
 
 export { ProductPicker } from './product-picker-level-one'
@@ -19,6 +19,17 @@ export interface SubProductPickerProps {
   onChange: (picked: PickedSubProduct | null) => void
   /** Only products or only services; none asks for every kind the person may view prices of (one request, not two). */
   type?: PickerType
+  /**
+   * Which Sub-products are listed. `sold` (the default) is what every caller has always had: the ones a document may sell. `all` also lists the ones that are paused
+   * or not sold in CRM, each tagged, so a person sees every Sub-product; they cannot be chosen unless `notSoldSelectable` is set.
+   */
+  scope?: PickerScope
+  /**
+   * A listed row that is not sold can be chosen. Off by default: the documents, tickets, assets, FAQs and price books store the id of the entry in CRM, and a
+   * Sub-product that is not sold has none. A form that can store something else for it (the Sub-product's own id, `picked.masterId`) turns it on; the chosen row
+   * then has an empty `productId` and a null `crmProductId`. The one list of which form does what is lib/product-picker/consumer-rules.ts.
+   */
+  notSoldSelectable?: boolean
   /** Put on the box so a `<Label htmlFor>` names it. */
   id?: string
   /** Names the box when no `<label>` does. */
@@ -41,7 +52,7 @@ type NameState = { key: string; described: DescribedProduct | null; failed: bool
  * SKU and (only when the server sent one) the price, and hands back the CATALOGUE id the documents store. A value a document already holds that the list no
  * longer offers (paused, in the Recycle Bin) is read by name, never drawn blank.
  */
-export function SubProductPicker({ value, onChange, type, id, 'aria-label': ariaLabel, placeholder = 'Pick a Sub-product', disabled = false, clearable = false, excluded, className }: SubProductPickerProps) {
+export function SubProductPicker({ value, onChange, type, scope = 'sold', notSoldSelectable = false, id, 'aria-label': ariaLabel, placeholder = 'Pick a Sub-product', disabled = false, clearable = false, excluded, className }: SubProductPickerProps) {
   const baseId = useId()
   const key = valueKey(value)
   const hidden = useMemo(() => excluded ?? new Set<string>(), [excluded])
@@ -77,12 +88,13 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
     if (!open) return
     const run = ++sequence.current
     queueMicrotask(() => { if (run === sequence.current) setPhase('loading') })
-    productPickerService.search({ type, q: settled, limit })
+    productPickerService.search({ type, q: settled, limit, scope })
       .then((response) => {
         if (run !== sequence.current) return
-        setRows(Array.isArray(response.data) ? response.data : [])
+        const answered = Array.isArray(response.data) ? response.data : []
+        setRows(answered)
         setFailure(null)
-        setActive(0)
+        setActive(firstSelectable(answered.map((row) => isSelectable(row, notSoldSelectable))))
         setPhase('ready')
       })
       .catch((error: unknown) => {
@@ -91,7 +103,7 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
         setPhase('error')
       })
     return () => { sequence.current += 1 }
-  }, [open, settled, type, limit, attempt])
+  }, [open, settled, type, scope, notSoldSelectable, limit, attempt])
 
   // The pause after the last key before the text becomes a search.
   useEffect(() => {
@@ -119,6 +131,7 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
 
   const visible = useMemo(() => withoutExcluded(rows, hidden), [rows, hidden])
   const ordered = useMemo(() => groupByProduct(visible).flatMap((group) => group.rows), [visible])
+  const selectable = useMemo(() => ordered.map((row) => isSelectable(row, notSoldSelectable)), [ordered, notSoldSelectable])
 
   const openList = () => {
     setTyped('')
@@ -135,8 +148,11 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
 
   const choose = (row: PickerRow) => {
     const picked = pickedFromRow(row)
-    rememberCrmProduct(picked.productId, { masterId: picked.masterId, name: picked.name, productName: picked.productName, state: 'sold' })
-    setName({ key: picked.productId, described: { masterId: picked.masterId, name: picked.name, productName: picked.productName, state: 'sold' }, failed: false })
+    // A row with no entry in CRM has no id to remember it by: the box then shows whatever value the form holds.
+    if (picked.productId !== '') {
+      rememberCrmProduct(picked.productId, { masterId: picked.masterId, name: picked.name, productName: picked.productName, state: 'sold' })
+      setName({ key: picked.productId, described: { masterId: picked.masterId, name: picked.name, productName: picked.productName, state: 'sold' }, failed: false })
+    }
     onChange(picked)
     close(true)
   }
@@ -146,13 +162,13 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
     if (event.key === 'Tab') { close(false); return }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
-      setActive((current) => moveActive(current, event.key, ordered.length))
+      setActive((current) => moveAmongSelectable(current, event.key, selectable))
       return
     }
     if (event.key === 'Enter') {
       event.preventDefault()
       const row = ordered[active]
-      if (row) choose(row)
+      if (row && selectable[active]) choose(row)
     }
   }
 
@@ -209,6 +225,8 @@ export function SubProductPicker({ value, onChange, type, id, 'aria-label': aria
           <PickerList
             rows={visible}
             text={searchText(typed)}
+            scope={scope}
+            notSoldSelectable={notSoldSelectable}
             limit={limit}
             loading={loading}
             failure={failure}

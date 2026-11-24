@@ -19,6 +19,7 @@ import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import type { CrmPurchaseOrderLineItemInput, CrmTaxRate } from '@/types/crm'
 
 function money(n: number): string {
@@ -119,6 +120,8 @@ export function PurchaseOrderLineItemTable({ lineItems, onChange, taxRates, curr
                     value={row.productId}
                     onChange={(picked) => onProductChange(index, picked)}
                     aria-label={`Sub-product for line ${index + 1}`}
+                    scope={PICKER_RULES.purchaseOrder.scope}
+                    notSoldSelectable={PICKER_RULES.purchaseOrder.notSoldSelectable}
                   />
                 </TableCell>
                 <TableCell>

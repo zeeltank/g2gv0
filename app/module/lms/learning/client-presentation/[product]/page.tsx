@@ -15,7 +15,7 @@ function Player() {
   if (!DECK_KEYS.includes(key)) notFound()
   if (search?.get('view') === 'presenter') return <PresenterView productKey={key} />
   const slideParam = Number(search?.get('slide') ?? NaN)
-  const initialSlide = Number.isInteger(slideParam) && slideParam >= 1 && slideParam <= 16 ? slideParam : undefined
+  const initialSlide = Number.isInteger(slideParam) && slideParam >= 1 && slideParam <= 17 ? slideParam : undefined
   const beatParam = Number(search?.get('beat') ?? NaN)
   return (
     <ClientPresentation

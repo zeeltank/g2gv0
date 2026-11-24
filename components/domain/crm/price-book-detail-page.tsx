@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
@@ -63,6 +64,8 @@ function AddPriceBookItemDialog({ isOpen, onClose, onAdded, priceBookId, existin
               id="pb-item-product"
               value={productId}
               excluded={existingProductIds}
+              scope={PICKER_RULES.priceBook.scope}
+              notSoldSelectable={PICKER_RULES.priceBook.notSoldSelectable}
               onChange={(next) => { setPicked(next); setListPrice(next?.unitPrice != null ? String(next.unitPrice) : '') }}
             />
             {picked?.unitPrice != null && <p className="text-xs text-muted-foreground">Base price: {picked.unitPrice.toFixed(2)}</p>}

@@ -1,4 +1,5 @@
-import type { PickerRow, PickerType } from '../../services/product-master/picker-service'
+import type { PickerRow, PickerScope, PickerType, ProductLineRow } from '../../services/product-master/picker-service'
+import type { PmOption } from '../../services/product-master/types'
 
 /**
  * The pure rules of the shared product picker (slice 15, P3-C): how a typed text becomes a request, how the rows are grouped and worded, what a chosen row
@@ -16,7 +17,8 @@ export const MAX_LIMIT = 50
 export interface PickedSubProduct {
   /** The catalogue id as a string, exactly as the old picker's `product.id` was, so a saved document body is byte for byte what it was. */
   productId: string
-  crmProductId: number
+  /** Null for a row with no entry in CRM, which only a picker that opted in to `notSoldSelectable` can hand back. */
+  crmProductId: number | null
   masterId: number
   name: string
   productName: string | null
@@ -29,11 +31,11 @@ export interface PickedSubProduct {
   type: PickerType
 }
 
-/** A chosen row as the form wants it. The id keeps the type the documents have always stored (a string), never the master id. */
+/** A chosen row as the form wants it. The id keeps the type the documents have always stored (a string), never the master id; a row with no entry in CRM has an empty one. */
 export function pickedFromRow(row: PickerRow): PickedSubProduct {
   return {
-    productId: String(row.crmProductId),
-    crmProductId: row.crmProductId,
+    productId: row.crmProductId === null || row.crmProductId === undefined ? '' : String(row.crmProductId),
+    crmProductId: row.crmProductId ?? null,
     masterId: row.masterId,
     name: row.name,
     productName: row.productName,
@@ -103,8 +105,9 @@ export function notOfferedWords(state: string | null | undefined): string | null
   return null
 }
 
-/** The sentence under the list when it has no rows. */
-export function emptyMessage(text: string): string {
+/** The sentence under the list when it has no rows. A list of every Sub-product (`scope: 'all'`) does not say "sold": it holds the ones that are not sold too. */
+export function emptyMessage(text: string, scope: PickerScope = 'sold'): string {
+  if (scope === 'all') return text === '' ? 'No Sub-product yet.' : 'No sub-product matches'
   return text === '' ? 'No Sub-product is sold yet.' : 'No sold sub-product matches'
 }
 
@@ -137,5 +140,81 @@ export function moveActive(current: number, key: string, count: number): number 
 /** The rows the form has not hidden itself, in the order the server sent. */
 export function withoutExcluded(rows: readonly PickerRow[], excluded: ReadonlySet<string>): PickerRow[] {
   if (excluded.size === 0) return [...rows]
-  return rows.filter((row) => !excluded.has(String(row.crmProductId)))
+  return rows.filter((row) => row.crmProductId === null || row.crmProductId === undefined || !excluded.has(String(row.crmProductId)))
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------- rows that are listed but cannot be chosen (S15 follow-up, D-7)
+
+/** The tag on a Sub-product that has no entry in CRM, or no price: the owner's words. */
+export const NOT_SOLD_TAG = 'Not sold in CRM'
+export const PAUSED_TAG = 'Paused'
+
+/**
+ * Whether a row can be put on a document: it has an entry in CRM (the id every document stores) and that entry is sold. A row of the default answer carries
+ * neither `sold` nor `state` and is sold; a row of a `scope: 'all'` answer says which it is.
+ */
+export function isOffered(row: Pick<PickerRow, 'crmProductId' | 'sold' | 'state'>): boolean {
+  if (row.crmProductId === null || row.crmProductId === undefined) return false
+  if (row.sold === false) return false
+  return row.state === undefined || row.state === 'sold'
+}
+
+/** A row is chosen when it is offered, or when the form that holds the picker opted in to storing a row that is not (`notSoldSelectable`). */
+export function isSelectable(row: Pick<PickerRow, 'crmProductId' | 'sold' | 'state'>, notSoldSelectable: boolean): boolean {
+  return notSoldSelectable || isOffered(row)
+}
+
+/** The tag drawn on a row that is listed but not offered: Paused, or Not sold in CRM. Null for an offered row, which has none. */
+export function rowTag(row: Pick<PickerRow, 'crmProductId' | 'sold' | 'state'>): string | null {
+  if (isOffered(row)) return null
+  return row.state === 'paused' ? PAUSED_TAG : NOT_SOLD_TAG
+}
+
+/** What a row is known by in the list: its catalogue id, or its master id when it has none. */
+export function rowKey(row: Pick<PickerRow, 'crmProductId' | 'masterId'>): string {
+  return row.crmProductId === null || row.crmProductId === undefined ? `master-${row.masterId}` : String(row.crmProductId)
+}
+
+/** The first row the keyboard may land on, or 0 when there is none (the list then has nothing to highlight). */
+export function firstSelectable(selectable: readonly boolean[]): number {
+  const index = selectable.indexOf(true)
+  return index === -1 ? 0 : index
+}
+
+/**
+ * The row to highlight after a key when some rows cannot be chosen: an arrow goes to the next row that can, Home and End to the first and the last that can, and
+ * the highlight stays where it is when there is none in that direction. With every row choosable it is `moveActive`.
+ */
+export function moveAmongSelectable(current: number, key: string, selectable: readonly boolean[]): number {
+  if (selectable.length === 0) return 0
+  const first = selectable.indexOf(true)
+  if (first === -1) return current
+  if (key === 'Home') return first
+  if (key === 'End') return selectable.lastIndexOf(true)
+  const step = key === 'ArrowDown' ? 1 : key === 'ArrowUp' ? -1 : 0
+  if (step === 0) return current
+  for (let index = current + step; index >= 0 && index < selectable.length; index += step) if (selectable[index]) return index
+  return current
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------- the Product box of the lead, campaign and opportunity forms
+
+/** Four non-breaking spaces: a native list has no indent of its own, and an ordinary space at the start of an option's text is dropped. */
+export const SUB_PRODUCT_INDENT = '\u00A0\u00A0\u00A0\u00A0'
+
+/**
+ * The words of one choice of the Product box. A Product is its name; a Sub-product or an item is "Fee module, under ScholarClone" (so it reads whole once it is
+ * chosen and the list is closed), and one the server says is not sold in CRM carries "(Not sold)". The record that is chosen is stored by its own id, which a
+ * Sub-product has, sold or not.
+ */
+export function lineLabel(line: Pick<ProductLineRow, 'name' | 'kind' | 'parentName' | 'sold'>): string {
+  const name = String(line.name)
+  const parent = line.parentName ? String(line.parentName) : null
+  const base = (line.kind ?? 'product') === 'product' || parent === null ? name : `${name}, under ${parent}`
+  return line.sold === false ? `${base} (Not sold)` : base
+}
+
+/** A choice as the list draws it: a Product at the left edge, its Sub-products and items indented under it. */
+export function indentedLabel(option: Pick<PmOption, 'kind' | 'label'>): string {
+  return option.kind === 'product' ? option.label : `${SUB_PRODUCT_INDENT}${option.label}`
 }

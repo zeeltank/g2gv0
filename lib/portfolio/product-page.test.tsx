@@ -4,7 +4,7 @@ import { disposeAll, kit } from '../scaffolds/dom-test-kit'
 import { routerHarness } from '../signals/router-harness'
 import { portfolioProducts } from '../signals/opportunity-fixtures'
 import { axeViolations } from '../agent/a11y'
-import { resolveProductTab } from './page-model'
+import { eventWord, resolveProductTab } from './page-model'
 import { everything, historyRow, listRow, meta } from './fixtures'
 import { fill, installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
@@ -219,5 +219,12 @@ describe('the Product page tabs of the addresses that already exist', () => {
     assert.equal(resolveProductTab('history'), 'history', 'the History tab has an address of its own')
     assert.equal(resolveProductTab('nonsense'), 'overview')
     assert.equal(resolveProductTab(null), 'overview')
+  })
+
+  it('words a move of a Sub-product to another Product as such, and keeps the other lines as they were', () => {
+    assert.equal(eventWord(historyRow({ event: 'moved', type: 'product.moved', store: 'record' })), 'Moved to another Product')
+    assert.equal(eventWord(historyRow({ event: 'created' })), 'Created')
+    assert.equal(eventWord(historyRow({ event: 'deleted' })), 'Moved to the Recycle Bin')
+    assert.equal(eventWord(historyRow({ event: 'updated' })), 'Changed')
   })
 })

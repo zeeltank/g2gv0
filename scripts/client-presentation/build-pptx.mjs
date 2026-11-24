@@ -151,6 +151,11 @@ function make(slidesToBuild) {
       })
       text(sl, T(s, 'note'), 140, 975, 1100, 36, { fontSize: PT(26), color: C.soft })
     }); notes(sl, s, 'Click a picture to open that product slide; the clip plays there. In the web deck each product plays on this slide.') },
+    17: () => { const s = S(17); const sl = add(17, 'ink', (sl) => {
+      const mp4 = join(root, 'public/client-presentation/film/scholarclone-59s.mp4'); const poster = join(root, 'public/client-presentation/film/scholarclone-59s-poster.jpg')
+      if (existsSync(mp4) && existsSync(poster)) sl.addMedia({ type: 'video', path: mp4, cover: 'data:image/jpeg;base64,' + readFileSync(poster).toString('base64'), x: 0, y: 0, w: 13.333, h: 7.5 })
+      else { rect(sl, 0, 0, 1920, 1080, { fill: { color: C.navy }, line: { type: 'none' } }); head(sl, T(s, 'headline'), 140, 400, 1640, 160, 90) }
+    }); notes(sl, s, 'The film starts by itself when this slide opens (silent; the words are on the screen). Click the picture to play it again.') },
     7: () => { const s = S(7); const sl = add(7, 'paper', (sl) => {
       head(sl, T(s, 'headline'), 140, 110, 780, 220, 60)
       L(s, 'row').forEach((l, i) => { const [n, d] = split(l.text); const y = 380 + i * 150; line(sl, 140, y, 920, y, { line: { color: 'B5BCC4', width: 1 } }); text(sl, `0${i + 1}`, 140, y + 26, 50, 40, { bold: true, color: C.blueD, fontSize: 11 }); head(sl, n, 202, y + 16, 700, 60, 42); text(sl, d.charAt(0).toUpperCase() + d.slice(1), 202, y + 80, 700, 64, { fontSize: PT(26), color: C.tBody }) })
@@ -221,6 +226,13 @@ function make(slidesToBuild) {
         const [nm] = a[i].text.split(' · '); text(sl, nm, 918, y + 62, 520, 36, { bold: true, color: C.tBody, fontSize: 13 }) })
       rect(sl, 860, 905, 8, 110, { fill: { color: C.blueD }, line: { type: 'none' } }); text(sl, T(s, 'note'), 892, 920, 880, 84, { fontSize: PT(25), color: C.tBody })
     }); notes(sl, s, 'Illustrative scenario, not a customer case.'); ret(sl, 860) },
+    ...Object.fromEntries((deck.appendix ?? []).map((a, k) => [101 + k, () => { const sl = add(101 + k, 'paper', (sl) => {
+      head(sl, a.title, 140, 80, 1640, 110, 62)
+      const rows = a.lines; const top = 230; const rh = Math.min(150, Math.floor(760 / rows.length))
+      rows.forEach((l, i) => { const y = top + i * rh; line(sl, 140, y, 1780, y, { line: { color: 'B5BCC4', width: 1 } })
+        if (l.role === 'qa') { text(sl, l.q, 140, y + 14, 1640, 44, { bold: true, color: C.blueD, fontSize: PT(30) }); text(sl, l.a, 140, y + 62, 1640, rh - 70, { fontSize: PT(27), color: C.tBody }) }
+        else { text(sl, l.label.toUpperCase(), 140, y + 18, 420, 40, { bold: true, color: C.blueD, fontSize: 12, charSpacing: 2 }); text(sl, l.text, 600, y + 14, 1180, rh - 20, { fontSize: PT(27), color: C.tBody }) } })
+    }); sl.addNotes([a.notes, 'Every row rests on a verified claim in the product reality ledger (docs/client-presentation/02).'].filter(Boolean).join('\n\n')); ret(sl) }])),
     15: () => { const s = S(15); const sl = add(15, 'ink', (sl) => {
       if (!photo(sl, 'img-hook', 0, 0, 1920, 1080)) rect(sl, 0, 0, 1920, 1080, { fill: { color: C.navy } })
       rect(sl, 0, 0, 1920, 1080, { fill: { color: C.ink, transparency: 35 }, line: { type: 'none' } }); rect(sl, 0, 560, 1920, 520, { fill: { color: C.ink, transparency: 15 }, line: { type: 'none' } })
@@ -249,11 +261,18 @@ function make(slidesToBuild) {
 async function finish(pptx, file) {
   const path = join(outDir, file)
   await pptx.writeFile({ fileName: path })
+  // Start every video by itself when its slide opens (pptxgenjs has no option for it): the timing block PowerPoint writes for
+  // "Start: Automatically" on a video, aimed at the picture shape that holds the video. Clicking the video still works.
+  const timing = (spid) => `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="6" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst><p:endCondLst><p:cond evt="onStopAudio" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:endCondLst></p:cTn><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cMediaNode></p:video></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
+  const AUTOPLAY = !process.argv.includes('--no-autoplay')
   // Add a fade transition to every slide (pptxgenjs has no transition API): <p:transition> goes after <p:clrMapOvr>.
   const zip = await JSZip.loadAsync(readFileSync(path), { createFolders: false })
   for (const name of Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))) {
     let x = await zip.file(name).async('string')
-    if (!x.includes('<p:transition')) { x = x.replace('</p:clrMapOvr>', '</p:clrMapOvr><p:transition spd="med"><p:fade/></p:transition>'); zip.file(name, x) }
+    if (!x.includes('<p:transition')) x = x.replace('</p:clrMapOvr>', '</p:clrMapOvr><p:transition spd="med"><p:fade/></p:transition>')
+    const pic = AUTOPLAY ? /<p:pic>(?:(?!<\/p:pic>)[\s\S])*?<p:cNvPr id="(\d+)"(?:(?!<\/p:pic>)[\s\S])*?<a:videoFile/.exec(x) : null
+    if (pic && !x.includes('<p:timing')) x = x.replace('</p:transition>', '</p:transition>' + timing(pic[1]))
+    zip.file(name, x)
   }
   // Rewrite without the folder entries pptxgenjs/JSZip add (some cloud viewers refuse them); files only, [Content_Types].xml first.
   const clean = new JSZip()
@@ -263,5 +282,5 @@ async function finish(pptx, file) {
   console.log('wrote', path)
 }
 
-await finish(make([1, 2, 3, 4, 5, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15]), 'ScholarClone-Client-Presentation.pptx')
+await finish(make([1, 2, 3, 4, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15, 101, 102, 103, 104]), 'ScholarClone-Client-Presentation.pptx')
 await finish(make([1, 's2', 's5', 14, 15]), 'ScholarClone-Client-Presentation-Short.pptx')

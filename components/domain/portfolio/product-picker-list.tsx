@@ -2,18 +2,22 @@
 
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { contextLabel, cutMessage, emptyMessage, groupByProduct, priceText, valueKey, type PickerFailure } from '@/lib/product-picker/model'
-import { FAILURE, FOOTER, GROUP_HEADING, LIST, MESSAGE, RETRY, ROW, ROW_ACTIVE, ROW_QUIET } from '@/lib/product-picker/tones'
-import type { PickerRow } from '@/services/product-master/picker-service'
+import { contextLabel, cutMessage, emptyMessage, groupByProduct, isSelectable, priceText, rowKey, rowTag, valueKey, type PickerFailure } from '@/lib/product-picker/model'
+import { FAILURE, FOOTER, GROUP_HEADING, LIST, MESSAGE, RETRY, ROW, ROW_ACTIVE, ROW_QUIET, ROW_UNAVAILABLE, STATE_WORD } from '@/lib/product-picker/tones'
+import type { PickerRow, PickerScope } from '@/services/product-master/picker-service'
 
 /**
  * The inside of the Sub-product picker's list: the rows grouped by the Product above them (Product › Sub-product), each with its SKU and, when the server sent
  * one, its price; and the messages for loading, nothing found, a cut list and a failure with Retry. Presentational: the box owns the state and the requests.
+ * A row that is listed but cannot be put on a document (paused, or not sold in CRM) carries its tag, is not chosen by a click and is skipped by the keyboard,
+ * unless the box was told that its form can store such a row (`notSoldSelectable`).
  */
-export function PickerList({ rows, text, limit, loading, failure, activeIndex, selectedKey, baseId, onChoose, onHover, onRetry }: {
+export function PickerList({ rows, text, scope, notSoldSelectable, limit, loading, failure, activeIndex, selectedKey, baseId, onChoose, onHover, onRetry }: {
   rows: readonly PickerRow[]
   /** What was searched for (empty for the opening list). */
   text: string
+  scope: PickerScope
+  notSoldSelectable: boolean
   limit: number
   loading: boolean
   failure: PickerFailure | null
@@ -46,18 +50,21 @@ export function PickerList({ rows, text, limit, loading, failure, activeIndex, s
             {group.rows.map((row, rowIndex) => {
               const index = starts[groupIndex] + rowIndex
               const price = priceText(row.unitPrice, row.currency)
-              const selected = valueKey(row.crmProductId) === selectedKey
+              const selected = row.crmProductId !== null && valueKey(row.crmProductId) === selectedKey
+              const selectable = isSelectable(row, notSoldSelectable)
+              const tag = rowTag(row)
               return (
                 <div
-                  key={row.crmProductId}
+                  key={rowKey(row)}
                   id={`${baseId}-option-${index}`}
                   role="option"
                   aria-selected={selected}
-                  data-picker-option={row.crmProductId}
+                  aria-disabled={selectable ? undefined : true}
+                  data-picker-option={rowKey(row)}
                   onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => onHover(index)}
-                  onClick={() => onChoose(row)}
-                  className={cn(ROW, 'cursor-pointer', index === activeIndex && ROW_ACTIVE)}
+                  onMouseEnter={selectable ? () => onHover(index) : undefined}
+                  onClick={selectable ? () => onChoose(row) : undefined}
+                  className={cn(ROW, selectable ? 'cursor-pointer' : ROW_UNAVAILABLE, selectable && index === activeIndex && ROW_ACTIVE)}
                   title={contextLabel(row)}
                 >
                   <span className="min-w-0">
@@ -65,6 +72,7 @@ export function PickerList({ rows, text, limit, loading, failure, activeIndex, s
                     {row.sku && <span className={ROW_QUIET} data-picker-sku>{row.sku}</span>}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
+                    {tag && <span className={STATE_WORD} data-picker-tag>{tag}</span>}
                     {price && <span className="whitespace-nowrap text-xs" data-picker-price>{price}</span>}
                     {selected && <Check className="size-4" aria-hidden="true" />}
                   </span>
@@ -77,7 +85,7 @@ export function PickerList({ rows, text, limit, loading, failure, activeIndex, s
       )}
 
       {rows.length === 0 && !failure && (
-        <p role="status" className={MESSAGE} data-picker-message={loading ? 'loading' : 'empty'}>{loading ? 'Searching…' : emptyMessage(text)}</p>
+        <p role="status" className={MESSAGE} data-picker-message={loading ? 'loading' : 'empty'}>{loading ? 'Searching…' : emptyMessage(text, scope)}</p>
       )}
       {rows.length > 0 && loading && <p role="status" className={FOOTER}>Searching…</p>}
       {cut && !loading && <p className={FOOTER} data-picker-cut>{cut}</p>}

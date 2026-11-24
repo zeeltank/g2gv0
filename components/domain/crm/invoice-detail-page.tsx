@@ -24,6 +24,7 @@ import type {
 } from '@/types/crm'
 import { CreateInvoiceModal } from './create-invoice-modal'
 import { CrmEmailTab } from './crm-email-tab'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { QuoteLineItemTable } from './quote-line-item-table'
 import { RecordInvoicePaymentDialog } from './record-invoice-payment-dialog'
 import { SendEmailDialog } from './send-email-dialog'
@@ -346,7 +347,7 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
             </div>
           ) : (
             <div className="space-y-3">
-              <QuoteLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={invoice.currency} priceBookItems={[]} />
+              <QuoteLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={invoice.currency} priceBookItems={[]} pickerRule={PICKER_RULES.invoice} />
               <div className="flex items-center gap-3 pt-2">
                 <Button disabled={savingLineItems} onClick={() => void saveLineItems()}>
                   {savingLineItems && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}

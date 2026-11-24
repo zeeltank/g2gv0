@@ -40,3 +40,6 @@ One clip a week, in the order above, each as: the 9:16 video, a two-line post th
 
 ## Not yet true, so not claimed
 Real screen recordings of the product; any measured result for a school; a customer story; the effect of the clips on enquiries.
+
+## Update 2026-11-24: the 59-second film leads
+The film is now the lead piece: it carries the whole story (question, six products, how they work, who sees what, how they connect, the invitation) in 59 silent seconds with the words on screen. Use it first in a meeting (slide 6, starts by itself), as the post that introduces the series, and as the link in a first e-mail. The five 15-second clips are the follow-ups, one a week as planned above. The film's last frame carries only the approved invitation; any post text adds a way to reply and nothing else (no price, trial, date or seat count). Files: `public/client-presentation/film/scholarclone-59s.mp4` (1920 x 1080), register in `film-register.json`. A 9:16 cut for phones is not made yet.

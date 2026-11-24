@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button'
 export interface RoleBulkRow {
   description: string
   repeatDays: string
+  /** When the work starts - required, and what puts the task in Today from that day. */
+  startDate: string
   dueDate: string
   observerId: string
   priority: 'High' | 'Medium' | 'Low'
@@ -58,7 +60,7 @@ export function BulkRoleTaskPanel({
         <div className="max-h-[420px] overflow-auto">
           {/* The table has a floor width and scrolls inside itself; the sheet
               must never scroll sideways. */}
-          <table className="w-full min-w-[900px] text-left text-xs">
+          <table className="w-full min-w-[1020px] text-left text-xs">
             <thead className="sticky top-0 bg-muted">
               <tr>
                 <th className="p-2">
@@ -72,7 +74,8 @@ export function BulkRoleTaskPanel({
                 <th className="p-2">Task</th>
                 <th className="p-2">Description</th>
                 <th className="p-2">Repeat</th>
-                <th className="p-2">Repeat until</th>
+                <th className="p-2">Start date *</th>
+                <th className="p-2">Repeat until *</th>
                 <th className="p-2">Observer</th>
                 <th className="p-2">Priority</th>
               </tr>
@@ -80,7 +83,7 @@ export function BulkRoleTaskPanel({
             <tbody>
               {suggestions.map((task) => {
                 const row = rows[task] ?? {
-                  description: '', repeatDays: '1', dueDate: '',
+                  description: '', repeatDays: '1', startDate: '', dueDate: '',
                   observerId: defaultObserverId, priority: 'Medium' as const,
                 }
                 const ticked = selected.includes(task)
@@ -120,7 +123,15 @@ export function BulkRoleTaskPanel({
                     </td>
                     <td className="p-2">
                       <input
-                        disabled={!ticked} type="date" min={new Date().toISOString().slice(0, 10)}
+                        disabled={!ticked} type="date" max={row.dueDate || undefined}
+                        value={row.startDate} onChange={(event) => update({ startDate: event.target.value })}
+                        aria-label={`Start date for ${task}`}
+                        className="h-9 rounded border px-2 disabled:bg-muted"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        disabled={!ticked} type="date" min={row.startDate || new Date().toISOString().slice(0, 10)}
                         value={row.dueDate} onChange={(event) => update({ dueDate: event.target.value })}
                         className="h-9 rounded border px-2 disabled:bg-muted"
                       />
