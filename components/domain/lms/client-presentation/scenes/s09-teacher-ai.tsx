@@ -6,7 +6,7 @@ import { assetOf, textOf, textsOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { Photo, ShotFrame } from '../ui/primitives'
+import { Photo } from '../ui/primitives'
 
 import './s09.css'
 import type { SceneProps } from './types'
@@ -38,7 +38,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
     tl.fromTo(q('.s09-out'), { autoAlpha: 0, x: -24 }, { autoAlpha: 1, x: 0, duration: 0.7, stagger: 0.12 }, 'b0+=1.0')
     tl.addLabel('b1', 'b0+=2.0')
     // b2: what it frees up, and who stays in charge.
-    tl.fromTo(q('.s09-value, .s09-principle, .s09-shot'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out' }, 'b1+=0.1')
+    tl.fromTo(q('.s09-value, .s09-principle'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.15, ease: 'power3.out' }, 'b1+=0.1')
     tl.addLabel('b2', 'b1+=1.6')
   }, { beat, beats, entry, reduced })
 
@@ -61,7 +61,6 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
       <p className="s09-value">{textOf(slide, 'value')}</p>
       <p className="cp-display s09-principle">{textOf(slide, 'principle')}</p>
-      <ShotFrame asset={assetOf(deck, 'shot-generate')} label={slide.slots.find((s) => s.id === 'shot-generate')?.brief ?? ''} proof={textOf(slide, 'proof')} className="s09-shot" />
     </div>
   )
 }

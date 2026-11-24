@@ -64,6 +64,16 @@ Keys in the web deck: Right / Space / Enter = next step, Left / Backspace = back
 
 **Then.** Start with the part that runs the school every day.
 
+## 16. See it work, one product at a time
+
+**Main message.** Each product explained in one short clip, with made-up school data.
+
+**Say.** Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.
+
+**Ask.** Which of these five questions do you hear most in your own school?
+
+**Then.** Now each product a little closer, starting with school operations.
+
 ## 7. The everyday work of the school, off the registers and into workflows
 
 **Main message.** The everyday work of the school moves from registers into workflows.

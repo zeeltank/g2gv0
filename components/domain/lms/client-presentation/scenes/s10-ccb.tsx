@@ -7,7 +7,7 @@ import { themeVars } from '@/lib/client-presentation/palette'
 
 import { gsap } from '../motion/gsap'
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { ShotFrame } from '../ui/primitives'
+import { ClipTile } from '../clips/clip-tile'
 
 import './s10.css'
 import type { SceneProps } from './types'
@@ -67,7 +67,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
         </div>
       ))}
 
-      <ShotFrame asset={assetOf(deck, 'shot-gap')} label={slide.slots.find((s) => s.id === 'shot-gap')?.brief ?? ''} proof={textOf(slide, 'proof')} className="s10-shot" />
+      <ClipTile clipId="ccb" className="s10-shot" />
     </div>
   )
 }

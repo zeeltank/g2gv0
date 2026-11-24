@@ -1,13 +1,13 @@
 /**
  * Navigation for the client presentation: pure functions, no React, so the rules are testable.
  *
- * A "scene key" is 's1'..'s15' (the master deck) or 'short-2' / 'short-3' (the two merged scenes of the five-slide cut).
+ * A "scene key" is 's1'..'s16' (the master deck; s16, "See it work", is shown after s6) or 'short-2' / 'short-3' (the two merged scenes of the five-slide cut).
  * Each scene has a number of "beats": presses of Next that reveal the scene in steps before moving on.
  * A "detour" sends the presenter from the slide-4 chooser to one scenario slide and back; nothing is scored.
  */
 export type Mode = 'full' | 'short'
 
-export const FULL_ORDER = ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'] as const
+export const FULL_ORDER = ['s1', 's2', 's3', 's4', 's5', 's6', 's16', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'] as const
 export const SHORT_ORDER = ['s1', 'short-2', 'short-3', 's14', 's15'] as const
 
 /** Scenario slides the slide-4 chooser can open, in the order of the five chips. */

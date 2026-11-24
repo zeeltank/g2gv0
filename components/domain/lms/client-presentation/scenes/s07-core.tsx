@@ -1,30 +1,27 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useRef } from 'react'
 
-import { assetOf, linesOf, textOf } from '@/lib/client-presentation/deck'
+import { linesOf, textOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
+import { ClipTile } from '../clips/clip-tile'
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { ShotFrame } from '../ui/primitives'
 
 import './s07.css'
 import type { SceneProps } from './types'
 import { splitName } from './util'
 
 /**
- * Scholar Core (LIVE): the everyday work of the school. One workflow opens at a time, next to its screen. The screens are labelled
- * placeholders until genuine screenshots from an authorised environment are supplied; nothing here is a drawn interface.
+ * Scholar Core: the everyday work of the school. One workflow opens at a time; beside them, the explainer clip for this product.
  */
 export const BEATS = 3
 
-export default function Scene({ deck, slide, beat, beats, entry, reduced }: SceneProps) {
+export default function Scene({ slide, beat, beats, entry, reduced }: SceneProps) {
   const ref = useRef<HTMLDivElement>(null)
   const rows = linesOf(slide, 'row').map((l) => splitName(l.text))
   const open = Math.min(beat, rows.length - 1)
-  const slots = slide.slots.filter((s) => s.type === 'screenshot')
-  const slot = slots[open]
 
   useBeatTimeline(ref, (tl, { q }) => {
     tl.fromTo(q('.s07-h, .s07-badge'), { autoAlpha: 0, y: 28 }, { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0)
@@ -62,11 +59,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
       <p className="s07-value">{textOf(slide, 'value')}</p>
 
       <div className="s07-shotwrap">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={slot.id} className="s07-shotswap" initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: reduced ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.35 }}>
-            <ShotFrame asset={assetOf(deck, slot.id)} label={slot.brief} proof={textOf(slide, 'proof')} className="s07-shot" />
-          </motion.div>
-        </AnimatePresence>
+        <ClipTile clipId="core" className="s07-shot" />
       </div>
       <p className="s07-more">{textOf(slide, 'more')}</p>
     </div>

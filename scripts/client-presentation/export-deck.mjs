@@ -56,4 +56,13 @@ deck.source_sha256 = createHash('sha256').update(JSON.stringify([story.slides, s
 const out = join(root, 'lib/client-presentation/generated/scholarclone.deck.json')
 mkdirSync(dirname(out), { recursive: true })
 writeFileSync(out, JSON.stringify(deck, null, 1) + '\n', 'utf8')
+// The explainer clips: text only (claims stay behind), in the same shape as slide lines.
+const clipsSrc = JSON.parse(readFileSync(join(root, 'docs/client-presentation/content/clips.json'), 'utf8'))
+const clipsOut = {
+  disclosure: clipsSrc.meta.disclosure,
+  length: clipsSrc.meta.length_seconds,
+  clips: clipsSrc.clips.map((c) => ({ id: c.id, product: c.product, descriptor: c.descriptor, slide: c.slide, lines: c.lines.map((l) => ({ role: l.role, text: l.text })) })),
+}
+writeFileSync(join(dirname(out), 'clips.json'), JSON.stringify(clipsOut, null, 1) + '\n', 'utf8')
+console.log('wrote clips.json', `(${clipsOut.clips.length} clips)`)
 console.log('wrote', out, `(${body.length} bytes, ${deck.slides.length} slides, ${Object.values(assets).filter((a) => a.src).length}/${Object.keys(assets).length} images placed)`)

@@ -11,4 +11,3 @@
 .s09-out { position: absolute; padding: 10px 22px; border: 2px solid var(--cp-blue-d); border-radius: 4px; background: #fffdf6; font-size: 26px; font-weight: 700; color: var(--cp-text-ink); line-height: 1.1; }
 .s09-value { position: absolute; left: 140px; top: 800px; width: 860px; margin: 0; font-size: 26px; line-height: 1.38; font-weight: 500; color: var(--cp-text-body); }
 .s09-principle { position: absolute; left: 140px; top: 925px; width: 860px; margin: 0; font-size: 40px; line-height: 1.1; font-style: italic; color: var(--cp-blue-d); }
-.s09-shot { left: 1200px; top: 700px; width: 560px; height: 290px; }

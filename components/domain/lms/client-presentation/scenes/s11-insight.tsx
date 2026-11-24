@@ -6,7 +6,7 @@ import { assetOf, linesOf, textOf, textsOf } from '@/lib/client-presentation/dec
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { ShotFrame } from '../ui/primitives'
+import { ClipTile } from '../clips/clip-tile'
 
 import './s11.css'
 import type { SceneProps } from './types'
@@ -72,7 +72,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
       <p className="s11-today">{textOf(slide, 'today')}</p>
       <p className="s11-limit">{textOf(slide, 'limit')}</p>
-      <ShotFrame asset={assetOf(deck, 'shot-case')} label={slide.slots.find((s) => s.id === 'shot-case')?.brief ?? ''} proof={textOf(slide, 'proof')} className="s11-shot" />
+      <ClipTile clipId="insight" className="s11-shot" />
     </div>
   )
 }

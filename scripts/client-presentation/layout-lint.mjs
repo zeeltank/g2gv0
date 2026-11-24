@@ -10,7 +10,7 @@ const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ?
 const base = arg('base', 'http://localhost:3210'); const out = arg('out', 'layout-shots')
 const only = arg('slides', null)?.split(',').map(Number)
 const strict = process.argv.includes('--strict')
-const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1 }
+const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1, 16: 4 }
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')
 const exe = readdirSync(process.env.LOCALAPPDATA + '/ms-playwright').filter((d) => d.startsWith('chromium-') && !d.includes('headless')).map((d) => `${process.env.LOCALAPPDATA}/ms-playwright/${d}/chrome-win64/chrome.exe`)[0]
@@ -36,7 +36,7 @@ const analyse = () => {
   const walker = document.createTreeWalker(scene, NodeFilter.SHOW_TEXT)
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const txt = n.textContent.trim(); const el = n.parentElement
-    if (!txt || !el || el.closest('.cp-sr, .cp-ui, svg, script, style') || !visible(el)) continue
+    if (!txt || !el || el.closest('.cp-sr, .cp-ui, svg, script, style, .cl-root') || !visible(el)) continue
     const rg = document.createRange(); rg.selectNodeContents(n)
     const cs0 = getComputedStyle(el); const fsz = parseFloat(cs0.fontSize); const lh = cs0.lineHeight === 'normal' ? fsz * 1.2 : parseFloat(cs0.lineHeight)
     // One rectangle per painted line, trimmed to the line box (a glyph box taller than the line height is not an overlap).
@@ -65,7 +65,7 @@ const analyse = () => {
   }
   // 2. text crossing a box edge (box = element with a border or a visible background, 60 px or larger), where the text is not inside the box
   const boxEls = [...scene.querySelectorAll('*')].filter((e) => {
-    if (e.closest('.cp-sr, .cp-ui, svg') || e.classList.contains('cp-scene') || !visible(e)) return false
+    if (e.closest('.cp-sr, .cp-ui, svg, .cl-root') || e.classList.contains('cp-scene') || !visible(e)) return false
     const cs = getComputedStyle(e); const r = e.getBoundingClientRect()
     if (r.width / sc < 60 || r.height / sc < 30 || r.width / sc > 1700 && r.height / sc > 900) return false
     const border = ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(cs['border' + s + 'Width']) >= 1.5 && cs['border' + s + 'Style'] !== 'none')
@@ -106,7 +106,7 @@ const analyse = () => {
 }
 
 let totalF = 0; let totalW = 0
-for (let n = 1; n <= 15; n++) {
+for (let n = 1; n <= 16; n++) {
   if (only && !only.includes(n)) continue
   for (let b = 0; b <= BEATS[n]; b++) {
     await page.goto(`${base}/module/lms/learning/client-presentation/scholarclone?slide=${n}&beat=${b}`, { waitUntil: 'domcontentloaded', timeout: 90000 })

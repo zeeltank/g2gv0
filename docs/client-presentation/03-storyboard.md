@@ -4,6 +4,8 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Owner decisions applied**
 
+- 2026-11-24 (current): every product is complete; no status label of any kind on a slide, clip or PowerPoint. The badge decisions below are superseded and kept as history.
+- 2026-11-24: the explainer clips are motion graphics with made-up school data (a safe place to record the real product was not available); the web deck plays them live, the video files are for sharing.
 - Badges approved: Core LIVE; Learn, CCB, Insight, Compass PARTIAL; One CONCEPTUAL. Actual and planned functionality are always shown apart.
 - Wording corrected to match code: learning goal -> plan drawn from the diagnosis; CCB evidence -> ratings; Compass drops competencies.
 - Not used until independently verified: 'one login, nothing entered twice'; 'AI questions are reviewed before students see them'.
@@ -170,6 +172,25 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 
 **Transition.** Start with the part that runs the school every day.
 
+## Slide 16: see-it-work
+
+**Takeaway.** Each product explained in one short clip, with made-up school data.
+
+**On the slide**
+
+- See it work, one product at a time
+- Motion graphics with made-up school data, one idea each.
+
+**Visual.** A large 16:9 player on the left; the five product names on the right, the playing one highlighted.
+
+**Motion (and what it means).** Next moves to the next product; each clip plays once and rests on its outcome line.
+
+**Say.** Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.
+
+**Ask.** Which of these five questions do you hear most in your own school?
+
+**Transition.** Now each product a little closer, starting with school operations.
+
 ## Slide 7: core
 
 **Takeaway.** The everyday work of the school moves from registers into workflows.
@@ -183,7 +204,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Also: admissions, student records, staff payroll, and messages to parents.  _[C-CORE-ADM: verified]_
 - School situation (typical, to validate): collection, registers and marks are kept by hand and compiled at the end.  _[C-ILL: owner-confirmed]_
 - What could become easier: a clearer picture of collection, absence and results without compiling by hand.
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** Three real screenshot frames (fees, attendance, marks entry) set in a device frame, with labelled placeholders until received. Never a fake interface.
 
@@ -212,7 +232,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Evaluation
 - Next learning step  _[C-LRN-NEXT: verified]_
 - A diagnostic that finds weak concepts, a plan drawn from it, recommended content, adaptive practice and one clear next action.  _[C-LRN-NEXT: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A horizontal journey with seven steps, a student photograph at the start and a real diagnostic screenshot frame (placeholder) at the third step.
 
@@ -241,7 +260,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Flashcards  _[C-LRN-H5P: verified]_
 - True/false questions  _[C-LRN-H5P: verified]_
 - A short presentation  _[C-LRN-H5P: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A real photograph of a teacher with a small group of students, with a short before/after pair of generated items (an example question set) shown as a real screenshot placeholder.
 
@@ -270,7 +288,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Progress, action by action  _[C-CCB-PLAN: verified]_
 - Staff are rated on each competency, a gap view shows where they stand, and a development plan with actions can be updated.  _[C-CCB-RATE: verified]_
 - Illustrative teacher situation, to validate with you
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A real photograph of a teacher in a staff room or corridor. A six-step journey strip.
 
@@ -305,7 +322,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - One case, with a recommended action  _[C-INS-CASE: verified]_
 - Approve  _[C-INS-GATE: verified]_
 - Reject  _[C-INS-GATE: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A single case card (real screenshot placeholder), a hand over an approve / reject / defer choice. Not a dashboard wall.
 
@@ -336,7 +352,6 @@ Generated from `content/scholarclone.story.json` by `scripts/client-presentation
 - Aligned  _[C-CMP-ALIGN: verified]_
 - Not aligned  _[C-CMP-ALIGN: verified]_
 - Not enough evidence  _[C-CMP-ALIGN: verified]_
-- Screenshot to be supplied from an authorised environment.
 
 **Visual.** A real photograph of a senior-class student with a counsellor, neutral and warm. A screenshot frame for the alignment result (placeholder).
 

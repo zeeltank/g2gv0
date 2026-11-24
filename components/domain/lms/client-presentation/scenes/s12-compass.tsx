@@ -6,7 +6,8 @@ import { assetOf, textOf, textsOf } from '@/lib/client-presentation/deck'
 import { themeVars } from '@/lib/client-presentation/palette'
 
 import { useBeatTimeline } from '../motion/use-beat-timeline'
-import { Photo, ShotFrame } from '../ui/primitives'
+import { ClipTile } from '../clips/clip-tile'
+import { Photo } from '../ui/primitives'
 
 import './s12.css'
 import type { SceneProps } from './types'
@@ -56,7 +57,7 @@ export default function Scene({ deck, slide, beat, beats, entry, reduced }: Scen
 
       <Photo asset={assetOf(deck, 'img-counsel')} alt="An adult and a student talking calmly across a table" className="s12-photo" />
       <span className="s12-tag">{textOf(slide, 'tag')}</span>
-      <ShotFrame asset={assetOf(deck, 'shot-alignment')} label={slide.slots.find((s) => s.id === 'shot-alignment')?.brief ?? ''} proof={textOf(slide, 'proof')} className="s12-shot" />
+      <ClipTile clipId="compass" className="s12-shot" />
 
       <div className="s12-rows">
         {rows.map((t) => <p key={t} className="s12-row">{t}</p>)}

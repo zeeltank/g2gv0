@@ -14,4 +14,4 @@
 .s11-dec { position: absolute; width: 230px; padding: 14px 24px; border: 2px solid #9fd0ff; border-radius: 8px; background: rgba(11, 37, 64, 0.8); font-size: 30px; font-weight: 700; color: #fff; text-align: center; }
 .s11-today { position: absolute; left: 140px; top: 760px; width: 1010px; margin: 0; padding: 24px 30px; background: rgba(116, 205, 35, 0.08); border: 1.5px solid rgba(116, 205, 35, 0.5); border-left: 8px solid #74cd23; border-radius: 6px; font-size: 25px; line-height: 1.4; font-weight: 500; color: #eaf2fb; }
 .s11-limit { position: absolute; left: 690px; top: 668px; width: 560px; margin: 0; font-size: 26px; font-style: italic; font-weight: 600; color: #9fd0ff; }
-.s11-shot { left: 1250px; top: 730px; width: 530px; height: 290px; }
+.s11-shot { left: 1265px; top: 735px; width: 515px; height: 290px; }

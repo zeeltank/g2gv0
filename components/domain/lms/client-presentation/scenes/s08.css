@@ -6,4 +6,4 @@
 .s08-lab { position: absolute; width: 240px; text-align: center; font-size: 26px; line-height: 1.25; font-weight: 600; color: #eaf2fb; }
 .s08-num { display: block; font-size: 20px; letter-spacing: 0.2em; color: #7fb6ff; font-weight: 800; margin-bottom: 8px; }
 .s08-today { position: absolute; left: 140px; top: 720px; width: 1000px; margin: 0; padding: 28px 34px; background: rgba(116, 205, 35, 0.08); border: 1.5px solid rgba(116, 205, 35, 0.5); border-left: 8px solid #74cd23; border-radius: 6px; font-size: 30px; line-height: 1.4; font-weight: 500; color: #eaf2fb; }
-.s08-shot { left: 1240px; top: 650px; width: 540px; height: 330px; }
+.s08-shot { left: 1240px; top: 676px; width: 540px; height: 304px; }

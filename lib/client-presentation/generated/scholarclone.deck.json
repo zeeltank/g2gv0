@@ -324,6 +324,30 @@
    "slots": []
   },
   {
+   "n": 16,
+   "id": "see-it-work",
+   "section": "See it work",
+   "lines": [
+    {
+     "role": "headline",
+     "text": "See it work, one product at a time",
+     "kind": "statement"
+    },
+    {
+     "role": "note",
+     "text": "Motion graphics with made-up school data, one idea each.",
+     "kind": "label"
+    }
+   ],
+   "say": "Each clip answers one question a school leader asks. Watch one, and tell me which question sounds like your school.",
+   "ask": "Which of these five questions do you hear most in your own school?",
+   "transition": "Now each product a little closer, starting with school operations.",
+   "limits": [
+    "The clips are motion graphics with made-up school data, not recordings of the live product. Say so if asked; real recordings are shown in a demo session."
+   ],
+   "slots": []
+  },
+  {
    "n": 7,
    "id": "core",
    "section": "Operations",
@@ -362,11 +386,6 @@
      "role": "value",
      "text": "What could become easier: a clearer picture of collection, absence and results without compiling by hand.",
      "kind": "statement"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "Pick the one workflow the leader cares about. Detail for the other four is in the notes and a supporting slide.",
@@ -440,11 +459,6 @@
      "role": "today",
      "text": "A diagnostic that finds weak concepts, a plan drawn from it, recommended content, adaptive practice and one clear next action.",
      "kind": "fact"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "In plain words: find what the student does not yet understand, plan from it, practise, check, then decide what comes next. Say clearly that students do not set their own goals in the product today.",
@@ -510,11 +524,6 @@
      "role": "output",
      "text": "A short presentation",
      "kind": "fact"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "Keep it concrete: the teacher picks a chapter and gets drafts to adjust. Do not promise checking or approval steps until verified.",
@@ -583,11 +592,6 @@
      "role": "tag",
      "text": "Illustrative teacher situation, to validate with you",
      "kind": "label"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "Use an unnamed teacher. Describe ratings, a gap view and a development plan with actions that can be updated.",
@@ -688,11 +692,6 @@
      "role": "decision",
      "text": "Reject",
      "kind": "fact"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "This is decision support, not automation. Say the comparison shows a link, not a cause. Do not describe it as a forecast or as finding students early.",
@@ -768,11 +767,6 @@
      "role": "result",
      "text": "Not enough evidence",
      "kind": "fact"
-    },
-    {
-     "role": "proof",
-     "text": "Screenshot to be supplied from an authorised environment.",
-     "kind": "placeholder"
     }
    ],
    "say": "Lead with the honest part: when there is not enough evidence the product says so. Never say competencies or any career outcome.",
@@ -1285,5 +1279,5 @@
    "focus": null
   }
  },
- "source_sha256": "c32995e5d88b2588"
+ "source_sha256": "7be510527e780039"
 }

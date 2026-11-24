@@ -176,12 +176,12 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
         </AnimatePresence>
       </div>
 
-      <div aria-live="polite" className="cp-sr">{`${slide.section}: slide ${slide.n} of ${deck.slides.length}`}</div>
+      <div aria-live="polite" className="cp-sr">{`${slide.section}: slide ${state.pos + 1} of ${orderOf(state.mode).length}`}</div>
 
       <div className="cp-ui">
         <div className="cp-ui-pill">
           <button type="button" onClick={() => dispatch({ t: 'prev' })} aria-label="Previous">‹ Back</button>
-          <span style={{ padding: '0 8px', opacity: 0.8 }}>{state.mode === 'short' ? `Short ${state.pos + 1}/5` : `${slide.n}/${deck.slides.length}`}</span>
+          <span style={{ padding: '0 8px', opacity: 0.8 }}>{state.mode === 'short' ? `Short ${state.pos + 1}/5` : `${state.pos + 1}/${orderOf(state.mode).length}`}</span>
           <button type="button" onClick={() => dispatch({ t: 'next' })} aria-label="Next" disabled={atEnd || lastOfShort && state.beat >= beatsOf('s15')}>Next ›</button>
           <span className="cp-sep" />
           {state.back && <button type="button" onClick={() => dispatch({ t: 'return' })}>↩ Return to journey</button>}

@@ -88,6 +88,40 @@ for (const s of story.slides) {
   for (const l of s.on_slide) { if ('badge' in l || 'mark' in l) fail(`slide ${s.n}: "${l.text.slice(0, 40)}" still has a badge or mark`); if (/^legend/.test(l.role)) fail(`slide ${s.n} still has a legend line`) }
 }
 
+// 3c. The explainer clips follow the same rules as the slides (docs/client-presentation/content/clips.json).
+{
+  const clipsPath = join(root, 'docs', 'client-presentation', 'content', 'clips.json')
+  let clips = null
+  try { clips = JSON.parse(readFileSync(clipsPath, 'utf8')) } catch { fail('clips.json is missing or not valid JSON') }
+  if (clips) {
+    if (clips.clips.length !== 5) fail('there must be exactly 5 product clips')
+    const ids = new Set()
+    for (const c of clips.clips) {
+      if (ids.has(c.id)) fail(`duplicate clip id ${c.id}`)
+      ids.add(c.id)
+      const hook = c.lines.filter((l) => l.role === 'hook')
+      const out = c.lines.filter((l) => l.role === 'outcome')
+      if (hook.length !== 1 || out.length !== 1) fail(`clip ${c.id} needs exactly one hook and one outcome`)
+      if (hook[0] && hook[0].text.split(/\s+/).length > 10) fail(`clip ${c.id}: the hook is longer than 10 words`)
+      if (out[0] && out[0].text.split(/\s+/).length > 14) fail(`clip ${c.id}: the outcome is longer than 14 words`)
+      if (!c.claims?.length) fail(`clip ${c.id} cites no claim`)
+      for (const id of c.claims || []) {
+        const cl = claims.get(id)
+        if (!cl) { fail(`clip ${c.id}: unknown claim ${id}`); continue }
+        if (!['verified', 'owner-confirmed'].includes(cl.status)) fail(`clip ${c.id} rests on a ${cl.status} claim (${id})`)
+      }
+      for (const l of c.lines) {
+        if (l.claim && !claims.has(l.claim)) fail(`clip ${c.id}: unknown claim ${l.claim}`)
+        if (STATUS_WORDS.test(l.text)) fail(`clip ${c.id}: status word in "${l.text.slice(0, 60)}"`)
+        for (const [re, what] of BANNED) if (re.test(l.text)) fail(`clip ${c.id}: ${what} in "${l.text.slice(0, 60)}"`)
+        if (/\d{3,}/.test(l.text)) fail(`clip ${c.id}: a long number in "${l.text.slice(0, 60)}"`)
+      }
+      for (const l of c.lines.filter((x) => ['outcome', 'case-title', 'step'].includes(x.role))) if (!l.claim) fail(`clip ${c.id}: "${l.text.slice(0, 50)}" states a capability with no claim`)
+    }
+    if (!clips.meta?.disclosure || /real|customer|live data/i.test(clips.meta.disclosure)) fail('clips need the plain disclosure "Illustrative school data"')
+  }
+}
+
 // 4. Every fact line cites a known claim; gate on status when shipping.
 const byStatus = {}
 for (const s of story.slides) {

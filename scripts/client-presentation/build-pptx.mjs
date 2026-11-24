@@ -47,6 +47,8 @@ function make(slidesToBuild) {
   pptx.layout = 'LAYOUT_WIDE'
   pptx.title = deck.title; pptx.company = 'ScholarClone'; pptx.subject = 'Client presentation'
   const idx = new Map() // slide number -> pptx slide index (1-based)
+  const order = slidesToBuild.map((n) => (typeof n === 'string' ? Number(n.slice(1)) : n))
+  const at = (n) => { const i = order.indexOf(n); return i < 0 ? n : i + 1 } // where slide n sits in this file
   const add = (n, theme, build) => {
     const sl = pptx.addSlide(); idx.set(n, pptx.slides.length)
     sl.background = { color: theme === 'ink' ? C.ink : C.paper }
@@ -70,10 +72,12 @@ function make(slidesToBuild) {
     if (a.credit) text(sl, a.credit, x + 14, y + h - 40, w - 28, 28, { fontSize: 8, color: 'FFFFFF', align: 'right', valign: 'bottom' })
     return true
   }
-  const shot = (sl, label, x, y, w, h) => {
-    rect(sl, x, y, w, h, { fill: { color: '0D2038' }, line: { color: '2A4160', width: 1 } })
-    text(sl, 'Screenshot to be supplied from an authorised environment.', x + 24, y + h / 2 - 50, w - 48, 60, { align: 'center', bold: true, color: 'EAF2FB', fontSize: 13 })
-    text(sl, label, x + 24, y + h / 2 + 20, w - 48, 50, { align: 'center', color: C.soft, fontSize: 11 })
+  const clipsDir = join(root, 'public/client-presentation/clips')
+  const clip = (sl, id, x, y, w, h) => {
+    const mp4 = join(clipsDir, `${id}-h-hidden.mp4`); const poster = join(clipsDir, `${id}-h-hidden-poster.jpg`)
+    const ch = Math.min(h, (w * 9) / 16); const cy = y + (h - ch) / 2
+    if (!existsSync(mp4) || !existsSync(poster)) { rect(sl, x, cy, w, ch, { fill: { color: C.navy }, line: { type: 'none' } }); return }
+    sl.addMedia({ type: 'video', path: mp4, cover: 'data:image/jpeg;base64,' + readFileSync(poster).toString('base64'), x: P(x), y: P(cy), w: P(w), h: P(ch) })
   }
   const ret = (sl, rx = 140) => { if (!idx.has(4)) return; sl.addText('↩ Return to the journey', { x: P(rx), y: P(1030), w: P(420), h: P(36), margin: 0, fontFace: BODY, fontSize: 11, color: sl.theme === 'ink' ? '9FD0FF' : C.blueD, hyperlink: { slide: idx.get(4) ?? 4, tooltip: 'Back to slide 4' }, underline: true, isTextBox: true }) }
   const notes = (sl, s, extra = '') => sl.addNotes([`SAY: ${s.say}`, `ASK: ${s.ask}`, s.transition ? `THEN: ${s.transition}` : '', (s.limits ?? []).length ? `CAREFUL (presenter only): ${s.limits.join(' ')}` : '', extra].filter(Boolean).join('\n\n'))
@@ -113,7 +117,7 @@ function make(slidesToBuild) {
       const chips = Ts(s, 'chip'); const to = [14, 8, 10, 11, 12]
       chips.forEach((t, i) => { const col = i < 3 ? i : i - 3; const row = i < 3 ? 0 : 1; const cx = i < 3 ? 140 + col * 554 : 417 + col * 554; const cy = 810 + row * 110
         sl.addShape(pptx.ShapeType.roundRect, { x: P(cx), y: P(cy), w: P(532), h: P(92), rectRadius: 0.12, fill: { color: '0B2540' }, line: { color: '9FD0FF', width: 1.25 } })
-        sl.addText(`0${i + 1}   ${t}`, { x: P(cx + 24), y: P(cy), w: P(490), h: P(92), margin: 0, valign: 'middle', fontFace: BODY, bold: true, fontSize: 14, color: 'FFFFFF', hyperlink: { slide: idx.get(to[i]) ?? to[i], tooltip: t }, isTextBox: true }) })
+        sl.addText(`0${i + 1}   ${t}`, { x: P(cx + 24), y: P(cy), w: P(490), h: P(92), margin: 0, valign: 'middle', fontFace: BODY, bold: true, fontSize: 14, color: 'FFFFFF', hyperlink: { slide: at(to[i]), tooltip: t }, isTextBox: true }) })
     }); notes(sl, s, 'Slide-show mode (F5): the five chips jump to the scenario slides; each has a link back here. Nothing is scored.') },
     5: () => { const s = S(5); const sl = add(5, 'ink', (sl) => {
       if (img['img-logo']) sl.addImage({ path: img['img-logo'].path, x: P(190), y: P(240), w: P(520), h: P(520), altText: img['img-logo'].alt })
@@ -130,17 +134,28 @@ function make(slidesToBuild) {
       const one = by('Scholar One'); rect(sl, 150, 204, 900, 60, { fill: { color: C.ink }, line: { type: 'none' } })
       text(sl, `${one.name}   ${one.desc}`, 170, 204, 600, 60, { valign: 'middle', fontFace: HEAD, fontSize: 15, color: 'FFFFFF' });
       const tile = (n, x, y, w, h, fill, border) => { const p = by(n); rect(sl, x, y, w, h, { fill: { color: fill }, line: { color: border, width: 1.25 } })
-        sl.addText(p.name, { x: P(x + 40), y: P(y + 18), w: P(w - 80), h: P(70), margin: 0, fontFace: HEAD, fontSize: 24, color: 'FFFFFF', hyperlink: { slide: idx.get(to[n]) ?? to[n], tooltip: `Open ${n}` }, isTextBox: true })
+        sl.addText(p.name, { x: P(x + 40), y: P(y + 18), w: P(w - 80), h: P(70), margin: 0, fontFace: HEAD, fontSize: 24, color: 'FFFFFF', hyperlink: { slide: at(to[n]), tooltip: `Open ${n}` }, isTextBox: true })
         text(sl, p.desc, x + 40, y + 92, w - 80, 50, { fontSize: 13, color: C.soft }) }
       tile('Scholar Insight', 160, 290, 1600, 150, '0B3C73', '4A7FB5')
       ;['Scholar Learn', 'Scholar CCB', 'Scholar Compass'].forEach((n, i) => tile(n, 160 + i * 543, 482, 514, 232, '12294A', '1088F6'))
       tile('Scholar Core', 160, 746, 1600, 170, '163A22', '74CD23')
     }); notes(sl, s, 'Product names are links to each product slide (slide-show mode).') },
+    16: () => { const s = S(16); const sl = add(16, 'ink', (sl) => {
+      head(sl, T(s, 'headline'), 140, 96, 1640, 110, 76)
+      const names = [['core', 'Scholar Core', 'Intelligent School Operations', 7], ['learn', 'Scholar Learn', 'AI-Powered Personalised Learning', 8], ['ccb', 'Scholar CCB', 'Competence and Capability Intelligence', 10], ['insight', 'Scholar Insight', 'School Intelligence', 11], ['compass', 'Scholar Compass', 'Student Career Intelligence', 12]]
+      names.forEach(([id, nm, desc, target], k) => {
+        const col = k < 3 ? k : k - 3; const row = k < 3 ? 0 : 1; const x = k < 3 ? 140 + col * 560 : 420 + col * 560; const y = 270 + row * 340
+        const poster = join(clipsDir, `${id}-h-hidden-poster.jpg`)
+        if (existsSync(poster)) sl.addImage({ path: poster, x: P(x), y: P(y), w: P(520), h: P(292.5), altText: `${nm}: explainer clip`, hyperlink: { slide: at(target), tooltip: `Open ${nm}` } })
+        text(sl, `${nm}   ${desc}`, x, y + 300, 520, 34, { fontSize: 12, bold: true, color: C.onInk })
+      })
+      text(sl, T(s, 'note'), 140, 975, 1100, 36, { fontSize: PT(26), color: C.soft })
+    }); notes(sl, s, 'Click a picture to open that product slide; the clip plays there. In the web deck each product plays on this slide.') },
     7: () => { const s = S(7); const sl = add(7, 'paper', (sl) => {
       head(sl, T(s, 'headline'), 140, 110, 780, 220, 60)
       L(s, 'row').forEach((l, i) => { const [n, d] = split(l.text); const y = 380 + i * 150; line(sl, 140, y, 920, y, { line: { color: 'B5BCC4', width: 1 } }); text(sl, `0${i + 1}`, 140, y + 26, 50, 40, { bold: true, color: C.blueD, fontSize: 11 }); head(sl, n, 202, y + 16, 700, 60, 42); text(sl, d.charAt(0).toUpperCase() + d.slice(1), 202, y + 80, 700, 64, { fontSize: PT(26), color: C.tBody }) })
       text(sl, T(s, 'situation'), 158, 830, 760, 80, { fontSize: PT(23), color: C.tBody }); text(sl, T(s, 'value'), 158, 925, 760, 80, { fontSize: PT(23), bold: true, color: C.tInk })
-      shot(sl, 'Fee collection, attendance marking and marks entry (demo data)', 1000, 120, 780, 640)
+      clip(sl, 'core', 1000, 190, 780, 439)
       text(sl, T(s, 'more'), 1000, 800, 780, 110, { fontSize: PT(28), bold: true, color: C.tInk })
     }); notes(sl, s); ret(sl) },
     8: () => { const s = S(8); const sl = add(8, 'ink', (sl) => {
@@ -149,7 +164,7 @@ function make(slidesToBuild) {
       Ts(s, 'step').forEach((t, i) => { sl.addShape(pptx.ShapeType.ellipse, { x: P(x(i) - 15), y: P(365), w: P(30), h: P(30), fill: { color: 'FFFFFF' }, line: { type: 'none' } }); text(sl, `0${i + 1}`, x(i) - 120, 420, 240, 30, { align: 'center', bold: true, color: '7FB6FF', fontSize: 10 }); text(sl, t, x(i) - 120, 455, 240, 100, { align: 'center', bold: true, color: C.onInk, fontSize: 13 }) })
       rect(sl, 140, 720, 1000, 184, { fill: { color: '10281C' }, line: { color: C.green, width: 1.25 } }); rect(sl, 140, 720, 8, 184, { fill: { color: C.green }, line: { type: 'none' } })
       text(sl, T(s, 'today'), 182, 748, 930, 140, { fontSize: PT(30), color: C.onInk })
-      shot(sl, 'Diagnostic result with concept breakdown, demo student', 1240, 650, 540, 330)
+      clip(sl, 'learn', 1240, 676, 540, 304)
     }); notes(sl, s); ret(sl) },
     9: () => { const s = S(9); const sl = add(9, 'paper', (sl) => {
       photo(sl, 'img-teacher', 1100, 0, 820, 1080)
@@ -158,14 +173,13 @@ function make(slidesToBuild) {
       rect(sl, 140, 628, 270, 80, { fill: { color: C.tInk }, line: { type: 'none' } }); text(sl, T(s, 'source'), 140, 628, 270, 80, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: 13 })
       Ts(s, 'output').forEach((t, i) => { const y = 606 + i * 62; line(sl, 410, 668, 640, y + 25, { line: { color: C.blueD, width: 2.5 } }); rect(sl, 640, y, 330, 52, { fill: { color: 'FFFDF6' }, line: { color: C.blueD, width: 1.25 } }); text(sl, t, 640, y, 330, 52, { align: 'center', valign: 'middle', bold: true, color: C.tInk, fontSize: 13 }) })
       text(sl, T(s, 'value'), 140, 800, 860, 110, { fontSize: PT(26), color: C.tBody }); head(sl, T(s, 'principle'), 140, 925, 860, 96, 40, { italic: true, color: C.blueD })
-      shot(sl, 'Question or content generation screen, demo data', 1200, 700, 560, 290)
     }); notes(sl, s); ret(sl) },
     10: () => { const s = S(10); const sl = add(10, 'paper', (sl) => {
-      head(sl, T(s, 'headline'), 140, 110, 740, 210, 62); tag(sl, T(s, 'tag'), 140, 350, 720)
-      rect(sl, 140, 440, 720, 200, { fill: { color: 'E8EDDC' }, line: { color: C.greenD, width: 1 } }); rect(sl, 140, 440, 8, 200, { fill: { color: C.greenD }, line: { type: 'none' } }); text(sl, T(s, 'today'), 178, 462, 660, 160, { fontSize: PT(27), color: C.tInk })
+      head(sl, T(s, 'headline'), 140, 110, 740, 210, 62); tag(sl, T(s, 'tag'), 140, 686, 720)
+      rect(sl, 140, 760, 720, 200, { fill: { color: 'E8EDDC' }, line: { color: C.greenD, width: 1 } }); rect(sl, 140, 760, 8, 200, { fill: { color: C.greenD }, line: { type: 'none' } }); text(sl, T(s, 'today'), 178, 782, 660, 160, { fontSize: PT(27), color: C.tInk })
       line(sl, 1000, 150, 1000, 610, { line: { color: C.blueD, width: 3 } })
       L(s, 'step').forEach((l, i) => { const y = 120 + i * 92; sl.addShape(pptx.ShapeType.ellipse, { x: P(988), y: P(y + 16), w: P(24), h: P(24), fill: { color: C.blueD }, line: { type: 'none' } }); text(sl, `0${i + 1}`, 1060, y + 14, 50, 36, { bold: true, color: C.blueD, fontSize: 11 }); head(sl, l.text, 1112, y, 480, 60, 44) })
-      shot(sl, 'Competency gap or development plan screen, demo data', 920, 700, 860, 310)
+      clip(sl, 'ccb', 1172, 656, 608, 342)
     }); notes(sl, s, 'Illustrative teacher situation: use an unnamed teacher.'); ret(sl) },
     11: () => { const s = S(11); const sl = add(11, 'ink', (sl) => {
       head(sl, T(s, 'headline'), 140, 110, 1100, 190, 66); tag(sl, T(s, 'tag'), 1230, 150, 560)
@@ -176,11 +190,11 @@ function make(slidesToBuild) {
       Ts(s, 'decision').forEach((t, i) => { line(sl, 1205, 470, 1390, dy[i], { line: { color: '9FD0FF', width: 3 } }); rect(sl, 1390, dy[i] - 28, 230, 56, { fill: { color: '0B2540' }, line: { color: '9FD0FF', width: 1.25 } }); text(sl, t, 1390, dy[i] - 28, 230, 56, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: 15 }) })
       text(sl, T(s, 'limit'), 690, 668, 560, 80, { italic: true, bold: true, color: '9FD0FF', fontSize: 13 })
       rect(sl, 140, 760, 1010, 190, { fill: { color: '10281C' }, line: { color: C.green, width: 1 } }); rect(sl, 140, 760, 8, 190, { fill: { color: C.green }, line: { type: 'none' } }); text(sl, T(s, 'today'), 176, 780, 950, 160, { fontSize: PT(25), color: C.onInk })
-      shot(sl, 'Academic-risk case with recommendation, demo data', 1250, 730, 530, 290)
+      clip(sl, 'insight', 1265, 735, 515, 290)
     }); notes(sl, s, 'Do not describe this as a forecast or as finding students early. The comparison shows a link, not a cause.'); ret(sl) },
     12: () => { const s = S(12); const sl = add(12, 'paper', (sl) => {
       head(sl, T(s, 'headline'), 860, 110, 920, 150, 62)
-      photo(sl, 'img-counsel', 140, 100, 600, 400); tag(sl, T(s, 'tag'), 140, 530, 600); shot(sl, 'Career alignment result screen, demo data', 140, 640, 600, 350)
+      photo(sl, 'img-counsel', 140, 100, 600, 400); tag(sl, T(s, 'tag'), 140, 530, 600); clip(sl, 'compass', 140, 640, 600, 337)
       Ts(s, 'row').forEach((t, i) => { rect(sl, 860, 300 + i * 92, 3, 80, { fill: { color: C.blueD }, line: { type: 'none' } }); text(sl, t, 882, 300 + i * 92, 898, 84, { fontSize: PT(26), color: C.tBody }) })
       const c = Ts(s, 'circle'); sl.addShape(pptx.ShapeType.ellipse, { x: P(930), y: P(536), w: P(260), h: P(260), fill: { color: C.blueD, transparency: 82 }, line: { color: C.blueD, width: 2 } }); sl.addShape(pptx.ShapeType.ellipse, { x: P(1090), y: P(536), w: P(260), h: P(260), fill: { color: C.greenD, transparency: 80 }, line: { color: C.greenD, width: 2 } })
       text(sl, c[0], 950, 636, 130, 60, { align: 'center', bold: true, color: C.tInk, fontSize: 12 }); text(sl, c[1], 1200, 626, 130, 80, { align: 'center', bold: true, color: C.tInk, fontSize: 12 })
@@ -249,5 +263,5 @@ async function finish(pptx, file) {
   console.log('wrote', path)
 }
 
-await finish(make([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]), 'ScholarClone-Client-Presentation.pptx')
+await finish(make([1, 2, 3, 4, 5, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15]), 'ScholarClone-Client-Presentation.pptx')
 await finish(make([1, 's2', 's5', 14, 15]), 'ScholarClone-Client-Presentation-Short.pptx')
