@@ -12,7 +12,25 @@ export const PAGE_SIZE = 50
  */
 export const MAX_PAGES = 4
 
+// React Strict Mode replays mount effects in development. Share that initial
+// snapshot request across the replay, while removing it as soon as it settles
+// so an explicit refresh always reaches the API.
+const inFlightSnapshots = new WeakMap<IntelligenceApi, Promise<Snapshot>>()
+
 export async function loadSnapshot(service: IntelligenceApi): Promise<Snapshot> {
+  const pending = inFlightSnapshots.get(service)
+  if (pending) return pending
+
+  const request = fetchSnapshot(service)
+  inFlightSnapshots.set(service, request)
+  try {
+    return await request
+  } finally {
+    if (inFlightSnapshots.get(service) === request) inFlightSnapshots.delete(service)
+  }
+}
+
+async function fetchSnapshot(service: IntelligenceApi): Promise<Snapshot> {
   const [detectorsResponse, firstResponse] = await Promise.all([service.detectors(), service.insights({ per_page: PAGE_SIZE, page: 1 })])
   const first: InsightsData = firstResponse.data
   const byKey = new Map<string, Insight>()
@@ -23,11 +41,12 @@ export async function loadSnapshot(service: IntelligenceApi): Promise<Snapshot> 
 
   const totalPages = Math.max(1, first.pagination?.total_pages ?? 1)
   const lastPage = Math.min(totalPages, MAX_PAGES)
-  // One page at a time: the API is rate limited, and the order of the answer stays the server's.
-  for (let page = 2; page <= lastPage; page++) {
-    const next = await service.insights({ per_page: PAGE_SIZE, page })
-    add(next.data.insights)
-  }
+  // The page numbers are known from page one. Fetch the remaining bounded
+  // pages together, then add them in page order to preserve server ordering.
+  const remaining = await Promise.all(
+    Array.from({ length: lastPage - 1 }, (_, index) => service.insights({ per_page: PAGE_SIZE, page: index + 2 })),
+  )
+  for (const next of remaining) add(next.data.insights)
 
   return {
     insights: [...byKey.values()],

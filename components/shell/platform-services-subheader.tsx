@@ -119,10 +119,10 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
   const activeMenuSlug = /^\/module\/([^/?#]+)/.exec(navModule?.accessLink ?? '')?.[1]
   const moduleRouteKey = /^\/intelligence\/module\/([^/?#]+)/.exec(pathname ?? '')?.[1]
   // Under /platform-services with no other module scope, the one Intelligence link is Platform Services Intelligence (never Global).
-  const onPlatformServices = !moduleKey && (pathname === '/platform-services' || pathname?.startsWith('/platform-services/') === true)
+  const onPlatformServices = pathname === '/platform-services' || pathname?.startsWith('/platform-services/') === true
   const intelligenceModuleKey =
-    moduleKey ??
     (onPlatformServices ? 'platform-services' : null) ??
+    moduleKey ??
     moduleIntelligenceByMenuSlug(activeMenuSlug)?.key ??
     moduleIntelligenceByKey(moduleRouteKey ? decodeSegment(moduleRouteKey) : '')?.key ??
     null

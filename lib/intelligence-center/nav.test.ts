@@ -58,10 +58,10 @@ describe('where Intelligence is reached from', () => {
 
   it('under /platform-services with no other module scope the single link is Platform Services Intelligence, never Global', () => {
     const bar = read('components', 'shell', 'platform-services-subheader.tsx')
-    assert.match(bar, /pathname === '\/platform-services' \|\| pathname\?\.startsWith\('\/platform-services\/'\)/)
-    assert.match(bar, /\(onPlatformServices \? 'platform-services' : null\)/)
-    // it only applies without module scope, and the Global link stays gated on "no module scope AND no module Intelligence"
-    assert.match(bar, /const onPlatformServices = !moduleKey && /)
+    assert.match(bar, /const onPlatformServices = pathname === '\/platform-services' \|\| pathname\?\.startsWith\('\/platform-services\/'\)/)
+    assert.match(bar, /\(onPlatformServices \? 'platform-services' : null\) \?\?\s*moduleKey/)
+    // The pathname owns this bar's module identity even if stale shell state or a query string names another module.
+    // The Global link stays gated on "no module scope AND no module Intelligence".
     assert.match(bar, /\{!moduleKey && !intelligenceModuleKey && \(\s*<Link\s+href=\{INTELLIGENCE_LINK\}/)
     assert.equal(moduleIntelligenceByKey('platform-services')?.title, 'Platform Services')
     assert.equal(`${moduleIntelligenceByKey('platform-services')?.title} Intelligence`, 'Platform Services Intelligence')
