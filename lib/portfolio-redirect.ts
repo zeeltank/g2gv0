@@ -5,8 +5,8 @@
  * the SAME query string. They stay for ever: an Ask answer, an agent run, a saved quote link and any bookmark carry the old address. The pages are the `page.tsx` files
  * under app/module/crm/sales/products and app/module/crm/sales/services (their folders ARE the old addresses). Pattern: lib/signal-review-redirect.ts.
  *
- *   /module/crm/sales/products                 -> /portfolio                         (the list)
- *   /module/crm/sales/services                 -> /portfolio?type=service            (the list, on Services)
+ *   /module/crm/sales/products                 -> /signals/portfolio                 (the list, a tab of Market Signals)
+ *   /module/crm/sales/services                 -> /signals/portfolio?type=service    (the list, on Services)
  *   /module/crm/sales/products/{crmId}         -> /portfolio/products/{masterId}     (through GET /api/product-master/by-crm/{crmId})
  *   /module/crm/sales/services/{crmId}         -> /portfolio/products/{masterId}     (the same)
  *   /module/crm/sales/products/lines/{masterId} -> the Sub-product page, or the Product page for a Product (by `kind`)
@@ -17,8 +17,11 @@
 /** What Next hands a page as `searchParams` once awaited: a key seen once is a string, a key repeated is a list. */
 export type RawSearchParams = Record<string, string | string[] | undefined>
 
-/** The Product Portfolio. */
+/** The Product Portfolio's own pages: a Product (`/portfolio/{key}`) and a Sub-product (`/portfolio/products/{id}`). */
 export const PORTFOLIO_ADDRESS = '/portfolio'
+
+/** The LIST: the Product Portfolio tab of Market Signals (owner, 24 Nov 2026: the sidebar has no Product Portfolio entry, the list lives in Market Signals). */
+export const PORTFOLIO_LIST_ADDRESS = '/signals/portfolio'
 
 /** The pairs of a query, written as the links we make write them: a space is `%20` (never `+`), the order is the order it arrived in. */
 function pairsOf(params: RawSearchParams, skip?: string): string[] {
@@ -32,14 +35,14 @@ function pairsOf(params: RawSearchParams, skip?: string): string[] {
 
 const withQuery = (path: string, pairs: string[]): string => (pairs.length === 0 ? path : `${path}?${pairs.join('&')}`)
 
-/** `/portfolio` plus the same query. The path is fixed, so nothing in the query can send a person anywhere else. */
+/** `/signals/portfolio` (the list) plus the same query. The path is fixed, so nothing in the query can send a person anywhere else. */
 export function portfolioRedirectTarget(params: RawSearchParams): string {
-  return withQuery(PORTFOLIO_ADDRESS, pairsOf(params))
+  return withQuery(PORTFOLIO_LIST_ADDRESS, pairsOf(params))
 }
 
-/** `/portfolio?type=service` plus the rest of the query. A `type` the old address carried is replaced: the Services address IS the Service view. */
+/** `/signals/portfolio?type=service` plus the rest of the query. A `type` the old address carried is replaced: the Services address IS the Service view. */
 export function servicesRedirectTarget(params: RawSearchParams): string {
-  return withQuery(PORTFOLIO_ADDRESS, [...pairsOf(params, 'type'), 'type=service'])
+  return withQuery(PORTFOLIO_LIST_ADDRESS, [...pairsOf(params, 'type'), 'type=service'])
 }
 
 /** The Sub-product page of a master record, with the query kept. A number only: anything else is not an id. */

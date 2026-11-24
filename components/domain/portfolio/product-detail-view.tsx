@@ -147,7 +147,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   }
 
   const back = (
-    <Link href="/portfolio" className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+    <Link href="/signals/portfolio" className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
       <ArrowLeft className="size-4" aria-hidden="true" /> All products
     </Link>
   )
@@ -166,7 +166,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     return (
       <div className="w-full space-y-3 p-4 @xl:p-6">
         {back}
-        <EmptyState title="Product not found" description={`There is no product "${productKey || 'specified'}" in this organisation.`} action={<Button asChild size="sm"><Link href="/portfolio">Go to Product Portfolio</Link></Button>} />
+        <EmptyState title="Product not found" description={`There is no product "${productKey || 'specified'}" in this organisation.`} action={<Button asChild size="sm"><Link href="/signals/portfolio">Go to Product Portfolio</Link></Button>} />
       </div>
     )
   }
@@ -214,7 +214,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
                 {canEditProduct && <DropdownMenuItem onSelect={() => setEditOpen(true)}>Edit this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'active' && <DropdownMenuItem onSelect={() => void changeStatus(true)}>Archive this product</DropdownMenuItem>}
                 {isAdmin && master && !master.shared && master.status === 'archived' && <DropdownMenuItem onSelect={() => void changeStatus(false)}>Restore this product</DropdownMenuItem>}
-                <DropdownMenuItem asChild><Link href="/portfolio">Browse the full portfolio</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link href="/signals/portfolio">Browse the full portfolio</Link></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </>

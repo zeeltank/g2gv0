@@ -10,7 +10,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { ProtectedLayout } from '@/components/auth/protected-layout'
 import { GtgPageShell } from '@/components/shell/gtg-page-shell'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { parseOldId, PORTFOLIO_ADDRESS, recordTarget, subProductTarget, type RawSearchParams } from '@/lib/portfolio-redirect'
+import { parseOldId, PORTFOLIO_ADDRESS, PORTFOLIO_LIST_ADDRESS, recordTarget, subProductTarget, type RawSearchParams } from '@/lib/portfolio-redirect'
 import { ApiError } from '@/services/core'
 import { portfolioListService } from '@/services/product-master/portfolio-list-service'
 
@@ -66,7 +66,7 @@ export function PortfolioRedirect({ lookup, params }: { lookup: RedirectLookup; 
         <EmptyState
           title="This product could not be found"
           description="It may have been removed for good, or it belongs to another organisation."
-          action={<Button asChild variant="outline"><Link href={PORTFOLIO_ADDRESS}>Go to the Product Portfolio</Link></Button>}
+          action={<Button asChild variant="outline"><Link href={PORTFOLIO_LIST_ADDRESS}>Go to the Product Portfolio</Link></Button>}
         />
       </div>
     )

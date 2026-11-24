@@ -1,38 +1,12 @@
-'use client'
-
-import { Suspense } from 'react'
-import { PremiumPage } from '@/components/domain/signals/premium-page'
-import { useAuth } from '@/components/auth/gtg-auth'
-import { ProtectedLayout } from '@/components/auth/protected-layout'
-import { GtgPageShell } from '@/components/shell/gtg-page-shell'
-import { GtgBreadcrumbFromContext } from '@/components/shell/gtg-breadcrumb'
-import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { PortfolioList } from '@/components/domain/portfolio/portfolio-list'
-
-const PORTFOLIO_ACCESS_LINK = '/portfolio'
+import { redirect } from 'next/navigation'
+import { portfolioRedirectTarget, type RawSearchParams } from '@/lib/portfolio-redirect'
 
 /**
- * The Product Portfolio (owner decision of 13 Nov 2026, slice 15): the ONE screen where a person finds, filters and opens any product. It is a product page with
- * its own sidebar entry, NOT a Signals page, so it is drawn outside `SignalsFrame` and shows no Company Opportunities / Ingestion Engine / Partner Network
- * buttons. The Signals pages keep their own header, and Market Signals keeps a plain link to this page.
+ * The Product Portfolio LIST lives in Market Signals, as the "Product Portfolio" tab (`/signals/portfolio`), under the four Signals tabs (owner, 24 Nov 2026: "we already
+ * have it in the Market Signals tab, remove it from the side bar"). The sidebar has no Product Portfolio entry any more, so this address, which every earlier link and
+ * bookmark carries, only sends a visitor on, keeping the query string. The Product page (`/portfolio/{key}`) and the Sub-product page (`/portfolio/products/{id}`) stay
+ * where they are. A temporary (307) redirect, like the other old addresses.
  */
-export default function ProductPortfolioPage() {
-  const { user } = useAuth()
-  const canManage = user?.role === 'administrator' || user?.role === 'hr_manager' || user?.role === 'executive'
-  const { parseRoutePath } = useSidebarNavigation()
-  const activeNav = parseRoutePath(PORTFOLIO_ACCESS_LINK) ?? undefined
-
-  return (
-    <ProtectedLayout>
-      <GtgPageShell initialActive={activeNav}>
-        <GtgBreadcrumbFromContext />
-        <PremiumPage>
-          {/* The list keeps its search, filters and page in the address, which needs a Suspense boundary above it. */}
-          <Suspense fallback={null}>
-            <PortfolioList canManage={canManage} />
-          </Suspense>
-        </PremiumPage>
-      </GtgPageShell>
-    </ProtectedLayout>
-  )
+export default async function ProductPortfolioListRedirect({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  redirect(portfolioRedirectTarget(await searchParams))
 }
