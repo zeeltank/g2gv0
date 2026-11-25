@@ -301,12 +301,35 @@ export interface LeadListQuery {
 
 export type LeadConsentFilter = 'allowed' | 'blocked'
 
+/** Where the lead's comments, e-mails, documents and events move to when it is converted (S19). */
+export type ConvertTransferTarget = 'organization' | 'contact' | 'opportunity'
+
+/** The deal the pop-up asks for; every field is optional, and the server fills what is left out (today's name, the organisation's default currency). */
+export interface ConvertOpportunityDetails {
+  name?: string
+  amount?: number
+  currency?: string
+  closeDate?: string
+  stage?: string
+}
+
 export interface ConvertLeadPayload {
   createOrganization: boolean
   createContact: boolean
+  /** The new organization's name and industry (S19); the lead's own company and industry when left out. */
   organizationName?: string
+  industry?: string
+  /** An organization that already exists, used instead of making one: `createOrganization` is then false. */
+  existingOrganizationId?: string
   existingContactId?: string
+  /** The person becomes the company's primary contact, and the role they hold there (S18); ignored when there is no company. */
+  makePrimary?: boolean
+  contactRole?: string
   createOpportunity?: boolean
+  /** Honoured only with `createOpportunity`. */
+  opportunity?: ConvertOpportunityDetails
+  /** Left out, nothing moves. */
+  transferRelatedTo?: ConvertTransferTarget
   assignedTo: string
 }
 
@@ -320,6 +343,10 @@ export interface ConvertLeadResponse {
     /** Present when no contact was made because the lead names no person (slice 6); `notice` says why, in words. */
     contactSkipped?: boolean
     notice?: string
+    /** Present when the pop-up asked for the person to be the primary contact: whether it was (a person of another company is left alone). */
+    primarySet?: boolean
+    /** Present when the pop-up asked for the related records to move: how many of each moved. */
+    transferred?: { comments: number; emails: number; documents: number; events: number }
   }
 }
 
