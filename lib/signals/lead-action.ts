@@ -2,7 +2,7 @@ import type { SignalRow } from '@/services/signal-review/signal-types'
 import { NETWORK_TEXT, NOT_FOUND_TEXT } from './decision-failure'
 
 /**
- * Turning a signal into a CRM lead from the Signal Review drawer: when the button is offered, what the confirmation says, and what each way the server
+ * Converting a signal to a CRM lead ("Convert to lead") from a signal card: when the button is offered, what the confirmation says, and what each way the server
  * can answer means for the person. Pure, so the rules that matter (a signal with a lead never gets a second button, a 403 names leads and not decisions)
  * are tested without a browser.
  */
@@ -11,9 +11,20 @@ export const LEAD_FORBIDDEN_TEXT = 'You are not allowed to create leads from sig
 
 /** The sentence the person confirms, in plain words: what will be made and where it is recorded. */
 export const LEAD_CONFIRM = {
-  title: 'Turn this signal into a lead?',
+  title: 'Convert this signal to a lead?',
   description: 'A lead is created in CRM from this signal, with its organisation and what was observed. The signal’s history records it. If it already has a lead, no second one is made.',
-  confirmLabel: 'Create lead',
+  confirmLabel: 'Convert',
+}
+
+/** The card's button, and what it says while the request runs. */
+export const CONVERT_TO_LEAD = 'Convert to lead'
+export const CONVERTING_LEAD = 'Converting…'
+
+/** What the person-choosing question says, when the company's Prospecting account has people (S20). */
+export const LEAD_PERSON_CONFIRM = {
+  title: 'Convert this signal to a lead?',
+  description: 'Choose the person the lead is for, or convert it without one: the lead is then named after the company. The signal’s history records it.',
+  confirmLabel: 'Convert',
 }
 
 /** The lead a signal was turned into, as the list and the detail name it. */

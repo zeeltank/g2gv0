@@ -11,11 +11,13 @@ import { cn } from '@/lib/utils'
 import type { SignalReviewApi } from '@/services/signal-review/signal-review-service'
 import type { ProductFilterOption, SignalDecisionResponse } from '@/services/signal-review/signal-types'
 import type { ReasonOption, ReviewDecisionCode, ReviewHistoryEntry } from '@/services/signal-review/types'
+import { signalFunnelService, type SignalFunnelApi } from '@/services/signal-review/signal-funnel-service'
 import type { Opportunity } from '@/services/signals/opportunities'
 import { useSignalDecision } from './signal-decision'
 import { SignalDecisionDialog } from './signal-decision-dialog'
 import { SignalFitScore } from './signal-fit'
 import { SignalHistoryList } from './signal-history-list'
+import { FunnelFeedbackMessage, SignalFunnelActions, useSignalFunnel } from './signal-funnel'
 import { LeadFeedbackMessage, SignalLeadAction, useSignalLead } from './signal-lead'
 import { SignalEvidence } from './signal-parts'
 
@@ -32,7 +34,7 @@ const HEADING = 'text-xs font-semibold uppercase tracking-wide text-muted-foregr
  * as the signal's new version (`onChanged`); the list that owns the signals replaces the row and moves its counts. The history is read only when the card's
  * details are opened (`openHistory`), so a page of fifty cards does not ask for fifty histories.
  */
-export function useSignalCard({ signal, service, onChanged }: { signal: Opportunity; service: SignalCardService; onChanged: (next: Opportunity) => void }) {
+export function useSignalCard({ signal, service, onChanged, funnelService = signalFunnelService }: { signal: Opportunity; service: SignalCardService; onChanged: (next: Opportunity) => void; funnelService?: SignalFunnelApi }) {
   const [history, setHistory] = useState<HistoryState>({ entries: null, loading: false, error: null })
   const [requested, setRequested] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -102,21 +104,24 @@ export function useSignalCard({ signal, service, onChanged }: { signal: Opportun
 
   const decision = useSignalDecision({ service, signal, onSaved, onStale, onForbidden })
   const lead = useSignalLead({ service, signal, onPromoted })
+  const funnel = useSignalFunnel({ signal, funnel: funnelService, onChanged })
 
   const begin = (next: ReviewDecisionCode) => {
     setNotice(null)
     lead.clear()
+    funnel.clear()
     decision.open(next)
   }
   const requestLead = () => {
     setNotice(null)
+    funnel.clear()
     void lead.request()
   }
 
   return {
-    decision, lead, history, requested, notice, forbidden, openHistory, begin, requestLead,
+    decision, lead, funnel, history, requested, notice, forbidden, openHistory, begin, requestLead,
     retryHistory: () => void loadHistory(),
-    saving: decision.saving || lead.saving,
+    saving: decision.saving || lead.saving || funnel.adding,
     actions: availableDecisions(signal.review_status),
   }
 }
@@ -126,8 +131,8 @@ export type SignalCardState = ReturnType<typeof useSignalCard>
 const variantOf = (action: DecisionAction) => (action.tone === 'primary' ? 'default' : action.tone === 'danger' ? 'outline' : 'secondary')
 
 /**
- * The card's buttons: the decisions that fit its status (Contacted, Reviewed, Not relevant…, or Reopen… on a dismissed one), and "Turn into a lead" (or
- * "Lead created" with a link, once there is one). Each decision opens the dialog; nothing is sent by the button alone. Also holds the dialogs themselves.
+ * The card's buttons: the decisions that fit its status (Contacted, Reviewed, Not relevant…, or Reopen… on a dismissed one), "Convert to lead" (or
+ * "Lead created" with a link, once there is one), and the funnel: "In Prospecting" (or "Add to Prospecting") and "Convert to opportunity" (or its opportunity). Each decision opens the dialog; nothing is sent by the button alone. Also holds the dialogs themselves.
  */
 export function SignalCardActions({ card, signal, reasons }: { card: SignalCardState; signal: Opportunity; reasons: ReasonOption[] }) {
   const noReasons = reasons.length === 0
@@ -150,9 +155,11 @@ export function SignalCardActions({ card, signal, reasons }: { card: SignalCardS
           ))}
         </div>
         <SignalLeadAction lead={leadOf(signal)} saving={card.lead.saving} disabled={card.decision.saving || card.lead.forbidden} onRequest={card.requestLead} />
+        <SignalFunnelActions funnel={card.funnel} signal={signal} disabled={card.decision.saving || card.lead.saving} />
       </div>
       <SignalDecisionDialog {...card.decision.dialog} signalTitle={signal.title} currentStatus={signal.review_status} reasons={reasons} />
       {card.lead.confirmDialog}
+      {card.lead.personDialog}
     </>
   )
 }
@@ -165,6 +172,7 @@ export function SignalCardMessages({ card, reasons }: { card: SignalCardState; r
       {card.notice && <p role="status" className={cn('w-full rounded-lg border p-2.5 text-sm', BANNER_TONE.success)}>{card.notice}</p>}
       {card.forbidden && <p role="alert" className="w-full rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-sm">{FORBIDDEN_TEXT}</p>}
       <LeadFeedbackMessage feedback={card.lead.feedback} />
+      <FunnelFeedbackMessage feedback={card.funnel.feedback} />
       {needsReasons && <p className="w-full text-xs text-muted-foreground">“Not relevant” needs the list of reasons, which has not loaded. Reload the page to try again.</p>}
     </>
   )
