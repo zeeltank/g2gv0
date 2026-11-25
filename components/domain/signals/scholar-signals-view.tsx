@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { ContactSection } from '@/components/domain/signals/signal-contact-section'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -622,6 +623,9 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
         </p>
       )}
       {o.strength_reason && <p className="text-xs text-muted-foreground">Why {strength.label.toLowerCase()}: {o.strength_reason}</p>}
+
+      {/* Contact details: always shown, "Not Available" where missing; never a reason to hide the signal */}
+      <ContactSection c={o.contact} />
 
       {/* Lead Qualification & Enrichment Panel */}
       <LeadQualificationPanel q={o.crm_qualification} />
