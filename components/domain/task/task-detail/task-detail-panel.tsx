@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { AlertCircle, Archive, CalendarPlus, CheckCircle2, Edit2, Info, MoreHorizontal, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { AlertCircle, Archive, CalendarClock, CalendarPlus, CheckCircle2, Edit2, Info, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContainerContext, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,7 @@ import { formatDay } from './date-utils'
 import { ExtensionTab } from './extension-tab'
 import { FilesTab } from './files-tab'
 import { DueChip, PropertiesList } from './properties-list'
-import { StatusControl } from './status-control'
+import { StatusControl, type StatusMenuView } from './status-control'
 import { SubtasksTab } from './subtasks-tab'
 import { useTaskDetail } from './use-task-detail'
 
@@ -94,6 +94,12 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
   const [tab, setTab] = useState('activity')
   const [descriptionOpen, setDescriptionOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // The status menu is opened from two places - the status chip, and the "Ask for more time" button beside the due date.
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [statusView, setStatusView] = useState<StatusMenuView>('status')
+  // The sheet's own element: popovers render inside it (see PopoverContainerContext) so its focus trap does not fight them.
+  const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
   const [comment, setComment] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [scopeOpen, setScopeOpen] = useState(false)
@@ -131,6 +137,19 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
     { id: 'how', label: 'How to do it' },
     { id: 'extension', label: 'Extensions', count: detail.extensions.length || null },
   ]
+
+  // The request still waiting for a decision, for the chip beside the due date and the status menu.
+  const pendingExtension = detail.extensions.find((extension) => extension.status === 'pending') ?? null
+
+  function askForMoreTime() {
+    setStatusView('extension'); setStatusOpen(true)
+  }
+
+  /** The Extensions tab, brought into view: the body scrolls, and the tabs are below the description. */
+  function showExtensions() {
+    setTab('extension')
+    window.requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ block: 'start' }))
+  }
 
   const description = task?.description?.trim() ?? ''
   const longDescription = description.length > 360 || description.split('\n').length > 6
@@ -180,8 +199,10 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
           own Dialog - two Radix overlays at once compound to near-opaque and leave
           this one's content inert underneath. onUpdated's refetch +
           setEditing(false) flips this back open. */}
+      <PopoverContainerContext.Provider value={sheetEl}>
       <Sheet open={open && !editing && !deleteOpen && !scopeOpen && !stopRepeatOpen} onOpenChange={(next) => !next && onClose()}>
         <SheetContent
+          ref={setSheetEl}
           side="right"
           aria-describedby={undefined}
           // Escape belongs to the innermost open layer. The status popover, the repeat popover and the header menu
@@ -200,9 +221,32 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
                 editable={Boolean(can?.update_status)}
                 busy={busy === 'status'}
                 onSave={detail.saveStatus}
+                open={statusOpen}
+                onOpenChange={(next) => { setStatusOpen(next); if (next) setStatusView('status') }}
+                view={statusView}
+                onViewChange={setStatusView}
+                extension={{
+                  canRequest: Boolean(can?.request_extension),
+                  pending: pendingExtension,
+                  busy: busy === 'extension',
+                  onRequest: detail.requestExtension,
+                  onWithdraw: detail.withdrawExtension,
+                }}
               />
             )}
             {task && <DueChip due={task.due_date} finished={finished} />}
+            {/* The way to ask for a new due date, where a late task is noticed - not only under the tabs. */}
+            {task && can?.request_extension && (
+              <Button variant="outline" size="xs" onClick={askForMoreTime}>
+                <CalendarClock className="mr-1 size-3.5" aria-hidden="true" />Ask for more time
+              </Button>
+            )}
+            {task && !can?.request_extension && pendingExtension && (
+              <Button variant="outline" size="xs" onClick={can?.update_status ? askForMoreTime : showExtensions}>
+                <CalendarClock className="mr-1 size-3.5" aria-hidden="true" />
+                {can?.decide_extension && !can?.update_status ? 'Extension to decide' : 'Extension requested'}
+              </Button>
+            )}
 
             {task && hasMenu && (
               <div className="ml-auto flex items-center gap-1">
@@ -321,7 +365,7 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
                       <div className="border-t px-3 pb-2">{properties}</div>
                     </details>
 
-                    <div>
+                    <div ref={tabsRef}>
                       <PageTabs tabs={tabs} active={tab} onChange={setTab} label="Task sections" idPrefix="task-detail" />
                       <TabPanel id="activity" active={tab} idPrefix="task-detail">
                         <ActivityTab taskId={taskId} version={detail.activityVersion} />
@@ -388,6 +432,7 @@ function TaskDetailPanel({ taskId, open, onClose, onUpdated, dashboardContext }:
           )}
         </SheetContent>
       </Sheet>
+      </PopoverContainerContext.Provider>
 
       {/* The assign form, in edit mode, over the panel. Keyed on the task so it
           remounts per task rather than showing the last one while this loads. */}
