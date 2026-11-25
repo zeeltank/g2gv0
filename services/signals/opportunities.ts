@@ -692,9 +692,68 @@ export interface ConnectorSyncInfo {
   records_failed: number
   /** 0-100, server-computed: waiting for a worker, reading the platform, then analysing posts. */
   progress?: number
+  /** Server-told stage: waiting_in_queue | fetching | analysing | completed | completed_with_errors | failed | interrupted. */
+  stage?: 'waiting_in_queue' | 'fetching' | 'analysing' | 'completed' | 'completed_with_errors' | 'failed' | 'interrupted'
+  stage_label?: string
+  /** Posts still waiting to be analysed while the sync is active; null once it has finished. */
+  records_pending?: number | null
   error_message: string | null
   started_at: string | null
   completed_at: string | null
+}
+
+export type MonitoringContentType = 'own_posts' | 'comments' | 'discovery'
+
+export interface ConnectorMonitoringSettings {
+  enabled: boolean
+  search_keywords: string[]
+  exclude_keywords: string[]
+  target_accounts: string[]
+  max_items: number
+  search_limit: number
+  comment_videos: number
+  content_types: MonitoringContentType[]
+}
+
+export interface SyncReportItem {
+  source_id: number
+  connector: string
+  origin: 'own_posts' | 'comments' | 'discovery'
+  title: string | null
+  url: string | null
+  content: string
+  published_at: string | null
+  status: 'analysed' | 'pending' | 'failed'
+  decision_code: string | null
+  decision_label: string | null
+  detail: string | null
+  quote: string | null
+  organisation: string | null
+  error: string | null
+}
+
+export interface SyncReport {
+  sync: ConnectorSyncInfo
+  stage: NonNullable<ConnectorSyncInfo['stage']>
+  stage_label: string
+  reasons_recorded: boolean
+  totals: {
+    fetched: number
+    stored: number
+    analysed: number
+    pending: number
+    rejected: number
+    qualified: number
+    errors: number
+    duplicates: number
+    skipped: number
+    signals_created: number
+    duration_seconds: number | null
+  }
+  by_reason: Record<string, number>
+  queue: { connection: string; driver: string; name: string; sync_status: string; retry_after_safe: boolean }
+  items: SyncReportItem[]
+  items_truncated: boolean
 }
 
 export interface DataConnectorInfo {
@@ -715,6 +774,9 @@ export interface DataConnectorInfo {
   schedule_timezone: string
   next_sync_at: string | null
   available_accounts: { id: string; name: string }[]
+  /** What this organisation asked the connector to watch (its own saved rules, or the defaults when nothing is saved). */
+  monitoring?: ConnectorMonitoringSettings
+  monitoring_customised?: boolean
   last_sync_at: string | null
   last_successful_sync_at: string | null
   last_error: string | null
@@ -1026,6 +1088,15 @@ export const opportunitiesService = {
     if (!connector) throw new Error('Connector not found.')
     const health = connectorHealth(connector, connector.type !== 'public_web_page')
     return { status: health.healthy ? 200 : 409, healthy: health.healthy, latency_ms: 0, message: health.message }
+  },
+
+  /** What one sync did, post by post. Always read from the server; there is no simulated report. */
+  getSyncReport: async (c: LaravelContext, connectorId: number, syncId: number) => {
+    return apiClient.get<{ status: number; data: SyncReport }>(`/signals/ingestion/connectors/${connectorId}/syncs/${syncId}/report`, base(c))
+  },
+
+  saveConnectorMonitoring: async (c: LaravelContext, id: number, body: Partial<ConnectorMonitoringSettings>) => {
+    return apiClient.put<{ status: number; data: DataConnectorInfo }>(`/signals/ingestion/connectors/${id}/monitoring?${qs(c)}`, body)
   },
 
   syncConnector: async (c: LaravelContext, id: number, options?: { interactive?: boolean }) => {
