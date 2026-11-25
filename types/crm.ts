@@ -438,6 +438,8 @@ export interface Contact {
   otherPoBox: string | null
   description: string | null
   assignedTo: string | null
+  /** The owner's name, sent by the server so the screen does not look the user up again. */
+  assignedToName?: string | null
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null

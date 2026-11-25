@@ -309,7 +309,7 @@ export function PeopleTable({ actionsHost, onTotalChange, listState }: {
                   <TableCell className="hidden @md/people:table-cell">{titleAndRole(person)}</TableCell>
                   <TableCell className="hidden truncate @sm/people:table-cell">{person.email || NO_VALUE}</TableCell>
                   <TableCell className="hidden @md/people:table-cell">{phoneOf(person)}</TableCell>
-                  <TableCell className="hidden @2xl/people:table-cell">{person.assignedTo ? employeeName(employees, person.assignedTo) : NO_VALUE}</TableCell>
+                  <TableCell className="hidden @2xl/people:table-cell">{person.assignedTo ? (person.assignedToName ?? employeeName(employees, person.assignedTo)) : NO_VALUE}</TableCell>
                   <TableCell className="hidden @2xl/people:table-cell">{createdText(person.createdAt)}</TableCell>
                 </TableRow>
               )

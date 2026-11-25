@@ -285,7 +285,7 @@ function PersonPanelBody({ context, personId, onClose, onChanged, showCompany = 
       <TabPanel id="overview" active={activeTab} idPrefix={idPrefix}>
         <PersonOverview
           contact={contact}
-          ownerName={employeeName(employees, contact.assignedTo)}
+          ownerName={contact.assignedToName ?? employeeName(employees, contact.assignedTo)}
           factsService={factsService}
           onWroteRecord={showWrittenFact}
         />

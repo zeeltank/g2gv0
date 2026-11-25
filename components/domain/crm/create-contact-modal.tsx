@@ -238,7 +238,7 @@ export function CreateContactModal({ isOpen, onClose, onSaved, contact, picklist
           if (primary && !wasPrimary) await contactsService.setPrimary(context, saved.id)
           else if (!primary && wasPrimary) await contactsService.clearPrimary(context, saved.id)
         }
-        if (contact && hasCustomFields) await saveCustomFieldValues('crm_contacts', Number(contact.id), customValues)
+        if (saved?.id && hasCustomFields) await saveCustomFieldValues('crm_contacts', Number(saved.id), customValues)
       } catch (reason) {
         message = `${message} But one more step failed: ${reason instanceof Error ? reason.message : describePlatformError(reason, 'it could not be saved')}`
       }
@@ -371,13 +371,14 @@ export function CreateContactModal({ isOpen, onClose, onSaved, contact, picklist
             <div className="mt-3"><AddressFields prefix="other" form={form} set={set} /></div>
           </details>
 
-          {/* Always mounted (hidden until the organisation turns out to define fields): the form needs the saved person's id, so an edit only. */}
-          {contact && (
+          {/* Always mounted (hidden until the organisation turns out to define fields). Record 0 means a person that is not saved yet: the definitions load, and the values are saved with the new person's id after the create. */}
+          {(
             <div className={hasCustomFields ? '' : 'hidden'}>
               <Group title="Custom fields">
                 <CustomFieldsSection
                   recordTable="crm_contacts"
-                  recordId={Number(contact.id)}
+                  recordId={contact ? Number(contact.id) : 0}
+                  allowNew={!contact}
                   values={customValues}
                   onChange={setCustomValues}
                   onFieldsLoaded={(fields) => setHasCustomFields(fields.length > 0)}

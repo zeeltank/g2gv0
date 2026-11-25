@@ -41,12 +41,13 @@ describe('the Add person dialog', () => {
   it('has the sections of the mock-up, the company fixed when opened from a company, and Other address collapsed', async () => {
     const s = await open()
     assert.ok(s.k.bodyText().includes('Add person'))
-    assert.deepEqual(s.groups(), ['Name', 'Company', 'Reach', 'Role in the company', 'Address', 'Personal', 'Description', 'Ownership and preferences'])
+    assert.deepEqual(s.groups(), ['Name', 'Company', 'Reach', 'Role in the company', 'Address', 'Personal', 'Description', 'Custom fields', 'Ownership and preferences'])
     assert.equal(s.k.one('[data-locked-company]')!.textContent, 'Hillcrest Academy')
     assert.equal(s.k.all('[role="combobox"]').some((c) => c.textContent?.includes('Choose a company')), false, 'no company picker')
     const other = s.k.all('details').find((d) => d.textContent?.includes('Other address'))!
     assert.equal(other.hasAttribute('open'), false)
-    assert.ok(!s.k.bodyText().includes('Custom fields'), 'a new person has none yet: the form needs the saved person')
+    const customWrapper = s.k.all('[role="group"]').find((g) => g.querySelector('h3')?.textContent === 'Custom fields')!.parentElement!
+    assert.ok(customWrapper.className.includes('hidden'), 'mounted (it has to ask for the definitions) but not shown when the organisation defines none')
     assert.ok(s.k.bodyText().includes('Birthday') && s.k.bodyText().includes('Assistant phone') && s.k.bodyText().includes('LinkedIn') && s.k.bodyText().includes('Second email'))
     s.restore()
   })
@@ -188,6 +189,18 @@ describe('the Edit person dialog', () => {
     const saves = s.callsTo(/\/platform\/fields\/values\/crm_contacts\/31$/, 'POST')
     assert.equal(saves.length, 1, 'the custom field values are saved with the person')
     assert.deepEqual((saves[0].body as { values: Record<string, string> }).values, { 5: 'CBSE' })
+    s.restore()
+  })
+
+  it('shows the custom fields on Add too: it asks for the definitions of a person that is not saved yet (record 0) and saves the values with the NEW person', async () => {
+    const s = await open({ world: { people: [meera()], customFields: [{ id: 5, field_label: 'School board', field_type: 'text', value: null }] } })
+    assert.equal(s.callsTo(/\/platform\/fields\/values\/crm_contacts\/0$/, 'GET').length, 1, 'the definitions are read for record 0')
+    assert.ok(s.k.bodyText().includes('School board'))
+    await s.type('person-last-name', 'Desai')
+    await s.chooseAssignee()
+    await s.save()
+    const saves = s.callsTo(/\/platform\/fields\/values\/crm_contacts\/99$/, 'POST')
+    assert.equal(saves.length, 1, 'the custom field values are saved under the id of the person just created')
     s.restore()
   })
 
