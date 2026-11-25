@@ -405,7 +405,8 @@ describe('the Convert Lead pop-up: accessibility and the phone width', () => {
   })
 
   it('is as wide as the screen less a margin, scrolls inside itself, and lays two columns out only from a tablet up', () => {
-    const source = readFileSync(path.resolve('components/domain/crm/convert-lead-dialog.tsx'), 'utf8')
+    // The three cards (their grids and indents) moved to the shared convert-cards.tsx in S20, so the pop-up's layout is the dialog's own lines plus the cards'.
+    const source = readFileSync(path.resolve('components/domain/crm/convert-lead-dialog.tsx'), 'utf8') + '\n' + readFileSync(path.resolve('components/domain/crm/convert-cards.tsx'), 'utf8')
     const lines = source.split(/\r?\n/)
     const content = lines.find((l) => l.includes('<DialogContent'))
     assert.ok(content)

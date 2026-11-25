@@ -1,16 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Building2, TrendingUp, UserPlus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Radio, RadioGroup } from '@/components/ui/radio-group'
-import { Switch } from '@/components/ui/switch'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Field, NativeSelect } from '@/components/shared/scaffolds'
-import { CurrencySelect } from '@/components/domain/portfolio/currency-select'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import {
   companyWillExist, convertPayload, convertProblem, effectiveTransfer, initialConvertForm, opportunityNameOf, TRANSFER_LABEL, transferOptions,
@@ -19,7 +14,7 @@ import {
 import { conversionMessage } from '@/lib/leads/model'
 import { crmService } from '@/services/crm'
 import type { CrmPicklistValue, Lead } from '@/types/crm'
-import { ConvertOrganizationPicker } from './convert-organization-picker'
+import { convertOptionsOf, OpportunityCard, OrganizationCard, PersonCard } from './convert-cards'
 import { useAssignableEmployees } from './lead-employees'
 import { ROLE_FALLBACK } from './people/person-model'
 
@@ -37,39 +32,6 @@ interface Picklists {
 }
 
 const defaultStageOf = (picklists: Picklists | null): string => picklists?.stage.find((s) => s.isDefault)?.value ?? ''
-
-/** A native drop-down's options: the picklist, and the value already held when the list no longer has it (so it is shown, not lost). */
-function optionsOf(values: CrmPicklistValue[], held: string): Array<{ value: string; label: string }> {
-  const options = values.map((p) => ({ value: p.value, label: p.label }))
-  if (held !== '' && !options.some((o) => o.value === held)) options.push({ value: held, label: held })
-  return options
-}
-
-/** One of the three cards: an icon, a title with its switch, and, when the switch is on, the choices that follow it, tinted and lined up under the title. */
-function Card({ icon, children, details, detailsKey, columns = false }: { icon: ReactNode; children: ReactNode; details?: ReactNode; detailsKey: string; columns?: boolean }) {
-  return (
-    <div className="rounded-lg border border-border p-3">
-      <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">{icon}</div>
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
-      {details && (
-        <div data-details={detailsKey} className={columns ? 'mt-3 grid grid-cols-1 gap-3 rounded-md bg-muted/50 p-2.5 sm:ml-[3.25rem] sm:grid-cols-2' : 'mt-3 space-y-3 rounded-md bg-muted/50 p-2.5 sm:ml-[3.25rem]'}>
-          {details}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SwitchRow({ id, label, checked, onChange, muted = false }: { id: string; label: string; checked: boolean; onChange: (on: boolean) => void; muted?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <Label htmlFor={id} className={muted ? 'cursor-pointer text-sm text-muted-foreground' : 'cursor-pointer'}>{label}</Label>
-      <Switch id={id} checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </div>
-  )
-}
 
 /**
  * Convert Lead: ONE pop-up where the person decides what the lead becomes (S19). An organization (a new one, with its name and industry editable, or one that
@@ -129,9 +91,9 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
   const transfers = transferOptions(form, lead)
   const transfer = effectiveTransfer(form, lead)
   const roles = picklists && picklists.role.length > 0 ? picklists.role : ROLE_FALLBACK.map((label, i) => ({ value: label, label, sortOrder: i, isDefault: false }))
-  const roleOptions = optionsOf(roles, form.contactRole)
-  const industryOptions = optionsOf(picklists?.industry ?? [], form.industry)
-  const stageOptions = optionsOf(picklists?.stage ?? [], form.stage)
+  const roleOptions = convertOptionsOf(roles, form.contactRole)
+  const industryOptions = convertOptionsOf(picklists?.industry ?? [], form.industry)
+  const stageOptions = convertOptionsOf(picklists?.stage ?? [], form.stage)
 
   const submit = async () => {
     const problem = convertProblem(form)
@@ -168,113 +130,57 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
-          <Card
-            detailsKey="organization"
-            icon={<Building2 className="size-4" aria-hidden="true" />}
-            details={form.createOrganization && (
-              <>
-                <SwitchRow id="convert-org-existing" label="Use an existing organization instead" muted checked={form.useExistingOrganization} onChange={(on) => set({ useExistingOrganization: on })} />
-                {form.useExistingOrganization ? (
-                  <ConvertOrganizationPicker
-                    context={context}
-                    chosenId={form.existingOrganizationId}
-                    chosenName={form.existingOrganizationName}
-                    onChoose={(id, name) => set({ existingOrganizationId: id, existingOrganizationName: name })}
-                  />
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label="Organization name" required>
-                      {(c) => <Input {...c} name="convert-org-name" value={form.organizationName} onChange={(e) => set({ organizationName: e.target.value })} autoComplete="off" />}
-                    </Field>
-                    <Field label="Industry">
-                      {(c) => (
-                        <NativeSelect {...c} name="convert-org-industry" value={form.industry} onChange={(e) => set({ industry: e.target.value })}>
-                          <option value="">—</option>
-                          {industryOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </NativeSelect>
-                      )}
-                    </Field>
-                  </div>
-                )}
-              </>
-            )}
-          >
-            <SwitchRow id="convert-org" label="Create organization" checked={form.createOrganization} onChange={(on) => set({ createOrganization: on })} />
-            {!lead.company && <p className="mt-0.5 text-xs text-muted-foreground">This lead has no company name. Type one, or use an existing organization.</p>}
-          </Card>
+          <OrganizationCard
+            context={context}
+            create={form.createOrganization}
+            onCreate={(on) => set({ createOrganization: on })}
+            note={!lead.company && <p className="mt-0.5 text-xs text-muted-foreground">This lead has no company name. Type one, or use an existing organization.</p>}
+            useExisting={form.useExistingOrganization}
+            onUseExisting={(on) => set({ useExistingOrganization: on })}
+            existingId={form.existingOrganizationId}
+            existingName={form.existingOrganizationName}
+            onChoose={(id, name) => set({ existingOrganizationId: id, existingOrganizationName: name })}
+            name={form.organizationName}
+            onName={(value) => set({ organizationName: value })}
+            industry={form.industry}
+            onIndustry={(value) => set({ industry: value })}
+            industryOptions={industryOptions}
+          />
 
-          <Card
-            detailsKey="person"
-            icon={<UserPlus className="size-4" aria-hidden="true" />}
-            details={form.createContact && (
-              <>
-                <SwitchRow id="convert-link-existing" label="Attach to an existing person instead" muted checked={form.linkExisting} onChange={(on) => set({ linkExisting: on })} />
-                {form.linkExisting && (
-                  <SearchableSelect
-                    aria-label="Existing person"
-                    value={form.existingContactId}
-                    onChange={(id) => set({ existingContactId: id })}
-                    options={contacts.map((c) => ({ value: c.id, label: c.label }))}
-                    placeholder="Choose an existing contact…"
-                  />
-                )}
-                {company && (
-                  <div className="space-y-3 border-t border-border pt-3" data-person-company>
-                    <SwitchRow id="convert-primary" label="Primary contact of this company" checked={form.makePrimary} onChange={(on) => set({ makePrimary: on })} />
-                    <Field label="Role" hint={form.linkExisting ? 'For an existing person, this applies only if they already work at this company.' : undefined}>
-                      {(c) => (
-                        <NativeSelect {...c} name="convert-role" value={form.contactRole} onChange={(e) => set({ contactRole: e.target.value })}>
-                          <option value="">—</option>
-                          {roleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </NativeSelect>
-                      )}
-                    </Field>
-                  </div>
-                )}
-              </>
-            )}
-          >
-            <SwitchRow id="convert-contact" label="Create person" checked={form.createContact} onChange={(on) => set({ createContact: on })} />
-            {lead.hasRealName === false && form.createContact && !form.linkExisting && (
+          <PersonCard
+            create={form.createContact}
+            onCreate={(on) => set({ createContact: on })}
+            note={lead.hasRealName === false && form.createContact && !form.linkExisting && (
               <p className="mt-0.5 text-xs text-muted-foreground">This lead names no person (only the company), so no new person can be made. Attach to an existing one, or switch this off.</p>
             )}
-          </Card>
+            linkExisting={form.linkExisting}
+            onLinkExisting={(on) => set({ linkExisting: on })}
+            existingId={form.existingContactId}
+            onExistingId={(id) => set({ existingContactId: id })}
+            contacts={contacts}
+            showCompany={company}
+            makePrimary={form.makePrimary}
+            onMakePrimary={(on) => set({ makePrimary: on })}
+            role={form.contactRole}
+            onRole={(value) => set({ contactRole: value })}
+            roleOptions={roleOptions}
+          />
 
-          <Card
-            detailsKey="opportunity"
-            columns
-            icon={<TrendingUp className="size-4" aria-hidden="true" />}
-            details={form.createOpportunity && (
-              <>
-                <div className="sm:col-span-2">
-                  <Field label="Opportunity name">
-                    {(c) => <Input {...c} name="convert-opp-name" value={opportunityNameOf(form, lead)} onChange={(e) => set({ opportunityName: e.target.value })} autoComplete="off" />}
-                  </Field>
-                </div>
-                <Field label="Amount">
-                  {(c) => <Input {...c} name="convert-opp-amount" type="number" inputMode="decimal" min={0} step="any" value={form.amount} onChange={(e) => set({ amount: e.target.value })} />}
-                </Field>
-                <Field label="Currency" hint="Your organization's default is used when you choose none.">
-                  {(c) => <CurrencySelect {...c} value={form.currency} onChange={(code) => set({ currency: code })} />}
-                </Field>
-                <Field label="Expected close date">
-                  {(c) => <Input {...c} name="convert-opp-close" type="date" value={form.closeDate} onChange={(e) => set({ closeDate: e.target.value })} />}
-                </Field>
-                <Field label="Stage">
-                  {(c) => (
-                    <NativeSelect {...c} name="convert-opp-stage" value={form.stage} onChange={(e) => set({ stage: e.target.value })}>
-                      <option value="">—</option>
-                      {stageOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </NativeSelect>
-                  )}
-                </Field>
-              </>
-            )}
-          >
-            <SwitchRow id="convert-opportunity" label="Create opportunity" checked={form.createOpportunity} onChange={(on) => set({ createOpportunity: on })} />
-            {!form.createOpportunity && <p className="mt-0.5 text-xs text-muted-foreground">Starts a pipeline deal.</p>}
-          </Card>
-
+          <OpportunityCard
+            create={form.createOpportunity}
+            onCreate={(on) => set({ createOpportunity: on })}
+            name={opportunityNameOf(form, lead)}
+            onName={(value) => set({ opportunityName: value })}
+            amount={form.amount}
+            onAmount={(value) => set({ amount: value })}
+            currency={form.currency}
+            onCurrency={(code) => set({ currency: code })}
+            closeDate={form.closeDate}
+            onCloseDate={(value) => set({ closeDate: value })}
+            stage={form.stage}
+            onStage={(value) => set({ stage: value })}
+            stageOptions={stageOptions}
+          />
           <div className="space-y-1.5">
             <Label>Assigned To *</Label>
             <SearchableSelect

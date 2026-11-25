@@ -148,6 +148,25 @@ export interface AccountDetail {
   signals: GtmSignal[]
   activities: GtmActivity[]
   analyses: { id: number; kind: string; status: string; is_estimate: boolean; provider: string | null; model: string | null; created_at: string }[]
+  /** S20: the leads qualified from this account, oldest first. Missing on a server that is not updated yet. */
+  leads?: GtmAccountLead[]
+}
+
+/** A lead made from a person at this account ("Qualify as lead"). `contactId` is null for a lead named after the company. */
+export interface GtmAccountLead {
+  id: string
+  leadNo: string | null
+  name: string
+  status: string | null
+  contactId: number | null
+}
+
+/** POST /gtm/accounts/{id}/qualify-as-lead: 201 when the lead was made now, 200 with `created: false` for a person who already has one. */
+export interface QualifyAsLeadResult {
+  lead_id: string
+  lead_no: string | null
+  created: boolean
+  stage: string
 }
 
 type Env<T> = { status: number; data: T; message?: string }
@@ -255,6 +274,10 @@ export const gtmService = {
 
   updateAccount: (id: number, input: Partial<AccountInput>) =>
     apiClient.patch<Env<{ account: GtmAccount }>>(`/gtm/accounts/${id}`, withRegion(input)),
+
+  /** One CRM lead that names this person; the account moves to Engaged. `assignedTo` is the owner (the caller when omitted). */
+  qualifyAsLead: (accountId: number, body: { contactId: number; assignedTo?: number }) =>
+    apiClient.post<Env<QualifyAsLeadResult>>(`/gtm/accounts/${accountId}/qualify-as-lead`, body),
 
   scoreIcp: (id: number) =>
     apiClient.post<Env<{ account: GtmAccount; score: number | null; basis: IcpBasis }>>(`/gtm/accounts/${id}/score-icp`, {}),

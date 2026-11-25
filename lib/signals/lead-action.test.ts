@@ -86,7 +86,7 @@ describe('the confirmation', () => {
   it('says what will happen: a lead in CRM from this signal, and the history records it', () => {
     assert.match(LEAD_CONFIRM.description, /lead is created in CRM from this signal/)
     assert.match(LEAD_CONFIRM.description, /history records it/)
-    assert.equal(LEAD_CONFIRM.confirmLabel, 'Create lead')
+    assert.equal(LEAD_CONFIRM.confirmLabel, 'Convert')
   })
 })
 
