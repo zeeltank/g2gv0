@@ -47,7 +47,8 @@ describe('Product Details & ICP link', () => {
 
   it('enables universal signal generation on Company opportunities without blocking ICP requirements', () => {
     const src = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(src, /disabled=\{!selected \|\| run\.running\}/)
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): Generate is also off for "All ICP types" (a run is for one type).
+    assert.match(src, /disabled=\{!selected \|\| run\.running \|\| icpType === 'all'\}/)
     assert.doesNotMatch(src, /Needs setup/)
     assert.doesNotMatch(src, /Configure in Product Portfolio/)
   })
@@ -83,7 +84,7 @@ describe('Routes and navigation', () => {
     // Changed on purpose in the merge of origin/main (82b4922): the screen passes the products reload to the run (the server may create the sub-product's ICP region) and
     // Generate is no longer held back by a client-side readiness check, so only "nothing chosen" and "a run is going" turn it off.
     assert.match(screen, /useGenerateSignals\(context, selected \? selected\.key : null, products, offerId, regions, reloadProducts\)/)
-    assert.match(screen, /disabled=\{!selected \|\| run\.running\}/)
+    assert.match(screen, /disabled=\{!selected \|\| run\.running \|\| icpType === 'all'\}/)
     assert.doesNotMatch(screen, /\|\| !ready\}/, 'Generate is not disabled by a readiness flag any more')
     assert.equal(/useSelectedProduct/.test(screen), false, 'the old hook defaults to "all" where all is allowed; this screen resolves its scope itself')
     // The product dropdown component this screen does not use still has no "All products".
@@ -122,7 +123,8 @@ describe('One list and the research-date selector', () => {
   })
 
   it('takes its dates from the backend history, not from the clock', () => {
-    assert.match(screen, /getRunDates\(context, key, icpType, offerId, regions\)/)
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): with "All ICP types" the days are the product's days across every scope.
+    assert.match(screen, /getRunDates\(context, key, icpType === 'all' \? 'b2b' : icpType, offerId, regions, icpType === 'all'\)/)
     assert.equal(/new Date\(|Date\.now\(/.test(screen), false)
   })
 

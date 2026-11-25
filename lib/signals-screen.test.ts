@@ -5,7 +5,7 @@ import { describe, it } from 'node:test'
 import type { NavModule } from './gtg-navigation'
 import { collapseSignalsNav, SIGNALS_TABS, visibleSignalsTabs } from './signals-nav'
 import { isPickableDay, rangeText, recentDays, relativeLabel, shiftDay, todayIn } from './signal-dates'
-import { DEFAULT_PER_PAGE, PER_PAGE_CHOICES } from './signals/opportunity-query'
+import { DEFAULT_PER_PAGE } from './signals/opportunity-query'
 
 const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8')
 
@@ -129,17 +129,17 @@ describe('Signals dates', () => {
   // the page is the address's too, so the old pins on a fixed `SIGNALS_PER_PAGE = 5` and on `setPage(1); setData(null)` in an effect are replaced by pins
   // on the same two rules in their new form: five by default, and back to page one when the SCOPE changes (but not on the first render, so a link that
   // opens on page three stays on page three).
-  it('the signal list asks the server for five per page unless the address says 20 or 50, and goes back to page one when its scope changes', () => {
+  // CHANGED ON PURPOSE (S17, 25 Nov 2026): the page-size box and `per` are gone; five is the only page size. And Generate Signals is also off for "All ICP types".
+  it('the signal list asks the server for five per page, and goes back to page one when its scope changes', () => {
     assert.equal(DEFAULT_PER_PAGE, 5)
-    assert.deepEqual([...PER_PAGE_CHOICES], ['5', '20', '50'])
     const list = read('components/domain/signals/signal-list.tsx')
-    assert.match(list, /\.\.\.listRequest\(\{ q, sort, dir: 'desc', page, filters: \{ product: '', status, freshness, fit, per \} \}\)/)
+    assert.match(list, /\.\.\.listRequest\(\{ q, sort, dir: 'desc', page, filters: \{ product: '', status, freshness, fit \} \}\)/)
     assert.equal(/SIGNALS_PER_PAGE/.test(list), false, 'no second, fixed page size beside the address\'s')
     assert.match(list, /if \(lastScope\.current === scope\) return/)
     assert.match(list, /setData\(null\); setError\(null\); setSourceTab\('all'\)\s*\n\s*if \(page > 1\) setPage\(1\)/)
     const opps = read('components/domain/signals/company-opportunities.tsx')
     assert.match(opps, /void run\.generate\(c\.list, icpType\)/)
-    assert.match(opps, /disabled=\{!selected \|\| run\.running\}/)
+    assert.match(opps, /disabled=\{!selected \|\| run\.running \|\| icpType === 'all'\}/)
     assert.doesNotMatch(opps, /useEffect\([^)]*generate/)
   })
 })

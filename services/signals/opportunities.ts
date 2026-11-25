@@ -491,6 +491,8 @@ export interface OpportunityQuery {
   needCode?: string
   /** Genuine All Signals inbox mode: aggregates across sub-products, customer models, and regions. */
   allSignals?: boolean
+  /** The sub-product, ICP type and places above are FILTERS of the list (each narrows only when sent; a place matches the places inside it), not one exact run scope. */
+  scopeFilter?: boolean
   /** Filter by origin: 'all' (default), 'generated', or 'manual'. */
   source?: 'all' | 'generated' | 'manual'
 }
@@ -897,6 +899,7 @@ export const opportunitiesService = {
     if (q.latestSaved) params.latest_saved = '1'
     if (q.needCode) params.need_code = q.needCode
     if (q.allSignals) params.all_signals = '1'
+    if (q.scopeFilter) params.scope_filter = '1'
     if (q.source && q.source !== 'all') params.source = q.source
     return apiClient.get<OpportunityListResponse>('/signals/opportunities', params)
   },

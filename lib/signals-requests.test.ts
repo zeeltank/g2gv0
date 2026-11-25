@@ -41,6 +41,32 @@ describe('Signals requests', () => {
     assert.equal(calls[1].url.searchParams.has('product'), false)
   })
 
+  it('sends the selectors as filters of the list with scope_filter, and nothing for a selector that is not set (S17)', async () => {
+    await opportunitiesService.list(ctx, { product: 'all', scopeFilter: true, offerId: 'SCH-11', customerModel: 'b2g', regions: [{ country: 'India', state: 'Gujarat' }] })
+    const q = calls[0].url.searchParams
+    assert.equal(q.get('scope_filter'), '1')
+    assert.equal(q.get('offer_id'), 'SCH-11')
+    assert.equal(q.get('customer_model'), 'b2g')
+    assert.equal(q.get('regions[0][country]'), 'India')
+    assert.equal(q.get('regions[0][state]'), 'Gujarat')
+    assert.equal(q.has('all_signals'), false)
+
+    await opportunitiesService.list(ctx, { product: 'all', scopeFilter: true })
+    const bare = calls[1].url.searchParams
+    assert.equal(bare.get('scope_filter'), '1')
+    for (const name of ['offer_id', 'customer_model', 'regions[0][country]', 'all_signals']) assert.equal(bare.has(name), false, name)
+
+    await opportunitiesService.list(ctx, { product: 'all' })
+    assert.equal(calls[2].url.searchParams.has('scope_filter'), false, 'without the flag the request is what it always was')
+  })
+
+  it('asks for the days across every scope with all_signals, and for one scope\'s days without it', async () => {
+    await opportunitiesService.getRunDates(ctx, 'scholarclone', 'b2b', 'SCH-11', [], true)
+    assert.equal(calls[0].url.searchParams.get('all_signals'), '1')
+    await opportunitiesService.getRunDates(ctx, 'scholarclone', 'b2b', 'SCH-11', [], false)
+    assert.equal(calls[1].url.searchParams.has('all_signals'), false)
+  })
+
   it('starts a run with the selected product key in the body, on the research endpoint only', async () => {
     await opportunitiesService.runResearch(ctx, undefined, 'enterprise_brain')
     assert.equal(calls.length, 1)
