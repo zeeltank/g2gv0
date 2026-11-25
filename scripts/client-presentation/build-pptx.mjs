@@ -49,7 +49,7 @@ for (const p of atlas.products) for (const sub of p.subs) {
 const imgOfSub = (sub) => atlasImg.get(sub.id) ?? null
 const atlasPlan = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/atlas-plan.json'), 'utf8'))
 const atlasVideoDir = arg('atlas-video', 'D:/client-presentation-assets/atlas-video')
-const { mid: atlasMid, gallery: atlasGallery } = atlasOrder(atlas, atlasPlan)
+const { list: atlasList, firstOf: atlasFirstOf } = atlasOrder(atlas, atlasPlan)
 
 const S = (n) => deck.slides.find((s) => s.n === n)
 const L = (s, role) => s.lines.filter((l) => l.role === role)
@@ -269,15 +269,16 @@ function make(slidesToBuild) {
     text(sl, T(s, 'brand').toUpperCase(), 140, 500, 600, 40, { bold: true, color: '7FB6FF', fontSize: 14, charSpacing: 8 }); head(sl, T(s, 'headline'), 140, 560, 760, 330, 44)
     L(s6, 'product').forEach((l, i) => { const [n, d] = split(l.text); const y = 120 + i * 132; line(sl, 1000, y, 1780, y, { line: { color: '3A5878', width: 1 } }); head(sl, n, 1000, y + 14, 520, 60, 40); text(sl, d, 1000, y + 76, 520, 40, { fontSize: 12, color: C.soft }) })
   }); notes(sl, s, `Also: ${S(6).say}`) }
-  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir)
+  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir, { at, firstOf: atlasFirstOf, endN: 15 })
   const atlasFn = (n) => {
-    const it = [...atlasMid, ...atlasGallery].find((x) => x.n === n); if (!it) return null
-    if (it.kind === 'video') return AB.video(n, it.key, it.title)
-    if (it.kind === 'big') return AB[n]
-    if (it.kind === 'intro') return AB.intro(n, it.p)
-    if (it.kind === 'sub') return AB.sub(n, it.p, it.s)
-    if (it.kind === 'gallery') return AB.gallery(n, it.p)
-    return AB[n]
+    const it = atlasList.find((x) => x.n === n); if (!it) return null
+    if (it.kind === 'video') return AB.video(n, it.key, it.title, it.family)
+    if (it.kind === 'hub') return AB.hub
+    if (it.kind === 'opener') return AB.opener(n, it.family)
+    if (it.kind === 'sub') return AB.sub(n, it.family, it.sub)
+    if (it.kind === 'glance') return AB.glance(n, it.family)
+    if (it.kind === 'gallery') return AB.gallery(n, it.family, it.subs)
+    return null
   }
   for (const n of slidesToBuild) (typeof n === 'string' ? { s2: SHORT2, s5: SHORT3 }[n] : (B[n] ?? atlasFn(n)))()
   return pptx
@@ -307,6 +308,6 @@ async function finish(pptx, file) {
   console.log('wrote', path)
 }
 
-// The atlas sits after the principal's-day slide and before the invitation, as in the web deck; the screen gallery is the last slides of the file.
-await finish(make([1, 2, 3, 4, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, ...atlasMid.map((x) => x.n), 15, 101, 102, 103, 104, ...atlasGallery.map((x) => x.n)]), 'ScholarClone-Client-Presentation.pptx')
+// The atlas sits after the principal's-day slide and before the invitation, as in the web deck: the product hub is slide 17, then one section per product.
+await finish(make([1, 2, 3, 4, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, ...atlasList.map((x) => x.n), 15, 101, 102, 103, 104]), 'ScholarClone-Client-Presentation.pptx')
 await finish(make([1, 's2', 's5', 14, 15]), 'ScholarClone-Client-Presentation-Short.pptx')

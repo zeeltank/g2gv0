@@ -16,7 +16,7 @@ const holdSubs = Number(arg('hold', 3.6)); const fps = Number(arg('fps', 30)); c
 if (!name || !keys.length) { console.log('usage: --name <file> --keys a1,a2'); process.exit(1) }
 mkdirSync(outDir, { recursive: true })
 const plan = JSON.parse(readFileSync(new URL('../../lib/client-presentation/generated/atlas-plan.json', import.meta.url), 'utf8'))
-const HOLD = { big: 1.6, families: 3.4, problems: 3.4, workflows: 3.2, benefits: 3.4, tech: 2.6, subs: holdSubs, gallery: 3.2 }
+const HOLD = { hub: 3.5, opener: 4.2, glance: 3.6, subs: holdSubs, gallery: 3.4 }
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')

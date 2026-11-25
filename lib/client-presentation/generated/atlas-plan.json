@@ -1,53 +1,24 @@
 [
  {
-  "kind": "big",
+  "kind": "hub",
   "theme": "ink",
+  "title": "Choose a product",
+  "kicker": "Products",
+  "ghost": "",
   "beats": 0,
-  "title": "What every module is",
-  "kicker": "Summary",
-  "ghost": "01",
   "key": "a1",
   "n": 201
  },
  {
-  "kind": "families",
-  "theme": "paper",
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "",
+  "family": "core",
   "beats": 0,
-  "title": "What every module is",
-  "kicker": "Summary",
-  "ghost": "01",
   "key": "a2",
   "n": 202
- },
- {
-  "kind": "big",
-  "theme": "ink",
-  "beats": 0,
-  "title": "Which problem we solve",
-  "kicker": "Problems",
-  "ghost": "02",
-  "key": "a3",
-  "n": 203
- },
- {
-  "kind": "problems",
-  "theme": "paper",
-  "beats": 0,
-  "title": "Which problem we solve",
-  "kicker": "Problems",
-  "ghost": "02",
-  "key": "a4",
-  "n": 204
- },
- {
-  "kind": "big",
-  "theme": "ink",
-  "beats": 0,
-  "title": "Inside every module",
-  "kicker": "Modules and sub-modules",
-  "ghost": "03",
-  "key": "a5",
-  "n": 205
  },
  {
   "kind": "subs",
@@ -63,10 +34,9 @@
    "core-users",
    "core-front-desk"
   ],
-  "intro": true,
-  "beats": 5,
-  "key": "a6",
-  "n": 206
+  "beats": 4,
+  "key": "a3",
+  "n": 203
  },
  {
   "kind": "subs",
@@ -82,10 +52,9 @@
    "core-fees",
    "core-petty-cash"
   ],
-  "intro": false,
   "beats": 4,
-  "key": "a7",
-  "n": 207
+  "key": "a4",
+  "n": 204
  },
  {
   "kind": "subs",
@@ -101,10 +70,9 @@
    "core-library",
    "core-inward-outward"
   ],
-  "intro": false,
   "beats": 4,
-  "key": "a8",
-  "n": 208
+  "key": "a5",
+  "n": 205
  },
  {
   "kind": "subs",
@@ -120,10 +88,9 @@
    "core-circular",
    "core-parent-communication"
   ],
-  "intro": false,
   "beats": 4,
-  "key": "a9",
-  "n": 209
+  "key": "a6",
+  "n": 206
  },
  {
   "kind": "subs",
@@ -139,10 +106,95 @@
    "core-mobile-apps",
    "core-alumni-management"
   ],
-  "intro": false,
   "beats": 4,
+  "key": "a7",
+  "n": 207
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "",
+  "family": "core",
+  "beats": 0,
+  "key": "a8",
+  "n": 208
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "1/3",
+  "family": "core",
+  "subs": [
+   "core-student",
+   "core-admission",
+   "core-attendance",
+   "core-users",
+   "core-front-desk",
+   "core-visitor-management",
+   "core-timetable",
+   "core-exam",
+   "core-fees"
+  ],
+  "beats": 0,
+  "key": "a9",
+  "n": 209
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "2/3",
+  "family": "core",
+  "subs": [
+   "core-petty-cash",
+   "core-inventory",
+   "core-transport",
+   "core-hostel",
+   "core-library",
+   "core-inward-outward",
+   "core-utility",
+   "core-document-templates",
+   "core-communication"
+  ],
+  "beats": 0,
   "key": "a10",
   "n": 210
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "3/3",
+  "family": "core",
+  "subs": [
+   "core-circular",
+   "core-parent-communication",
+   "core-consent",
+   "core-ptm",
+   "core-complaint",
+   "core-mobile-apps",
+   "core-alumni-management"
+  ],
+  "beats": 0,
+  "key": "a11",
+  "n": 211
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "beats": 0,
+  "key": "a12",
+  "n": 212
  },
  {
   "kind": "subs",
@@ -157,10 +209,9 @@
    "learn-engagement",
    "learn-curriculum-planning"
   ],
-  "intro": true,
-  "beats": 4,
-  "key": "a11",
-  "n": 211
+  "beats": 3,
+  "key": "a13",
+  "n": 213
  },
  {
   "kind": "subs",
@@ -174,10 +225,51 @@
    "learn-pal-knowledge-graph",
    "learn-pal-engines"
   ],
-  "intro": false,
   "beats": 2,
-  "key": "a12",
-  "n": 212
+  "key": "a14",
+  "n": 214
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "beats": 0,
+  "key": "a15",
+  "n": 215
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "subs": [
+   "learn-teach-learn",
+   "learn-exam-assessment",
+   "learn-engagement",
+   "learn-curriculum-planning",
+   "learn-pal-content-model",
+   "learn-pal-knowledge-graph",
+   "learn-pal-engines"
+  ],
+  "beats": 0,
+  "key": "a16",
+  "n": 216
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "beats": 0,
+  "key": "a17",
+  "n": 217
  },
  {
   "kind": "subs",
@@ -191,10 +283,9 @@
    "ccb-task-management",
    "ccb-talent-management"
   ],
-  "intro": true,
-  "beats": 3,
-  "key": "a13",
-  "n": 213
+  "beats": 2,
+  "key": "a18",
+  "n": 218
  },
  {
   "kind": "subs",
@@ -208,10 +299,50 @@
    "ccb-capability-intelligence",
    "ccb-lms"
   ],
-  "intro": false,
   "beats": 2,
-  "key": "a14",
-  "n": 214
+  "key": "a19",
+  "n": 219
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "beats": 0,
+  "key": "a20",
+  "n": 220
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "subs": [
+   "ccb-organization-management",
+   "ccb-task-management",
+   "ccb-talent-management",
+   "ccb-hrit-management",
+   "ccb-capability-intelligence",
+   "ccb-lms"
+  ],
+  "beats": 0,
+  "key": "a21",
+  "n": 221
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "beats": 0,
+  "key": "a22",
+  "n": 222
  },
  {
   "kind": "subs",
@@ -226,10 +357,9 @@
    "insight-intelligence-loop",
    "insight-analytics"
   ],
-  "intro": true,
-  "beats": 4,
-  "key": "a15",
-  "n": 215
+  "beats": 3,
+  "key": "a23",
+  "n": 223
  },
  {
   "kind": "subs",
@@ -243,10 +373,51 @@
    "insight-automation",
    "insight-settings"
   ],
-  "intro": false,
   "beats": 2,
-  "key": "a16",
-  "n": 216
+  "key": "a24",
+  "n": 224
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "beats": 0,
+  "key": "a25",
+  "n": 225
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "subs": [
+   "insight-overview",
+   "insight-foundation",
+   "insight-intelligence-loop",
+   "insight-analytics",
+   "insight-knowledge",
+   "insight-automation",
+   "insight-settings"
+  ],
+  "beats": 0,
+  "key": "a26",
+  "n": 226
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
+  "beats": 0,
+  "key": "a27",
+  "n": 227
  },
  {
   "kind": "subs",
@@ -261,89 +432,36 @@
    "compass-career-explorer",
    "compass-career-intelligence"
   ],
-  "intro": true,
-  "beats": 4,
-  "key": "a17",
-  "n": 217
+  "beats": 3,
+  "key": "a28",
+  "n": 228
  },
  {
-  "kind": "big",
+  "kind": "glance",
   "theme": "paper",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
   "beats": 0,
-  "title": "How the work flows",
-  "kicker": "Workflows",
-  "ghost": "04",
-  "key": "a18",
-  "n": 218
- },
- {
-  "kind": "workflows",
-  "theme": "ink",
-  "beats": 0,
-  "title": "How the work flows",
-  "kicker": "Workflows",
-  "ghost": "04",
-  "key": "a19",
-  "n": 219
- },
- {
-  "kind": "big",
-  "theme": "ink",
-  "beats": 0,
-  "title": "Where our AI helps",
-  "kicker": "AI and technology",
-  "ghost": "05",
-  "key": "a20",
-  "n": 220
- },
- {
-  "kind": "tech",
-  "theme": "paper",
-  "beats": 2,
-  "title": "Where our AI helps",
-  "kicker": "AI and technology",
-  "ghost": "05",
-  "key": "a21",
-  "n": 221
- },
- {
-  "kind": "big",
-  "theme": "paper",
-  "beats": 0,
-  "title": "What could become easier",
-  "kicker": "Benefits",
-  "ghost": "06",
-  "key": "a22",
-  "n": 222
- },
- {
-  "kind": "benefits",
-  "theme": "ink",
-  "beats": 0,
-  "title": "What could become easier",
-  "kicker": "Benefits",
-  "ghost": "06",
-  "key": "a23",
-  "n": 223
- },
- {
-  "kind": "big",
-  "theme": "ink",
-  "beats": 0,
-  "title": "See it for real",
-  "kicker": "Screens",
-  "ghost": "07",
-  "key": "a24",
-  "n": 224
+  "key": "a29",
+  "n": 229
  },
  {
   "kind": "gallery",
   "theme": "paper",
-  "beats": 4,
-  "title": "See it for real",
-  "kicker": "Screens",
-  "ghost": "07",
-  "key": "a25",
-  "n": 225
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
+  "subs": [
+   "compass-career-awareness",
+   "compass-career-counseling",
+   "compass-career-explorer",
+   "compass-career-intelligence"
+  ],
+  "beats": 0,
+  "key": "a30",
+  "n": 230
  }
 ]

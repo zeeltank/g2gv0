@@ -122,3 +122,54 @@
 .at-gal-item img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
 .at-gal-item b { display: block; margin-top: 12px; font: 800 20px/1.2 var(--cp-sans), sans-serif; color: var(--cp-text-ink); }
 .at-gal-note { position: absolute; left: 140px; bottom: 120px; width: 440px; font: 600 20px/1.3 var(--cp-sans), sans-serif; color: var(--cp-text-body); opacity: 0.8; }
+
+/* ---- product rail: one click opens any product (hidden in the video render) ---- */
+.at-prodrail { position: absolute; left: 140px; top: 28px; display: flex; gap: 10px; z-index: 5; }
+.at-pill { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 999px; font: 700 20px/1 var(--cp-sans), sans-serif; color: var(--at-sky); border: 2px solid var(--at-line); }
+.at[data-theme='paper'] .at-pill { color: var(--cp-text-ink); }
+.at-pill:hover { border-color: var(--cp-blue); }
+.at-pill.on { background: var(--cp-blue); border-color: var(--cp-blue); color: #fff; }
+.at-pill:focus-visible, .at-hubcol:focus-visible { outline: 3px solid #9fd0ff; outline-offset: 3px; }
+.at-render .at-prodrail { display: none; }
+
+/* ---- the hub: one big button per product ---- */
+.at-hubtitle { position: absolute; left: 140px; top: 150px; width: 1640px; margin: 0; font: 300 118px/1.04 var(--cp-display), Georgia, serif; letter-spacing: -0.035em; }
+.at-hubsub { position: absolute; left: 140px; top: 300px; margin: 0; font: 600 28px/1.3 var(--cp-sans), sans-serif; color: var(--cp-on-ink-soft); opacity: 0; }
+.at-hubgrid { position: absolute; left: 140px; top: 380px; width: 1640px; height: 620px; display: grid; }
+.at-hubcol { all: unset; box-sizing: border-box; position: relative; display: block; cursor: pointer; height: 100%; padding: 0 28px 0 34px; }
+.at-hubcol:first-child { padding-left: 0; }
+.at-hubcol:first-child .at-vrule { display: none; }
+.at-hubcol > span { display: block; }
+.at-hubcol > .at-vrule { position: absolute; }
+.at-hubcol .at-prod { height: 118px; }
+.at-hubcol:hover .at-prod { color: var(--at-sky); }
+.at-hubcol .at-mod { color: var(--at-sky); }
+.at-hubcol .at-sum { color: var(--cp-on-ink-soft); height: 250px; font-size: 24px; }
+.at-hubcol .at-num { bottom: 58px; }
+.at-hubcol .at-numl { color: var(--cp-on-ink-soft); bottom: 24px; }
+.at-hubcol:first-child .at-num, .at-hubcol:first-child .at-numl, .at-hubcol:first-child .at-open { left: 0; }
+.at-open { position: absolute; left: 34px; bottom: -22px; font: 800 24px/1 var(--cp-sans), sans-serif; color: var(--at-sky); letter-spacing: 0.04em; }
+
+/* ---- how a product works: workflow, technology, AI ---- */
+.at-gllab { position: absolute; left: 140px; top: 190px; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cp-blue-d); }
+.at-wfwrap { position: absolute; left: 140px; top: 290px; width: 1640px; height: 150px; }
+.at-wfwrap .at-wfline { left: 110px; top: 22px; width: 1420px; }
+.at-wfwrap .at-wfnode { top: 8px; margin-left: -14px; }
+.at-wfwrap .at-wflab { top: 54px; }
+.at-glcols { position: absolute; left: 140px; top: 520px; width: 1640px; display: grid; }
+.at-glcol { position: relative; padding: 0 36px 0 44px; min-height: 430px; }
+.at-glcol:first-child { padding-left: 0; }
+.at-glname { font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cp-blue-d); height: 46px; }
+.at-glcol .at-pline { font-size: 26px; margin-top: 14px; line-height: 1.28; }
+
+/* ---- the screens of a product: three by three ---- */
+.at-gal-item { width: 340px; }
+.at-gal-item .at-gshot { width: 340px; height: 191px; }
+
+/* hub columns: the summary is clamped so it never runs into the count */
+.at-hubgrid { height: 590px; }   /* ends above the presenter bar so every "Open" stays clickable */
+.at-hubcol { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }   /* a button centres its content vertically unless it is a flex container: the columns drifted with the summary's length */
+.at-hubcol .at-sum { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden; flex: none; height: auto; max-height: 246px; font-size: 22px; line-height: 1.38; margin-top: 14px; }
+.at-hubcol .at-num { font-size: 96px; bottom: 50px; }
+.at-hubcol .at-numl { bottom: 18px; }
+.at[data-theme='paper'] .at-top { color: var(--cp-blue-d); }

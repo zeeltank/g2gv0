@@ -86,3 +86,7 @@ Owner: the deck must cover every module and sub-module (summary, problem, featur
 
 - **Round 5 end state (2026-11-25):** all checks above pass; 25 atlas slides, 25 videos, 110-slide PowerPoint, film credit lines reduced to the generic label. Nothing committed or pushed yet (waiting for the owner's go).
 - **Review fix (2026-11-25, later):** Consent, Capability Intelligence and Insight Overview screenshots fixed; no picture card when a sub-module has none; 48 pictures cover all 49 sub-modules; videos a10, a14, a15, a16, a25 re-rendered.
+
+## Round 6 (2026-11-25): the atlas is now product by product
+Owner: after slide 16 (the story) the atlas must be a flow per product (slide 17 = product 1 and only its details: the problem it solves, the technology, what is under it; then the next product), with a shortcut so a client can open any product directly and skip the others.
+- Built: a product hub (slide 17, five buttons, keys 1 to 5 from anywhere), a product rail on every atlas slide, one section per product (opener, sub-modules, how it works, screens), 30 web slides (47 in the deck), the PowerPoint rebuilt the same way with hyperlinked hub tiles, a hyperlinked product strip and "Next product" links, `render-atlas.mjs` hold times per new kind. Details in section 9 of `11-explainer-style-notes.md`.
