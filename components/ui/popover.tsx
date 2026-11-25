@@ -21,11 +21,28 @@ const PopoverTrigger = PopoverPrimitive.Trigger
  */
 const PopoverAnchor = PopoverPrimitive.Anchor
 
+/**
+ * Where popovers inside a Radix Dialog/Sheet should render: inside it.
+ *
+ * Popover and Dialog ship with DIFFERENT copies of @radix-ui/react-focus-scope
+ * (1.1.10 under the popover, 1.1.12 under the dialog), each with its own stack
+ * of focus traps. A popover portalled to <body> therefore never pauses the
+ * dialog's trap, and the trap treats every focus into the popover as an escape
+ * and hands focus back to the last control it knew - so a text box in a popover
+ * in a dialog never got a cursor and typed characters landed on the trigger
+ * (a space re-toggled the popover shut). Rendered inside the dialog's own
+ * element, the popover is simply part of what the trap protects.
+ *
+ * A dialog that holds popovers with text fields provides its content element
+ * here; everywhere else this is null and popovers portal to <body> as before.
+ */
+const PopoverContainerContext = React.createContext<HTMLElement | null>(null)
+
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
 >(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
+  <PopoverPrimitive.Portal container={React.useContext(PopoverContainerContext)}>
     <PopoverPrimitive.Content
       ref={ref}
       align={align}
@@ -45,4 +62,4 @@ const PopoverContent = React.forwardRef<
 ))
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent }
+export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent, PopoverContainerContext }
