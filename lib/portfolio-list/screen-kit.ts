@@ -26,7 +26,6 @@ const TENANT = 1
 export const MENU_ROWS = {
   products: { id: 468, label: 'Products', icon: null, access_link: '/module/crm/sales/products', page_type: 'page', sort_order: 1, parent_id: 199, children: [] },
   services: { id: 469, label: 'Services', icon: null, access_link: '/module/crm/sales/services', page_type: 'page', sort_order: 2, parent_id: 199, children: [] },
-  priceBooks: { id: 470, label: 'Price Books', icon: null, access_link: '/module/crm/sales/price-books', page_type: 'page', sort_order: 3, parent_id: 199, children: [] },
 }
 
 export function menuOf(...rows: Array<(typeof MENU_ROWS)[keyof typeof MENU_ROWS]>) {
@@ -44,7 +43,7 @@ export async function screenKit(opts: { search?: string; pathname?: string; resp
   /* eslint-enable @typescript-eslint/no-require-imports */
 
   k.w.localStorage.setItem('userData', JSON.stringify({ token: 'test-token', sub_institute_id: TENANT, user_id: 2, user_profile_id: PROFILE }))
-  k.w.sessionStorage.setItem(`gtg-sidebar-cache-v3:${TENANT}:${PROFILE}`, JSON.stringify({ status_code: 200, message: 'ok', data: opts.menu ?? menuOf(MENU_ROWS.products, MENU_ROWS.services, MENU_ROWS.priceBooks) }))
+  k.w.sessionStorage.setItem(`gtg-sidebar-cache-v3:${TENANT}:${PROFILE}`, JSON.stringify({ status_code: 200, message: 'ok', data: opts.menu ?? menuOf(MENU_ROWS.products, MENU_ROWS.services) }))
   // next/link reads `self` while it renders; the fake browser does not define it.
   Object.defineProperty(globalThis, 'self', { value: k.w, configurable: true, writable: true })
 

@@ -2,6 +2,7 @@
  * What the Product Portfolio LIST and its pair review read and send (hp_erp ProductMasterController::list, ProductMatchController, ProductMatchSuggester).
  * Names are the API's own camelCase, read from the code on disk on 14 Nov 2026 (slice 15, track P3-A). Words on screen: Product and Sub-product.
  */
+import type { PmPriceTotal } from './record-types'
 
 export type PortfolioKind = 'product' | 'sub_product' | 'item'
 export type PortfolioItemType = 'product' | 'service'
@@ -37,6 +38,11 @@ export interface PortfolioRow {
   qtyInStock?: number | null
   unitPrice?: number | null
   currency?: string | null
+  /** The percentage of the Sub-product's tax rate (S16); null with no rate. */
+  taxPercent?: number | null
+  /** A Product row's total, one block per currency (S16); absent on a Sub-product row and for a caller who may not view prices. */
+  priceTotals?: PmPriceTotal[]
+  subProductsCounted?: number
 }
 
 export interface PortfolioCan {

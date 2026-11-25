@@ -1,0 +1,123 @@
+{
+  "meta": {
+    "title": "ScholarClone in 59 seconds",
+    "length_seconds": 59,
+    "fps": 30,
+    "disclosure": "Illustrative school data",
+    "note": "Text of the 59-second film. Nine beats, contiguous from 0 to 59 s, timed for reading (about 0.5 s plus 0.3 s per word). Lines of kind 'approved-copy' are the owner's own words and must equal a slide line exactly; 'joins' lists beats whose chunks must join into one approved slide line. Every capability line cites a claim from scholarclone.story.json; check-story.mjs applies the slide rules (status words, percentages, money, banned claims, claim on every capability line). 'chapter' is the small label shown while the beat plays. The film is motion graphics with made-up school data, not a screen recording."
+  },
+  "beats": [
+    {
+      "id": "hook", "chapter": "", "start": 0, "end": 4, "claims": [],
+      "lines": [
+        { "role": "l1", "text": "What is your school not seeing?", "kind": "approved-copy" }
+      ]
+    },
+    {
+      "id": "problem", "chapter": "Problems", "start": 4, "end": 10.5, "claims": ["C-ILL"],
+      "joins": [{ "slide": 3, "role": "headline", "roles": ["l1", "l2", "l3"] }],
+      "lines": [
+        { "role": "l1", "text": "A student keeps struggling.", "kind": "approved-copy" },
+        { "role": "l2", "text": "The school has the records.", "kind": "approved-copy" },
+        { "role": "l3", "text": "What happens next?", "kind": "approved-copy" },
+        { "role": "card", "text": "Examination marks", "kind": "approved-copy" },
+        { "role": "card", "text": "Classroom observations", "kind": "approved-copy" },
+        { "role": "card", "text": "A parent's concern", "kind": "approved-copy" },
+        { "role": "tag", "text": "Illustrative situation", "kind": "label" }
+      ]
+    },
+    {
+      "id": "reveal", "chapter": "Summary", "start": 10.5, "end": 18.5, "claims": ["C-POS"],
+      "joins": [{ "slide": 5, "role": "headline", "roles": ["c1", "c2", "c3", "c4"] }],
+      "lines": [
+        { "role": "brand", "text": "ScholarClone", "kind": "approved-copy" },
+        { "role": "c1", "text": "An integrated intelligent K–12 platform designed to help schools", "kind": "approved-copy", "claim": "C-POS" },
+        { "role": "c2", "text": "connect information,", "kind": "approved-copy", "claim": "C-POS" },
+        { "role": "c3", "text": "support better decisions", "kind": "approved-copy", "claim": "C-POS" },
+        { "role": "c4", "text": "and take meaningful action.", "kind": "approved-copy", "claim": "C-POS" }
+      ]
+    },
+    {
+      "id": "modules", "chapter": "Modules", "start": 18.5, "end": 25, "claims": ["C-NAMES"],
+      "lines": [
+        { "role": "product", "text": "Scholar One: Integrated Intelligent School Platform", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "product", "text": "Scholar Core: Intelligent School Operations", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "product", "text": "Scholar Learn: AI-Powered Personalised Learning", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "product", "text": "Scholar CCB: Competence and Capability Intelligence", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "product", "text": "Scholar Insight: School Intelligence", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "product", "text": "Scholar Compass: Student Career Intelligence", "kind": "approved-copy", "claim": "C-NAMES" },
+        { "role": "count", "text": "Six products, one platform.", "kind": "fact", "claim": "C-NAMES" }
+      ]
+    },
+    {
+      "id": "workflow", "chapter": "Workflows + AI", "start": 25, "end": 32.5, "claims": ["C-LRN-DIAG", "C-LRN-PLAN", "C-LRN-PRAC", "C-LRN-NEXT", "C-LRN-GEN"],
+      "lines": [
+        { "role": "h", "text": "Information is not yet action.", "kind": "approved-copy" },
+        { "role": "step", "text": "School information", "kind": "approved-copy" },
+        { "role": "step", "text": "Understanding", "kind": "approved-copy" },
+        { "role": "step", "text": "Identifying the gap", "kind": "approved-copy" },
+        { "role": "step", "text": "Deciding what to do", "kind": "approved-copy" },
+        { "role": "step", "text": "Taking action", "kind": "approved-copy" },
+        { "role": "step", "text": "Reviewing progress", "kind": "approved-copy" },
+        { "role": "path", "text": "A diagnostic", "kind": "fact", "claim": "C-LRN-DIAG" },
+        { "role": "path", "text": "A plan drawn from it", "kind": "fact", "claim": "C-LRN-PLAN" },
+        { "role": "path", "text": "Practice that adjusts", "kind": "fact", "claim": "C-LRN-PRAC" },
+        { "role": "path", "text": "One next action", "kind": "fact", "claim": "C-LRN-NEXT" },
+        { "role": "ai", "text": "AI drafts questions and content for staff to use.", "kind": "fact", "claim": "C-LRN-GEN" }
+      ]
+    },
+    {
+      "id": "views", "chapter": "Stakeholder views", "start": 32.5, "end": 40, "claims": ["C-INS-EXEC", "C-CCB-GAP", "C-LRN-DIAG", "C-CORE-FEE", "C-CORE-ATT", "C-CORE-EXM"],
+      "lines": [
+        { "role": "role", "text": "Principal", "kind": "label" },
+        { "role": "role", "text": "Teacher", "kind": "label" },
+        { "role": "role", "text": "Student", "kind": "label" },
+        { "role": "role", "text": "Operations staff", "kind": "label" },
+        { "role": "q", "text": "Which students may need attention?", "kind": "fact", "claim": "C-INS-EXEC" },
+        { "role": "q", "text": "Where does a teacher need development?", "kind": "fact", "claim": "C-CCB-GAP" },
+        { "role": "q", "text": "Which concepts is this student weak in?", "kind": "fact", "claim": "C-LRN-DIAG" },
+        { "role": "q", "text": "Fees, attendance and marks. One system?", "kind": "fact", "claim": "C-CORE-FEE" },
+        { "role": "a", "text": "Scholar Insight", "kind": "label" },
+        { "role": "a", "text": "Scholar CCB", "kind": "label" },
+        { "role": "a", "text": "Scholar Learn", "kind": "label" },
+        { "role": "a", "text": "Scholar Core", "kind": "label" }
+      ]
+    },
+    {
+      "id": "connects", "chapter": "Connects to + Reports", "start": 40, "end": 45.5, "claims": ["C-ONE-EVID", "C-ONE-ATTRES", "C-ONE-RISK", "C-CORE-ATT", "C-CORE-EXM"],
+      "lines": [
+        { "role": "node", "text": "School operations", "kind": "approved-copy" },
+        { "role": "node", "text": "Student learning", "kind": "approved-copy" },
+        { "role": "node", "text": "Leadership", "kind": "approved-copy" },
+        { "role": "node", "text": "Career exploration", "kind": "approved-copy" },
+        { "role": "link", "text": "Exams and practice become career evidence.", "kind": "fact", "claim": "C-ONE-EVID" },
+        { "role": "link", "text": "Attendance and results, compared.", "kind": "fact", "claim": "C-ONE-ATTRES" },
+        { "role": "link", "text": "One risk case.", "kind": "fact", "claim": "C-ONE-RISK" },
+        { "role": "report", "text": "Attendance reports", "kind": "fact", "claim": "C-CORE-ATT" },
+        { "role": "report", "text": "Result reports", "kind": "fact", "claim": "C-CORE-EXM" }
+      ]
+    },
+    {
+      "id": "claim", "chapter": "Benefits + Fit", "start": 45.5, "end": 51.5, "claims": ["C-FIT"],
+      "joins": [{ "slide": 7, "role": "value", "roles": ["v1", "v2", "v3"] }],
+      "lines": [
+        { "role": "v1", "text": "What could become easier:", "kind": "approved-copy" },
+        { "role": "v2", "text": "a clearer picture of collection, absence and results", "kind": "approved-copy" },
+        { "role": "v3", "text": "without compiling by hand.", "kind": "approved-copy" },
+        { "role": "fit", "text": "School promoters", "kind": "fact", "claim": "C-FIT" },
+        { "role": "fit", "text": "Trustees", "kind": "fact", "claim": "C-FIT" },
+        { "role": "fit", "text": "Principals", "kind": "fact", "claim": "C-FIT" },
+        { "role": "fit", "text": "Directors", "kind": "fact", "claim": "C-FIT" },
+        { "role": "fit", "text": "Academic leaders", "kind": "fact", "claim": "C-FIT" }
+      ]
+    },
+    {
+      "id": "end", "chapter": "", "start": 51.5, "end": 59, "claims": ["C-INV"],
+      "lines": [
+        { "role": "brand", "text": "ScholarClone", "kind": "approved-copy" },
+        { "role": "invite", "text": "We would like to talk with you about the Founding 25 Pilot Programme.", "kind": "invitation", "claim": "C-INV" },
+        { "role": "close", "text": "The next step is a conversation.", "kind": "invitation", "claim": "C-INV" }
+      ]
+    }
+  ]
+}

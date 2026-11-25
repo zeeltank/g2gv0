@@ -8,8 +8,10 @@ import ProductPortfolioListRedirect from '../app/portfolio/page'
 import CatalogueProductRedirect from '../app/module/crm/sales/products/[id]/page'
 import CatalogueServiceRedirect from '../app/module/crm/sales/services/[id]/page'
 import ProductLineRedirect from '../app/module/crm/sales/products/lines/[id]/page'
+import PriceBooksRedirect from '../app/module/crm/sales/price-books/page'
+import PriceBookRedirect from '../app/module/crm/sales/price-books/[id]/page'
 import { CRM_CONTENT } from '../hooks/content-map-crm'
-import { parseOldId, portfolioRedirectTarget, productTarget, recordTarget, servicesRedirectTarget, subProductTarget, type RawSearchParams } from './portfolio-redirect'
+import { parseOldId, portfolioRedirectTarget, priceBooksRedirectTarget, productTarget, recordTarget, servicesRedirectTarget, subProductTarget, type RawSearchParams } from './portfolio-redirect'
 
 /**
  * The old Products and Services addresses (hp_erp docs/agentic-crm/slices/S15-product-portfolio-merge.md, track P3-A) are redirect pages that send a visitor to the Product
@@ -91,6 +93,33 @@ describe('the Services address', () => {
   })
 })
 
+/** A page that takes no props: called the way Next calls it. A page that redirects throws Next's redirect error, which carries the address and the status. */
+function visitBare(page: () => void) {
+  try {
+    page()
+  } catch (error) {
+    if (isRedirectError(error)) return { url: getURLFromRedirectError(error)!, status: getRedirectStatusCodeFromError(error), type: getRedirectTypeFromError(error) }
+    throw error
+  }
+  return assert.fail('the page did not redirect')
+}
+
+describe('the Price Books addresses (removed in S16, 25 Nov 2026)', () => {
+  // The two old addresses of a removed screen: a bookmark, a saved link or an Ask answer still carries them. Both land on the Product Portfolio tab of Market Signals.
+  it('sends the list address to the Product Portfolio tab of Market Signals as a temporary (307) redirect that replaces the history entry', () => {
+    assert.deepEqual(visitBare(PriceBooksRedirect), { url: '/signals/portfolio', status: 307, type: 'replace' })
+  })
+
+  it("sends a book's own address (/{id}) to the same place, with no id and no query in it", () => {
+    assert.deepEqual(visitBare(PriceBookRedirect), { url: '/signals/portfolio', status: 307, type: 'replace' })
+  })
+
+  it('writes one fixed path: nothing a visitor sends can change it', () => {
+    assert.equal(priceBooksRedirectTarget(), '/signals/portfolio')
+    assert.equal(priceBooksRedirectTarget.length, 0, 'the target takes no argument, so no query or id can reach it')
+  })
+})
+
 describe('the helpers write one fixed path and read an id only as a number', () => {
   it('writes the four targets', () => {
     assert.equal(portfolioRedirectTarget({}), '/signals/portfolio')
@@ -129,11 +158,12 @@ describe('the record pages hand the redirect what they were given', () => {
   })
 })
 
-describe('the content map no longer routes Products or Services', () => {
-  it('has no entry for either address, and still routes the neighbours', () => {
+describe('the content map no longer routes Products, Services or Price Books', () => {
+  it('has no entry for any of the three addresses, and still routes the neighbours', () => {
     const links = CRM_CONTENT.map((route) => route.accessLink ?? '')
     assert.deepEqual(links.filter((link) => /\/sales\/(products|services)/.test(link)), [], 'neither address is in the content map: both are redirect pages')
+    assert.deepEqual(links.filter((link) => /\/sales\/price-books/.test(link)), [], 'Price Books were removed: the address is a redirect page and has no screen')
     assert.ok(links.includes('/module/crm/sales/quotes'))
-    assert.ok(links.includes('/module/crm/sales/price-books'))
+    assert.ok(links.includes('/module/crm/sales/sales-orders'))
   })
 })

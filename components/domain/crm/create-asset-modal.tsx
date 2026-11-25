@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmAsset, CrmAssetPayload, CrmPicklistValue } from '@/types/crm'
@@ -130,6 +131,8 @@ export function CreateAssetModal({ isOpen, onClose, onSaved, asset }: Props) {
                 id="asset-product"
                 value={form.productId}
                 onChange={(picked) => set('productId', picked ? picked.productId : null)}
+                scope={PICKER_RULES.asset.scope}
+                notSoldSelectable={PICKER_RULES.asset.notSoldSelectable}
                 placeholder="Choose a Sub-product"
               />
             </div>

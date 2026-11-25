@@ -88,7 +88,7 @@ describe('the pair review on the real dry-run output', () => {
   it('shows each entry as the server sent it: its name, SKU, price, how often it is used, and the Sub-product it looks like with its offer id', async () => {
     await open()
     const first = rowOf(66).textContent!
-    for (const part of ['Scholar One ERP - Gujarat Edition', 'SCH-01-GUJ', 'INR 1,20,000.00', 'Used on 50 records', 'Scholar School ERP', 'SCH-01']) assert.ok(first.includes(part), `row 66 shows ${part}: ${first}`)
+    for (const part of ['Scholar One ERP - Gujarat Edition', 'SCH-01-GUJ', '₹1,20,000.00', 'Used on 50 records', 'Scholar School ERP', 'SCH-01']) assert.ok(first.includes(part), `row 66 shows ${part}: ${first}`)
     assert.ok(rowOf(67).textContent!.includes('Used on 3 records'), 'the usage total the server counted is the one shown')
     assert.ok(rowOf(68).textContent!.includes('Fees Intelligence & Decision Support'), 'an ampersand in a name is shown as written')
     assert.ok(rowOf(69).textContent!.includes('LMS-PAL (AI question generation)'))

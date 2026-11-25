@@ -138,7 +138,7 @@ type TitleSource = 'catalogue' | 'custom'
  * in one click.
  */
 
-type FieldKey = 'people' | 'title' | 'dueDate' | 'priority' | 'observerId'
+type FieldKey = 'people' | 'title' | 'dueDate' | 'startDate' | 'priority' | 'observerId'
 
 /**
  * The order the form asks for these, which is also the order it reports them.
@@ -149,7 +149,7 @@ type FieldKey = 'people' | 'title' | 'dueDate' | 'priority' | 'observerId'
  * control that is not on screen — which is exactly what the seven-step wizard
  * did, and the reason this is one page now.
  */
-const FIELD_ORDER: FieldKey[] = ['people', 'title', 'dueDate', 'priority', 'observerId']
+const FIELD_ORDER: FieldKey[] = ['people', 'title', 'dueDate', 'startDate', 'priority', 'observerId']
 
 /**
  * What is missing, keyed by the field it belongs to.
@@ -170,6 +170,7 @@ function whatIsMissing(v: {
   departmentId: string
   title: string
   dueDate: string
+  startDate: string
   priority: string
   observerId: string
 }): Partial<Record<FieldKey, string>> {
@@ -177,6 +178,10 @@ function whatIsMissing(v: {
   if (!v.assignees.length && !v.departmentId) missing.people = 'Choose the people to assign this to, or a department.'
   if (!v.title.trim()) missing.title = 'Give the task a title.'
   if (!v.dueDate) missing.dueDate = 'Set the date this runs until.'
+  // The start is what puts a task in the Today tab from that day on, so it is
+  // not optional. Both are YYYY-MM-DD, which compares correctly as text.
+  if (!v.startDate) missing.startDate = 'Set the date this starts.'
+  else if (v.dueDate && v.startDate > v.dueDate) missing.startDate = "The start date can't be after the end date."
   if (!v.priority) missing.priority = 'Choose a priority.'
   if (!v.observerId) missing.observerId = 'Choose who observes this task.'
   return missing
@@ -268,9 +273,10 @@ export function CreateTaskModal({
   const [taskTitlesLoading, setTaskTitlesLoading] = useState(false)
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium')
   const [repeatDays, setRepeatDays] = useState('1'); const [dueDate, setDueDate] = useState('')
-  // When the work is meant to start, and its time-of-day window - all
+  // When the work starts is REQUIRED (it is what makes a task show in Today
+  // from that day) and defaults to today; the time-of-day window beside it is
   // optional, same shape as the calendar's own self-entry quick-add.
-  const [startDate, setStartDate] = useState('')
+  const [startDate, setStartDate] = useState(() => shiftDays(0))
   const [timeStart, setTimeStart] = useState('')
   const [timeEnd, setTimeEnd] = useState('')
   /*
@@ -414,7 +420,10 @@ export function CreateTaskModal({
       setDescription(task.description ?? '')
       setPriority((['High', 'Medium', 'Low'] as const).find((value) => value === task.priority) ?? 'Medium')
       setDueDate(task.due_date ?? '')
-      setStartDate(task.planned_start_date ?? ''); setTimeStart(task.time_start ?? ''); setTimeEnd(task.time_end ?? '')
+      // A task made before the start was required has none. Its due date is
+      // the start it has always behaved as (a one-day task), so an unrelated
+      // edit is never blocked by a field the person never saw.
+      setStartDate(task.planned_start_date ?? task.due_date ?? ''); setTimeStart(task.time_start ?? ''); setTimeEnd(task.time_end ?? '')
       setKra(task.kra ?? ''); setKpa(task.kpa ?? ''); setObservation(task.observation_point ?? '')
 
       // The assignee, and the department that follows from them.
@@ -630,7 +639,7 @@ export function CreateTaskModal({
     ? 'Competency mapping'
     : ''
 
-  const missing = whatIsMissing({ assignees, departmentId, title, dueDate, priority, observerId })
+  const missing = whatIsMissing({ assignees, departmentId, title, dueDate, startDate, priority, observerId })
   /*
    * Derived, not stored — so fixing a field clears its red as you type and the
    * footer's count ticks down, without an effect watching for it.
@@ -787,7 +796,7 @@ export function CreateTaskModal({
 
   function reset() {
     setDepartment(''); setJobRole(''); setRoleEmployees([]); setAssignees([]); setTitle(''); setDescription(''); setPriority('Medium')
-    setRepeatDays('1'); setDueDate(''); setStartDate(''); setTimeStart(''); setTimeEnd('')
+    setRepeatDays('1'); setDueDate(''); setStartDate(shiftDays(0)); setTimeStart(''); setTimeEnd('')
     setObserverId(''); setObserverName(''); setSupervisorGap('')
     setKra(''); setKpa(''); setObservation(''); setAttachment(null); setJobRoleSuggestions([]); setError('')
     setSelectedTaskId(''); setTaskSearch(''); setTaskDropdownOpen(false); setEmployeeTasks([]); setEmployeeTasksLoading(false);    setJobRoleTasks([]); setTaskTitlesLoading(false)
@@ -869,7 +878,7 @@ export function CreateTaskModal({
   }
 
   async function submit() {
-    if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !observerId) {
+    if ((!assignees.length && !departmentId) || !title.trim() || !priority || !dueDate || !startDate || startDate > dueDate || !observerId) {
       /*
        * THE SAME GATE AS BEFORE — then take the person to the problem.
        *
@@ -983,6 +992,8 @@ export function CreateTaskModal({
     if (!title.trim()) { setError('A task needs a title.'); return }
     if (!assignees[0]) { setError('Choose who this task is assigned to.'); return }
     if (!observerId) { setError('Choose an observer.'); return }
+    if (!startDate) { setError('Set the date this starts.'); return }
+    if (dueDate && startDate > dueDate) { setError("The start date can't be after the due date."); return }
     if (attachment && attachment.size > 5 * 1024 * 1024) { setError('Attachment must be 5 MB or smaller.'); return }
 
     setSaving(true); setError('')
@@ -1121,7 +1132,7 @@ export function CreateTaskModal({
   function openRoleBulk() {
     if (!assignees.length) { setError('Select at least one employee before bulk task assignment.'); return }
     setRoleBulkRows(Object.fromEntries(jobRoleSuggestions.map((task) => [task, {
-      description: '', repeatDays: '1', dueDate: '', observerId,
+      description: '', repeatDays: '1', startDate: shiftDays(0), dueDate: '', observerId,
       priority: 'Medium' as const,
     }])))
     setRoleBulkSelected([]); setMode('roleBulk'); setError('')
@@ -1129,8 +1140,11 @@ export function CreateTaskModal({
 
   async function submitRoleBulk() {
     if (!roleBulkSelected.length) { setError('Select at least one job-role task.'); return }
-    const invalid = roleBulkSelected.some((task) => !roleBulkRows[task]?.dueDate || !roleBulkRows[task]?.observerId)
-    if (invalid) { setError('Repeat-until date and observer are required for every selected task.'); return }
+    const invalid = roleBulkSelected.some((task) => !roleBulkRows[task]?.startDate || !roleBulkRows[task]?.dueDate || !roleBulkRows[task]?.observerId)
+    if (invalid) { setError('Start date, repeat-until date and observer are required for every selected task.'); return }
+    if (roleBulkSelected.some((task) => roleBulkRows[task].startDate > roleBulkRows[task].dueDate)) {
+      setError("A task's start date can't be after its repeat-until date."); return
+    }
     setRoleBulkSaving(true); setError('')
     // One key per row, sharing a batch prefix, so retrying the batch replays
     // whichever rows already landed instead of duplicating them.
@@ -1142,7 +1156,7 @@ export function CreateTaskModal({
         return taskService.createLegacyTask(context, {
           title: task, description: row.description, assigneeIds: assignees,
           observerId: row.observerId, priority: row.priority, repeatDays: row.repeatDays,
-          dueDate: row.dueDate, skillIds: [], skillNames: [], kra: '', kpa: '',
+          dueDate: row.dueDate, plannedStartDate: row.startDate, skillIds: [], skillNames: [], kra: '', kpa: '',
           observationPoint: '', departmentId,
           idempotencyKey: `${submissionKey.current}-${index}`,
         })
@@ -1431,7 +1445,9 @@ export function CreateTaskModal({
           edit mode - an existing task's due date is often already in the past,
           and a browser that refuses to show it makes the field unusable. */}
       <Field label={isEdit ? 'Due date *' : 'Repeat until *'} span={4} error={errors.dueDate} fieldRef={(node) => { fieldRefs.current.dueDate = node }}>
-        <Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? undefined : new Date().toISOString().slice(0, 10)} />
+        {/* Never earlier than the start. On create it is also never in the past:
+            the later of today and the start date. */}
+        <Input type="date" value={dueDate} onChange={setDueDate} min={isEdit ? (startDate || undefined) : (startDate > shiftDays(0) ? startDate : shiftDays(0))} />
         {/* One click instead of the three or four a native date picker costs.
             A silent default would be faster still, but then the date on the
             saved task is one nobody chose. */}
@@ -1449,8 +1465,9 @@ export function CreateTaskModal({
         </div>
       </Field>
       {/* When the work actually begins, as opposed to Due date above (when it
-          must be finished) - optional, and independent of due date/repeat. */}
-      <Field label="Start date (optional)" span={4}>
+          must be finished). Required: from this day until the due date the task
+          is "running" and shows in the Today tab; before it, in Upcoming. */}
+      <Field label="Start date *" span={4} error={errors.startDate} fieldRef={(node) => { fieldRefs.current.startDate = node }}>
         <Input type="date" value={startDate} onChange={setStartDate} />
       </Field>
       <Field label="Start time (optional)" span={4}>

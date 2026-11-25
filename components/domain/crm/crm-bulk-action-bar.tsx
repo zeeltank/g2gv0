@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, Mail, MessageCircle, MessageSquare, Send, Trash2, UserCog, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,10 @@ interface Props {
   onSendMessage?: (channel: 'email' | 'sms' | 'whatsapp') => void
   /** The words on the delete button; "Delete" when omitted. The Product Portfolio says what Delete does ("Delete (to the Recycle Bin)"). */
   deleteLabel?: string
+  /** More actions, drawn between Delete and Clear (the Product Portfolio's "Move to another Product"). */
+  extraActions?: ReactNode
+  /** When set, Reassign and Delete are not drawn and this sentence stands in their place: the ticked rows are not all ones they work on. */
+  unavailableNote?: string
 }
 
 /**
@@ -38,7 +42,7 @@ interface Props {
  * that bar is still hand-rolled per its own two callers too, so there's no
  * existing generic actions-array convention in this app to adopt instead.
  */
-export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms, onSendMessage, deleteLabel = 'Delete' }: Props) {
+export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, onClear, cascadeLabel, onSendSms, onSendMessage, deleteLabel = 'Delete', extraActions, unavailableNote }: Props) {
   const [assigneeId, setAssigneeId] = useState('')
   const [cascade, setCascade] = useState(false)
 
@@ -56,24 +60,28 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
           <span className="whitespace-nowrap text-sm font-semibold">{count} selected</span>
           <div className="h-6 w-px bg-border" />
 
-          <div className="flex items-center gap-2">
-            <SearchableSelect
-              value={assigneeId}
-              onChange={setAssigneeId}
-              options={people}
-              placeholder="Change owner to…"
-              searchPlaceholder="Search people…"
-              className="w-56"
-              aria-label="Change owner to"
-            />
-            <Button
-              size="sm"
-              disabled={!assigneeId || busy}
-              onClick={() => { onReassign(assigneeId, cascade); setAssigneeId(''); setCascade(false) }}
-            >
-              <UserCog className="mr-2 size-4" />Reassign
-            </Button>
-          </div>
+          {unavailableNote && <span role="note" className="max-w-xs text-xs text-muted-foreground">{unavailableNote}</span>}
+
+          {!unavailableNote && (
+            <div className="flex items-center gap-2">
+              <SearchableSelect
+                value={assigneeId}
+                onChange={setAssigneeId}
+                options={people}
+                placeholder="Change owner to…"
+                searchPlaceholder="Search people…"
+                className="w-56"
+                aria-label="Change owner to"
+              />
+              <Button
+                size="sm"
+                disabled={!assigneeId || busy}
+                onClick={() => { onReassign(assigneeId, cascade); setAssigneeId(''); setCascade(false) }}
+              >
+                <UserCog className="mr-2 size-4" />Reassign
+              </Button>
+            </div>
+          )}
 
           {cascadeLabel && (
             <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
@@ -116,9 +124,13 @@ export function CrmBulkActionBar({ count, busy, people, onReassign, onDelete, on
             </DropdownMenu>
           )}
 
-          <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>
-            <Trash2 className="mr-2 size-4" />{deleteLabel}
-          </Button>
+          {!unavailableNote && (
+            <Button size="sm" variant="outline" className="text-destructive" disabled={busy} onClick={onDelete}>
+              <Trash2 className="mr-2 size-4" />{deleteLabel}
+            </Button>
+          )}
+
+          {extraActions}
 
           {busy && <Spinner className="size-4" />}
 

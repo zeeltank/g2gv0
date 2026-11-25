@@ -118,6 +118,25 @@ describe('the Add / Edit Lead dialog: product master line association (Phase 1)'
     s.restore()
   })
 
+  it('stores a Sub-product\'s own master id when a Sub-product is chosen (Product, then its Sub-products indented), sold or not (S15 follow-up)', async () => {
+    const s = await open(null, {
+      productOptions: [
+        { id: 9, key: 'scholar', name: 'ScholarClone', kind: 'product', parentName: null },
+        { id: 31, key: 'fee', name: 'Fee module', kind: 'sub_product', parentName: 'ScholarClone' },
+        { id: 32, key: 'adm', name: 'Admissions', kind: 'sub_product', parentName: 'ScholarClone', sold: false },
+      ],
+    })
+    const labels = Array.from((s.k.one('#lead-product-line') as HTMLSelectElement).options).map((o) => o.textContent)
+    assert.deepEqual(labels, ['No product', 'ScholarClone', '\u00A0\u00A0\u00A0\u00A0Fee module, under ScholarClone', '\u00A0\u00A0\u00A0\u00A0Admissions, under ScholarClone (Not sold)'])
+    await s.type('lead-last-name', 'Sharma')
+    await s.select('lead-product-line', '32')
+    await s.press('Create Lead')
+    const posts = s.sent('POST')
+    assert.equal(posts.length, 1)
+    assert.equal((posts[0].body as { productMasterId?: number }).productMasterId, 32, 'the Sub-product that is not sold is chosen like any other: its own id is stored')
+    s.restore()
+  })
+
   it('pre-selects existing lead product on edit and updates productMasterId when changed', async () => {
     const existing = lead({ id: '60', assignedTo: '9', product: { id: 9, key: 'scholar', name: 'ScholarClone' } })
     const s = await open(existing)

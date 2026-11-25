@@ -1,5 +1,6 @@
 import type { PmHistoryChange, PmHistoryRow, PmSell, PmUsageFull, PmUsageDoc } from '@/services/product-master/record-types'
 import type { PmIcpState, PmItemType } from '@/services/product-master/types'
+import { formatMoney as formatMoneyText } from '@/lib/money/format'
 import { choiceOf } from '@/lib/product-selection'
 import { PRODUCT_ONLY_SELL_FIELDS } from './form-model'
 
@@ -78,10 +79,8 @@ export function icpStateLabel(state: PmIcpState | null | undefined): string {
 
 // ---------------------------------------------------------------------------------------------------------------------------- Details
 
-export function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string | null {
-  if (amount === null || amount === undefined) return null
-  return `${currency ? `${currency} ` : ''}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+/** An amount with its currency's symbol ("₹1,500.00"); the one rule is `lib/money/format.ts`. */
+export const formatMoney = (amount: number | null | undefined, currency: string | null | undefined): string | null => formatMoneyText(amount, currency)
 
 const plain = (n: number | null | undefined): string | null => (n === null || n === undefined ? null : String(n))
 
@@ -129,7 +128,6 @@ export const USAGE_COUNTS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'invoices', label: 'Invoices' },
   { key: 'purchaseOrders', label: 'Purchase orders' },
   { key: 'opportunities', label: 'Opportunities' },
-  { key: 'priceBooks', label: 'Price books' },
   { key: 'bundleParts', label: 'Parts in its bundle' },
   { key: 'usedInBundles', label: 'Bundles it is a part of' },
   { key: 'tickets', label: 'Tickets' },
@@ -207,7 +205,7 @@ export function describeChange(change: PmHistoryChange): string {
 export const STORE_WORD: Record<PmHistoryRow['store'], string> = { about: 'About', sell: 'Sell in CRM', record: 'Record' }
 
 export function eventWord(row: PmHistoryRow): string {
-  return row.event === 'created' ? 'Created' : row.event === 'deleted' ? 'Moved to the Recycle Bin' : 'Changed'
+  return row.event === 'created' ? 'Created' : row.event === 'deleted' ? 'Moved to the Recycle Bin' : row.event === 'moved' ? 'Moved to another Product' : 'Changed'
 }
 
 /** The date of a history line as a person reads it. A value the browser cannot read is shown as it came. */

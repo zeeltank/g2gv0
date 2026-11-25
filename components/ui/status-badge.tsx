@@ -94,6 +94,8 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   'awaiting-approval': 'pending',
   Rejected: 'error',
   rejected: 'error',
+  Withdrawn: 'inactive',
+  withdrawn: 'inactive',
   Failed: 'error',
   failed: 'error',
   Error: 'error',

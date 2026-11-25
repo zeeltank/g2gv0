@@ -13,7 +13,7 @@ const ctx = { organizationId: 1, subInstituteId: 1, userId: 1 } as never
 const NO_REGIONS: never[] = []   // one array, as the screen's state is: a new array every render would reload every render
 // The list no longer reads the address itself: the screen around it does and hands the list the view and the ways to change it. These tests are about the
 // list's own loading, so the view is the default one (the address of the screen is proved in lib/signals/company-opportunities-screen.test.tsx).
-const CONTROLS = { query: readListQuery(new URLSearchParams(''), OPPORTUNITIES_QUERY), setSearch: () => {}, setFilter: () => {}, setSort: () => {}, setPage: () => {}, clearFilters: () => {} }
+const CONTROLS = { query: readListQuery(new URLSearchParams(''), OPPORTUNITIES_QUERY), setSearch: () => {}, setPage: () => {}, clearFilters: () => {} }
 const page =(total: number) => ({ status: 1, data: [], summary: { immediate: 0, watchlist: 0 }, meta: { total, page: 1, per_page: 5, last_page: 1 } })
 
 function deferred<T>() {

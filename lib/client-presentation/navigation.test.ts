@@ -79,3 +79,14 @@ test('an unknown scene key leaves the state unchanged', () => {
   assert.equal(goto(s, 'nope', beatsOf), s)
   assert.equal(detour(s, 'nope'), s)
 })
+
+test('the 59-second film is the sixth scene, between the introduction and the ecosystem', () => {
+  assert.equal(FULL_ORDER.length, 17)
+  assert.deepEqual(FULL_ORDER.slice(4, 8), ['s5', 's17', 's6', 's16'])
+  const beats = (k: string) => (k === 's17' ? 0 : beatsOf(k)) // the film has no steps: one press of Next leaves it
+  let s = goto(initial('full'), 's5', beats, true)
+  s = next(s, beats)
+  assert.deepEqual([keyAt(s), s.pos + 1], ['s17', 6])
+  s = next(s, beats)
+  assert.equal(keyAt(s), 's6')
+})

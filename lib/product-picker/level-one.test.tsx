@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll, kit } from '../scaffolds/dom-test-kit'
 import { axeViolations } from '../agent/a11y'
-import { installApi, LINES, type Kit } from './harness'
+import { installApi, LINES, LINES_WITH_SUBS, type Kit } from './harness'
+import { lineLabel, SUB_PRODUCT_INDENT } from './model'
 import { NO_PRODUCT, productChoicesOf, productOptionOf } from './use-product-choices'
 import type { PmOption } from '../../services/product-master/types'
 
@@ -173,6 +174,80 @@ describe('the choices of Products: one read of /product-master/lines', () => {
     await k.tick(30)
     assert.equal(api.to('/product-master/lines').length, 1, 'opened: one read')
     assert.equal(seen.length, 2)
+  })
+})
+
+describe('the Product box offers Products with their Sub-products (S15 follow-up)', () => {
+  afterEach(disposeAll)
+
+  const SUB_OPTIONS = LINES_WITH_SUBS.map(productOptionOf)
+  const INDENT = SUB_PRODUCT_INDENT
+
+  it('lists each Product, then its Sub-products and items indented under it, as "Fee module, under ScholarClone", with "(Not sold)" where the server says so', async () => {
+    const { k } = await render({ options: SUB_OPTIONS })
+    assert.deepEqual(optionTexts(k), [
+      NO_PRODUCT,
+      'ScholarClone',
+      `${INDENT}Scholar Nine, under ScholarClone`,
+      `${INDENT}Admissions Desk, under ScholarClone (Not sold)`,
+      'LMS-PAL',
+      `${INDENT}LMS Basic, under LMS-PAL`,
+    ])
+  })
+
+  it('stores a Sub-product\'s own master id (as text) when it is chosen, sold or not, and a Product\'s when a Product is', async () => {
+    const { k, chosen } = await render({ options: SUB_OPTIONS })
+    await choose(k, '23')
+    await choose(k, '30')
+    await choose(k, '1')
+    assert.deepEqual(chosen, ['23', '30', '1'], 'the id of the record that was chosen: a Sub-product that is not sold is chosen like any other')
+    assert.equal(select(k)!.value, '1')
+  })
+
+  it('keeps a Sub-product the record holds when the list does not offer it (archived since), by its own name', async () => {
+    const { k } = await render({ options: SUB_OPTIONS, current: { id: 88, name: 'Old module' }, value: '88' })
+    assert.ok(optionTexts(k).includes('Old module'))
+    assert.equal(select(k)!.value, '88')
+  })
+
+  it('says a Sub-product with no Product above it by its name alone, and a Product never carries "under"', () => {
+    assert.equal(lineLabel({ name: 'Loose', kind: 'sub_product', parentName: null }), 'Loose')
+    assert.equal(lineLabel({ name: 'ScholarClone', kind: 'product', parentName: 'Other' }), 'ScholarClone')
+    assert.equal(lineLabel({ name: 'Fee', kind: 'item', parentName: 'ScholarClone', sold: false }), 'Fee, under ScholarClone (Not sold)')
+    assert.equal(lineLabel({ name: 'Fee', kind: 'sub_product', parentName: 'ScholarClone', sold: true }), 'Fee, under ScholarClone')
+    assert.equal(lineLabel({ name: 'ScholarClone' }), 'ScholarClone', 'a row with no kind is a Product')
+  })
+
+  it('has no axe violation with Sub-products in the list', async () => {
+    const { k } = await render({ options: SUB_OPTIONS, id: 'p' })
+    assert.deepEqual(await axeViolations(k.w.document.body), [])
+  })
+
+  it('reads the list with ?withSubProducts=1 (one request), and turns each row into an option of its own kind, indented', async () => {
+    const k = await kit()
+    const api = installApi(k, { linesWithSubProducts: LINES_WITH_SUBS })
+    const { useProductChoices } = await import('./use-product-choices')
+    const seen: PmOption[][] = []
+    function Probe() { seen.push(useProductChoices(true)); return null }
+    await k.render(k.h(Probe))
+    await k.tick(30)
+    assert.equal(api.to('/product-master/lines').length, 1)
+    assert.equal(api.to('/product-master/lines')[0].query.get('withSubProducts'), '1')
+    const last = seen[seen.length - 1]
+    assert.deepEqual(last.map((o) => [o.id, o.kind]), [[1, 'product'], [23, 'sub_product'], [30, 'sub_product'], [2, 'product'], [26, 'item']])
+    assert.equal(last[1].label, `${INDENT}Scholar Nine, under ScholarClone`)
+    assert.equal(last[0].label, 'ScholarClone', 'a Product is at the left edge')
+  })
+
+  it('still works against a server that does not know the parameter and answers the Products alone: the box offers Products', async () => {
+    const k = await kit()
+    installApi(k)
+    const { useProductChoices } = await import('./use-product-choices')
+    const seen: PmOption[][] = []
+    function Probe() { seen.push(useProductChoices(true)); return null }
+    await k.render(k.h(Probe))
+    await k.tick(30)
+    assert.deepEqual(seen[seen.length - 1].map((o) => o.kind), ['product', 'product'])
   })
 })
 

@@ -12,7 +12,9 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Money } from '@/components/domain/portfolio/currency-badge'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
+import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import { KPICard } from '@/components/shared/business/kpi-card'
 import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
@@ -34,6 +36,7 @@ import { CrmScheduleTab } from './crm-schedule-tab'
 import { CrmProjectsTab, type LinkedProject } from './crm-projects-tab'
 import { OpportunityAiCoachTab } from './opportunity-ai-coach-tab'
 import { OpportunityProductLine, ReasonLostCard } from './opportunity-parts'
+import { OpportunitySuggestedValue } from './opportunity-suggested-value'
 
 interface Props {
   opportunity: CrmOpportunity
@@ -155,7 +158,7 @@ function AddProductDialog({ isOpen, onClose, onAdded, opportunityId }: {
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="add-prod-product">Sub-product</Label>
-            <SubProductPicker id="add-prod-product" value={productId} onChange={(picked) => setProductId(picked ? picked.productId : '')} />
+            <SubProductPicker id="add-prod-product" value={productId} onChange={(picked) => setProductId(picked ? picked.productId : '')} scope={PICKER_RULES.opportunityProduct.scope} notSoldSelectable={PICKER_RULES.opportunityProduct.notSoldSelectable} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="add-prod-qty">Quantity</Label>
@@ -558,6 +561,7 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
             />
           )}
           {!productsLoading && products.length > 0 && (
+            <>
             <div className="divide-y divide-border rounded-lg border border-border">
               {products.map((row) => (
                 <div key={row.id} className="flex items-center gap-3 p-3">
@@ -566,7 +570,11 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{row.itemType === 'service' ? 'Service' : 'Sub-product'} · Qty {row.quantity}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {row.itemType === 'service' ? 'Service' : 'Sub-product'} · Qty {row.quantity}
+                      {/* The price is the Sub-product's own (S16), read only, and only when the answer carries it: absent for a viewer who may not see prices. */}
+                      {row.unitPrice !== undefined && (<> · {row.unitPrice === null ? 'No price yet' : <span data-opportunity-product-price><Money amount={row.unitPrice} code={row.currency} /></span>}</>)}
+                    </p>
                   </div>
                   <Button variant="ghost" size="icon-sm" onClick={() => void removeProduct(row.id)} aria-label={`Remove ${row.name}`}>
                     <Trash2 className="size-4" aria-hidden="true" />
@@ -574,6 +582,8 @@ export function OpportunityDetailPage({ opportunity, onSaved, onBack, picklists 
                 </div>
               ))}
             </div>
+            <OpportunitySuggestedValue currency={opportunity.currency} rows={products} />
+            </>
           )}
         </SectionCard>
       )}

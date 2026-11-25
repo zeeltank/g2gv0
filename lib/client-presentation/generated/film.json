@@ -1,0 +1,336 @@
+{
+ "title": "ScholarClone in 59 seconds",
+ "length": 59,
+ "fps": 30,
+ "disclosure": "Illustrative school data",
+ "beats": [
+  {
+   "id": "hook",
+   "chapter": "",
+   "start": 0,
+   "end": 4,
+   "lines": [
+    {
+     "role": "l1",
+     "text": "What is your school not seeing?"
+    }
+   ]
+  },
+  {
+   "id": "problem",
+   "chapter": "Problems",
+   "start": 4,
+   "end": 10.5,
+   "lines": [
+    {
+     "role": "l1",
+     "text": "A student keeps struggling."
+    },
+    {
+     "role": "l2",
+     "text": "The school has the records."
+    },
+    {
+     "role": "l3",
+     "text": "What happens next?"
+    },
+    {
+     "role": "card",
+     "text": "Examination marks"
+    },
+    {
+     "role": "card",
+     "text": "Classroom observations"
+    },
+    {
+     "role": "card",
+     "text": "A parent's concern"
+    },
+    {
+     "role": "tag",
+     "text": "Illustrative situation"
+    }
+   ]
+  },
+  {
+   "id": "reveal",
+   "chapter": "Summary",
+   "start": 10.5,
+   "end": 18.5,
+   "lines": [
+    {
+     "role": "brand",
+     "text": "ScholarClone"
+    },
+    {
+     "role": "c1",
+     "text": "An integrated intelligent K–12 platform designed to help schools"
+    },
+    {
+     "role": "c2",
+     "text": "connect information,"
+    },
+    {
+     "role": "c3",
+     "text": "support better decisions"
+    },
+    {
+     "role": "c4",
+     "text": "and take meaningful action."
+    }
+   ]
+  },
+  {
+   "id": "modules",
+   "chapter": "Modules",
+   "start": 18.5,
+   "end": 25,
+   "lines": [
+    {
+     "role": "product",
+     "text": "Scholar One: Integrated Intelligent School Platform"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Core: Intelligent School Operations"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Learn: AI-Powered Personalised Learning"
+    },
+    {
+     "role": "product",
+     "text": "Scholar CCB: Competence and Capability Intelligence"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Insight: School Intelligence"
+    },
+    {
+     "role": "product",
+     "text": "Scholar Compass: Student Career Intelligence"
+    },
+    {
+     "role": "count",
+     "text": "Six products, one platform."
+    }
+   ]
+  },
+  {
+   "id": "workflow",
+   "chapter": "Workflows + AI",
+   "start": 25,
+   "end": 32.5,
+   "lines": [
+    {
+     "role": "h",
+     "text": "Information is not yet action."
+    },
+    {
+     "role": "step",
+     "text": "School information"
+    },
+    {
+     "role": "step",
+     "text": "Understanding"
+    },
+    {
+     "role": "step",
+     "text": "Identifying the gap"
+    },
+    {
+     "role": "step",
+     "text": "Deciding what to do"
+    },
+    {
+     "role": "step",
+     "text": "Taking action"
+    },
+    {
+     "role": "step",
+     "text": "Reviewing progress"
+    },
+    {
+     "role": "path",
+     "text": "A diagnostic"
+    },
+    {
+     "role": "path",
+     "text": "A plan drawn from it"
+    },
+    {
+     "role": "path",
+     "text": "Practice that adjusts"
+    },
+    {
+     "role": "path",
+     "text": "One next action"
+    },
+    {
+     "role": "ai",
+     "text": "AI drafts questions and content for staff to use."
+    }
+   ]
+  },
+  {
+   "id": "views",
+   "chapter": "Stakeholder views",
+   "start": 32.5,
+   "end": 40,
+   "lines": [
+    {
+     "role": "role",
+     "text": "Principal"
+    },
+    {
+     "role": "role",
+     "text": "Teacher"
+    },
+    {
+     "role": "role",
+     "text": "Student"
+    },
+    {
+     "role": "role",
+     "text": "Operations staff"
+    },
+    {
+     "role": "q",
+     "text": "Which students may need attention?"
+    },
+    {
+     "role": "q",
+     "text": "Where does a teacher need development?"
+    },
+    {
+     "role": "q",
+     "text": "Which concepts is this student weak in?"
+    },
+    {
+     "role": "q",
+     "text": "Fees, attendance and marks. One system?"
+    },
+    {
+     "role": "a",
+     "text": "Scholar Insight"
+    },
+    {
+     "role": "a",
+     "text": "Scholar CCB"
+    },
+    {
+     "role": "a",
+     "text": "Scholar Learn"
+    },
+    {
+     "role": "a",
+     "text": "Scholar Core"
+    }
+   ]
+  },
+  {
+   "id": "connects",
+   "chapter": "Connects to + Reports",
+   "start": 40,
+   "end": 45.5,
+   "lines": [
+    {
+     "role": "node",
+     "text": "School operations"
+    },
+    {
+     "role": "node",
+     "text": "Student learning"
+    },
+    {
+     "role": "node",
+     "text": "Leadership"
+    },
+    {
+     "role": "node",
+     "text": "Career exploration"
+    },
+    {
+     "role": "link",
+     "text": "Exams and practice become career evidence."
+    },
+    {
+     "role": "link",
+     "text": "Attendance and results, compared."
+    },
+    {
+     "role": "link",
+     "text": "One risk case."
+    },
+    {
+     "role": "report",
+     "text": "Attendance reports"
+    },
+    {
+     "role": "report",
+     "text": "Result reports"
+    }
+   ]
+  },
+  {
+   "id": "claim",
+   "chapter": "Benefits + Fit",
+   "start": 45.5,
+   "end": 51.5,
+   "lines": [
+    {
+     "role": "v1",
+     "text": "What could become easier:"
+    },
+    {
+     "role": "v2",
+     "text": "a clearer picture of collection, absence and results"
+    },
+    {
+     "role": "v3",
+     "text": "without compiling by hand."
+    },
+    {
+     "role": "fit",
+     "text": "School promoters"
+    },
+    {
+     "role": "fit",
+     "text": "Trustees"
+    },
+    {
+     "role": "fit",
+     "text": "Principals"
+    },
+    {
+     "role": "fit",
+     "text": "Directors"
+    },
+    {
+     "role": "fit",
+     "text": "Academic leaders"
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "chapter": "",
+   "start": 51.5,
+   "end": 59,
+   "lines": [
+    {
+     "role": "brand",
+     "text": "ScholarClone"
+    },
+    {
+     "role": "invite",
+     "text": "We would like to talk with you about the Founding 25 Pilot Programme."
+    },
+    {
+     "role": "close",
+     "text": "The next step is a conversation."
+    }
+   ]
+  }
+ ]
+}

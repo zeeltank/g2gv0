@@ -5,6 +5,9 @@ import path from 'node:path'
 import { describe, it } from 'node:test'
 
 /**
+ * Nothing in the front end may link to the old Products, Services and Price Books screens (Price Books were removed on 25 Nov 2026, slice 16: a Sub-product holds its own
+ * price, currency and tax rate, and `/module/crm/sales/price-books` lives on only as a redirect page to the Product Portfolio tab, like the other two).
+ *
  * Nothing in the front end may link to the old Products and Services screens. They were merged into the Product Portfolio on 13 Nov 2026 (hp_erp docs/agentic-crm/DECISIONS.md,
  * entry 2026-11-13; slice 15, track P3-A): a product opens on `/portfolio` (the list), `/portfolio/products/{id}` (a Sub-product) or `/portfolio/{key}` (a Product). The old
  * addresses, `/module/crm/sales/products` and `/module/crm/sales/services` (with their `/{id}` and `/lines/{id}` pages), live on ONLY as the redirect pages under app/ (an Ask
@@ -20,8 +23,8 @@ const FOLDERS = ['app', 'components', 'hooks', 'lib', 'services']
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md', '.mdx'])
 const SKIP_FOLDERS = new Set(['node_modules', '.next'])
 
-/** `/module/crm/sales/products` or `/module/crm/sales/services`, not continuing into a longer word (`/products-new`), with or without a path after it. */
-const ADDRESS = /\/module\/crm\/sales\/(?:products|services)(?![\w-])/
+/** `/module/crm/sales/products`, `/module/crm/sales/services` or `/module/crm/sales/price-books`, not continuing into a longer word (`/products-new`), with or without a path after it. */
+const ADDRESS = /\/module\/crm\/sales\/(?:products|services|price-books)(?![\w-])/
 
 interface Allowance {
   /** Relative to the front-end root, forward slashes. */
@@ -40,7 +43,7 @@ const ALLOWED: Allowance[] = [
   { file: 'lib/portfolio-address-gone.test.ts', why: 'this file: the detector and its examples' },
   { file: 'lib/portfolio-list/vocabulary.test.ts', line: /'app\/module\/crm\/sales\/(?:products|services)\/[^']*page\.tsx'/, why: 'lists the redirect pages by their file path (their folders ARE the old addresses) to scan their words' },
   // The sidebar fold: it names the two menu rows it draws as the Product Portfolio (the rows stay in the database with status 1).
-  { file: 'lib/signals-nav.ts', line: /^const (?:PRODUCTS|SERVICES)_PATH = '\/module\/crm\/sales\/(?:products|services)'\s*$/, why: 'the sidebar fold names the two menu rows it draws as the Product Portfolio, and the addresses that still resolve' },
+  { file: 'lib/signals-nav.ts', line: /^const (?:PRODUCTS|SERVICES|PRICE_BOOKS)_PATH = '\/module\/crm\/sales\/(?:products|services|price-books)'\s*$/, why: 'the sidebar fold names the three menu rows it does not draw (Products and Services are the Product Portfolio, Price Books were removed), and the addresses that still resolve' },
   { file: 'lib/gtg-navigation.ts', line: /^export const CRM_(?:PRODUCTS|SERVICES)_ACCESS_LINK = '\/module\/crm\/sales\/(?:products|services)'\s*$/, why: 'the identity (access_link) of the two menu rows 468 and 469, which stay in the database; old screens and the sidebar hook still resolve them' },
   { file: 'lib/portfolio-list/sidebar.test.ts', why: 'tests the sidebar fold, so it names the two menu rows on purpose' },
   { file: 'lib/product-picker/product-page-link.test.tsx', why: 'proves the product-page link no longer resolves the old Products address: it has to spell the address it forbids (a comment and one `includes` check)' },
@@ -85,10 +88,10 @@ function sourceFiles(root: string, folders: string[]): string[] {
 
 const scan = (root: string, folders: string[]) => sourceFiles(root, folders).flatMap((file) => violations(file, readFileSync(path.join(root, file), 'utf8')))
 
-describe('nothing in the front end links to the old Products and Services screens', () => {
+describe('nothing in the front end links to the old Products, Services and Price Books screens', () => {
   it('names neither old address anywhere outside the allowances (the redirect pages do not even need one)', () => {
     const found = scan(ROOT, FOLDERS)
-    assert.deepEqual(found, [], `These lines name an old Products or Services address. A product opens on /portfolio, /portfolio/products/{id} or /portfolio/{key}:\n  ${found.join('\n  ')}`)
+    assert.deepEqual(found, [], `These lines name an old Products, Services or Price Books address. A product opens on /portfolio, /portfolio/products/{id} or /portfolio/{key}; its price is on its own page:\n  ${found.join('\n  ')}`)
   })
 
   it('reads the files that used to make the link, and enough of the application', () => {
@@ -97,6 +100,7 @@ describe('nothing in the front end links to the old Products and Services screen
       'hooks/content-map-crm.ts', 'hooks/use-sidebar-navigation.ts', 'lib/signals-nav.ts', 'lib/gtg-navigation.ts', 'components/domain/crm/ticket-detail-page.tsx',
       'components/domain/crm/asset-detail-page.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'app/module/crm/sales/products/page.tsx', 'app/module/crm/sales/services/page.tsx',
       'app/module/crm/sales/products/[id]/page.tsx', 'app/module/crm/sales/services/[id]/page.tsx', 'app/module/crm/sales/products/lines/[id]/page.tsx', 'app/portfolio/page.tsx',
+      'app/module/crm/sales/price-books/page.tsx', 'app/module/crm/sales/price-books/[id]/page.tsx',
     ]) {
       assert.ok(files.includes(expected), `${expected} is not scanned`)
     }
@@ -127,15 +131,18 @@ describe('nothing in the front end links to the old Products and Services screen
       'fetch("/module/crm/sales/products/lines/9?tab=signals")',
       "href='/module/crm/sales/products/'",
       "owners['/module/crm/sales/services']",
+      "const b = '/module/crm/sales/price-books'",
+      'router.push(`/module/crm/sales/price-books/${id}`)',
     ]) assert.ok(ADDRESS.test(line), `should be seen: ${line}`)
 
     for (const line of [
       "router.push('/portfolio')",
       "href={`/portfolio/products/${id}`}",
       "const a = '/module/crm/sales/quotes/12'",
-      "const b = '/module/crm/sales/price-books'",
       "const c = '/module/crm/sales/products-new'",
       "const d = '/module/crm/sales/servicesx'",
+      "const g = '/module/crm/sales/price-books-old'",
+      "const h = '/module/crm/sales/quotes/price-books'",
       "import { ProductListView } from '@/domain/crm/product-list-view'",
       "const e = '/module/crm/marketing/products'",
     ]) assert.ok(!ADDRESS.test(line), `should be ignored: ${line}`)
@@ -172,11 +179,13 @@ describe('nothing in the front end links to the old Products and Services screen
 
 // ---------------------------------------------------------------------------------------------------------------------------- the old components
 
-/** The components and models of the old Products and Services screens. They were deleted at P4 (slice 15, WPD); nothing may import them or bring them back. */
+/** The components and models of the old Products and Services screens (deleted at P4, slice 15, WPD) and of Price Books (deleted 25 Nov 2026, slice 16); nothing may import them or bring them back. */
 const OLD_SCREEN_FILES = [
   'product-catalog-list-view', 'product-list-view', 'service-list-view', 'product-detail-page', 'product-lines-view', 'product-line-record-page', 'create-product-modal',
   'product-lines-model', 'product-master-model', 'product-line-columns', 'product-links-panels', 'product-signals-icp-tab', 'product-scope-switch', 'product-master-form', 'product-master-parts', 'product-offer-about',
   'product-usage-tab',
+  // Price Books were removed on 25 Nov 2026 (slice 16): the three screens of the book and its option list.
+  'price-book-list-view', 'price-book-detail-page', 'create-price-book-modal', 'price-book-options',
 ]
 
 /** An import or a dynamic import of one of those files, by any spelling of the path (`@/domain/crm/...`, `@/components/domain/crm/...`, `./...`, `../...`). */

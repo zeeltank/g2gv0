@@ -26,7 +26,9 @@ import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
-import type { CrmPriceBookItem, CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
+import { PICKER_RULES, type ConsumerRule } from '@/lib/product-picker/consumer-rules'
+import type { CrmQuoteLineItemInput, CrmTaxRate } from '@/types/crm'
+import { LineTableError } from './line-table-error'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -63,8 +65,10 @@ interface Props {
   onChange: (lineItems: CrmQuoteLineItemInput[]) => void
   taxRates: CrmTaxRate[]
   currency: string | null
-  /** The quote's selected price book's own per-product prices, if any - a newly-picked product defaults to its override here instead of its base unitPrice. */
-  priceBookItems?: CrmPriceBookItem[]
+  /** A plain sentence about the last save, shown above the lines (a Sub-product priced in another currency than the document: S16). */
+  error?: string | null
+  /** How the picker treats a Sub-product that is not sold: the quote's line of lib/product-picker/consumer-rules.ts unless the page says otherwise (the invoice passes its own). */
+  pickerRule?: ConsumerRule
 }
 
 const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
@@ -72,7 +76,7 @@ const emptyRow = (sequenceNo: number): CrmQuoteLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, priceBookItems = [] }: Props) {
+export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, error = null, pickerRule = PICKER_RULES.quote }: Props) {
   const totals = useMemo(() => computeTotals(lineItems, taxRates), [lineItems, taxRates])
 
   const taxOptions = [{ label: 'No tax', value: 'none' }, ...taxRates.map((t) => ({ label: `${t.name} (${t.percentage}%)`, value: t.id }))]
@@ -81,19 +85,14 @@ export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, pr
     onChange(lineItems.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   }
 
-  // The picker hands back the same four things the old product list did (the catalogue id as text, the name, the base price and the default tax rate), so the
-  // price and tax defaulting below is exactly what it was.
+  // The picker hands back the Sub-product's catalogue id as text, its name, its price and its tax rate. The line takes all of them from the Sub-product alone
+  // (S16: Price Books were removed, so nothing overrides the price); the person can still change the price on the line.
   const onProductChange = (index: number, product: PickedSubProduct | null) => {
     if (!product) { updateRow(index, { productId: null }); return }
-    // The quote's price book overrides this product's base price when it has
-    // one listed - falls back to the base unitPrice otherwise (see
-    // crm_price_book_items' own migration docblock: this is a UI default at
-    // add-time only, never enforced retroactively on rows already on the quote).
-    const override = priceBookItems.find((i) => i.productId === product.productId)
     updateRow(index, {
       productId: product.productId,
       description: product.name,
-      unitPrice: override?.listPrice ?? product.unitPrice ?? 0,
+      unitPrice: product.unitPrice ?? 0,
       taxRateId: product.taxRateId,
     })
   }
@@ -103,6 +102,7 @@ export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, pr
 
   return (
     <div className="space-y-3">
+      <LineTableError message={error} />
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
           <TableHeader>
@@ -134,6 +134,8 @@ export function QuoteLineItemTable({ lineItems, onChange, taxRates, currency, pr
                     value={row.productId}
                     onChange={(picked) => onProductChange(index, picked)}
                     aria-label={`Sub-product for line ${index + 1}`}
+                    scope={pickerRule.scope}
+                    notSoldSelectable={pickerRule.notSoldSelectable}
                   />
                 </TableCell>
                 <TableCell>

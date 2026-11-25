@@ -1,0 +1,8 @@
+{
+  "name": "scholarclone-film-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "The 3D motion-graphics film of ScholarClone (three.js + GSAP, rendered frame by frame). Not part of the Next.js app; see README.md.",
+  "type": "module",
+  "dependencies": { "three": "0.187.0", "gsap": "3.15.1" }
+}

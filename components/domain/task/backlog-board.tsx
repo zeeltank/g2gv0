@@ -98,7 +98,7 @@ export interface BacklogBoardHandle {
 }
 
 export function BacklogBoard({
-  projectId, workstreams, onAssign, onCountChange,
+  projectId, workstreams, onAssign, onCountChange, autoOpenAdd = false,
 }: {
   /** null = the task dashboard: everything, grouped by project. */
   projectId: string | null
@@ -106,13 +106,15 @@ export function BacklogBoard({
   /** Opens the task assign drawer, pre-filled from this item. */
   onAssign?: (item: BacklogItem) => void
   onCountChange?: (open: number) => void
+  /** Open the add dialog as soon as the board mounts - what "Add to Backlog" on the Dashboard means. */
+  autoOpenAdd?: boolean
 }) {
   const [items, setItems] = useState<BacklogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
-  const [dialog, setDialog] = useState<{ open: boolean; item: BacklogItem | null }>({ open: false, item: null })
+  const [dialog, setDialog] = useState<{ open: boolean; item: BacklogItem | null }>({ open: autoOpenAdd, item: null })
   const [viewing, setViewing] = useState<BacklogItem | null>(null)
   const [sort, setSort] = useState<(typeof SORTS)[number]['value']>('rank')
   const [dragging, setDragging] = useState<string | null>(null)

@@ -41,7 +41,7 @@ describe('the Product Portfolio list: what is on the page', () => {
   it('shows a row\'s own values: SKU, price, state, readiness, signals and ICP, all in words (a Sub-product sits under its Product and is not labelled; a Service is)', async () => {
     const { rowOf } = await open()
     const fees = rowOf('Fees Intelligence')!.textContent!
-    for (const part of ['SCH-02', 'INR 1,20,000.00', 'School ERP', '12.5', 'Sold', 'Live – with client', '2', 'Draft']) assert.ok(fees.includes(part), `Fees Intelligence shows ${part}: ${fees}`)
+    for (const part of ['SCH-02', '₹1,20,000.00', 'School ERP', '12.5', 'Sold', 'Live – with client', '2', 'Draft']) assert.ok(fees.includes(part), `Fees Intelligence shows ${part}: ${fees}`)
     const svc = rowOf('ScholarClone Implementation')!.textContent!
     for (const part of ['Service', 'SVC-1', 'Paused']) assert.ok(svc.includes(part), part)
     assert.ok(rowOf('Scholar School ERP')!.textContent!.includes('Not sold'))
@@ -82,16 +82,16 @@ describe('what a caller who may not view prices sees (HR)', () => {
   let current: Awaited<ReturnType<typeof setup>> | null = null
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })
 
-  it('gets no SKU, Price, Category, In stock or Sold in CRM column, no Sold in CRM filter, and no bulk tick that can be set', async () => {
+  it('gets no SKU, Price, Category, In stock or Sold in CRM column, no Sold in CRM filter, and no tick for a Sell action (only for Move to another Product)', async () => {
     current = await setup({ rows: hrRows(), can: HR_CAN })
     const { heads, text, facet, k } = current
     assert.deepEqual(heads(), ['', 'Name', 'Readiness', 'Signals', 'ICP'])
     for (const word of ['SKU', 'Price', 'Category', 'In stock', 'Sold in CRM']) assert.ok(!heads().includes(word), `no ${word} column for HR`)
     assert.equal(facet('Sold in CRM'), undefined, 'no Sold in CRM filter for HR')
     assert.ok(facet('Status'), 'the other filters are there')
-    assert.ok(!text().includes('INR'), 'no price anywhere on the page')
+    assert.ok(!text().includes('INR') && !text().includes('₹'), 'no price anywhere on the page')
     assert.ok(!text().includes('120000') && !text().includes('1,20,000'), 'no price figure')
-    assert.equal(k.all('tbody input[type="checkbox"]').filter((c) => !(c as HTMLInputElement).disabled).length, 0, 'HR can tick nothing: nothing in the list can be changed by a bulk action')
+    assert.equal(k.all('tbody input[type="checkbox"]').filter((c) => !(c as HTMLInputElement).disabled).length, 4, 'HR may change Sub-products, so each can be ticked for Move to another Product (the Product and the shared one cannot); Reassign and Delete are never offered (lib/portfolio-list/move-delete.test.tsx)')
   })
 
   it('does not invite a search by SKU (the server does not search a SKU the caller may not see), and an administrator is invited to', async () => {
@@ -114,7 +114,7 @@ describe('what a caller who may not view prices sees (HR)', () => {
     for (const key of ['sku', 'category', 'qtyInStock', 'unitPrice', 'currency']) delete noKeys[key]
     current = await setup({ rows: [product(), noKeys as never, sold()], can: SALES_CAN })
     assert.ok(current.rowOf('Hidden price one')!.textContent!.includes('Not shown'))
-    assert.ok(current.rowOf('Fees Intelligence')!.textContent!.includes('INR 1,20,000.00'))
+    assert.ok(current.rowOf('Fees Intelligence')!.textContent!.includes('₹1,20,000.00'))
   })
 })
 

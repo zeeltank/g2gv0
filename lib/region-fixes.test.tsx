@@ -102,7 +102,8 @@ describe('The pre-run notice separates this run\'s region from the saved ICP reg
 
   it('uses the selected region to scope history and results without a configuration dump', () => {
     const screen = read('components/domain/signals/company-opportunities.tsx')
-    assert.match(screen, /getRunDates\(context, key, icpType, offerId, regions\)/)
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): the same call, with "All ICP types" asking for the days across every scope.
+    assert.match(screen, /getRunDates\(context, key, icpType === 'all' \? 'b2b' : icpType, offerId, regions, icpType === 'all'\)/)
     assert.match(screen, /regions=\{regions\}/)
     assert.doesNotMatch(screen, /ResearchContextNotice/)
   })

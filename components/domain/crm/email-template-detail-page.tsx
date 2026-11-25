@@ -2,8 +2,8 @@
 
 /**
  * Email Templates admin library - detail/read view. Same shape as
- * PriceBookDetailPage, minus its own Product Prices sub-list (a template has
- * nothing of its own to manage beyond the header fields CreateEmailTemplateModal
+ * the other CRM detail pages, with no sub-list (a template has nothing of
+ * its own to manage beyond the header fields CreateEmailTemplateModal
  * already edits).
  */
 

@@ -50,10 +50,11 @@ async function setup(options: Setup = {}, mount = true) {
   const promoteCalls: number[] = []
   const getCalls: number[] = []
   const runCalls = { runDates: 0, status: 0, runResearch: 0 }
+  const runDatesArgs: unknown[][] = []
 
   Object.assign(opportunitiesService, {
     list: async (_c: unknown, q: OpportunityQuery) => { listCalls.push(q); return options.list ? options.list(q) : opportunityList() },
-    getRunDates: async () => { runCalls.runDates += 1; return { status: 1, data: { product: 'x', timezone: 'Asia/Kolkata', dates: [] } } },
+    getRunDates: async (...args: unknown[]) => { runCalls.runDates += 1; runDatesArgs.push(args.slice(1)); return { status: 1, data: { product: 'x', timezone: 'Asia/Kolkata', dates: [] } } },
     getStatus: async () => {
       runCalls.status += 1
       return { status: 1, data: { requirements: { profile_complete: true, profile_missing: [], search_configured: true, search_driver: 'x', ai_configured: true, research_enabled: true }, running: false, latest_run: null, last_successful_run: null, next_scheduled_at: null, timezone: 'Asia/Kolkata' } }
@@ -91,7 +92,7 @@ async function setup(options: Setup = {}, mount = true) {
   const inCard = (card: HTMLElement, text: string) => Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === text) as HTMLElement
   const generate = () => k.withText('Generate Signals') as HTMLButtonElement
 
-  return { k, router, listCalls, decideCalls, historyCalls, promoteCalls, getCalls, runCalls, facet, choose, setSelect, mainProduct, cardOf, inCard, generate, element }
+  return { k, router, listCalls, decideCalls, historyCalls, promoteCalls, getCalls, runCalls, runDatesArgs, facet, choose, setSelect, mainProduct, cardOf, inCard, generate, element }
 }
 
 describe('Company Opportunities: a link that only searches', () => {
@@ -99,16 +100,20 @@ describe('Company Opportunities: a link that only searches', () => {
 
   it('opens on All products, with every status and the search applied, and asks the server for exactly that', async () => {
     const title = 'District office invites bids for a school management system'
-    const { listCalls, mainProduct, facet, k } = await setup({ search: `status=all&q=${encodeURIComponent(title)}` })
+    const { listCalls, mainProduct, k } = await setup({ search: `status=all&q=${encodeURIComponent(title)}` })
 
     assert.equal(mainProduct().value, 'all')
     assert.equal(mainProduct().options[mainProduct().selectedIndex].textContent, 'All products')
-    assert.equal(facet('Status').value, 'all')
     assert.equal((k.one('input[aria-label="Search signals"]') as HTMLInputElement).value, title)
 
     assert.equal(listCalls.length, 1, 'one request, not one per step of the screen opening')
     assert.equal(listCalls[0].search, title)
     assert.equal(listCalls[0].product, 'all', 'no single product')
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): the selectors are the list's filters in every scope (scope_filter), and the old `allSignals` request is gone.
+    assert.equal(listCalls[0].scopeFilter, true)
+    assert.equal(listCalls[0].customerModel, 'b2b', 'the ICP Type selector opens on B2B')
+    assert.equal(listCalls[0].offerId, undefined)
+    assert.equal(listCalls[0].allSignals, undefined)
     assert.equal(listCalls[0].reviewStatus, undefined, 'no review_status: every status')
     assert.equal(listCalls[0].productMasterId, undefined)
     assert.equal(listCalls[0].freshness, undefined)
@@ -146,10 +151,8 @@ describe('Company Opportunities: a link that only searches', () => {
   })
 
   it('with no parameters at all the screen is what it was: the first ready product, whose research days it looks up, and nothing is written', async () => {
-    const { mainProduct, listCalls, runCalls, router, facet } = await setup()
+    const { mainProduct, listCalls, runCalls, router } = await setup()
     assert.equal(mainProduct().value, 'scholarclone')
-    assert.equal(facet('Status').value, 'all')
-    assert.equal(facet('Page size').value, '5')
     assert.equal(runCalls.runDates > 0, true)
     assert.equal(router.written.length, 0, 'the address is left clean')
     assert.equal(listCalls.at(-1)?.product, 'scholarclone')
@@ -180,10 +183,14 @@ describe('Company Opportunities: what stays as it was for one product', () => {
     assert.deepEqual(has(product.k), { today: true, days: true, calendar: true, manual: true, advanced: true, icp: true })
     await disposeAll()
 
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): the ICP Type and Region selectors filter the list in every scope, so they are ON for All products too (the
+    // Sub-Product stays off: it belongs to one product). Generate stays off.
     const every = await setup({ search: 'product=all' })
-    assert.deepEqual(has(every.k), { today: false, days: false, calendar: false, manual: false, advanced: false, icp: false })
+    assert.deepEqual(has(every.k), { today: false, days: false, calendar: false, manual: false, advanced: false, icp: true })
     assert.equal((every.k.one('#sub-product-select') as HTMLSelectElement).disabled, true)
-    assert.equal((every.k.one('#icp-type-select') as HTMLSelectElement).disabled, true)
+    assert.equal((every.k.one('#icp-type-select') as HTMLSelectElement).disabled, false)
+    assert.equal((every.k.one('button[aria-labelledby="region-label"]') as HTMLButtonElement).disabled, false, 'the Region selector is on for All products')
+    assert.equal((every.k.withText('Generate Signals') as HTMLButtonElement).disabled, true)
   })
 
   it('changing what the list is about (here the ICP type) sends it back to page one, and leaves the other filters alone', async () => {
@@ -194,7 +201,9 @@ describe('Company Opportunities: what stays as it was for one product', () => {
     assert.equal(listCalls.at(-1)?.page, 3)
     await setSelect(k.one('#icp-type-select') as HTMLSelectElement, 'b2g')
     assert.equal(listCalls.at(-1)?.page, 1)
-    assert.equal(listCalls.at(-1)?.customerModel, undefined, 'a whole product reads every ICP type')
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): the ICP Type selector filters the list (it used to be left out of the request for a whole product).
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2g')
+    assert.equal(listCalls.at(-1)?.scopeFilter, true)
     assert.equal(router.lastSearch(), 'product=g2g&status=reviewed')
   })
 
@@ -255,52 +264,46 @@ describe('Company Opportunities: product in the address', () => {
   })
 })
 
-describe('Company Opportunities: the filters live in the address', () => {
+// CHANGED ON PURPOSE (S17, 25 Nov 2026): the Status, Freshness, Fit, Sort and Page size boxes are gone from the list; the four selectors at the top are its
+// filters. A link made for the Signal Review can still carry status, freshness, fit and sort, and they still apply; the page size is five.
+describe('Company Opportunities: the address, with no filter boxes of its own', () => {
   afterEach(disposeAll)
 
-  it('a chosen filter is written to the address under the Signal Review\'s names and asked of the server', async () => {
-    const { router, listCalls, choose, facet } = await setup({ search: 'product=all' })
-    await choose('Freshness', 'last_30_days')
-    assert.equal(router.lastSearch(), 'product=all&freshness=last_30_days')
-    assert.equal(listCalls.at(-1)?.freshness, 'last_30_days')
-    assert.equal(facet('Freshness').value, 'last_30_days')
-
-    await choose('Status', 'contacted')
-    assert.equal(listCalls.at(-1)?.reviewStatus, 'Follow-up')
-    await choose('Fit', 'g2g')
-    assert.equal(listCalls.at(-1)?.businessFit, 'g2g')
-    await choose('Sort', 'recent')
-    assert.equal(listCalls.at(-1)?.sort, 'recent')
-    assert.equal(router.lastSearch(), 'sort=recent&product=all&status=contacted&freshness=last_30_days&fit=g2g')
+  it('the list has no Status, Freshness, Fit, Sort or Page size box, and no select of its own: only the selectors at the top', async () => {
+    const { facet, k } = await setup({ search: 'product=all' })
+    for (const label of ['Status', 'Freshness', 'Fit', 'Sort', 'Page size']) assert.equal(facet(label), undefined, `the ${label} box is gone`)
+    assert.deepEqual(k.all('select').map((select) => select.id).filter((id) => id !== ''), ['main-product-select', 'sub-product-select', 'icp-type-select'])
+    assert.deepEqual(k.all('select').filter((select) => select.id === '').map((select) => select.getAttribute('aria-label')), [])
+    assert.ok(k.one('input[aria-label="Search signals"]'), 'the search box stays')
+    assert.ok(k.withText('Export CSV'), 'and so does Export CSV')
   })
 
-  it('survives a re-render from the address: the boxes and the request come from the link', async () => {
+  it('a link made for the Signal Review still applies its status, freshness, fit and sort, and the search; nothing on this screen writes them', async () => {
     const link = 'product=all&status=dismissed&freshness=undated&fit=eb&sort=priority&per=20&page=2&q=fee'
     const first = await setup({ search: link })
-    assert.equal(first.facet('Status').value, 'dismissed')
-    assert.equal(first.facet('Freshness').value, 'undated')
-    assert.equal(first.facet('Fit').value, 'eb')
-    assert.equal(first.facet('Sort').value, 'priority')
-    assert.equal(first.facet('Page size').value, '20')
     assert.deepEqual(
       { ...first.listCalls[0], regions: undefined },
-      { product: 'all', reviewStatus: 'Dismissed', freshness: 'undated', businessFit: 'eb', sort: 'priority', perPage: 20, page: 2, search: 'fee', expired: 'include', allSignals: true, source: 'all', regions: undefined, offerId: undefined, customerModel: undefined, productMasterId: undefined, runDate: undefined, from: undefined, to: undefined, runId: undefined },
+      { product: 'all', reviewStatus: 'Dismissed', freshness: 'undated', businessFit: 'eb', sort: 'priority', perPage: 5, page: 2, search: 'fee', expired: 'include', scopeFilter: true, source: 'all', regions: undefined, offerId: undefined, customerModel: 'b2b', productMasterId: undefined, runDate: undefined, from: undefined, to: undefined, runId: undefined },
     )
     assert.equal((first.k.one('input[aria-label="Search signals"]') as HTMLInputElement).value, 'fee')
     assert.equal(first.listCalls.length, 1, 'opening on page two does not send the list back to page one')
+    assert.equal(first.router.written.length, 0, 'opening writes nothing: no box sets these')
     await disposeAll()
 
     // The same address, a new render: the same view.
     const second = await setup({ search: link })
-    assert.equal(second.facet('Status').value, 'dismissed')
     assert.equal(second.listCalls[0].page, 2)
     assert.equal(second.listCalls[0].reviewStatus, 'Dismissed')
   })
 
+  it('the page size is five whatever the address says (there is no per)', async () => {
+    const { listCalls } = await setup({ search: 'product=all&per=50' })
+    assert.equal(listCalls.at(-1)?.perPage, 5)
+  })
+
   it('an old Signal Review link opens the same view here', async () => {
-    const { facet, listCalls, mainProduct } = await setup({ search: 'product=5&status=new&freshness=last_90_days&fit=scholar&sort=recent&q=tender' })
+    const { listCalls, mainProduct } = await setup({ search: 'product=5&status=new&freshness=last_90_days&fit=scholar&sort=recent&q=tender' })
     assert.equal(mainProduct().value, '5')
-    assert.equal(facet('Status').value, 'new')
     assert.equal(listCalls.at(-1)?.productMasterId, 5)
     assert.equal(listCalls.at(-1)?.reviewStatus, 'New')
     assert.equal(listCalls.at(-1)?.freshness, 'last_90_days')
@@ -308,27 +311,10 @@ describe('Company Opportunities: the filters live in the address', () => {
     assert.equal(listCalls.at(-1)?.sort, 'recent')
     assert.equal(listCalls.at(-1)?.search, 'tender')
   })
+})
 
-  it('changing a filter goes back to page one', async () => {
-    const { router, listCalls, choose } = await setup({ search: 'product=all&page=3' })
-    assert.equal(listCalls[0].page, 3)
-    await choose('Status', 'reviewed')
-    assert.equal(router.lastSearch(), 'product=all&status=reviewed')
-    assert.equal(listCalls.at(-1)?.page, 1)
-  })
-
-  it('the page size is 5, 20 or 50, kept in the address as per', async () => {
-    const { router, listCalls, choose, facet } = await setup({ search: 'product=all&page=2' })
-    assert.deepEqual(Array.from(facet('Page size').options).map((o) => o.textContent), ['5 per page', '20 per page', '50 per page'])
-    await choose('Page size', '20')
-    assert.equal(router.lastSearch(), 'product=all&per=20')
-    assert.equal(listCalls.at(-1)?.perPage, 20)
-    assert.equal(listCalls.at(-1)?.page, 1)
-    await choose('Page size', '50')
-    assert.equal(listCalls.at(-1)?.perPage, 50)
-    await choose('Page size', '5')
-    assert.equal(router.lastSearch(), 'product=all', 'five is the default and leaves no mark')
-  })
+describe('Company Opportunities: paging in the address', () => {
+  afterEach(disposeAll)
 
   it('a page past the end (a stale link) goes to the last page instead of showing an empty list', async () => {
     const { router, listCalls, k } = await setup({
@@ -905,21 +891,18 @@ describe('Company Opportunities: deciding on a signal, in every way it can end',
 describe('Company Opportunities: the list, as the Signal Review\'s list tests proved it', () => {
   afterEach(disposeAll)
 
-  it('never shows the stored word Follow-up: the cards and the Status box say Contacted', async () => {
+  it('never shows the stored word Follow-up: the cards say Contacted', async () => {
     const s = await setup({ search: 'product=all' })
     assert.ok(s.cardOf('Principal posts').textContent!.includes('Contacted'), 'the card whose stored status is Follow-up says Contacted')
     assert.ok(!s.k.bodyText().includes('Follow-up'), 'the stored word is nowhere on the screen')
-    const options = Array.from(s.facet('Status').options).map((o) => o.textContent ?? '')
-    assert.ok(options.includes('Contacted'), `the Status box offers Contacted: ${options.join(', ')}`)
-    assert.ok(!options.some((text) => /Follow-up/.test(text)), 'and never Follow-up')
   })
 
-  it('keeps the search and every filter on screen when nothing matches', async () => {
+  it('keeps the search and the selectors on screen when nothing matches, and Clear filters is the way out of a link\'s filters', async () => {
     const s = await setup({ search: 'product=all&freshness=older', list: async () => opportunityList([], { summary: { total: 73, new: 68, high_priority: 12, follow_up: 5 } }) })
     assert.ok(s.k.bodyText().includes('No signals match these filters'), 'the empty answer is said')
-    for (const label of ['Status', 'Freshness', 'Fit', 'Sort', 'Page size']) assert.ok(s.facet(label), `the ${label} box is still on screen`)
+    for (const id of ['main-product-select', 'sub-product-select', 'icp-type-select']) assert.ok(s.k.one('#' + id), `the ${id} selector is still on screen`)
     assert.ok(s.k.one('input[aria-label="Search signals"]'), 'and so is the search box')
-    assert.equal(s.facet('Freshness').value, 'older', 'with the choice that found nothing, so it can be changed')
+    assert.ok(s.k.withText('Clear filters'), 'a link\'s freshness has no box to change it in, so Clear filters is offered')
   })
 
   it('Previous is off on the first page and Next on the last', async () => {
@@ -1001,11 +984,74 @@ describe('Company Opportunities: states', () => {
   it('wraps its filters: nothing has a fixed width wider than a phone, and the controls can wrap', async () => {
     const { k } = await setup({ search: 'product=all' })
     const bar = k.one('input[aria-label="Search signals"]')!.closest('.flex-wrap') as HTMLElement
-    assert.ok(bar, 'the search and the facets are in a wrapping row')
+    assert.ok(bar, 'the search and Export CSV are in a wrapping row')
     assert.ok(bar.className.includes('flex-wrap'))
-    for (const select of k.all('select').filter((s) => s.id.startsWith(':'))) {
-      const facetBox = select.parentElement as HTMLElement
-      assert.ok(/min-w-\[9rem\]/.test(facetBox.className), 'a facet asks for 9rem at most, so two fit side by side at 390px')
-    }
+    assert.equal(k.all('select').filter((s) => s.id.startsWith(':')).length, 0, 'the list has no select of its own any more')
+  })
+})
+
+// S17 (25 Nov 2026): the four selectors at the top are the list's filters as well as the inputs of Generate Signals.
+describe('Company Opportunities: the four selectors filter the list', () => {
+  afterEach(disposeAll)
+
+  it('sends the sub-product, the ICP type and the places as scope_filter filters, and a change of one is sent at once, from page one', async () => {
+    const { k, listCalls, setSelect } = await setup({ search: 'product=scholarclone%3A%3ASCH-11&page=2' })
+    const first = listCalls.at(-1)!
+    assert.equal(first.scopeFilter, true)
+    assert.equal(first.offerId, 'SCH-11')
+    assert.equal(first.customerModel, 'b2b')
+    assert.ok(Array.isArray(first.regions) && first.regions.length > 0, 'the places the Region selector holds')
+    assert.equal(first.allSignals, undefined, 'no all_signals forcing: the selectors are not bypassed')
+
+    await setSelect(k.one('#icp-type-select') as HTMLSelectElement, 'b2g')
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2g')
+    assert.equal(listCalls.at(-1)?.scopeFilter, true)
+    assert.equal(listCalls.at(-1)?.offerId, 'SCH-11')
+
+    await setSelect(k.one('#sub-product-select') as HTMLSelectElement, '')
+    assert.equal(listCalls.at(-1)?.offerId, undefined, 'Whole product: no sub-product filter')
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2g')
+  })
+
+  it('"All ICP types" sends no ICP filter (the rest stay), turns Generate Signals off with its reason, and asks for the days across every scope', async () => {
+    const { k, listCalls, setSelect, generate, runCalls, runDatesArgs } = await setup({ search: 'product=scholarclone%3A%3ASCH-11' })
+    const select = k.one('#icp-type-select') as HTMLSelectElement
+    assert.deepEqual(Array.from(select.options).map((o) => [o.value, o.textContent]), [['all', 'All ICP types'], ['b2b', 'B2B Customer Acquisition'], ['b2c', 'B2B Partner Acquisition'], ['b2g', 'B2G — Government']])
+    assert.equal(select.value, 'b2b', 'it still opens on B2B')
+    assert.equal(generate().disabled, false)
+    assert.equal(runDatesArgs.at(-1)?.[1], 'b2b')
+    assert.equal(runDatesArgs.at(-1)?.[4], false, 'a real ICP type asks for its own scope\'s days, as before')
+
+    await setSelect(select, 'all')
+    const call = listCalls.at(-1)!
+    assert.equal(call.customerModel, undefined)
+    assert.equal(call.scopeFilter, true)
+    assert.equal(call.offerId, 'SCH-11')
+    assert.ok(Array.isArray(call.regions) && call.regions.length > 0)
+    assert.equal(generate().disabled, true)
+    assert.ok(k.bodyText().includes('Choose one ICP type to generate signals.'), 'the reason is said beside the button')
+    assert.ok(!k.bodyText().includes('A run uses search and AI quota'), 'and the cost line gives way to it')
+    await k.click(generate())
+    assert.equal(runCalls.runResearch, 0, 'pressing it starts nothing')
+    assert.equal(runDatesArgs.at(-1)?.[1], 'b2b', 'the model is ignored by the server when the days are across every scope')
+    assert.equal(runDatesArgs.at(-1)?.[4], true, 'the days are the product\'s days across every scope')
+
+    await setSelect(select, 'b2c')
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2c')
+    assert.equal(generate().disabled, false)
+    assert.ok(k.bodyText().includes('A run uses search and AI quota'))
+  })
+
+  it('on All products the ICP type filters too, "All ICP types" removes it, and Generate stays off', async () => {
+    const { k, listCalls, setSelect, generate } = await setup({ search: 'product=all' })
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2b')
+    await setSelect(k.one('#icp-type-select') as HTMLSelectElement, 'b2g')
+    assert.equal(listCalls.at(-1)?.customerModel, 'b2g')
+    assert.equal(listCalls.at(-1)?.product, 'all')
+    await setSelect(k.one('#icp-type-select') as HTMLSelectElement, 'all')
+    assert.equal(listCalls.at(-1)?.customerModel, undefined)
+    assert.equal(listCalls.at(-1)?.scopeFilter, true)
+    assert.equal(generate().disabled, true)
+    assert.equal(generate().title, 'Choose one product to generate signals for it.')
   })
 })

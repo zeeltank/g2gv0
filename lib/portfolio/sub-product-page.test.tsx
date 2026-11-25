@@ -143,7 +143,7 @@ describe('a Sub-product page: what each tab reads and shows', () => {
       assert.ok(labels.includes(f), `${f} is on the Details tab`)
     }
     const text = k.bodyText()
-    for (const v of ['SCH-FEE', 'INR 1,500.00', 'INR 900.00', '5%', 'GST', 'Acme', 'Fee collection licence', 'Asha Rao']) assert.ok(text.includes(v), v)
+    for (const v of ['SCH-FEE', '₹1,500.00', '₹900.00', '5%', 'GST', 'Acme', 'Fee collection licence', 'Asha Rao']) assert.ok(text.includes(v), v)
     assert.equal(k.one('img[alt="Fee Collection picture"]')!.getAttribute('src'), 'https://img.example/fee.png')
   })
 
@@ -163,7 +163,7 @@ describe('a Sub-product page: what each tab reads and shows', () => {
     await openTab(k, 'Bundle')
     await k.tick(20)
     assert.ok(k.bodyText().includes('Receipt printer'))
-    assert.ok(k.bodyText().includes('INR 600.00'), 'the parts total is the sum of price times quantity')
+    assert.ok(k.bodyText().includes('₹600.00'), 'the parts total is the sum of price times quantity')
     await press(k, 'Add a part')
     await k.tick(300)
     const select = k.one('[role="dialog"] select') as HTMLSelectElement
@@ -197,9 +197,11 @@ describe('a Sub-product page: what each tab reads and shows', () => {
     await k.tick(20)
     assert.deepEqual(calls.usage, [11])
     const hrefs = k.all('a').map((a) => a.getAttribute('href'))
-    for (const h of ['/module/crm/sales/quotes/91', '/module/crm/sales/sales-orders/41', '/module/crm/sales/invoices/17', '/module/crm/sales/price-books']) assert.ok(hrefs.includes(h), h)
+    for (const h of ['/module/crm/sales/quotes/91', '/module/crm/sales/sales-orders/41', '/module/crm/sales/invoices/17']) assert.ok(hrefs.includes(h), h)
+    assert.equal(hrefs.some((h) => (h ?? '').includes('price-books')), false, 'no way into the retired Price Books')
     const text = k.bodyText()
-    for (const part of ['Q-0091', 'SO-0041', 'INV-0017', 'Standard 2026', 'Opportunities', 'Sales orders']) assert.ok(text.includes(part), part)
+    for (const part of ['Q-0091', 'SO-0041', 'INV-0017', 'Opportunities', 'Sales orders']) assert.ok(text.includes(part), part)
+    assert.equal(/price books?/i.test(text), false, 'Price books are gone from the Usage tab')
   })
 
   it('History: reads only when opened, newest first, with the Sell lines and who changed what', async () => {

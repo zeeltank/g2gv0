@@ -1,14 +1,17 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, MoreHorizontal, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { formatMoney, formatQuantity, mayTick, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader } from '@/lib/portfolio-list/model'
+import { formatMoney, formatQuantity, mayTickRow, productTotal, rowActions, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
 import type { SortKey } from '@/lib/portfolio-list/query'
 import { GROUP_ROW } from '@/lib/portfolio-list/tones'
 import type { PortfolioCan, PortfolioRow } from '@/services/product-master/portfolio-list-types'
+import { Money } from './currency-badge'
 import { ArchivedChip, IcpChip, ProductChip, ReadinessChip, ServiceChip, SharedChip, StateChip } from './portfolio-list-chips'
 
 /** Where a row opens: a Product its own page (`/portfolio/{key}`), a Sub-product the page of the record (`/portfolio/products/{id}`). */
@@ -36,6 +39,28 @@ function SortHead({ label, sortKey, active, dir, onSort, className }: {
   )
 }
 
+/** What a row's menu does, told to the list: move it to another Product, or delete it. */
+export type RowActionHandler = (row: PortfolioRow, action: RowAction) => void
+
+/** The "..." menu of a row: Move to another Product and Delete for a Sub-product, Delete product for a Product. Not drawn when the person may do neither. */
+function RowMenu({ row, can, onAction }: { row: PortfolioRow; can: PortfolioCan; onAction: RowActionHandler }) {
+  const actions = rowActions(row, can)
+  if (actions.length === 0) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" aria-label={`Actions for ${row.name}`}>
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {actions.includes('move') && <DropdownMenuItem onSelect={() => onAction(row, 'move')}>Move to another Product</DropdownMenuItem>}
+        {actions.includes('delete') && <DropdownMenuItem onSelect={() => onAction(row, 'delete')}>{row.kind === 'product' ? 'Delete product' : 'Delete'}</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function Dash({ why }: { why?: string }) {
   return <span className="text-muted-foreground" title={why}>—</span>
 }
@@ -44,13 +69,28 @@ function Dash({ why }: { why?: string }) {
  * A Sell value of a row: the value; a dash when the row IS sold but has no value (a real gap); "Not shown" when the caller may not view this type's Sell section;
  * and nothing at all when the row has no Sell side (its "Not sold" chip already says why), so a Sub-product that is not sold is not a row of four dashes.
  */
-function SellValue({ row, value }: { row: PortfolioRow; value: string | null }) {
+function SellValue({ row, value }: { row: PortfolioRow; value: ReactNode }) {
   if (!sellKeysPresent(row)) return row.hasSell ? <span className="text-muted-foreground" title="You may not view the price details of this type.">Not shown</span> : null
   if (value !== null) return <>{value}</>
   return row.hasSell ? <Dash /> : null
 }
 
-function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; columns: number; canAdd: boolean; onAdd: (productId: number) => void }) {
+/** A Product's total (S16): the first currency's price with its tax, and "+1 more" when the Sub-products are priced in other currencies too (the sentence names them for a screen reader). */
+function ProductTotal({ row }: { row: PortfolioRow }) {
+  const total = productTotal(row)
+  if (total === null) return null
+  const { first, more } = total
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-1.5 text-sm">
+      <span className="text-muted-foreground">Total</span>
+      <Money amount={first.total} code={first.currency} className="font-medium text-foreground" />
+      {more.length > 0 && <span className="text-muted-foreground">+{more.length} more<span className="sr-only">: {more.map((t) => formatMoney(t.total, t.currency)).join(', ')}</span></span>}
+    </span>
+  )
+}
+
+function GroupRow({ group, columns, canAdd, onAdd, can, onAction }: { group: GroupHeader; columns: number; canAdd: boolean; onAdd: (productId: number) => void; can: PortfolioCan; onAction: RowActionHandler }) {
   const product = group.row
   return (
     <TableRow className={GROUP_ROW} data-group={group.key}>
@@ -63,13 +103,15 @@ function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; colum
               {product.shared && <SharedChip />}
               {product.status === 'archived' && <ArchivedChip />}
               {/* what the section holds, and its one action, on the right: the name and its labels stay together on the left */}
-              <span className="ml-auto flex items-center gap-3">
+              <span className="ml-auto flex flex-wrap items-center gap-3">
+                {can.viewSell && <ProductTotal row={product} />}
                 <span className="text-sm text-muted-foreground">{product.subProductCount ?? 0} {product.subProductCount === 1 ? 'sub-product' : 'sub-products'}</span>
                 {canAdd && !product.shared && product.status === 'active' && (
                   <Button type="button" size="sm" variant="outline" onClick={() => onAdd(product.id)} aria-label={`Add a sub-product to ${product.name}`}>
                     <Plus className="mr-1 size-3.5" aria-hidden="true" />Add sub-product
                   </Button>
                 )}
+                <RowMenu row={product} can={can} onAction={onAction} />
               </span>
             </>
           ) : (
@@ -90,7 +132,7 @@ function GroupRow({ group, columns, canAdd, onAdd }: { group: GroupHeader; colum
  * stock, Sold in CRM) are drawn only for a caller who may view Sell. Every Sub-product row has a tick box: disabled, with its reason, for a row a bulk action
  * cannot change.
  */
-export function PortfolioListTable({ items, can, sort, dir, onSort, selected, onToggle, onToggleAll, canAddSubProduct, onAddSubProduct, busy }: {
+export function PortfolioListTable({ items, can, sort, dir, onSort, selected, onToggle, onToggleAll, canAddSubProduct, onAddSubProduct, onRowAction, busy }: {
   items: DisplayItem[]
   can: PortfolioCan
   sort: SortKey
@@ -101,11 +143,13 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
   onToggleAll: (checked: boolean) => void
   canAddSubProduct: boolean
   onAddSubProduct: (productId: number) => void
+  /** A row's own menu: move it to another Product, or delete it. */
+  onRowAction: RowActionHandler
   busy: boolean
 }) {
   const sell = can.viewSell
   const rows = items.flatMap((i) => (i.kind === 'row' ? [i.row] : []))
-  const tickable = rows.filter((r) => mayTick(r, can))
+  const tickable = rows.filter((r) => mayTickRow(r, can))
   const allTicked = tickable.length > 0 && tickable.every((r) => selected.has(r.id))
   const columns = 5 + (sell ? 5 : 0)
 
@@ -138,7 +182,7 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
         <TableBody>
           {items.map((item, index) => {
             if (item.kind === 'group') {
-              return <GroupRow key={`g-${item.key}-${index}`} group={item} columns={columns} canAdd={canAddSubProduct} onAdd={onAddSubProduct} />
+              return <GroupRow key={`g-${item.key}-${index}`} group={item} columns={columns} canAdd={canAddSubProduct} onAdd={onAddSubProduct} can={can} onAction={onRowAction} />
             }
             const row = item.row
             const why = whyNoTick(row, can)
@@ -162,10 +206,11 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
                     {row.type === 'service' && <ServiceChip />}
                     {row.status === 'archived' && <ArchivedChip />}
                     {row.shared && <SharedChip />}
+                    <span className="ml-auto"><RowMenu row={row} can={can} onAction={onRowAction} /></span>
                   </div>
                 </TableCell>
                 {sell && <TableCell className="font-mono text-xs"><SellValue row={row} value={row.sku ?? null} /></TableCell>}
-                {sell && <TableCell><SellValue row={row} value={formatMoney(row.unitPrice, row.currency)} /></TableCell>}
+                {sell && <TableCell><SellValue row={row} value={row.unitPrice === null || row.unitPrice === undefined ? null : <Money amount={row.unitPrice} code={row.currency} />} /></TableCell>}
                 {sell && <TableCell className="hidden lg:table-cell"><SellValue row={row} value={row.category ?? null} /></TableCell>}
                 {sell && <TableCell className="hidden text-right lg:table-cell"><SellValue row={row} value={formatQuantity(row.qtyInStock)} /></TableCell>}
                 {sell && <TableCell>{row.state ? <StateChip state={row.state} /> : <Dash />}</TableCell>}

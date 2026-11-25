@@ -207,7 +207,7 @@ describe('plain words, not codes', () => {
   it('shows HR no price, SKU, category or stock, anywhere on the page, in the menu or in an address', async () => {
     current = await setup({ rows: hrRows(), can: HR_CAN, canManage: true })
     const { k, text, heads, openMore } = current
-    for (const word of ['SKU', 'Price', 'Category', 'In stock', 'Sold in CRM', 'INR', 'Unit Price', 'Qty In Stock']) assert.ok(!text().includes(word), `HR sees "${word}"`)
+    for (const word of ['SKU', 'Price', 'Category', 'In stock', 'Sold in CRM', 'INR', '₹', 'Unit Price', 'Qty In Stock']) assert.ok(!text().includes(word), `HR sees "${word}"`)
     assert.deepEqual(heads(), ['', 'Name', 'Readiness', 'Signals', 'ICP'])
     // caller check (23 Nov): a price cell drawn for a person who may not see prices would be an extra column with no heading (the rows carry no price, so it shows a dash)
     const sub = k.all('tbody tr').find((row) => row.querySelectorAll('td').length > 1)

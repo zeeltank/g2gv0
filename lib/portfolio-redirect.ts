@@ -10,6 +10,7 @@
  *   /module/crm/sales/products/{crmId}         -> /portfolio/products/{masterId}     (through GET /api/product-master/by-crm/{crmId})
  *   /module/crm/sales/services/{crmId}         -> /portfolio/products/{masterId}     (the same)
  *   /module/crm/sales/products/lines/{masterId} -> the Sub-product page, or the Product page for a Product (by `kind`)
+ *   /module/crm/sales/price-books (and /{id})  -> /signals/portfolio                 (S16, 25 Nov 2026: Price Books were removed, a Sub-product holds its own price)
  *
  * The query is not translated: it is written back as it came (`encodeURIComponent` per key and value, a repeated key kept, a key sent with no value kept).
  */
@@ -38,6 +39,14 @@ const withQuery = (path: string, pairs: string[]): string => (pairs.length === 0
 /** `/signals/portfolio` (the list) plus the same query. The path is fixed, so nothing in the query can send a person anywhere else. */
 export function portfolioRedirectTarget(params: RawSearchParams): string {
   return withQuery(PORTFOLIO_LIST_ADDRESS, pairsOf(params))
+}
+
+/**
+ * Where the removed Price Books addresses (the list and a book's page) land: the list, with NO query. A price book's `search`, `page` or `sort` means nothing in the portfolio
+ * (a `search` could even be read as a filter it never meant), so nothing is carried. The path is fixed.
+ */
+export function priceBooksRedirectTarget(): string {
+  return PORTFOLIO_LIST_ADDRESS
 }
 
 /** `/signals/portfolio?type=service` plus the rest of the query. A `type` the old address carried is replaced: the Services address IS the Service view. */

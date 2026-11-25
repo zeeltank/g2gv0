@@ -122,6 +122,69 @@ for (const s of story.slides) {
   }
 }
 
+// 3d. The 59-second film (docs/client-presentation/content/film.json) follows the same rules, and the owner's own words stay exact.
+{
+  let film = null
+  try { film = JSON.parse(readFileSync(join(root, 'docs', 'client-presentation', 'content', 'film.json'), 'utf8')) } catch { fail('film.json is missing or not valid JSON') }
+  if (film) {
+    const slideTexts = new Set(story.slides.flatMap((s) => s.on_slide.map((l) => l.text)))
+    const slideLine = (n, role) => story.slides.find((s) => s.n === n)?.on_slide.find((l) => l.role === role)?.text
+    if (film.beats.length !== 9) fail('the film needs exactly 9 beats')
+    let at = 0
+    for (const b of film.beats) {
+      if (b.start !== at) fail(`film beat ${b.id} starts at ${b.start} s, expected ${at} s`)
+      at = b.end
+      if (b.chapter && (STATUS_WORDS.test(b.chapter) || b.chapter.split(/\s+/).length > 4)) fail(`film beat ${b.id}: the chapter label is a status word or longer than 4 words`)
+      const words = b.lines.reduce((a, l) => a + l.text.split(/\s+/).length, 0)
+      if (words > 70) fail(`film beat ${b.id} carries ${words} words on screen`)
+      for (const id of b.claims || []) {
+        const cl = claims.get(id)
+        if (!cl) fail(`film beat ${b.id}: unknown claim ${id}`)
+        else if (!['verified', 'owner-confirmed'].includes(cl.status)) fail(`film beat ${b.id} rests on a ${cl.status} claim (${id})`)
+      }
+      const chunkRoles = new Set((b.joins || []).flatMap((j) => j.roles))
+      for (const j of b.joins || []) {
+        const want = slideLine(j.slide, j.role)
+        const got = j.roles.map((r) => b.lines.find((l) => l.role === r)?.text).join(' ')
+        if (got !== want) fail(`film beat ${b.id}: the chunks no longer join into slide ${j.slide}'s ${j.role} ("${got.slice(0, 50)}")`)
+      }
+      for (const l of b.lines) {
+        const tag = `film beat ${b.id}: "${l.text.slice(0, 50)}"`
+        if (l.claim && !claims.has(l.claim)) fail(`${tag} cites unknown claim ${l.claim}`)
+        if (STATUS_WORDS.test(l.text)) fail(`${tag} holds a status word`)
+        for (const [re, what] of BANNED) if (re.test(l.text)) fail(`${tag} holds ${what}`)
+        if (/\b\d{3,}\b/.test(l.text)) fail(`${tag} holds a long number`)
+        if (l.kind === 'fact' && !l.claim) fail(`${tag} states a capability with no claim`)
+        if (l.kind === 'approved-copy' && !slideTexts.has(l.text) && !chunkRoles.has(l.role)) fail(`${tag} is marked approved but is not a slide line`)
+        if (l.kind !== 'approved-copy' && l.text.split(/\s+/).length > 14) fail(`${tag} is longer than 14 words`)
+        if (l.kind === 'approved-copy' && l.text.split(/\s+/).length > 22) fail(`${tag} is longer than 22 words`)
+      }
+    }
+    if (at !== 59) fail(`the film ends at ${at} s, not 59 s`)
+    const end = film.beats[film.beats.length - 1]
+    if (end.lines.find((l) => l.role === 'invite')?.text !== slideLine(15, 'support')) fail('the film end card must carry the approved invitation exactly')
+    if (end.lines.find((l) => l.role === 'close')?.text !== slideLine(15, 'close')) fail('the film end card must carry the approved closing line exactly')
+    if (!film.meta?.disclosure || /real|customer|live data/i.test(film.meta.disclosure)) fail('the film needs the plain disclosure "Illustrative school data"')
+    if (!film.beats.find((b) => b.id === 'problem')?.lines.some((l) => /illustrative/i.test(l.text))) fail('the film\'s problem beat needs an on-screen illustrative tag')
+  }
+}
+
+// 3e. The PowerPoint appendix (story.appendix): every row cites a verified or owner-confirmed claim and passes the same wording rules.
+for (const a of story.appendix || []) {
+  if (!a.lines?.length) fail(`appendix ${a.id} has no lines`)
+  for (const l of a.lines || []) {
+    const tag = `appendix ${a.id}: "${(l.text || l.q || '').slice(0, 50)}"`
+    if (!l.claim) fail(`${tag} cites no claim`)
+    else if (!claims.has(l.claim)) fail(`${tag} cites unknown claim ${l.claim}`)
+    else if (!['verified', 'owner-confirmed'].includes(claims.get(l.claim).status)) fail(`${tag} rests on a ${claims.get(l.claim).status} claim`)
+    for (const t of [l.label, l.text, l.q, l.a]) {
+      if (!t) continue
+      if (STATUS_WORDS.test(t)) fail(`${tag} holds a status word`)
+      for (const [re, what] of BANNED) if (re.test(t)) fail(`${tag} holds ${what}`)
+    }
+  }
+}
+
 // 4. Every fact line cites a known claim; gate on status when shipping.
 const byStatus = {}
 for (const s of story.slides) {

@@ -16,6 +16,8 @@ interface Setup {
   leads?: unknown[]
   total?: number
   options?: unknown
+  /** What `/product-master/lines?withSubProducts=1` answers (Products with their Sub-products); without it the server answers the Products alone. */
+  subLines?: unknown[]
   optionsStatus?: number
   onList?: (call: Call) => void
 }
@@ -30,6 +32,7 @@ async function open(opts: Setup = {}) {
     respond: (call) => {
       if (call.path.endsWith('/crm/leads')) { opts.onList?.(call); return listAnswer(opts.leads ?? [lead(), lead({ id: '42', firstName: 'Ravi', lastName: 'Iyer', email: null })], opts.total) }
       // Slice 15, P3-C: the Product facet offers the Products (level 1) from /product-master/lines: names only, no Sub-products.
+      if (call.path.endsWith('/product-master/lines') && opts.subLines && call.query.get('withSubProducts') === '1') return { status: 1, data: opts.subLines }
       if (call.path.endsWith('/product-master/lines')) return opts.optionsStatus ? { status: 0, message: 'No.', __status: opts.optionsStatus } : { status: 1, data: ((opts.options ?? []) as Array<{ id: number; key: string; name: string; kind: string }>).filter((o) => o.kind === 'product').map(({ id, key, name }) => ({ id, key, name })) }
       if (call.path.endsWith('/crm/picklist-values')) return { status: 1, message: 'ok', data: { leads: {} } }
       return undefined
@@ -121,6 +124,21 @@ describe('the Leads screen: product, consent and signal', () => {
     const s = await open({ options })
     const box = s.box('Product')!
     assert.deepEqual(Array.from(box.options).map((o) => o.textContent), ['All products', 'ScholarClone', 'G2G'])
+    s.restore()
+  })
+
+  it('offers each Product with its Sub-products indented under it ("Fee module, under ScholarClone"), and filters by the id of the Sub-product itself', async () => {
+    const subLines = [
+      { id: 4, key: 'scholarclone', name: 'ScholarClone', kind: 'product', parentName: null },
+      { id: 31, key: 'fee', name: 'Fee module', kind: 'sub_product', parentName: 'ScholarClone' },
+      { id: 32, key: 'adm', name: 'Admissions', kind: 'sub_product', parentName: 'ScholarClone', sold: false },
+    ]
+    const s = await open({ options, subLines, leads: [] })
+    const box = s.box('Product')!
+    assert.deepEqual(Array.from(box.options).map((o) => o.textContent), ['All products', 'ScholarClone', '\u00A0\u00A0\u00A0\u00A0Fee module, under ScholarClone', '\u00A0\u00A0\u00A0\u00A0Admissions, under ScholarClone (Not sold)'])
+    assert.equal(s.to('/product-master/lines')[0].query.get('withSubProducts'), '1', 'one read, with the Sub-products asked for')
+    await s.choose('Product', '31')
+    assert.equal(s.lastListQuery().get('product_id'), '31', 'the list is asked for the Sub-product by its own master id')
     s.restore()
   })
 

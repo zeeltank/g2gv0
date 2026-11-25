@@ -45,7 +45,7 @@ export interface CollapsedSignalsNav {
   /** Each folded-away path -> the menu entry that now stands for it, so the sidebar and breadcrumb stay on "Signals" for those routes. */
   owners: Record<string, ActiveNav>
   /**
-   * The old menu addresses of rows the person's menu really held that the sidebar no longer draws (the Products and Services rows). They still resolve, to
+   * The old menu addresses of rows the person's menu really held that the sidebar no longer draws (the Products, Services and Price Books rows). They still resolve, to
    * themselves, in `resolveAccessLink`: their pages are redirects that keep the query, so a screen that has not been retargeted yet and links to
    * `resolveAccessLink(old address) + '/' + id` still opens the right record, through the by-crm lookup, instead of the dashboard.
    */
@@ -60,10 +60,13 @@ export interface CollapsedSignalsNav {
  *     of it (owner, 24 Nov 2026: "we already have it in the Market Signals tab, remove it from the side bar");
  *   - the Services row is NOT drawn either (it opened the same list on Services; the tab has the Type filter);
  *   - a visit to /portfolio/... (the Product and Sub-product pages) and to the old Products and Services addresses highlights Market Signals, the module the tab belongs to.
+ * PRICE BOOKS WERE REMOVED (S16, 25 Nov 2026): a Sub-product holds its own price, currency and tax rate in the Product Portfolio. The Price Books row (470) stays in the
+ * database with status 1 for the same reason, and is folded out of the sidebar the same way; its two old addresses are redirect pages to the Product Portfolio tab.
  * The rows are found by their access_link, never by a numeric id (the ids differ between hosts), and a row that has children is never touched.
  */
 const PRODUCTS_PATH = '/module/crm/sales/products'
 const SERVICES_PATH = '/module/crm/sales/services'
+const PRICE_BOOKS_PATH = '/module/crm/sales/price-books'
 const PORTFOLIO_PATH = '/portfolio'
 
 const linkOf = (n: NavNode): string => (n.accessLink ?? '').trim().toLowerCase().replace(/\/+$/, '')
@@ -71,6 +74,7 @@ const linkOf = (n: NavNode): string => (n.accessLink ?? '').trim().toLowerCase()
 /** The Products row: a leaf (a row with children is never touched, so nothing else can change with it) with the row's own access_link. */
 const isProductsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === PRODUCTS_PATH
 const isServicesNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === SERVICES_PATH
+const isPriceBooksNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === PRICE_BOOKS_PATH
 
 /** Where the sidebar hook files an entry: the same walk as `useSidebarNavigation`'s, so the highlight lands on the real entry. */
 function locate(modules: NavModule[], test: (n: NavNode) => boolean): ActiveNav | null {
@@ -118,9 +122,10 @@ interface ProductsFold {
 function foldProductsNav(modules: NavModule[], ownersSoFar: Record<string, ActiveNav>): ProductsFold {
   const products = locate(modules, isProductsNode)
   const services = locate(modules, isServicesNode)
+  const priceBooks = locate(modules, isPriceBooksNode)
   const owners: Record<string, ActiveNav> = {}
   const retired: string[] = []
-  if (!products && !services) return { modules, owners, retired }
+  if (!products && !services && !priceBooks) return { modules, owners, retired }
 
   const signalsOwner = ownersSoFar[PORTFOLIO_PATH]
   if (products) {
@@ -131,9 +136,13 @@ function foldProductsNav(modules: NavModule[], ownersSoFar: Record<string, Activ
     if (signalsOwner) owners[SERVICES_PATH] = signalsOwner
     retired.push(SERVICES_PATH)
   }
+  if (priceBooks) {
+    if (signalsOwner) owners[PRICE_BOOKS_PATH] = signalsOwner
+    retired.push(PRICE_BOOKS_PATH)
+  }
 
-  // Neither row is drawn.
-  const folded = mapNodes(modules, (node) => (isProductsNode(node) || isServicesNode(node) ? null : node))
+  // None of the three rows is drawn.
+  const folded = mapNodes(modules, (node) => (isProductsNode(node) || isServicesNode(node) || isPriceBooksNode(node) ? null : node))
 
   return { modules: folded, owners, retired }
 }
@@ -268,8 +277,8 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const uniqueFound = [...new Set(found)]
   // The Signal Review row is dropped from whichever tree comes back, so it never reaches the sidebar, even for a person whose menu holds no Signals row at all.
   const shown = withoutSignalReview(uniqueFound.length === 0 ? modules : next)
-  // Products and Services are not drawn in the sidebar any more (owner decisions of 13 and 24 Nov 2026): the Product Portfolio is a tab of Market Signals. The old
-  // Products and Services addresses are owned by Market Signals too, so a visit that is still being redirected highlights it.
+  // Products, Services and Price Books are not drawn in the sidebar any more (owner decisions of 13 and 24 Nov 2026, and S16 on 25 Nov): the Product Portfolio is a tab of
+  // Market Signals. Their old addresses are owned by Market Signals too, so a visit that is still being redirected highlights it.
   const products = foldProductsNav(shown, owners)
   return { modules: products.modules, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners: { ...owners, ...products.owners }, retired: products.retired }
 }

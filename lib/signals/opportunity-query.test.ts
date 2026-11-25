@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { listQueryString, patchListQuery, readListQuery } from '../../components/shared/scaffolds/list-query'
 import {
-  asksTheList, clearOpportunityFiltersPatch, DEFAULT_PER_PAGE, isNarrowedHere, listRequest, OPPORTUNITIES_QUERY, opportunityListState, perPageOf,
+  asksTheList, clearOpportunityFiltersPatch, DEFAULT_PER_PAGE, isNarrowedHere, listRequest, OPPORTUNITIES_QUERY, opportunityListState,
   productParam, resolveProductScope, SEARCH_MAX,
 } from './opportunity-query'
 import { reviewStatusOf } from './list-model'
@@ -15,9 +15,10 @@ const PRODUCTS = [
 ]
 
 describe('the address of Company Opportunities', () => {
+  // CHANGED ON PURPOSE (S17, 25 Nov 2026): the page-size box is gone, so `per` is not in the address any more; five is the only page size.
   it('opens as it always did: a bare address is every status, the usual order, five per page, and no product named', () => {
     const query = read('')
-    assert.deepEqual(query.filters, { product: '', status: 'all', freshness: 'all', fit: 'all', per: '5' })
+    assert.deepEqual(query.filters, { product: '', status: 'all', freshness: 'all', fit: 'all' })
     assert.equal(query.sort, 'default')
     assert.equal(query.page, 1)
     assert.equal(query.q, '')
@@ -26,38 +27,35 @@ describe('the address of Company Opportunities', () => {
 
   it('reads a link made for the Signal Review with the Review\'s own names', () => {
     const query = read('product=4&status=contacted&freshness=last_30_days&fit=g2g&sort=priority&page=2&q=fee')
-    assert.deepEqual(query.filters, { product: '4', status: 'contacted', freshness: 'last_30_days', fit: 'g2g', per: '5' })
+    assert.deepEqual(query.filters, { product: '4', status: 'contacted', freshness: 'last_30_days', fit: 'g2g' })
     assert.equal(query.sort, 'priority')
     assert.equal(query.page, 2)
     assert.equal(query.q, 'fee')
   })
 
   it('writes the same names back, leaving out whatever is the default', () => {
-    const query = read('q=fee&status=reviewed&per=20&sort=recent&product=scholarclone')
-    assert.equal(listQueryString(query, OPPORTUNITIES_QUERY), 'q=fee&sort=recent&product=scholarclone&status=reviewed&per=20')
+    const query = read('q=fee&status=reviewed&sort=recent&product=scholarclone')
+    assert.equal(listQueryString(query, OPPORTUNITIES_QUERY), 'q=fee&sort=recent&product=scholarclone&status=reviewed')
     assert.deepEqual(read(listQueryString(query, OPPORTUNITIES_QUERY)), query, 'what is written reads back as the same view')
   })
 
   it('turns a word that is not allowed back into the default, so nothing odd reaches the server', () => {
-    const query = read('status=bogus&freshness=bogus&per=7&sort=bogus&page=0')
-    assert.deepEqual(query.filters, { product: '', status: 'all', freshness: 'all', fit: 'all', per: '5' })
+    const query = read('status=bogus&freshness=bogus&sort=bogus&page=0')
+    assert.deepEqual(query.filters, { product: '', status: 'all', freshness: 'all', fit: 'all' })
     assert.equal(query.sort, 'default')
     assert.equal(query.page, 1)
   })
 
-  it('changing a filter or the page size goes back to page one', () => {
+  it('changing a filter goes back to page one', () => {
     const query = read('page=4&q=fee')
-    assert.equal(patchListQuery(query, { filters: { per: '20' } }, OPPORTUNITIES_QUERY).page, 1)
     assert.equal(patchListQuery(query, { filters: { status: 'new' } }, OPPORTUNITIES_QUERY).page, 1)
     assert.equal(patchListQuery(query, { page: 5 }, OPPORTUNITIES_QUERY).page, 5)
   })
 
-  it('the page size is one of 5, 20 and 50', () => {
-    assert.equal(perPageOf(read('')), DEFAULT_PER_PAGE)
-    assert.equal(perPageOf(read('per=20')), 20)
-    assert.equal(perPageOf(read('per=50')), 50)
-    assert.equal(perPageOf(read('per=51')), 5)
-    assert.equal(perPageOf({ filters: { per: 'x' } }), 5, 'a hand-built query is checked too')
+  it('the page size is five whatever the address says: there is no page-size box and no `per`', () => {
+    assert.equal(DEFAULT_PER_PAGE, 5)
+    assert.equal(listRequest(read('per=50')).perPage, 5)
+    assert.equal(listQueryString(read('per=50'), OPPORTUNITIES_QUERY), '', '`per` is not kept in the address')
   })
 
   it('knows when a link asks the list a question, and ignores blanks', () => {
@@ -67,7 +65,7 @@ describe('the address of Company Opportunities', () => {
     assert.equal(asksTheList(new URLSearchParams('freshness=older')), true)
     assert.equal(asksTheList(new URLSearchParams('fit=g2g')), true)
     assert.equal(asksTheList(new URLSearchParams('q=%20%20&status=')), false)
-    assert.equal(asksTheList(new URLSearchParams('page=2&sort=priority&per=20&product=g2g')), false, 'paging, order and size ask nothing')
+    assert.equal(asksTheList(new URLSearchParams('page=2&sort=priority&per=20&product=g2g')), false, 'paging and order ask nothing')
   })
 })
 
@@ -83,8 +81,8 @@ describe('the request the address makes', () => {
   })
 
   it('turns the address words into the server\'s words', () => {
-    const request = listRequest(read('status=contacted&freshness=undated&fit=eb&sort=recent&page=3&per=50'))
-    assert.deepEqual(request, { search: undefined, reviewStatus: 'Follow-up', freshness: 'undated', businessFit: 'eb', sort: 'recent', page: 3, perPage: 50 })
+    const request = listRequest(read('status=contacted&freshness=undated&fit=eb&sort=recent&page=3'))
+    assert.deepEqual(request, { search: undefined, reviewStatus: 'Follow-up', freshness: 'undated', businessFit: 'eb', sort: 'recent', page: 3, perPage: 5 })
     assert.equal(listRequest(read('status=new')).reviewStatus, 'New')
     assert.equal(listRequest(read('status=reviewed')).reviewStatus, 'Reviewed')
     assert.equal(listRequest(read('status=dismissed')).reviewStatus, 'Dismissed')
@@ -174,11 +172,11 @@ describe('what an empty list means', () => {
     assert.equal(opportunityListState({ loaded: true, error: 'down', rows: 0, summaryTotal: 0, query: read('') }), 'error')
   })
 
-  it('"Clear filters" clears the search and the facets and keeps the product and the page size', () => {
-    const cleared = patchListQuery(read('product=g2g&q=fee&status=new&freshness=older&fit=eb&per=20&page=3'), clearOpportunityFiltersPatch(), OPPORTUNITIES_QUERY)
+  it('"Clear filters" clears the search and the facets and keeps the product', () => {
+    const cleared = patchListQuery(read('product=g2g&q=fee&status=new&freshness=older&fit=eb&page=3'), clearOpportunityFiltersPatch(), OPPORTUNITIES_QUERY)
     assert.equal(cleared.q, '')
-    assert.deepEqual(cleared.filters, { product: 'g2g', status: 'all', freshness: 'all', fit: 'all', per: '20' })
+    assert.deepEqual(cleared.filters, { product: 'g2g', status: 'all', freshness: 'all', fit: 'all' })
     assert.equal(cleared.page, 1)
-    assert.equal(listQueryString(cleared, OPPORTUNITIES_QUERY), 'product=g2g&per=20')
+    assert.equal(listQueryString(cleared, OPPORTUNITIES_QUERY), 'product=g2g')
   })
 })
