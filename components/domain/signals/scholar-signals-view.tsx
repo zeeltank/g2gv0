@@ -602,10 +602,14 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
         </div>
 
         {/* 7. What to do */}
-        <div className="rounded-xl bg-primary/5 p-3">
-          <p className="text-xs font-medium text-muted-foreground">What to do</p>
-          <p className="mt-1 text-sm">{c?.what_to_do ?? o.soft_marketing_angle}</p>
-          {o.likely_stakeholder && <p className="mt-1 text-xs text-muted-foreground">Approach: {o.likely_stakeholder}</p>}
+        <div className="space-y-3 rounded-xl bg-primary/5 p-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">What to do</p>
+            <p className="mt-1 text-sm">{c?.what_to_do ?? o.soft_marketing_angle}</p>
+            {o.likely_stakeholder && <p className="mt-1 text-xs text-muted-foreground">Approach: {o.likely_stakeholder}</p>}
+          </div>
+          {/* Contact details sit with the action, always visible: "Not Available" where missing, never a reason to hide the signal */}
+          <ContactSection c={o.contact} />
         </div>
       </div>
 
@@ -623,9 +627,6 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
         </p>
       )}
       {o.strength_reason && <p className="text-xs text-muted-foreground">Why {strength.label.toLowerCase()}: {o.strength_reason}</p>}
-
-      {/* Contact details: always shown, "Not Available" where missing; never a reason to hide the signal */}
-      <ContactSection c={o.contact} />
 
       {/* Lead Qualification & Enrichment Panel */}
       <LeadQualificationPanel q={o.crm_qualification} />
