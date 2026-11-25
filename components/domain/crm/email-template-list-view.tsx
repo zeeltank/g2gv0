@@ -2,7 +2,7 @@
 
 /**
  * Email Templates admin library - list view. Same shape as
- * PriceBookListView (search/sort/paginate/bulk-reassign/bulk-delete/export),
+ * QuoteListView (search/sort/paginate/bulk-reassign/bulk-delete/export),
  * minus the Recycle Bin link: CrmRecycleBinController has no
  * 'email_templates' entry this round (a plain admin library, not one of the
  * 4 CRM modules that controller already enumerates) - destroy()/bulkDelete()

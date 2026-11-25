@@ -19,7 +19,7 @@ describe('the picker and its consumers are where the guard expects them', () => 
   it('finds every file of the picker and every consumer', () => {
     for (const file of ALL_PICKER_AND_CONSUMER_FILES) assert.ok(existsSync(file), `${file} is listed in lib/product-picker/files.ts but is missing`)
     assert.equal(PICKER_FILES.length, 10, 'the picker is ten files: the service, five in lib (with the list of how each form treats a Sub-product that is not sold), four components')
-    assert.equal(CONSUMERS.length, 16, 'sixteen consumer files (the table in files.ts)')
+    assert.equal(CONSUMERS.length, 15, 'fifteen consumer files (the table in files.ts; the price book page is not one: Price Books were removed in S16)')
   })
 
   it('reads source files to scan (a guard that scanned nothing would pass for ever)', () => {
@@ -43,7 +43,7 @@ describe('no screen reads the old product list to let a person choose a product'
     assert.deepEqual(offences, [], 'a screen reads crmService.getProducts for a picker again: use SubProductPicker (the shared picker)')
   })
 
-  it('none of the sixteen consumers calls getProducts at all', () => {
+  it('none of the fifteen consumers calls getProducts at all', () => {
     const offences = CONSUMERS.filter((consumer) => getProductsReceivers(read(consumer.file)).length > 0).map((consumer) => consumer.file)
     assert.deepEqual(offences, [], 'a consumer of the shared picker reads a product list of its own')
   })

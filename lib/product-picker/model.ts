@@ -59,7 +59,7 @@ export function searchText(typed: string): string {
   return typed.replace(/\s+/g, ' ').trim()
 }
 
-/** How many rows to ask for: the default, and room for the rows the form hides on its own (those already on the price book). */
+/** How many rows to ask for: the default, and room for the rows the form hides on its own (those the form already holds). */
 export function limitFor(excluded: number): number {
   return Math.min(MAX_LIMIT, DEFAULT_LIMIT + Math.max(0, Math.trunc(excluded)))
 }

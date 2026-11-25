@@ -231,7 +231,6 @@ describe('the one list of how each form treats a Sub-product that is not sold (l
     salesOrder: 'components/domain/crm/sales-order-line-item-table.tsx',
     invoice: 'components/domain/crm/invoice-detail-page.tsx',
     purchaseOrder: 'components/domain/crm/purchase-order-line-item-table.tsx',
-    priceBook: 'components/domain/crm/price-book-detail-page.tsx',
     opportunityProduct: 'components/domain/crm/opportunity-detail-page.tsx',
     ticket: 'components/domain/crm/create-ticket-modal.tsx',
     asset: 'components/domain/crm/create-asset-modal.tsx',
@@ -239,7 +238,7 @@ describe('the one list of how each form treats a Sub-product that is not sold (l
     bundle: 'components/domain/portfolio/sub-product-bundle.tsx',
   } as const
 
-  it('names ten consumers', () => {
+  it('names nine consumers (the price book is not one: Price Books were removed in S16)', () => {
     assert.deepEqual([...PICKER_CONSUMER_KEYS].sort(), Object.keys(FILE_OF).sort())
   })
 

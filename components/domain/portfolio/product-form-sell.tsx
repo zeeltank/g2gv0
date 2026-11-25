@@ -1,12 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, NativeSelect } from '@/components/shared/scaffolds'
-import type { SellForm, SellStanding } from '@/lib/portfolio/form-model'
+import { changeCurrency, ratesForCurrency, type SellForm, type SellStanding } from '@/lib/portfolio/form-model'
 import type { CrmPicklistValue } from '@/types/crm'
 import type { PmItemType, PmTaxRate } from '@/services/product-master/types'
+import { CurrencySelect } from './currency-select'
+import { PriceCard } from './price-card'
 
 type Errors = Record<string, string[]>
 
@@ -18,13 +21,15 @@ export const sellTypeLabel = (type: PmItemType | null): string => (type === 'ser
  * "Offered on new documents": off pauses the Sub-product (it leaves the pickers, old documents still show it, nothing is deleted). A Service has no vendor,
  * stock, demand, reorder level or weight. The picture is picked here and uploaded right after the save, through its own call.
  */
-export function SellSection({ sell, onSell, standing, types, taxRates, categories, employees, errors, busy, name, imageUrl }: {
+export function SellSection({ sell, onSell, standing, types, taxRates, currencyFallback, categories, employees, errors, busy, name, imageUrl }: {
   sell: SellForm
   onSell: (patch: Partial<SellForm>) => void
   standing: SellStanding
   /** The types the person may add (their Products and Services rights); an existing row keeps its own type. */
   types: readonly PmItemType[]
   taxRates: readonly PmTaxRate[]
+  /** The organisation's default currency: what a new Sub-product starts with and what an empty stored currency stands for. */
+  currencyFallback: string
   /** The `products.category` picklist. */
   categories: readonly CrmPicklistValue[]
   employees: ReadonlyArray<{ id: string; name: string }>
@@ -41,6 +46,22 @@ export function SellSection({ sell, onSell, standing, types, taxRates, categorie
   const typeChoices: PmItemType[] = live ? [sell.type] : types.length > 0 ? [...types] : [sell.type]
   const categoryKnown = categories.some((c) => c.value === sell.category)
   const assignedKnown = employees.some((e) => e.id === sell.assignedTo)
+  // The currency decides which tax rates are offered. Changing it lets go of a rate tied to the other currency, and says so until the person chooses again.
+  const [droppedRate, setDroppedRate] = useState<PmTaxRate | null>(null)
+  const code = sell.currency.trim() === '' ? currencyFallback : sell.currency.trim()
+  const rates = ratesForCurrency(taxRates, code)
+  const chosenRate = taxRates.find((t) => String(t.id) === sell.taxRateId) ?? null
+  const strayRate = chosenRate !== null && !rates.includes(chosenRate) ? chosenRate : null
+  const onCurrency = (next: string) => {
+    const change = changeCurrency(sell, next, taxRates, currencyFallback)
+    setDroppedRate(change.dropped)
+    onSell(change.patch)
+  }
+  const onRate = (id: string) => {
+    setDroppedRate(null)
+    onSell({ taxRateId: id })
+  }
+  const rateWord = (t: PmTaxRate) => `${t.name} (${t.percentage}%)`
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -63,7 +84,7 @@ export function SellSection({ sell, onSell, standing, types, taxRates, categorie
               <p id="sell-on-hint" className="text-xs text-muted-foreground">
                 {standing === 'binned'
                   ? 'It is in the Recycle Bin. Switching this on brings it back, with the details below.'
-                  : 'Switching this on makes the entry that quotes, orders and invoices can use. Prices on a quote come from a price book.'}
+                  : 'Switching this on makes the entry that quotes, orders and invoices can use. Their price, currency and tax come from the fields below.'}
               </p>
               {err('enabled') && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{err('enabled')!.join(' ')}</p>}
             </div>
@@ -96,25 +117,33 @@ export function SellSection({ sell, onSell, standing, types, taxRates, categorie
           <Field label="GL account" error={err('glAccount')}>
             {(c) => <Input {...c} value={sell.glAccount} onChange={(e) => onSell({ glAccount: e.target.value })} disabled={busy} maxLength={191} autoComplete="off" />}
           </Field>
-          <Field label="Unit price" error={err('unitPrice') ?? err('basePrice')} hint="Its base price. A price book can set another price on a quote.">
+          <Field label="Unit price" error={err('unitPrice') ?? err('basePrice')} hint="The price before tax. Quotes, orders and invoices take it from here.">
             {(c) => <Input {...c} type="text" inputMode="decimal" value={sell.unitPrice} onChange={(e) => onSell({ unitPrice: e.target.value })} disabled={busy} autoComplete="off" />}
           </Field>
           <Field label="Currency" error={err('currency')}>
-            {(c) => <Input {...c} value={sell.currency} onChange={(e) => onSell({ currency: e.target.value })} disabled={busy} maxLength={10} placeholder="INR" autoComplete="off" />}
+            {(c) => <CurrencySelect {...c} value={sell.currency} onChange={onCurrency} disabled={busy} fallbackCode={currencyFallback} />}
           </Field>
+          <Field label="Tax rate" error={err('taxRateId')} hint={`Added on top of the price. Rates for ${code} and rates for any currency are listed.`}>
+            {(c) => (
+              <NativeSelect {...c} value={sell.taxRateId} onChange={(e) => onRate(e.target.value)} disabled={busy}>
+                <option value="">Default</option>
+                {strayRate && <option value={String(strayRate.id)}>{`${rateWord(strayRate)} - for ${strayRate.currency}, not ${code}`}</option>}
+                {rates.map((t) => <option key={t.id} value={t.id}>{rateWord(t)}</option>)}
+              </NativeSelect>
+            )}
+          </Field>
+          <PriceCard className="sm:col-span-2" price={sell.unitPrice} currency={code} taxPercent={chosenRate?.percentage ?? null} taxName={chosenRate?.name ?? null}>
+            {droppedRate && (
+              <p role="status" className="text-xs text-foreground">
+                The tax rate {rateWord(droppedRate)} is for {droppedRate.currency}, so it was taken off. Choose a rate for {code}, or leave it on Default.
+              </p>
+            )}
+          </PriceCard>
           <Field label="Cost price" error={err('costPrice')}>
             {(c) => <Input {...c} type="text" inputMode="decimal" value={sell.costPrice} onChange={(e) => onSell({ costPrice: e.target.value })} disabled={busy} autoComplete="off" />}
           </Field>
           <Field label="Commission %" error={err('commissionRate')}>
             {(c) => <Input {...c} type="text" inputMode="decimal" value={sell.commissionRate} onChange={(e) => onSell({ commissionRate: e.target.value })} disabled={busy} autoComplete="off" />}
-          </Field>
-          <Field label="Tax rate" error={err('taxRateId')}>
-            {(c) => (
-              <NativeSelect {...c} value={sell.taxRateId} onChange={(e) => onSell({ taxRateId: e.target.value })} disabled={busy}>
-                <option value="">Default</option>
-                {taxRates.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.percentage}%)</option>)}
-              </NativeSelect>
-            )}
           </Field>
           <Field label="Usage unit" error={err('usageUnit')}>
             {(c) => <Input {...c} value={sell.usageUnit} onChange={(e) => onSell({ usageUnit: e.target.value })} disabled={busy} maxLength={191} autoComplete="off" />}

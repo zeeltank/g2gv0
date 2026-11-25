@@ -1,15 +1,17 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ChevronDown, MoreHorizontal, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { formatMoney, formatQuantity, mayTickRow, rowActions, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
+import { formatMoney, formatQuantity, mayTickRow, productTotal, rowActions, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
 import type { SortKey } from '@/lib/portfolio-list/query'
 import { GROUP_ROW } from '@/lib/portfolio-list/tones'
 import type { PortfolioCan, PortfolioRow } from '@/services/product-master/portfolio-list-types'
+import { Money } from './currency-badge'
 import { ArchivedChip, IcpChip, ProductChip, ReadinessChip, ServiceChip, SharedChip, StateChip } from './portfolio-list-chips'
 
 /** Where a row opens: a Product its own page (`/portfolio/{key}`), a Sub-product the page of the record (`/portfolio/products/{id}`). */
@@ -67,10 +69,25 @@ function Dash({ why }: { why?: string }) {
  * A Sell value of a row: the value; a dash when the row IS sold but has no value (a real gap); "Not shown" when the caller may not view this type's Sell section;
  * and nothing at all when the row has no Sell side (its "Not sold" chip already says why), so a Sub-product that is not sold is not a row of four dashes.
  */
-function SellValue({ row, value }: { row: PortfolioRow; value: string | null }) {
+function SellValue({ row, value }: { row: PortfolioRow; value: ReactNode }) {
   if (!sellKeysPresent(row)) return row.hasSell ? <span className="text-muted-foreground" title="You may not view the price details of this type.">Not shown</span> : null
   if (value !== null) return <>{value}</>
   return row.hasSell ? <Dash /> : null
+}
+
+/** A Product's total (S16): the first currency's price with its tax, and "+1 more" when the Sub-products are priced in other currencies too (the sentence names them for a screen reader). */
+function ProductTotal({ row }: { row: PortfolioRow }) {
+  const total = productTotal(row)
+  if (total === null) return null
+  const { first, more } = total
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-1.5 text-sm">
+      <span className="text-muted-foreground">Total</span>
+      <Money amount={first.total} code={first.currency} className="font-medium text-foreground" />
+      {more.length > 0 && <span className="text-muted-foreground">+{more.length} more<span className="sr-only">: {more.map((t) => formatMoney(t.total, t.currency)).join(', ')}</span></span>}
+    </span>
+  )
 }
 
 function GroupRow({ group, columns, canAdd, onAdd, can, onAction }: { group: GroupHeader; columns: number; canAdd: boolean; onAdd: (productId: number) => void; can: PortfolioCan; onAction: RowActionHandler }) {
@@ -86,7 +103,8 @@ function GroupRow({ group, columns, canAdd, onAdd, can, onAction }: { group: Gro
               {product.shared && <SharedChip />}
               {product.status === 'archived' && <ArchivedChip />}
               {/* what the section holds, and its one action, on the right: the name and its labels stay together on the left */}
-              <span className="ml-auto flex items-center gap-3">
+              <span className="ml-auto flex flex-wrap items-center gap-3">
+                {can.viewSell && <ProductTotal row={product} />}
                 <span className="text-sm text-muted-foreground">{product.subProductCount ?? 0} {product.subProductCount === 1 ? 'sub-product' : 'sub-products'}</span>
                 {canAdd && !product.shared && product.status === 'active' && (
                   <Button type="button" size="sm" variant="outline" onClick={() => onAdd(product.id)} aria-label={`Add a sub-product to ${product.name}`}>
@@ -192,7 +210,7 @@ export function PortfolioListTable({ items, can, sort, dir, onSort, selected, on
                   </div>
                 </TableCell>
                 {sell && <TableCell className="font-mono text-xs"><SellValue row={row} value={row.sku ?? null} /></TableCell>}
-                {sell && <TableCell><SellValue row={row} value={formatMoney(row.unitPrice, row.currency)} /></TableCell>}
+                {sell && <TableCell><SellValue row={row} value={row.unitPrice === null || row.unitPrice === undefined ? null : <Money amount={row.unitPrice} code={row.currency} />} /></TableCell>}
                 {sell && <TableCell className="hidden lg:table-cell"><SellValue row={row} value={row.category ?? null} /></TableCell>}
                 {sell && <TableCell className="hidden text-right lg:table-cell"><SellValue row={row} value={formatQuantity(row.qtyInStock)} /></TableCell>}
                 {sell && <TableCell>{row.state ? <StateChip state={row.state} /> : <Dash />}</TableCell>}

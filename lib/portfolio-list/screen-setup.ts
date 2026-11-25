@@ -32,7 +32,7 @@ export const PEOPLE = [{ id: 7, first_name: 'Asha', last_name: 'Rao' }, { id: 8,
 export async function setup(opts: SetupOptions = {}) {
   const sk = await screenKit({
     search: opts.search ?? '',
-    menu: opts.menu ?? menuOf(MENU_ROWS.products, MENU_ROWS.services, MENU_ROWS.priceBooks),
+    menu: opts.menu ?? menuOf(MENU_ROWS.products, MENU_ROWS.services),
     respond: (call) => {
       const early = opts.intercept?.(call)
       if (early !== undefined) return early

@@ -1,5 +1,7 @@
 import type { CrmBulkActionResponse } from '@/types/crm'
+import { formatMoney as formatMoneyText } from '@/lib/money/format'
 import { mayMoveRow } from '@/lib/portfolio/removal-model'
+import type { PmPriceTotal } from '@/services/product-master/record-types'
 import type {
   MatchDecisionRow, MatchRow, MatchesData, PortfolioCan, PortfolioIcpState, PortfolioItemType, PortfolioRow, PortfolioSellState,
 } from '@/services/product-master/portfolio-list-types'
@@ -126,13 +128,22 @@ export function icpTone(state: PortfolioIcpState): ReadinessTone {
   return state === 'active' ? 'success' : state === 'draft' ? 'pending' : state === 'template' ? 'primary' : state === 'archived' ? 'inactive' : 'default'
 }
 
-export function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string | null {
-  if (amount === null || amount === undefined) return null
-  return `${currency ? `${currency} ` : ''}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+/** An amount with its currency's symbol ("₹1,20,000.00"); the one rule is `lib/money/format.ts`. */
+export const formatMoney = (amount: number | null | undefined, currency: string | null | undefined): string | null => formatMoneyText(amount, currency)
 
 export function formatQuantity(quantity: number | null | undefined): string | null {
   return quantity === null || quantity === undefined ? null : quantity.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+}
+
+/**
+ * What a Product row shows as its total (S16): the first currency's block, and the blocks after it (drawn as "+1 more"). Null for a row that is not a Product
+ * and for one the server sent no total for (a caller who may not view prices, or a Product with nothing priced).
+ */
+export function productTotal(row: Pick<PortfolioRow, 'kind' | 'priceTotals'>): { first: PmPriceTotal; more: PmPriceTotal[] } | null {
+  if (row.kind !== 'product') return null
+  const [first, ...more] = row.priceTotals ?? []
+
+  return first ? { first, more } : null
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------- what the caller sees and may tick

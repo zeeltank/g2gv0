@@ -12,6 +12,7 @@ import {
   buildPayload, checkValues, emptyValues, FORM_FIELDS, isDirty, sectionOf, standingOf, valuesFromRecord,
   type AboutForm, type ProductChoice, type ProductValues, type SectionId, type SellForm,
 } from '@/lib/portfolio/form-model'
+import { defaultCurrencyCode } from '@/lib/money/currencies'
 import { buildIcpConfigs, changedIcpModels, emptyIcpStates, ICP_MODELS, icpModelsToSend, icpStatesFromOffer, type IcpModel, type IcpStates } from '@/lib/portfolio/icp-state'
 import { nextProductId } from '@/lib/product-form'
 import { serverProblems, validateNewProduct, suggestKey, type NewProductErrors } from '@/lib/product-key'
@@ -236,7 +237,7 @@ function ReadyForm({ open, onOpenChange, mode, defaultProductId, onSaved, data, 
 
   const [initial] = useState<ProductValues>(() => {
     if (record) return valuesFromRecord(record)
-    const start = emptyValues({ productId: defaultProductId, type: sellTypes[0] ?? 'product', assignedTo: context.userId })
+    const start = emptyValues({ productId: defaultProductId, type: sellTypes[0] ?? 'product', assignedTo: context.userId, currency: defaultCurrencyCode(meta) })
     // A new record opened under a Product starts with that Product's next ID.
     const id = defaultProductId ? suggestId(choices, String(defaultProductId)) : ''
     return id === '' ? start : { ...start, about: { ...start.about, offerId: id } }
@@ -469,6 +470,7 @@ function ReadyForm({ open, onOpenChange, mode, defaultProductId, onSaved, data, 
               standing={standing}
               types={sellTypes}
               taxRates={meta.taxRates}
+              currencyFallback={defaultCurrencyCode(meta)}
               categories={categories}
               employees={employees}
               errors={errors.byField}

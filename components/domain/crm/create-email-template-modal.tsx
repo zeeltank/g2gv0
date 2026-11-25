@@ -2,7 +2,7 @@
 
 /**
  * Create/Edit dialog for the Email Templates admin library - same shape as
- * CreatePriceBookModal (a null `template` prop means "Create", a real one
+ * CreateQuoteModal (a null `template` prop means "Create", a real one
  * means "Edit", same seeded-form-state pattern).
  */
 

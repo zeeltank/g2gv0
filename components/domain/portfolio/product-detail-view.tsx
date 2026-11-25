@@ -14,7 +14,7 @@ import { NOTICE_TONE } from '@/lib/org-accounts/tones'
 import { PRODUCT_TAB_LABELS, resolveProductTab, type ProductTabId } from '@/lib/portfolio/page-model'
 import { normalizeProductKey, configureHref } from '@/lib/product-selection'
 import { productRecordService } from '@/services/product-master/record-service'
-import type { PmHistoryRow, PmPaging } from '@/services/product-master/record-types'
+import type { PmHistoryRow, PmPaging, PmPriceTotal } from '@/services/product-master/record-types'
 import type { PmMeta } from '@/services/product-master/types'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { useProducts } from '@/components/domain/signals/product-selector'
@@ -50,6 +50,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [subs, setSubs] = useState<SubProductsData | null>(null)
   const [subsError, setSubsError] = useState('')
   const [subsBusy, setSubsBusy] = useState(false)
+  // What the Sub-products add up to, one block per currency: read with the Product's own record, which carries it (empty for a caller who may not view prices).
+  const [totals, setTotals] = useState<PmPriceTotal[]>([])
   const [history, setHistory] = useState<{ rows: PmHistoryRow[]; paging: PmPaging } | null>(null)
   const [historyError, setHistoryError] = useState('')
   const [historyBusy, setHistoryBusy] = useState(false)
@@ -119,13 +121,16 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     setSubsBusy(true)
     setSubsError('')
     try {
-      const [res, archived] = await Promise.all([
+      const [res, archived, record] = await Promise.all([
         productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'all' }),
         // The list shows archived Sub-products too (so one can be restored from here), but the count in the header and on the tab is the ACTIVE ones, like the Portfolio list's.
         productRecordService.list({ productId: masterId, page: 1, per: 1, status: 'archived' }).catch(() => null),
+        // The total is a nicety: the page works without it.
+        productRecordService.get(masterId).then((r) => r.data).catch(() => null),
       ])
       setSubs({ rows: res.data, paging: res.meta, can: res.meta.can })
       setArchivedCount(archived ? archived.meta.total : 0)
+      setTotals(record?.priceTotals ?? [])
     } catch (cause) {
       setSubsError(cause instanceof Error ? cause.message : 'The sub-products could not be loaded.')
     } finally {
@@ -263,7 +268,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
         </TabPanel>
       )}
       <TabPanel id="sub-products" active={activeTab} idPrefix="product-page">
-        <SubProductsTab data={subs} error={subsError} loading={subsBusy} canAdd={canAdd} onAdd={() => setDrawer('create-sub-product')} onPage={(p) => void loadSubs(p)} />
+        <SubProductsTab data={subs} totals={totals} error={subsError} loading={subsBusy} canAdd={canAdd} onAdd={() => setDrawer('create-sub-product')} onPage={(p) => void loadSubs(p)} />
       </TabPanel>
       {product && (
         <TabPanel id="signals" active={activeTab} idPrefix="product-page">

@@ -1,5 +1,5 @@
 import { addCustom, MAX_PROBLEMS, MAX_PROBLEM_LENGTH, problemLines, splitNeeds } from '@/lib/product-form'
-import type { PmItemType } from '@/services/product-master/types'
+import type { PmItemType, PmTaxRate } from '@/services/product-master/types'
 import type { PmFullRecord, PmSell } from '@/services/product-master/record-types'
 
 /*
@@ -76,17 +76,43 @@ export const emptyAbout = (): AboutForm => ({
   pricingModel: '', typicalDealBand: '', deploymentModel: '', implementationEffort: '', deliveryOwner: '', notes: '', oftenSoldTogether: [],
 })
 
-export const emptySell = (type: PmItemType = 'product', assignedTo = ''): SellForm => ({
-  on: false, offered: true, type, sku: '', category: '', glAccount: '', taxRateId: '', unitPrice: '', costPrice: '', currency: '', commissionRate: '', vendor: '',
+/** A new Sell section. `currency` is the organisation's default (`defaultCurrencyCode(meta)`): a Sub-product made in the form is never saved with no currency. */
+export const emptySell = (type: PmItemType = 'product', assignedTo = '', currency = ''): SellForm => ({
+  on: false, offered: true, type, sku: '', category: '', glAccount: '', taxRateId: '', unitPrice: '', costPrice: '', currency, commissionRate: '', vendor: '',
   usageUnit: '', qtyInStock: '', qtyInDemand: '', reorderLevel: '', weight: '', assignedTo, descriptionOnQuotes: '', image: null,
 })
 
-export const emptyValues = (defaults: { productId?: number | null; type?: PmItemType; assignedTo?: string } = {}): ProductValues => ({
+export const emptyValues = (defaults: { productId?: number | null; type?: PmItemType; assignedTo?: string; currency?: string } = {}): ProductValues => ({
   productId: defaults.productId ? String(defaults.productId) : '',
   name: '',
   about: emptyAbout(),
-  sell: emptySell(defaults.type ?? 'product', defaults.assignedTo ?? ''),
+  sell: emptySell(defaults.type ?? 'product', defaults.assignedTo ?? '', defaults.currency ?? ''),
 })
+
+// ---------------------------------------------------------------------------------------------------------------------------- currency and tax (S16)
+
+/** The tax rates a Sub-product priced in `currency` may use: the rates tied to that currency and the ones tied to none (a rate with no currency fits any). */
+export function ratesForCurrency<T extends { currency?: string | null }>(rates: readonly T[], currency: string): T[] {
+  const code = currency.trim().toUpperCase()
+  return rates.filter((r) => !r.currency || r.currency.trim().toUpperCase() === code)
+}
+
+export interface CurrencyChange {
+  patch: Partial<SellForm>
+  /** The tax rate the change let go of because it is for another currency; null when the rate stays (or none was chosen). */
+  dropped: PmTaxRate | null
+}
+
+/**
+ * What changing the currency does to the form: the currency itself, and the tax rate chosen so far when it is tied to another currency (it is dropped, back to
+ * "Default", and the screen says so, so a price in dollars is never saved under a rupee tax). `fallback` is the code an empty currency stands for.
+ */
+export function changeCurrency(sell: SellForm, next: string, rates: readonly PmTaxRate[], fallback: string): CurrencyChange {
+  const chosen = rates.find((r) => String(r.id) === sell.taxRateId) ?? null
+  const fits = chosen === null || ratesForCurrency([chosen], next === '' ? fallback : next).length > 0
+
+  return fits ? { patch: { currency: next }, dropped: null } : { patch: { currency: next, taxRateId: '' }, dropped: chosen }
+}
 
 /** The five fields a Service does not have (the server blanks the first four on every write; the weight is a product idea too). */
 export const PRODUCT_ONLY_SELL_FIELDS = ['vendor', 'qtyInStock', 'qtyInDemand', 'reorderLevel', 'weight'] as const

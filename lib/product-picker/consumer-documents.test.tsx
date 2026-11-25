@@ -25,7 +25,7 @@ interface Spec {
 const common = {
   id: '7', currency: 'INR', subtotal: 0, discountAmount: 0, discountPercent: null, taxTotal: 0, total: 0, shippingHandlingAmount: 0, adjustment: 0, organizationId: null, organizationName: null,
   contactId: null, contactName: null, opportunityId: null, opportunityName: null, billingStreet: null, billingCity: null, billingState: null, billingCode: null, billingCountry: null,
-  shippingStreet: null, shippingCity: null, shippingState: null, shippingCode: null, shippingCountry: null, termsConditions: null, description: null, assignedTo: '2', priceBookId: null,
+  shippingStreet: null, shippingCity: null, shippingState: null, shippingCode: null, shippingCountry: null, termsConditions: null, description: null, assignedTo: '2',
   amountPaid: 0, balanceDue: 0, quoteStage: 'Draft', soStage: 'Created', poStage: 'Created', invoiceStage: 'Draft', validTill: null, dueDate: null,
 }
 const SPECS: Spec[] = [
@@ -136,10 +136,10 @@ for (const spec of SPECS) {
   })
 }
 
-describe('a quote: the price book and the tax defaulting stay as they were', () => {
+describe('a quote: a line takes the Sub-product\'s own price and tax rate (S16: Price Books were removed)', () => {
   afterEach(async () => { await disposeAll() })
 
-  it('prices a newly picked Sub-product from the quote\'s price book when it lists one, and from the base price when it does not', async () => {
+  it('prices a newly picked Sub-product from its own price even when an old answer still carries a price book id, and never asks for a price book', async () => {
     forgetResolved()
     const catalogue = catalogueResponder({})
     const saves: Array<{ lineItems: Array<Record<string, unknown>> }> = []
@@ -149,7 +149,8 @@ describe('a quote: the price book and the tax defaulting stay as they were', () 
         const answered = await catalogue(call)
         if (answered !== undefined) return answered
         if (call.path.endsWith('/crm/tax-rates')) return { status: 1, message: '', data: TAX_RATES }
-        if (call.path.endsWith('/crm/price-books/3/items')) return { status: 1, message: '', data: [{ id: '1', productId: '10', listPrice: 750, itemType: 'product', name: 'Scholar Nine' }] }
+        // A server that has not been updated yet still answers a price book's items: the page must not even ask.
+        if (call.path.includes('/crm/price-books/')) return { status: 1, message: '', data: [{ id: '1', productId: '10', listPrice: 750, itemType: 'product', name: 'Scholar Nine' }] }
         if (call.path.endsWith('/crm/quotes/7/line-items') && call.method === 'GET') return { status: 1, message: '', data: [] }
         if (call.path.endsWith('/crm/quotes/7/line-items') && call.method === 'PUT') { saves.push(call.body as never); return { status: 1, message: 'ok', data: {} } }
         return undefined
@@ -166,7 +167,8 @@ describe('a quote: the price book and the tax defaulting stay as they were', () 
     await pickRow(k, 11, 1)
     await k.click(k.withText('Save Line Items')!)
     await k.tick(40)
-    assert.deepEqual(saves[0].lineItems.map((l) => [l.productId, l.unitPrice]), [['10', 750], ['11', 25000]], 'the price book\'s own price wins for the item it lists; the base price for the other')
+    assert.deepEqual(saves[0].lineItems.map((l) => [l.productId, l.unitPrice]), [['10', 999], ['11', 25000]], 'each line is priced from its Sub-product alone: 999 is Scholar Nine\'s own price, not the 750 an old price book listed')
+    assert.equal(screen.calls.filter((c) => c.path.includes('price-book')).length, 0, 'no price book is fetched')
     screen.restore()
   })
 })

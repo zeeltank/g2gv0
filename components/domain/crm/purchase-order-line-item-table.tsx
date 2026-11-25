@@ -4,9 +4,9 @@
  * The line-item builder for Purchase Orders - a renamed clone of
  * quote-line-item-table.tsx rather than a direct reuse, because this
  * entity's own CrmPurchaseOrderLineItemInput type is a distinct (if
- * identically-shaped) type from CrmQuoteLineItemInput, and there is no
- * price-book integration here (Purchase Orders don't have one - see the
- * entity spec). Same "client-side preview only, server recomputes
+ * identically-shaped) type from CrmQuoteLineItemInput, and a newly-picked
+ * product takes its price and tax rate from the Sub-product alone (S16:
+ * Price Books were removed). Same "client-side preview only, server recomputes
  * independently on save" contract as the Quote version; see that file's
  * own docblock for the exact arithmetic this mirrors.
  */
@@ -21,6 +21,7 @@ import { SubProductPicker } from '@/components/domain/portfolio/product-picker'
 import type { PickedSubProduct } from '@/lib/product-picker/model'
 import { PICKER_RULES } from '@/lib/product-picker/consumer-rules'
 import type { CrmPurchaseOrderLineItemInput, CrmTaxRate } from '@/types/crm'
+import { LineTableError } from './line-table-error'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -57,6 +58,8 @@ interface Props {
   onChange: (lineItems: CrmPurchaseOrderLineItemInput[]) => void
   taxRates: CrmTaxRate[]
   currency: string | null
+  /** A plain sentence about the last save, shown above the lines (a Sub-product priced in another currency than the document: S16). */
+  error?: string | null
 }
 
 const emptyRow = (sequenceNo: number): CrmPurchaseOrderLineItemInput => ({
@@ -64,7 +67,7 @@ const emptyRow = (sequenceNo: number): CrmPurchaseOrderLineItemInput => ({
   discountPercent: null, discountAmount: null, taxRateId: null, sequenceNo,
 })
 
-export function PurchaseOrderLineItemTable({ lineItems, onChange, taxRates, currency }: Props) {
+export function PurchaseOrderLineItemTable({ lineItems, onChange, taxRates, currency, error = null }: Props) {
   const totals = useMemo(() => computePOTotals(lineItems, taxRates), [lineItems, taxRates])
 
   const taxOptions = [{ label: 'No tax', value: 'none' }, ...taxRates.map((t) => ({ label: `${t.name} (${t.percentage}%)`, value: t.id }))]
@@ -89,6 +92,7 @@ export function PurchaseOrderLineItemTable({ lineItems, onChange, taxRates, curr
 
   return (
     <div className="space-y-3">
+      <LineTableError message={error} />
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
           <TableHeader>
