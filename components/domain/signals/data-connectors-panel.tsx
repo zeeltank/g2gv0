@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronUp,
   MoreHorizontal,
+  Radar,
 } from 'lucide-react'
 import {
   PlatformWebIcon,
@@ -63,6 +64,8 @@ import {
 } from '@/lib/signals/connector-diagnostics'
 import { ConnectorFormDialog } from './connector-form-dialog'
 import { ConnectorScheduleDialog } from './connector-schedule-dialog'
+import { ConnectorMonitoringDialog } from './connector-monitoring-dialog'
+import { ConnectorSyncReport } from './connector-sync-report'
 
 export interface DataConnectorsPanelProps {
   context: LaravelContext
@@ -173,6 +176,8 @@ export function DataConnectorsPanel({
   const [createType, setCreateType] = useState<DataConnectorInfo['type'] | null>(null)
   const [editConnector, setEditConnector] = useState<DataConnectorInfo | null>(null)
   const [scheduleConnector, setScheduleConnector] = useState<DataConnectorInfo | null>(null)
+  const [monitorConnector, setMonitorConnector] = useState<DataConnectorInfo | null>(null)
+  const [reportTarget, setReportTarget] = useState<{ connectorId: number; syncId: number; name: string } | null>(null)
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
@@ -766,6 +771,11 @@ export function DataConnectorsPanel({
                         <DropdownMenuItem onSelect={() => setScheduleConnector(connector)}>
                           <Clock3 className="size-3.5" /> Schedule
                         </DropdownMenuItem>
+                        {connector.type !== 'public_web_page' && (
+                          <DropdownMenuItem onSelect={() => setMonitorConnector(connector)}>
+                            <Radar className="size-3.5" /> What to monitor
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onSelect={() => setEditConnector(connector)}>
                           <Settings2 className="size-3.5" /> Edit
                         </DropdownMenuItem>
@@ -861,10 +871,10 @@ export function DataConnectorsPanel({
                   const run = connector.history[0]
                   const pct = Math.max(2, Math.min(100, run.progress ?? 5))
                   const stage = run.status === 'queued'
-                    ? 'Starting sync…'
+                    ? 'Waiting in the queue for a worker…'
                     : run.records_fetched === 0
-                      ? 'Reading the platform (channels, videos, Shorts, comments)…'
-                      : `Finding signals in ${run.records_fetched} items…`
+                      ? 'Fetching from the platform (channels, videos, Shorts, comments)…'
+                      : `Analysing posts: ${run.records_fetched - (run.records_pending ?? 0)} of ${run.records_fetched} handled, ${run.records_pending ?? 0} waiting…`
                   return (
                     <div className="space-y-1" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Sync progress">
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -945,7 +955,7 @@ export function DataConnectorsPanel({
                             ) : (
                               <Clock3 className="size-3.5 text-primary" />
                             )}
-                            <span className="font-semibold text-foreground">{run.status === 'failed' ? 'Needs attention' : syncRunDisplay(run.status).label}</span>
+                            <span className="font-semibold text-foreground">{run.stage === 'interrupted' ? 'Interrupted' : run.status === 'failed' ? 'Needs attention' : run.stage === 'completed_with_errors' ? 'Completed with errors' : syncRunDisplay(run.status).label}</span>
                             <span className="text-[11px] text-muted-foreground">{formatDate(run.started_at)}</span>
                           </div>
 
@@ -953,6 +963,13 @@ export function DataConnectorsPanel({
                             <span>{run.records_fetched} fetched</span>
                             <span>{run.records_processed} processed</span>
                             <span className="font-semibold text-primary">{run.records_created} signals created</span>
+                            <button
+                              type="button"
+                              onClick={() => setReportTarget({ connectorId: connector.id, syncId: run.id, name: `${connector.name} · ${formatDate(run.started_at)}` })}
+                              className="font-semibold text-primary hover:underline"
+                            >
+                              Report
+                            </button>
                             {run.error_message && (
                               <span className="text-primary max-w-xs truncate" title={run.error_message}>
                                 {friendlyConnectorMessage(run.error_message)}
@@ -1001,6 +1018,18 @@ export function DataConnectorsPanel({
           }
         }}
       />
+
+      <ConnectorMonitoringDialog
+        context={context}
+        open={Boolean(monitorConnector)}
+        connector={monitorConnector}
+        onClose={() => setMonitorConnector(null)}
+        onSaved={() => {
+          void load(true)
+          setMonitorConnector(null)
+        }}
+      />
+      <ConnectorSyncReport context={context} target={reportTarget} onClose={() => setReportTarget(null)} />
 
       {/* Quick Schedule Dialog */}
       <ConnectorScheduleDialog
