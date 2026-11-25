@@ -11,7 +11,7 @@ import {
 import {
   formatAmount, linkedRecords, MISSING_SOURCE_TEXT, NO_VALUE, NOT_CONFIRMABLE_TEXT, placeConflictText, scoreText, shownText, sourceTypeLabel, whyNowFacts,
 } from '@/lib/org-accounts/display'
-import { recordHref, signalHref, type OrgLinks } from '@/lib/org-accounts/links'
+import { personPath, recordHref, signalHref, type OrgLinks } from '@/lib/org-accounts/links'
 import { CONFIRM_LABEL, REJECT_LABEL, type LinkAction } from '@/lib/org-accounts/suggestions'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
 import { formatDay, safeHttpUrl } from '@/lib/signals/signal-display'
@@ -239,17 +239,19 @@ export function SignalsSection({ org, links }: { org: Org360; links: OrgLinks })
 // ── Contacts and deals ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Emails and phone numbers are plain text on purpose: nothing is ever sent from here, so there is no mailto: or tel: link. */
-export function ContactsSection({ org }: { org: Org360 }) {
+export function ContactsSection({ org, links }: { org: Org360; links?: Pick<OrgLinks, 'crmOrganisations'> }) {
   return (
-    <Collapsible title="Contacts" count={org.totals.contacts}>
-      {org.contacts.length === 0 ? <Empty>No contacts yet.</Empty> : (
+    <Collapsible title="People" count={org.totals.contacts}>
+      {org.contacts.length === 0 ? <Empty>No people yet.</Empty> : (
         <ul className="divide-y divide-border">
           {org.contacts.map((contact) => {
             const consent = consentText(contact.consent_status)
+            // A person of the CRM opens on the company's People tab (S18); a GTM person has no page of its own, so it is plain text, as before.
+            const href = links?.crmOrganisations && contact.source === 'crm' ? personPath(links.crmOrganisations, { id: contact.id, organizationId: org.crm?.id }) : null
             return (
               <li key={`${contact.source}-${contact.id}`} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{contact.name}</p>
+                  <p className="text-sm font-medium text-foreground">{href ? <Link href={href} className="underline-offset-2 hover:underline">{contact.name}</Link> : contact.name}</p>
                   <p className="break-all text-xs text-muted-foreground">{[contact.role, contact.email, contact.phone].filter(Boolean).join(' · ') || NO_VALUE}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

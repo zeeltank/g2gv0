@@ -75,7 +75,8 @@ describe('the field and the kind of record', () => {
 
   it('opens a record through the person\'s own menu, and nothing for an id that is not a positive whole number or a kind with no page', () => {
     const resolve = (link: string) => `/m${link}`
-    assert.equal(entityPath('contact', 31, resolve), '/m/module/crm/marketing/contacts/31')
+    // S18 (25 Nov 2026): a person has no menu row of its own any more; it opens under Organizations (All people), through personHref. CHANGED ON PURPOSE.
+    assert.equal(entityPath('contact', 31, resolve), '/m/module/crm/marketing/organizations?scope=people&person=31')
     assert.equal(entityPath('organization', 135, resolve), '/m/module/crm/marketing/organizations/135')
     assert.equal(entityPath('lead', 7, resolve), '/m/module/crm/marketing/leads/7')
     assert.equal(entityPath('contact', 0, resolve), null)

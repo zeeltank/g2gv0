@@ -117,9 +117,9 @@ export function atlasBuilders(c, atlas, notes, imgOf, videoDir) {
     head(sl, s.name, 960, 150, 820, 110, 70)
     const im = imgOf(s)
     if (im) sl.addImage({ path: im.path, x: (140 * 13.3333) / 1920, y: (190 * 13.3333) / 1920, w: (720 * 13.3333) / 1920, h: (405 * 13.3333) / 1920, sizing: { type: 'cover', w: (720 * 13.3333) / 1920, h: (405 * 13.3333) / 1920 }, altText: `${s.name}: ${s.screens[0] ?? 'screen'}` })
-    else { rect(sl, 140, 190, 720, 405, { fill: { color: C.navy }, line: { color: '9FD0FF', width: 1 } }); text(sl, s.screens.slice(0, 7).join('\n'), 170, 215, 660, 360, { fontSize: PT(25), color: 'EAF2FB' }) }
-    text(sl, 'FEATURES', 140, 636, 700, 26, { bold: true, color: '9FD0FF', fontSize: 11, charSpacing: 3 })
-    sl.addText(s.features.map((f) => ({ text: f, options: { bullet: { code: '2713' }, breakLine: true } })), { x: (140 * 13.3333) / 1920, y: (672 * 13.3333) / 1920, w: (730 * 13.3333) / 1920, h: (330 * 13.3333) / 1920, margin: 0, fontFace: 'Calibri', fontSize: PT(26), color: 'EAF2FB', valign: 'top', paraSpaceAfter: 6, isTextBox: true })
+    const fy = im ? 636 : 230   // no screenshot: no picture card, the features move up
+    text(sl, 'FEATURES', 140, fy, 700, 26, { bold: true, color: '9FD0FF', fontSize: 11, charSpacing: 3 })
+    sl.addText(s.features.map((f) => ({ text: f, options: { bullet: { code: '2713' }, breakLine: true } })), { x: (140 * 13.3333) / 1920, y: ((fy + 36) * 13.3333) / 1920, w: (730 * 13.3333) / 1920, h: ((im ? 330 : 700) * 13.3333) / 1920, margin: 0, fontFace: 'Calibri', fontSize: PT(im ? 26 : 30), color: 'EAF2FB', valign: 'top', paraSpaceAfter: 6, isTextBox: true })
     const rows = [['What it is', s.summary], ['The problem it removes', s.problem], ['What could become easier', s.benefit], ['Technology', s.technology.join(' · ')], [s.research ? 'Designed from' : `${s.screen_count} screens, for example`, s.research ?? s.screens.slice(0, 5).join(' · ')]]
     rows.forEach(([l, t], i) => { const y = 290 + i * 145; text(sl, l.toUpperCase(), 960, y, 820, 24, { bold: true, color: '9FD0FF', fontSize: 11, charSpacing: 3 }); text(sl, t, 960, y + 30, 820, 112, { fontSize: PT(25), color: 'EAF2FB' }) })
   }); sl.addNotes([`SAY: ${s.summary} ${s.problem}`, `Workflow: ${s.workflow.join(' → ')}`, nt?.owner_to_confirm?.length ? `CAREFUL (presenter only): ${nt.owner_to_confirm.join(' ')}` : '', nt?.evidence?.length ? `Evidence: ${nt.evidence.join('; ')}` : ''].filter(Boolean).join('\n\n')) }

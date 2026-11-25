@@ -61,8 +61,8 @@ describe('the scope switch', () => {
 
   it('has three tabs, with the counts of the org-accounts summary on the other two and none on the CRM scope', async () => {
     const { k, tab } = await setup()
-    assert.deepEqual(k.all('[role="tab"]').map((t) => t.textContent), ['Organizations', 'Discovered3', 'Possible duplicates2'])
-    assert.equal(tab('Organizations').getAttribute('aria-label'), null)
+    assert.deepEqual(k.all('[role="tab"]').map((t) => t.textContent), ['Companies', 'Discovered3', 'Possible duplicates2'])
+    assert.equal(tab('Companies').getAttribute('aria-label'), null)
     assert.equal(tab('Discovered').getAttribute('aria-label'), 'Discovered 3', 'D8: the name says the count with a space')
     assert.equal(tab('Possible duplicates').getAttribute('aria-label'), 'Possible duplicates 2')
   })
@@ -79,7 +79,7 @@ describe('the scope switch', () => {
     assert.equal(router.lastSearch(), 'scope=discovered')
     await openScope('Possible duplicates')
     assert.equal(router.lastSearch(), 'scope=duplicates')
-    await openScope('Organizations')
+    await openScope('Companies')
     assert.equal(router.lastSearch(), '', 'the first scope is the default')
   })
 
@@ -94,7 +94,7 @@ describe('the scope switch', () => {
 
   it('shows no counts when they cannot be read, and the CRM list is unaffected', async () => {
     const { k } = await setup({ overrides: { list: async () => { throw new ApiError('Organisation 360 is not set up on this server yet.', 503) } } })
-    assert.deepEqual(k.all('[role="tab"]').map((t) => t.textContent), ['Organizations', 'Discovered', 'Possible duplicates'])
+    assert.deepEqual(k.all('[role="tab"]').map((t) => t.textContent), ['Companies', 'Discovered', 'Possible duplicates'])
     assert.ok(k.one('#crm-list'), "k.one('#crm-list')")
   })
 })

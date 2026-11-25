@@ -44,6 +44,10 @@
    "dir": "k12c"
   },
   {
+   "id": "enterprise-brain--overview--organization",
+   "dir": "k12f"
+  },
+  {
    "id": "institute-erp--admission--admission-inquiry",
    "dir": "k12b"
   },
@@ -66,6 +70,10 @@
   {
    "id": "institute-erp--complaint--complaint-management",
    "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--consent--consent-master",
+   "dir": "k12f"
   },
   {
    "id": "institute-erp--document-templates--all-templates",
@@ -164,8 +172,8 @@
    "dir": "k12b"
   },
   {
-   "id": "people-and-competency--capability-intelligence--dashboard",
-   "dir": "k12b"
+   "id": "people-and-competency--capability-intelligence--capability-library",
+   "dir": "k12f"
   },
   {
    "id": "people-and-competency--hrit-management--attendance-tracking",

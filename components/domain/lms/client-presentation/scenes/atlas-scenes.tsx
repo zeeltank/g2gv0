@@ -281,15 +281,15 @@ function Subs({ plan, beat, beats, entry, reduced }: P) {
         </section>
       )}
       {subs.map((s, i) => (
-        <section className="at-sub" data-i={i} key={s.id} aria-label={s.name}>
-          <div className="at-stage3d">
-            <div className="at-shot">
-              {s.shots[0]
-                ? <img src={s.shots[0]} alt={`${s.name}: ${s.screens[0] ?? 'screen'}`} draggable={false} />
-                : <div className="at-fallback"><b>Screens</b>{s.screens.slice(0, 7).map((x) => <span key={x}>{x}</span>)}</div>}
-              <div className="at-sheen" />
+        <section className={`at-sub${s.shots[0] ? '' : ' at-noshot'}`} data-i={i} key={s.id} aria-label={s.name}>
+          {s.shots[0] && (
+            <div className="at-stage3d">
+              <div className="at-shot">
+                <img src={s.shots[0]} alt={`${s.name}: ${s.screens[0] ?? 'screen'}`} draggable={false} />
+                <div className="at-sheen" />
+              </div>
             </div>
-          </div>
+          )}
           {s.shots[0] && <div className="at-lens" style={{ backgroundImage: `url(${s.shots[0]})` }} aria-hidden="true" />}
           <div className="at-feat r-feat"><div className="at-lab at-r" style={{ marginBottom: 14 }}>Features</div><ul>{s.features.map((f) => <li key={f}>{f}</li>)}</ul></div>
           <h3 className="at-name" style={s.name.length > 16 ? { fontSize: 58 } : s.name.length > 11 ? { fontSize: 70 } : undefined}><span>{s.name}</span></h3>
@@ -297,11 +297,11 @@ function Subs({ plan, beat, beats, entry, reduced }: P) {
           <div className="at-rcol at-r" style={{ top: 445 }}><div className="at-lab">The problem it removes</div><div className="at-txt">{s.problem}</div></div>
           <div className="at-rcol at-r" style={{ top: 595 }}><div className="at-lab">What could become easier</div><div className="at-txt">{s.benefit}</div></div>
           <div className="at-rcol at-r" style={{ top: 752 }}><div className="at-lab">Technology</div><div className="at-txt">{s.technology.join(' · ')}</div></div>
-          <div className="at-rcol at-r" style={{ top: 895 }}>
+          {(s.research || s.screens.length > 0) && <div className="at-rcol at-r" style={{ top: 895 }}>
             {s.research
               ? <><div className="at-lab">Designed from</div><div className="at-txt">{s.research}</div></>
               : <><div className="at-lab">{s.screen_count} screens, for example</div><div className="at-txt" style={{ fontSize: 23 }}>{s.screens.slice(0, 5).join(' · ')}</div></>}
-          </div>
+          </div>}
         </section>
       ))}
       <nav className="at-rail" aria-hidden="true">{subs.map((s, i) => <span key={s.id} className={i === 0 ? 'on' : ''}>{s.name}</span>)}</nav>
@@ -339,12 +339,10 @@ function Gallery({ plan, beat, beats, entry, reduced }: P) {
           <div className="at-gal-title">{p.product}</div>
           <div className="at-gal-mod">{p.k12_module}</div>
           <div className="at-gal-grid"><div className="at-gal-plane">
-            {(tiles(p).length ? tiles(p) : p.subs.slice(0, 6)).map((s, k) => (
+            {tiles(p).map((s, k) => (
               <div className="at-gal-item" key={s.id} style={{ left: (k % 3) * 375, top: Math.floor(k / 3) * 330 }}>
                 <div className="at-gshot">
-                  {s.shots[0]
-                        ? <img src={s.shots[0]} alt={`${s.name}: screen`} draggable={false} />
-                    : <div className="at-fallback" style={{ padding: '14px 16px' }}>{s.screens.slice(0, 4).map((x) => <span key={x} style={{ fontSize: 16 }}>{x}</span>)}</div>}
+                  <img src={s.shots[0]} alt={`${s.name}: screen`} draggable={false} />
                 </div>
                 <b>{s.name}</b>
               </div>

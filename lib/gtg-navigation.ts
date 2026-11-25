@@ -110,7 +110,8 @@ export const TASK_MY_TASKS_ACCESS_LINK = '/module/task-management/my-tasks'
  * local and live databases, unlike a brand-new root would be).
  */
 export const CRM_LEADS_ACCESS_LINK = '/module/crm/marketing/leads'
-export const CRM_CONTACTS_ACCESS_LINK = '/module/crm/marketing/contacts'
+// The Contacts rows have no constant here any more (S18, 25 Nov 2026: Contacts were merged into Organizations). A person is opened with `personHref`
+// (lib/org-accounts/links.ts); the two rows' identity is `PEOPLE_MENU_ROWS` there, and the sidebar fold is in lib/signals-nav.ts.
 export const CRM_ORGANIZATIONS_ACCESS_LINK = '/module/crm/marketing/organizations'
 export const CRM_CAMPAIGNS_ACCESS_LINK = '/module/crm/marketing/campaigns'
 

@@ -60,6 +60,8 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   noun: string
+  /** The plural, for a noun an "s" does not pluralise ("people"). */
+  nounPlural?: string
   /** lowercase CSV header -> camelCase API field name (e.g. {'last name': 'lastName'}). */
   headerMap: Record<string, string>
   /** Human-readable headers for the downloadable blank template, in column order. */
@@ -77,7 +79,7 @@ interface Props {
  * user's own export (or a spreadsheet with extra notes columns) should
  * still import cleanly.
  */
-export function CrmImportDialog({ isOpen, onClose, noun, headerMap, templateHeaders, templateFilename, submitImport, onImported }: Props) {
+export function CrmImportDialog({ isOpen, onClose, noun, nounPlural, headerMap, templateHeaders, templateFilename, submitImport, onImported }: Props) {
   const context = useMemo(() => getLaravelContext(), [])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -150,7 +152,7 @@ export function CrmImportDialog({ isOpen, onClose, noun, headerMap, templateHead
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader className="shrink-0">
-          <DialogTitle>Import {noun}s</DialogTitle>
+          <DialogTitle>Import {nounPlural ?? `${noun}s`}</DialogTitle>
           <DialogDescription>Upload a CSV file, or download the template to see the expected columns.</DialogDescription>
         </DialogHeader>
 
@@ -193,7 +195,7 @@ export function CrmImportDialog({ isOpen, onClose, noun, headerMap, templateHead
           <Button variant="outline" onClick={handleClose}>Close</Button>
           <Button disabled={rows.length === 0 || submitting} onClick={() => void handleSubmit()}>
             {submitting ? <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> : <FileUp className="mr-2 size-4" aria-hidden="true" />}
-            Import {rows.length > 0 ? `${rows.length} ` : ''}{noun}{rows.length === 1 ? '' : 's'}
+            Import {rows.length > 0 ? `${rows.length} ` : ''}{rows.length === 1 ? noun : (nounPlural ?? `${noun}s`)}
           </Button>
         </DialogFooter>
       </DialogContent>

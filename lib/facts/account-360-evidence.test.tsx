@@ -41,7 +41,7 @@ describe('the Account 360 tab: where the Evidence section sits', () => {
     assert.ok(at('Linked records') >= 0, 'linked records are there')
     assert.equal(at('Evidence'), at('Linked records') + 1, 'Evidence is the very next section')
     assert.equal(at('Signals'), at('Evidence') + 1, 'and the signals follow it')
-    assert.ok(at('Contacts') > at('Signals'), 'the rest of the tab is where it was')
+    assert.ok(at('People') > at('Signals'), 'the rest of the tab is where it was')
     s.restore()
   })
 
@@ -141,7 +141,7 @@ describe('the real Account 360 tab with the real Evidence section', () => {
     const s = await openReal({ __status: 500, status: 0, message: 'The server is busy.' })
     assert.ok(s.k.bodyText().includes('The evidence could not be loaded.'))
     assert.ok(s.k.one('[data-section="Signals"]'), 'the signals are there')
-    assert.ok(s.k.one('[data-section="Contacts"]'), 'and the contacts')
+    assert.ok(s.k.one('[data-section="People"]'), 'and the people (the Contacts section was renamed People in S18)')
     s.restore()
   })
 

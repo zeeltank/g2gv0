@@ -102,6 +102,16 @@
    "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
   },
   {
+   "id": "enterprise-brain--overview--organization",
+   "file": "client-presentation/atlas/enterprise-brain--overview--organization.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
    "id": "institute-erp--admission--admission-inquiry",
    "file": "client-presentation/atlas/institute-erp--admission--admission-inquiry.webp",
    "source": "K12 product (live school, demo login)",
@@ -154,6 +164,16 @@
   {
    "id": "institute-erp--complaint--complaint-management",
    "file": "client-presentation/atlas/institute-erp--complaint--complaint-management.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--consent--consent-master",
+   "file": "client-presentation/atlas/institute-erp--consent--consent-master.webp",
    "source": "K12 product (live school, demo login)",
    "captured_on": "2026-11-25",
    "crop": null,
@@ -402,8 +422,8 @@
    "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
   },
   {
-   "id": "people-and-competency--capability-intelligence--dashboard",
-   "file": "client-presentation/atlas/people-and-competency--capability-intelligence--dashboard.webp",
+   "id": "people-and-competency--capability-intelligence--capability-library",
+   "file": "client-presentation/atlas/people-and-competency--capability-intelligence--capability-library.webp",
    "source": "K12 product (live school, demo login)",
    "captured_on": "2026-11-25",
    "crop": null,

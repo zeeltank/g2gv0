@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Textarea } from '@/components/ui/textarea'
 import type { CrmComment } from '@/types/crm'
+import { WhoChip } from './people/who-chip'
 
 interface Props {
   comments: CrmComment[]
@@ -69,7 +70,10 @@ export function CommentThread({ comments, loading, onAdd }: Props) {
           {comments.map((row) => (
             <div key={row.id} className="p-3">
               <p className="whitespace-pre-wrap text-sm text-foreground">{row.comment}</p>
-              <p className="mt-1.5 text-xs text-muted-foreground">{row.createdByName || 'Unknown'} · {row.createdAt}</p>
+              <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <WhoChip row={row} />
+                <span>{row.createdByName || 'Unknown'} · {row.createdAt}</span>
+              </p>
             </div>
           ))}
         </div>

@@ -713,8 +713,11 @@
     {
      "id": "core-circular",
      "name": "Circular",
-     "screens": [],
-     "screen_count": 0,
+     "screens": [
+      "Circular",
+      "Circular Report"
+     ],
+     "screen_count": 2,
      "summary": "Publish school circulars to chosen classes or every standard, with type, message and attachment, and keep a searchable list.",
      "problem": "Paper notices and scattered messages make it hard to reach the right classes and to find what was announced earlier.",
      "features": [
@@ -744,8 +747,10 @@
     {
      "id": "core-parent-communication",
      "name": "Parent Communication",
-     "screens": [],
-     "screen_count": 0,
+     "screens": [
+      "Parent Communication"
+     ],
+     "screen_count": 1,
      "summary": "Review messages parents send from the mobile app and the replies staff recorded, by date range, with student and class details.",
      "problem": "Parent questions can get lost in calls and chats, so families wait without knowing whether the school replied.",
      "features": [
@@ -775,8 +780,12 @@
     {
      "id": "core-consent",
      "name": "Consent",
-     "screens": [],
-     "screen_count": 0,
+     "screens": [
+      "Consent Master",
+      "Delete Consent Master",
+      "Consent Report"
+     ],
+     "screen_count": 3,
      "summary": "Issue a consent for selected students of a class, then review issued consents with their parent status.",
      "problem": "Collecting permissions on paper makes it hard to know which students were asked and where each consent stands.",
      "features": [
@@ -799,7 +808,9 @@
       "Review report"
      ],
      "data": "live",
-     "shots": []
+     "shots": [
+      "/client-presentation/atlas/institute-erp--consent--consent-master.webp"
+     ]
     },
     {
      "id": "core-ptm",
@@ -1523,6 +1534,7 @@
      ],
      "data": "live",
      "shots": [
+      "/client-presentation/atlas/people-and-competency--capability-intelligence--capability-library.webp",
       "/client-presentation/atlas/people-and-competency--capability-intelligence--dashboard.webp"
      ]
     },
@@ -1629,7 +1641,9 @@
       "List priorities"
      ],
      "data": "live",
-     "shots": []
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--overview--organization.webp"
+     ]
     },
     {
      "id": "insight-foundation",
@@ -1841,7 +1855,9 @@
       "Read audit log"
      ],
      "data": "live",
-     "shots": []
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--account-settings--settings.webp"
+     ]
     }
    ]
   },
@@ -1984,8 +2000,10 @@
     {
      "id": "compass-career-intelligence",
      "name": "Career Intelligence",
-     "screens": [],
-     "screen_count": 0,
+     "screens": [
+      "Career Intelligence"
+     ],
+     "screen_count": 1,
      "summary": "A student records a career goal, sees how current subjects compare with it, and reviews the evidence recorded so far.",
      "problem": "Students can choose subjects without knowing what their chosen career needs, and counsellors have little recorded evidence to start from.",
      "features": [

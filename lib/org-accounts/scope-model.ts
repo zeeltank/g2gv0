@@ -9,8 +9,12 @@ import { LIFECYCLE_LABELS } from './display'
  * how they become a request. Pure, so a link such as `?scope=discovered&lifecycle=target` is proved to read back the way it was written.
  */
 
-/** The three scopes. The first is the default and keeps the plain address: today's list, unchanged. */
-export const SCOPE_IDS = ['crm', 'discovered', 'duplicates'] as const
+/**
+ * The scopes. The first is the default and keeps the plain address: today's list, unchanged. `people` (All people, the people of every company) and `suggestions` (the facts
+ * an agent or a source suggested, which used to be a scope of the Contacts list) arrived with S18 (25 Nov 2026: Contacts were merged into Organizations); they are offered
+ * only to a person who holds the contacts view right.
+ */
+export const SCOPE_IDS = ['crm', 'discovered', 'duplicates', 'people', 'suggestions'] as const
 export type OrgScope = (typeof SCOPE_IDS)[number]
 export const SCOPE_PARAM = 'scope'
 
@@ -23,6 +27,12 @@ export interface ScopeCounts {
   discovered: number | null
   /** Possible duplicates waiting for a person; null until known. */
   duplicates: number | null
+  /**
+   * People in All people, and facts waiting in Suggestions. A key that is ABSENT means the scope is not offered (the person does not hold the contacts view right);
+   * null means it is offered and its count is not known yet.
+   */
+  people?: number | null
+  suggestions?: number | null
 }
 
 /**
@@ -34,13 +44,19 @@ export function scopeCounts(summary: OrgAccountSummary | null | undefined, liveD
   return { discovered: Math.max(0, summary.total - summary.with_crm), duplicates: liveDuplicates ?? summary.suggestions }
 }
 
-/** The tabs of the switch. The CRM scope carries no count: its own list already says how many organizations there are. */
+/**
+ * The tabs of the switch. The first scope (Companies) carries no count: its own list already says how many there are. All people and Suggestions follow the others and
+ * are there only when `counts` has them.
+ */
 export function scopeTabs(counts: ScopeCounts): PageTab[] {
-  return [
-    { id: 'crm', label: 'Organizations' },
+  const tabs: PageTab[] = [
+    { id: 'crm', label: 'Companies' },
     { id: 'discovered', label: 'Discovered', count: counts.discovered },
     { id: 'duplicates', label: 'Possible duplicates', count: counts.duplicates },
   ]
+  if (counts.people !== undefined) tabs.push({ id: 'people', label: 'All people', count: counts.people })
+  if (counts.suggestions !== undefined) tabs.push({ id: 'suggestions', label: 'Suggestions', count: counts.suggestions })
+  return tabs
 }
 
 // ── The Discovered scope's filters ──────────────────────────────────────────────────────────────────────────────────────────────────

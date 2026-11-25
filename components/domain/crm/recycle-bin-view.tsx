@@ -14,7 +14,7 @@ const PAGE_SIZE = 20
 
 const TYPE_META: Record<CrmRecycleBinType, { label: string; icon: typeof User; badge: BadgeProps['variant'] }> = {
   leads: { label: 'Lead', icon: UserPlus, badge: 'navy' },
-  contacts: { label: 'Contact', icon: User, badge: 'secondary' },
+  contacts: { label: 'Person', icon: User, badge: 'secondary' },
   organizations: { label: 'Organization', icon: Building2, badge: 'success' },
   campaigns: { label: 'Campaign', icon: Megaphone, badge: 'warning' },
   opportunities: { label: 'Opportunity', icon: Target, badge: 'default' },
@@ -45,7 +45,7 @@ function relativeTime(value: string): string {
 }
 
 /**
- * One shared Recycle Bin across Leads, Contacts, Organizations, and
+ * One shared Recycle Bin across Leads, People (the contacts table), Organizations, and
  * Campaigns - the backend unions all 4 tables itself (CrmRecycleBinController),
  * each row already filtered server-side to what the caller has "view" rights
  * on, so this component never has to reason about per-type permissions.
@@ -122,7 +122,8 @@ export function RecycleBinView() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Recycle Bin</h1>
         <p className="text-sm text-muted-foreground">
-          Deleted leads, contacts, organizations, and campaigns. Restore a record, or remove it for good.
+          Deleted leads, people, organizations, and campaigns. Restore a record, or remove it for good. A person whose company was deleted stays in All people, marked
+          &ldquo;Company in Recycle Bin&rdquo;, and is linked back if the company is restored.
         </p>
       </div>
 

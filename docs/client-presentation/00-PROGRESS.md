@@ -85,3 +85,4 @@ Owner: the deck must cover every module and sub-module (summary, problem, featur
 - **Open:** module-owner sign-off of the new text; owner decisions in each sheet's owner-to-confirm notes (hidden screens, places where the old menu document and the code disagree); PowerPoint open check; videos for the PowerPoint atlas slides.
 
 - **Round 5 end state (2026-11-25):** all checks above pass; 25 atlas slides, 25 videos, 110-slide PowerPoint, film credit lines reduced to the generic label. Nothing committed or pushed yet (waiting for the owner's go).
+- **Review fix (2026-11-25, later):** Consent, Capability Intelligence and Insight Overview screenshots fixed; no picture card when a sub-module has none; 48 pictures cover all 49 sub-modules; videos a10, a14, a15, a16, a25 re-rendered.

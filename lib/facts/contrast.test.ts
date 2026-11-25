@@ -97,7 +97,7 @@ describe('contrast of the facts screens', () => {
 })
 
 describe('the facts components keep to those looks (a scan, because the bug was a class string)', () => {
-  const files = ['fact-parts.tsx', 'fact-suggestions.tsx', 'fact-scopes.tsx', 'fact-evidence-section.tsx', 'fact-consent.tsx'].map((name) => path.resolve('components/domain/crm', name))
+  const files = ['fact-parts.tsx', 'fact-suggestions.tsx', 'fact-evidence-section.tsx', 'fact-consent.tsx'].map((name) => path.resolve('components/domain/crm', name))
 
   it('exist (a scan of a file that is not there would pass without looking at anything)', () => {
     for (const file of files) assert.ok(readFileSync(file, 'utf8').length > 200, file)

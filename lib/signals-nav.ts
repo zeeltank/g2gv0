@@ -45,7 +45,7 @@ export interface CollapsedSignalsNav {
   /** Each folded-away path -> the menu entry that now stands for it, so the sidebar and breadcrumb stay on "Signals" for those routes. */
   owners: Record<string, ActiveNav>
   /**
-   * The old menu addresses of rows the person's menu really held that the sidebar no longer draws (the Products, Services and Price Books rows). They still resolve, to
+   * The old menu addresses of rows the person's menu really held that the sidebar no longer draws (the Products, Services and Price Books rows, and the two Contacts rows). They still resolve, to
    * themselves, in `resolveAccessLink`: their pages are redirects that keep the query, so a screen that has not been retargeted yet and links to
    * `resolveAccessLink(old address) + '/' + id` still opens the right record, through the by-crm lookup, instead of the dashboard.
    */
@@ -145,6 +145,40 @@ function foldProductsNav(modules: NavModule[], ownersSoFar: Record<string, Activ
   const folded = mapNodes(modules, (node) => (isProductsNode(node) || isServicesNode(node) || isPriceBooksNode(node) ? null : node))
 
   return { modules: folded, owners, retired }
+}
+
+/*
+ * CONTACTS WERE MERGED INTO ORGANIZATIONS (S18, 25 Nov 2026). The two Contacts menu rows (Sales & Marketing and Support) stay in the database with status 1, for the same
+ * reason as the three rows above: a Role & Permissions save deletes the rights of every row that is not status 1. The sidebar does not DRAW them: a person is a tab of
+ * a company (People) and a scope of Organizations (All people), so a second sidebar entry would be a twin. The rows are found by their access_link, leaves only; a visit
+ * to either address (a redirect page) highlights the Organizations row of the same area, else the other one; and the address keeps resolving to itself for a person who held
+ * the row. The rights on these rows are read from the raw menu answer, not from this tree (components/domain/crm/people/people-rights.ts).
+ */
+const PEOPLE_PATHS = ['/module/crm/marketing/contacts', '/module/crm/support/contacts'] as const
+const ORGANIZATIONS_PATH: Record<(typeof PEOPLE_PATHS)[number], readonly string[]> = {
+  '/module/crm/marketing/contacts': ['/module/crm/marketing/organizations', '/module/crm/support/organizations'],
+  '/module/crm/support/contacts': ['/module/crm/support/organizations', '/module/crm/marketing/organizations'],
+}
+
+const isPeopleNode = (n: NavNode): boolean => n.children.length === 0 && (PEOPLE_PATHS as readonly string[]).includes(linkOf(n))
+
+/** See the comment above `PEOPLE_PATHS`. Pure: the tree is not changed in place, and a branch that holds neither row comes back as the same objects. */
+function foldPeopleNav(modules: NavModule[]): ProductsFold {
+  const owners: Record<string, ActiveNav> = {}
+  const retired: string[] = []
+  for (const path of PEOPLE_PATHS) {
+    if (!locate(modules, (n) => n.children.length === 0 && linkOf(n) === path)) continue
+    retired.push(path)
+    for (const organizations of ORGANIZATIONS_PATH[path]) {
+      const owner = locate(modules, (n) => linkOf(n) === organizations)
+      if (owner) {
+        owners[path] = owner
+        break
+      }
+    }
+  }
+  if (retired.length === 0) return { modules, owners, retired }
+  return { modules: mapNodes(modules, (node) => (isPeopleNode(node) ? null : node)), owners, retired }
 }
 
 const isSignalInboxNode = (n: NavNode): boolean => {
@@ -280,7 +314,14 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   // Products, Services and Price Books are not drawn in the sidebar any more (owner decisions of 13 and 24 Nov 2026, and S16 on 25 Nov): the Product Portfolio is a tab of
   // Market Signals. Their old addresses are owned by Market Signals too, so a visit that is still being redirected highlights it.
   const products = foldProductsNav(shown, owners)
-  return { modules: products.modules, tabs: uniqueFound.length === 0 ? null : uniqueFound, owners: { ...owners, ...products.owners }, retired: products.retired }
+  // The two Contacts rows are not drawn either (S18, 25 Nov 2026): a person is a tab of a company and a scope of Organizations.
+  const people = foldPeopleNav(products.modules)
+  return {
+    modules: people.modules,
+    tabs: uniqueFound.length === 0 ? null : uniqueFound,
+    owners: { ...owners, ...products.owners, ...people.owners },
+    retired: [...products.retired, ...people.retired],
+  }
 }
 
 /** These are app sections, so their visibility must not depend on optional sidebar menu rows. */

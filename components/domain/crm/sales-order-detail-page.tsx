@@ -14,6 +14,7 @@ import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { currencyMismatchSentence } from '@/lib/crm/currency-mismatch'
+import { personHref } from '@/lib/org-accounts/links'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
@@ -250,7 +251,7 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages }: 
           >
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <LinkedField label="Organization" name={salesOrder.organizationName} href={salesOrder.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${salesOrder.organizationId}` : null} />
-              <LinkedField label="Contact" name={salesOrder.contactName} href={salesOrder.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${salesOrder.contactId}` : null} />
+              <LinkedField label="Contact" name={salesOrder.contactName} href={salesOrder.contactId ? personHref({ id: salesOrder.contactId }, 'marketing', resolveAccessLink) : null} />
               <LinkedField label="Opportunity" name={salesOrder.opportunityName} href={salesOrder.opportunityId ? resolveAccessLink('/module/crm/sales/opportunities') + `/${salesOrder.opportunityId}` : null} />
               <LinkedField label="Source Quote" name={salesOrder.quoteNo} href={salesOrder.quoteId ? resolveAccessLink('/module/crm/sales/quotes') + `/${salesOrder.quoteId}` : null} />
               <ReadField label="Due Date" value={salesOrder.dueDate && <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 text-muted-foreground" aria-hidden="true" />{salesOrder.dueDate}</span>} />

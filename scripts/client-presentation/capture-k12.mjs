@@ -32,6 +32,8 @@ for (const m of tree.modules) for (const s of m.subs) {
   const picks = screens.length ? screens.slice(offset, offset + perSub) : (s.href ? [{ name: s.name, href: s.href }] : [])
   for (const c of picks) jobs.push({ id: `${slug(m.name)}--${slug(s.name)}--${slug(c.name)}`, module: m.name, sub: s.name, screen: c.name, href: c.href })
 }
+// --urls "id=module|sub|screen|/path;id2=..." adds screens that are not in the menu file (a route found in the front end, or a replacement for a page that showed an error)
+for (const part of (arg('urls', '') || '').split(';').filter(Boolean)) { const [id, rest] = part.split('='); const [module, sub, screen, href] = rest.split('|'); jobs.push({ id, module, sub, screen, href }) }
 if (!only || only.includes('home--dashboard')) jobs.unshift({ id: 'home--dashboard', module: 'Home', sub: 'Dashboard', screen: 'Dashboard', href: '/dashboard' })
 const todo = jobs.filter((j) => !only || only.includes(j.id)).slice(0, limit)
 console.log(`${todo.length} screens to capture`)

@@ -16,6 +16,7 @@ import { useInvoicePdfDownload } from '@/hooks/use-invoice-pdf-download'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { currencyMismatchSentence } from '@/lib/crm/currency-mismatch'
+import { personHref } from '@/lib/org-accounts/links'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
@@ -309,7 +310,7 @@ export function InvoiceDetailPage({ invoice, onSaved, onBack, invoiceStages }: P
           >
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <LinkedField label="Organization" name={invoice.organizationName} href={invoice.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${invoice.organizationId}` : null} />
-              <LinkedField label="Contact" name={invoice.contactName} href={invoice.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${invoice.contactId}` : null} />
+              <LinkedField label="Contact" name={invoice.contactName} href={invoice.contactId ? personHref({ id: invoice.contactId }, 'marketing', resolveAccessLink) : null} />
               <LinkedField label="Sales Order" name={invoice.salesOrderNo} href={invoice.salesOrderId ? resolveAccessLink('/module/crm/sales/sales-orders') + `/${invoice.salesOrderId}` : null} />
               <ReadField label="Invoice Date" value={invoice.invoiceDate && <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 text-muted-foreground" aria-hidden="true" />{invoice.invoiceDate}</span>} />
               <ReadField label="Due Date" value={invoice.dueDate && <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 text-muted-foreground" aria-hidden="true" />{invoice.dueDate}</span>} />

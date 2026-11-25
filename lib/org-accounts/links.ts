@@ -8,7 +8,6 @@ export interface OrgLinks {
   gtm: string | null
   /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
   signals: string | null
-  contacts: string | null
   opportunities: string | null
 }
 
@@ -16,7 +15,6 @@ export const ACCESS_LINKS = {
   crmOrganisations: '/module/crm/marketing/organizations',
   gtm: '/gtm/prospecting',
   signals: '/signals',
-  contacts: '/module/crm/marketing/contacts',
   opportunities: '/module/crm/sales/opportunities',
 } as const
 
@@ -33,7 +31,6 @@ export function buildLinks(resolve: (accessLink: string) => string): OrgLinks {
     crmOrganisations: orNull(ACCESS_LINKS.crmOrganisations),
     gtm: orNull(ACCESS_LINKS.gtm),
     signals: orNull(ACCESS_LINKS.signals),
-    contacts: orNull(ACCESS_LINKS.contacts),
     opportunities: orNull(ACCESS_LINKS.opportunities),
   }
 }
@@ -55,6 +52,45 @@ export const DEFAULT_LINKS: OrgLinks = {
   crmOrganisations: ACCESS_LINKS.crmOrganisations,
   gtm: ACCESS_LINKS.gtm,
   signals: ACCESS_LINKS.signals,
-  contacts: ACCESS_LINKS.contacts,
   opportunities: ACCESS_LINKS.opportunities,
+}
+
+// ── People (S18, 25 Nov 2026: Contacts were merged into Organizations) ───────────────────────────────────────────────────────────────
+
+/** The two areas a person's page can be reached from; the address a visitor used decides which one the redirect keeps. */
+export type PeopleArea = 'marketing' | 'support'
+
+const organisationsRow = (area: PeopleArea): string => `/module/crm/${area}/organizations`
+
+/** What names a person: an id, and the company when it is known. */
+export interface PersonRef {
+  id: number | string
+  organizationId?: number | string | null
+}
+
+const isRecordId = (value: unknown): boolean => /^[1-9]\d{0,14}$/.test(String(value ?? ''))
+
+/**
+ * The address of one person, under the Organizations screen (`base` is the organisations page, as the menu resolves it). A person with a company opens on that company's
+ * People tab (`?tab=people&person=`); a person with none opens in All people (`?scope=people&person=`), where the person opens in a drawer. Null for an id that is not a
+ * record id: nothing is guessed.
+ */
+export function personPath(base: string, person: PersonRef): string | null {
+  if (!isRecordId(person.id)) return null
+  const id = String(person.id)
+  return isRecordId(person.organizationId) ? `${base}/${String(person.organizationId)}?tab=people&person=${id}` : `${base}?scope=people&person=${id}`
+}
+
+/**
+ * THE one way to link to a person. With `resolve` (the sidebar's resolveAccessLink) the Organizations row is looked up in the person's own menu, the `area` first and the
+ * other area as the fallback; null when the person has neither, so no link is drawn rather than a broken one. Without `resolve` it is the plain address of the area.
+ */
+export function personHref(person: PersonRef, area: PeopleArea = 'marketing', resolve?: (accessLink: string) => string): string | null {
+  if (!resolve) return personPath(organisationsRow(area), person)
+  const order: PeopleArea[] = area === 'support' ? ['support', 'marketing'] : ['marketing', 'support']
+  for (const candidate of order) {
+    const base = resolve(organisationsRow(candidate))
+    if (base !== UNRESOLVED) return personPath(base, person)
+  }
+  return null
 }
