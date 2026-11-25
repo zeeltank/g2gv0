@@ -1,5 +1,6 @@
 'use client'
 
+import { ATLAS_KEYS } from '@/lib/client-presentation/atlas'
 import { Suspense } from 'react'
 import { notFound, useParams, useSearchParams } from 'next/navigation'
 
@@ -15,7 +16,7 @@ function Player() {
   if (!DECK_KEYS.includes(key)) notFound()
   if (search?.get('view') === 'presenter') return <PresenterView productKey={key} />
   const slideParam = Number(search?.get('slide') ?? NaN)
-  const initialSlide = Number.isInteger(slideParam) && slideParam >= 1 && slideParam <= 17 ? slideParam : undefined
+  const initialSlide = Number.isInteger(slideParam) && ((slideParam >= 1 && slideParam <= 17) || (slideParam > 200 && slideParam <= 200 + ATLAS_KEYS.length)) ? slideParam : undefined   // 1 to 17 are the story slides; 201 and up the Product Atlas slides
   const beatParam = Number(search?.get('beat') ?? NaN)
   return (
     <ClientPresentation

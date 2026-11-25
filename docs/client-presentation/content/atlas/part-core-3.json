@@ -1,0 +1,418 @@
+{
+  "family": "core",
+  "items": [
+    {
+      "id": "core-communication",
+      "name": "Communication",
+      "k12_menu": "Institute ERP > Communication",
+      "screens": [
+        "Send SMS Parents",
+        "Send SMS Staff",
+        "Send Notification Parents",
+        "Send Email Parents",
+        "Send WhatsApp Parents",
+        "Email Report",
+        "Send SMS Report",
+        "Notification Report",
+        "Register Parent Report",
+        "WhatsApp Report"
+      ],
+      "summary": "Compose SMS, e-mail, app and WhatsApp messages to parents, and SMS to staff, by class or staff group, with message logs.",
+      "problem": "Reaching parents on several channels often means repeating work in different tools and losing track of who was contacted.",
+      "features": [
+        "Pick a class and see each parent's contact",
+        "Contacts that cannot be reached are not selectable",
+        "Write e-mails with a subject and attachment",
+        "Draft message wording with an AI assistant, then review",
+        "Message logs with filters and CSV export"
+      ],
+      "research": null,
+      "technology": [
+        "AI-assisted message drafting",
+        "Reports and exports of message logs"
+      ],
+      "benefit": "Staff could reach the right families from one place, on any supported channel, and look back at past messages more easily.",
+      "workflow": [
+        "Pick class",
+        "Choose recipients",
+        "Write message",
+        "Send",
+        "Check log"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/easy_com/_components/EntryPage.tsx",
+        "lms_k12/app/easy_com/_components/ReportPage.tsx",
+        "lms_k12/components/ai/AiFieldAssistant.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/easycomapi.php",
+        "next_lms_erp/app/Http/Controllers/api/easy_com/SendSmsParentsApiController.php",
+        "next_lms_erp/app/Http/Controllers/api/easy_com/SendNotificationParentsApiController.php",
+        "next_lms_erp/docs/V1_Menu_Reference.docx"
+      ],
+      "owner_to_confirm": [
+        "The live demo menu (25 Nov) shows only the five send screens under Communication. The five logs (E-mail, SMS, Notification, Register Parent, WhatsApp) sit under Reports > Communication Report, so they are listed here as related screens.",
+        "Gateway set-up pages for SMS, e-mail and WhatsApp exist for admins only. Confirm the demo school has working gateways before any live send, and keep provider names off the slides.",
+        "Code comments say only WhatsApp records a delivery outcome. Avoid delivery or open-rate claims for SMS, e-mail and app notifications, even though the Notification Report has a read-status column.",
+        "The AI drafting button only proposes text; staff must apply it and press Send. It calls the platform's central AI service, which needs a working AI key on the demo tenant.",
+        "The 'AI insights' sidebar item for Communication is added by front-end code and is not claimed as a feature. Its registry comments disagree on whether the follow-up loop is wired.",
+        "Nothing was sent while checking; this sheet describes what the screens can do, not what has been sent."
+      ]
+    },
+    {
+      "id": "core-circular",
+      "name": "Circular",
+      "k12_menu": "Institute ERP > Circular",
+      "screens": [
+        "Circular",
+        "Circular Report"
+      ],
+      "summary": "Publish school circulars to chosen classes or every standard, with type, message and attachment, and keep a searchable list.",
+      "problem": "Paper notices and scattered messages make it hard to reach the right classes and to find what was announced earlier.",
+      "features": [
+        "Choose circular type, date, title and message",
+        "Attach a PDF or image to each circular",
+        "Target selected classes or all standards at once",
+        "Parents can be alerted in the school mobile app",
+        "Printable circular report for any date range"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional circular register with printable report"
+      ],
+      "benefit": "Staff could publish a notice to many classes together and find earlier circulars by date or class more easily.",
+      "workflow": [
+        "Pick classes",
+        "Add details",
+        "Attach file",
+        "Publish",
+        "Review list"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/front_desk/circular/page.tsx",
+        "lms_k12/app/front_desk/circular/report/page.tsx",
+        "lms_k12/app/front_desk/_lib/modules.ts",
+        "lms_k12/app/front_desk/_lib/reports.ts",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/app/Http/Controllers/front_desk/circular/circularController.php",
+        "next_lms_erp/app/Http/Controllers/front_desk/circular/CircularReportController.php",
+        "next_lms_erp/routes/student.php"
+      ],
+      "owner_to_confirm": [
+        "Circular Report sits under Reports > Institute Report in the menu reference; the live demo menu shows Circular as a single screen.",
+        "Code notes say nothing records who opened a circular. Do not claim readership, reach or read receipts.",
+        "The parent alert on publish uses the school mobile app and push set-up. The mobile app source is not in these two repos, so only the server side was verified.",
+        "Publishing writes one row per class, so one notice to several classes appears as several rows in the list.",
+        "A Circular AI Stack page exists in code; it is not described here."
+      ]
+    },
+    {
+      "id": "core-parent-communication",
+      "name": "Parent Communication",
+      "k12_menu": "Institute ERP > Parent Communication",
+      "screens": [
+        "Parent Communication"
+      ],
+      "summary": "Review messages parents send from the mobile app and the replies staff recorded, by date range, with student and class details.",
+      "problem": "Parent questions can get lost in calls and chats, so families wait without knowing whether the school replied.",
+      "features": [
+        "Parents write to the school from the mobile app",
+        "List shows student, class, mobile, title and message",
+        "Each reply shows who replied and when",
+        "Filter messages by from and to date",
+        "Teachers see messages for their own classes"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional message and reply register",
+        "Role-based access by class and subject"
+      ],
+      "benefit": "Staff could find parent messages and their replies in one list, making follow-up on unanswered questions easier.",
+      "workflow": [
+        "Set dates",
+        "Search",
+        "Read messages",
+        "Check replies"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/front_desk/parent_communication/page.tsx",
+        "lms_k12/app/front_desk/_lib/reports.ts",
+        "lms_k12/app/front_desk/_components/ModuleWorkbench.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/app/Http/Controllers/front_desk/parentCommunication/parentCommunicationController.php",
+        "next_lms_erp/routes/student.php"
+      ],
+      "owner_to_confirm": [
+        "The new web screen is a read-only report. No reply box was found in the Next.js page; replies are saved by the older web screen and by the teacher app endpoint. Confirm what the demo should show.",
+        "Parents can write in only through the student or parent mobile app (a protected endpoint). The app itself is not in these two repos.",
+        "Which messages a teacher sees depends on a per-school setting (class teacher or subject teacher). Confirm the demo school's setting.",
+        "The older reply screen and the teacher endpoint can alert the parent in the app after a reply; this was read in source and not exercised.",
+        "Communication intelligence counts these messages but its code says subject and message text is never read. A Parent Communication AI Stack page exists; neither is claimed."
+      ]
+    },
+    {
+      "id": "core-consent",
+      "name": "Consent",
+      "k12_menu": "Institute ERP > Consent",
+      "screens": [
+        "Consent Master",
+        "Delete Consent Master",
+        "Consent Report"
+      ],
+      "summary": "Issue a consent for selected students of a class, then review issued consents with their parent status.",
+      "problem": "Collecting permissions on paper makes it hard to know which students were asked and where each consent stands.",
+      "features": [
+        "Find students by section, standard and division",
+        "Set title, date and accountable status once",
+        "Issue the same consent to many students together",
+        "Consent report with parent status, filters and export",
+        "Select and delete issued consents"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional consent records with reports"
+      ],
+      "benefit": "Staff could raise a consent for a whole class together and later see which students it covers and its parent status.",
+      "workflow": [
+        "Pick class",
+        "Select students",
+        "Enter details",
+        "Save consent",
+        "Review report"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/consent-master/page.tsx",
+        "lms_k12/app/admin-services/consent-report/page.tsx",
+        "lms_k12/app/admin-services/_lib/consent.ts",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/app/Http/Controllers/api/ConsentApiController.php",
+        "next_lms_erp/routes/api.php",
+        "next_lms_erp/app/Brain/Intelligence/ConsentIntelligence.php"
+      ],
+      "owner_to_confirm": [
+        "The live demo menu (25 Nov) shows 'Consent' with no screens under it for the demo login. Grant the Consent rights before demoing, or leave this slide out.",
+        "The 'Parent status' column shows what the record holds (it defaults to Pending). No code path was found where a parent approves or declines, so do not claim parent sign-off.",
+        "Consent records also carry an amount and a head in the database, but the new Consent Master form does not capture them; do not describe consent as collecting money.",
+        "Consent Report sits under Reports > Other Reports in the menu reference.",
+        "The 'AI insights' sidebar item for Consent is added by front-end code and not claimed as a feature.",
+        "The parent app can list a student's consents through an endpoint; the app itself is not in these two repos."
+      ]
+    },
+    {
+      "id": "core-ptm",
+      "name": "PTM",
+      "k12_menu": "Institute ERP > PTM",
+      "screens": [
+        "PTM Time Slot Master",
+        "PTM Attended Status",
+        "PTM Report"
+      ],
+      "summary": "Define meeting slots for each class, let parents book through the mobile app, mark who attended and review bookings.",
+      "problem": "Parent-teacher meetings are hard to schedule and track, and it is easy to lose count of who attended.",
+      "features": [
+        "Define time slots by class, title and date",
+        "Add several time ranges for one meeting day",
+        "Parents book a teacher slot in the app",
+        "Mark each student's attendance with remarks",
+        "Report of bookings with attendance and remarks"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional slot booking and attendance records"
+      ],
+      "benefit": "Staff could set up meeting slots once per class and see at a glance which bookings were kept and which were missed.",
+      "workflow": [
+        "Define slots",
+        "Parents book",
+        "Mark attendance",
+        "Review report"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/ptm-attended-status/page.tsx",
+        "lms_k12/app/admin-services/ptm-time-slot-master/page.tsx",
+        "lms_k12/app/admin-services/ptm-report/page.tsx",
+        "lms_k12/app/admin-services/_lib/ptm.ts",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/ptm.php",
+        "next_lms_erp/app/Http/Controllers/ptm/ptmattenedstatusController.php",
+        "next_lms_erp/app/Http/Controllers/ptm/ptmtimeslotmasterController.php"
+      ],
+      "owner_to_confirm": [
+        "Only PTM Attended Status sits under Institute ERP > PTM in the live demo menu. Time Slot Master is listed under 'PTM (Master)' and PTM Report under Reports > Other Reports in the menu reference.",
+        "Parent booking is provided by app endpoints (teacher list, booking times, book). The mobile app is not in these two repos and no web booking screen exists, so the booking step was verified in source only.",
+        "Attendance values are Yes or No only. The intelligence code treats a '--Select Status--' placeholder as unmarked, not absent.",
+        "The 'AI insights' sidebar item for PTM is added by front-end code and not claimed as a feature.",
+        "A PTM AI Stack page exists in code; it is not described."
+      ]
+    },
+    {
+      "id": "core-complaint",
+      "name": "Complaint",
+      "k12_menu": "Institute ERP > Complaint",
+      "screens": [
+        "Complaint Management",
+        "Complaint Report"
+      ],
+      "summary": "Record complaints with a date, description and attachment, then note the solution, who resolved it and its current status.",
+      "problem": "Complaints raised verbally or on paper are easily forgotten, with no clear record of who handled them or how.",
+      "features": [
+        "Raise a complaint with title, date and description",
+        "Attach a supporting file to a complaint",
+        "New complaints start as pending automatically",
+        "Record the solution, its status and who resolved it",
+        "Complaint report for any date range, with export"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional complaint register with reports"
+      ],
+      "benefit": "Staff could keep every complaint and its outcome in one searchable register instead of scattered notes.",
+      "workflow": [
+        "Raise complaint",
+        "Attach file",
+        "Record solution",
+        "Set resolver",
+        "Review report"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/complaint-management/page.tsx",
+        "lms_k12/app/admin-services/complaint-report/page.tsx",
+        "lms_k12/app/admin-services/_lib/complaint.ts",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/app/Http/Controllers/api/ComplaintApiController.php",
+        "next_lms_erp/routes/api.php"
+      ],
+      "owner_to_confirm": [
+        "Complaint Report sits under Reports > Other Reports in the menu reference; the live demo menu shows only Complaint Management under Complaint.",
+        "Complaints are entered by staff. No parent or student complaint-submission screen was found in this code, so do not imply parents can raise complaints.",
+        "The description is a single-line box and the attachment shows only a file name; no download link was verified in the list.",
+        "The list of solution statuses is shared across schools, not set per school.",
+        "A Complaint AI Stack page exists in code; it is not described."
+      ]
+    },
+    {
+      "id": "core-mobile-apps",
+      "name": "Mobile Apps",
+      "k12_menu": "Institute ERP > Mobile Apps",
+      "screens": [
+        "Calendar",
+        "Photo Video Gallery",
+        "Leave Application",
+        "Exam Schedule"
+      ],
+      "summary": "Manage the calendar, photo and video albums, exam schedules and leave requests that students and parents use in the school app.",
+      "problem": "Dates, photos and schedules shared through notice boards and chat groups reach families unevenly and are hard to find later.",
+      "features": [
+        "Add class events and vacations to the calendar",
+        "Publish photo albums or video links by class",
+        "Upload exam schedule files for chosen classes",
+        "Review student leave requests, replies and status",
+        "Teachers can approve or reject leave in their app"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional publishing to the school mobile app",
+        "Secure one-time sign-in from app to web"
+      ],
+      "benefit": "Staff could keep school dates, photos and schedules current in one place so families find them in the app.",
+      "workflow": [
+        "Pick classes",
+        "Add details",
+        "Publish",
+        "Review list"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/front_desk/calendar/page.tsx",
+        "lms_k12/app/front_desk/_lib/modules.ts",
+        "lms_k12/app/front_desk/_components/GalleryAlbums.tsx",
+        "lms_k12/app/mobile-bridge/page.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/student.php",
+        "next_lms_erp/routes/cal.php",
+        "next_lms_erp/app/Http/Controllers/front_desk/leave_application/leaveApplicationController.php",
+        "next_lms_erp/app/Http/Controllers/api/MobileWebHandoffApiController.php"
+      ],
+      "owner_to_confirm": [
+        "The menu row is spelled 'Photo Video Gallary' (and the sidebar shows that spelling). The slide uses 'Gallery'; fix the menu row if the demo login shows the typo.",
+        "On the web, Leave Application is a read-only report with print. Approving or rejecting leave is done in the teacher app endpoint and an older web screen; confirm what the demo will show.",
+        "Students and parents see this content in the native mobile app, which is not in these two repos. Only the server endpoints (calendar, gallery, exam schedule, leave) were verified.",
+        "Video albums use pasted video links, not hosted video files.",
+        "A Mobile Apps AI Stack page exists in code; it is not described. Mobile app rights and the mobile page builder sit under other menus and are not included."
+      ]
+    },
+    {
+      "id": "core-alumni-management",
+      "name": "Alumni Management",
+      "k12_menu": "Institute ERP > Alumni Management",
+      "screens": [
+        "Alumni Dashboard",
+        "Alumni List",
+        "Add Alumni",
+        "Pending Verification",
+        "Alumni Directory",
+        "Batches",
+        "Engagement",
+        "Mentorship",
+        "Jobs and Internships",
+        "Communication",
+        "Alumni Events",
+        "Alumni Surveys",
+        "Donations",
+        "Alumni Reports",
+        "Import Alumni",
+        "Alumni Audit Log"
+      ],
+      "summary": "Keep a record of former students and run mentorship, job listings, events, surveys, donations and communication in one module.",
+      "problem": "Once students leave, schools lose touch, and alumni details, offers to help and event records end up in scattered spreadsheets.",
+      "features": [
+        "Alumni records with career, education and achievements",
+        "Directory respects the privacy level each alumnus sets",
+        "Mentor matching, job listings, events and surveys",
+        "Campaigns respect each alumnus's contact consent",
+        "Donation tracking with receipts after verification"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access with audit history",
+        "Rules and automation for notices and reminders",
+        "Reports and exports with privacy masking"
+      ],
+      "benefit": "Staff could stay in touch with former students, involve them with the school and keep their records current with less effort.",
+      "workflow": [
+        "Add alumni",
+        "Verify records",
+        "Use directory",
+        "Engage alumni",
+        "Record gifts",
+        "Review reports"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/alumni/dashboard/page.tsx",
+        "lms_k12/app/alumni/_lib/alumni-api.ts",
+        "lms_k12/app/alumni/communication/page.tsx",
+        "next_lms_erp/routes/alumni.php",
+        "next_lms_erp/app/Services/Alumni/AlumniMessaging.php",
+        "next_lms_erp/app/Services/Alumni/AlumniPrivacy.php",
+        "next_lms_erp/app/Services/Alumni/AlumniDonationService.php",
+        "next_lms_erp/docs/ALUMNI_MODULE_IMPLEMENTATION_PLAN.md",
+        "next_lms_erp/docs/ALUMNI_MANAGEMENT_NAVIGATION_GUIDE.docx"
+      ],
+      "owner_to_confirm": [
+        "The module is not in the older menu reference or in the data-source audit (written before it was built). 'Live' rests on the code: every screen calls the API and no sample-data arrays were found.",
+        "The 16 screens listed match the live demo menu of 25 Nov. A 'Convert Passed-Out Students' screen exists in code but is not in that menu, so it is not listed or claimed.",
+        "The alumni self-sign-in portal is documented as prepared but not released (needs a secret key, a migration and mail set-up). It is not claimed.",
+        "SMS, WhatsApp and push messages to alumni are recorded as skipped until a provider is configured; only in-app and e-mail (with a real mail set-up) are real. Show no delivered counts for the other channels.",
+        "Online donation payment is not built; donations are recorded by finance staff and a receipt number is issued only when a person verifies the gift. Donations and Audit Log are limited to finance and admin roles.",
+        "The plan says an 'Alumni Coordinator' profile did not exist in production; an admin must create it before that role can be shown.",
+        "The plan cites an external 50-section specification PDF that is not in either repo, so the research field is left empty."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,191 @@
+{
+ "captured_on": "2026-11-25",
+ "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login",
+ "note": "Screens from the K12 product, edited for this presentation. Personal details are removed: names, photos, initials, e-mail addresses, phone numbers and long id numbers are blurred or replaced before the picture is taken.",
+ "screens": [
+  {
+   "id": "career-counseling--career-awareness--career-certainty",
+   "dir": "k12b"
+  },
+  {
+   "id": "career-counseling--career-counseling--interest-profile",
+   "dir": "k12b"
+  },
+  {
+   "id": "career-counseling--career-explorer--find-occupation",
+   "dir": "k12b"
+  },
+  {
+   "id": "career-counseling--career-intelligence--career-intelligence",
+   "dir": "k12b"
+  },
+  {
+   "id": "enterprise-brain--account-settings--settings",
+   "dir": "k12b"
+  },
+  {
+   "id": "enterprise-brain--analytics--executive-dashboard",
+   "dir": "k12b"
+  },
+  {
+   "id": "enterprise-brain--automation--task-orchestrator",
+   "dir": "k12d"
+  },
+  {
+   "id": "enterprise-brain--foundation--departments",
+   "dir": "k12b"
+  },
+  {
+   "id": "enterprise-brain--intelligence-loop--signals",
+   "dir": "k12b"
+  },
+  {
+   "id": "enterprise-brain--knowledge--graph-explorer",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--admission--admission-inquiry",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--alumni-management--alumni-list",
+   "dir": "k12d"
+  },
+  {
+   "id": "institute-erp--attendance--student-attendance",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--circular--circular",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--communication--send-sms-parents",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--complaint--complaint-management",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--document-templates--all-templates",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--exam--mark-entry",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--fees--fees-collect",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--front-desk--front-desk",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--hostel--hostel-room-allocation",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--inventory--requisition-form",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--inward-outward--add-inward",
+   "dir": "k12e"
+  },
+  {
+   "id": "institute-erp--library--book-resources",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--mobile-apps--calendar",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--parent-communication--parent-communication",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--petty-cash--petty-cash",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--ptm--ptm-attended-status",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--sqaa--sqaa",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--student--search-edit-student",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--timetable--assign-class-teacher",
+   "dir": "k12c"
+  },
+  {
+   "id": "institute-erp--transport--student-transport-mapping",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--users--user-master",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--utility--rollover",
+   "dir": "k12b"
+  },
+  {
+   "id": "institute-erp--visitor-management--add-visitor",
+   "dir": "k12c"
+  },
+  {
+   "id": "lms-pal--curriculum-planning--curriculam-plan",
+   "dir": "k12b"
+  },
+  {
+   "id": "lms-pal--engagement--leader-board",
+   "dir": "k12b"
+  },
+  {
+   "id": "lms-pal--exam-and-assesment--student-homework",
+   "dir": "k12b"
+  },
+  {
+   "id": "lms-pal--pal--content-model",
+   "dir": "k12b"
+  },
+  {
+   "id": "lms-pal--teach-learn--course-catalog",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--capability-intelligence--dashboard",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--hrit-management--attendance-tracking",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--lms--learning-dashboard",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--organization-management--organization-profile",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--talent-management--talent-dashboard",
+   "dir": "k12b"
+  },
+  {
+   "id": "people-and-competency--task-management--task-management-dashboard",
+   "dir": "k12b"
+  }
+ ]
+}

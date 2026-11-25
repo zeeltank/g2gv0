@@ -18,6 +18,9 @@ const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ?
 const base = arg('base', 'http://localhost:3210'); const out = arg('out', null)
 const deck = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/scholarclone.deck.json'), 'utf8'))
 const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1, 16: 4, 17: 0 }
+// The Product Atlas slides (201 and up) sit before the invitation: the deck has 17 story slides plus these. Their beats come from the generated plan.
+const PLAN = JSON.parse(readFileSync(new URL('../../lib/client-presentation/generated/atlas-plan.json', import.meta.url), 'utf8'))
+const TOTAL = 17 + PLAN.length
 const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
@@ -55,7 +58,7 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
     const missing = slideLines(n).filter((l) => !t.includes(norm(l.text)))
     ok(missing.length === 0, `slide ${n}: missing on screen: ${missing.map((l) => `"${l.text.slice(0, 40)}"`).join(', ')}`)
   }
-  notes.push('1a text presence: 17 slides checked')
+  notes.push(`1a text presence: 17 story slides checked (the ${PLAN.length} atlas slides are covered by layout-lint.mjs)`)
   // short-version scenes by keyboard
   await go(page, 'mode=short')
   const seq = [['short-2', [2, 4], 3, 2], ['short-3', [5, 6], 3, 2]]
@@ -124,10 +127,10 @@ const slideLines = (n) => deck.slides.find((s) => s.n === n).lines
     const info = await f.page.evaluate(() => { const v = document.querySelector('.s17-video'); const fr = document.querySelector('.cp-frame').getBoundingClientRect(); const r = v.getBoundingClientRect(); return { dw: Math.abs(fr.width - r.width), dh: Math.abs(fr.height - r.height), muted: v.muted, auto: v.autoplay, pill: document.querySelector('.cp-ui-pill > span')?.textContent } })
     ok(info.dw <= 2 && info.dh <= 2, `at ${vp.width}x${vp.height} the film does not fill the stage (off by ${info.dw.toFixed(0)} x ${info.dh.toFixed(0)} px)`)
     ok(info.muted && info.auto, 'the film must be muted and set to autoplay')
-    ok((info.pill || '').trim() === '6/17', `the film is at "${info.pill}", expected 6/17`)
+    ok((info.pill || '').trim() === `6/${TOTAL}`, `the film is at "${info.pill}", expected 6/${TOTAL}`)
     await f.ctx.close()
   }
-  notes.push('2f the film is slide 6 of 17, muted, autoplay, fills the stage: checked')
+  notes.push(`2f the film is slide 6 of ${TOTAL}, muted, autoplay, fills the stage: checked`)
   // --- 3. reduced motion handled below; 7. presenter window
   const pres = await ctx.newPage()
   await pres.goto(url('view=presenter'), { waitUntil: 'domcontentloaded' }); await pres.waitForTimeout(800)

@@ -1,0 +1,1493 @@
+{
+ "captured": "2026-11-25",
+ "source": "menu API response for the demo login on the live site (names and routes only)",
+ "modules": [
+  {
+   "name": "Institute ERP",
+   "subs": [
+    {
+     "name": "Student",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Search/Edit Student",
+       "link": "students/search_student/",
+       "href": "/students/search_student"
+      },
+      {
+       "name": "Student Documents",
+       "link": "students/student_documents/",
+       "href": "/students/student_documents"
+      },
+      {
+       "name": "Bulk Student Update",
+       "link": "/student/bulk_student_update",
+       "href": "/student/bulk_student_update"
+      },
+      {
+       "name": "Student Certificate",
+       "link": "/student/student_certificate",
+       "href": "/student/student_certificate"
+      },
+      {
+       "name": "Student Infirmary",
+       "link": "/student/student_infirmary",
+       "href": "/student/student_infirmary"
+      },
+      {
+       "name": "Student I-card",
+       "link": "/student/student_icard",
+       "href": "/student/student_icard"
+      },
+      {
+       "name": "Student Vaccination",
+       "link": "/student/student_vaccination",
+       "href": "/student/student_vaccination"
+      },
+      {
+       "name": "Student Height Weight",
+       "link": "/student/student_hw",
+       "href": "/student/student_hw"
+      },
+      {
+       "name": "Student Health",
+       "link": "/student/student_health",
+       "href": "/student/student_health"
+      },
+      {
+       "name": "Student Request",
+       "link": "/students/requests/",
+       "href": "/students/requests"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Fees",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Fees Collect",
+       "link": "fees/collect",
+       "href": "/fees/collect"
+      },
+      {
+       "name": "Fees Cancel/Refund",
+       "link": "/fees/cancel-refund",
+       "href": "/fees/cancel-refund"
+      },
+      {
+       "name": "Fees Circular",
+       "link": "/fees/circulars",
+       "href": "/fees/circulars"
+      },
+      {
+       "name": "Other Fees Collect",
+       "link": "/fees/other_fees_collect",
+       "href": "/fees/other_fees_collect"
+      },
+      {
+       "name": "Other Fees Cancel",
+       "link": "/fees/other_fees_cancel",
+       "href": "/fees/other_fees_cancel"
+      },
+      {
+       "name": "S1 Export NACH Excel",
+       "link": "/fees/NACH_s1excel_export",
+       "href": "/fees/NACH_s1excel_export"
+      },
+      {
+       "name": "S2 Import NACH Excel",
+       "link": "/fees/NACH_s2excel_import",
+       "href": "/fees/NACH_s2excel_import"
+      },
+      {
+       "name": "S3 Export NACH Excel",
+       "link": "/fees/NACH_s3excel_export",
+       "href": "/fees/NACH_s3excel_export"
+      },
+      {
+       "name": "S4 Import NACH Excel",
+       "link": "/fees/NACH_s4excel_import",
+       "href": "/fees/NACH_s4excel_import"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Users",
+     "link": "/user/add_user",
+     "screens": [
+      {
+       "name": "User Master",
+       "link": "/user/add_user",
+       "href": "/user/add_user"
+      },
+      {
+       "name": "Teacher Transfer Utility",
+       "link": "teachertransfer.index",
+       "href": "/teachertransfer"
+      },
+      {
+       "name": "User I-card",
+       "link": "/student/user_icard",
+       "href": "/student/user_icard"
+      }
+     ],
+     "href": "/user/add_user"
+    },
+    {
+     "name": "Library",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Book Resources",
+       "link": "/library/book_resources",
+       "href": "/library/book_resources"
+      },
+      {
+       "name": "Report",
+       "link": "/library/report",
+       "href": "/library/report"
+      },
+      {
+       "name": "Scan Book",
+       "link": "/library/scan_book",
+       "href": "/library/scan_book"
+      },
+      {
+       "name": "Quick Return",
+       "link": "/library/quick_return",
+       "href": "/library/quick_return"
+      },
+      {
+       "name": "Issue/Overdue Report",
+       "link": "/library/issue_overdue_report",
+       "href": "/library/issue_overdue_report"
+      },
+      {
+       "name": "Add Book Remark",
+       "link": "scan_books_remarks.index",
+       "href": "/library/add_book_remark"
+      },
+      {
+       "name": "Print Barcode",
+       "link": "/library/print_barcode",
+       "href": "/library/print_barcode"
+      },
+      {
+       "name": "Scanned Book Report",
+       "link": "verified_report.index",
+       "href": "/library/scanned_book_report"
+      },
+      {
+       "name": "Pending Scan Report",
+       "link": "/library/pending_scan_report",
+       "href": "/library/pending_scan_report"
+      },
+      {
+       "name": "Lost & Damage report",
+       "link": "/library/lost_damage_report",
+       "href": "/library/lost_damage_report"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Attendance",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Student Attendance",
+       "link": "/student/student_attendance",
+       "href": "/student/student_attendance"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Mobile Apps",
+     "link": "",
+     "screens": [
+      {
+       "name": "Calendar",
+       "link": "calendar.index",
+       "href": "/front_desk/calendar"
+      },
+      {
+       "name": "Photo Video Gallary",
+       "link": "photo_video_gallary.index",
+       "href": "/front_desk/photo_video_gallary"
+      },
+      {
+       "name": "Leave Application",
+       "link": "/students/leave/",
+       "href": "/students/leave"
+      },
+      {
+       "name": "Exam Schedule",
+       "link": "exam_schedule.index",
+       "href": "/front_desk/exam_schedule"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Communication",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Send SMS Parents",
+       "link": "/easy_com/send_sms_parents",
+       "href": "/easy_com/send_sms_parents"
+      },
+      {
+       "name": "Send SMS Staff",
+       "link": "/easy_com/send_sms_staff",
+       "href": "/easy_com/send_sms_staff"
+      },
+      {
+       "name": "Send Notification Parents",
+       "link": "/easy_com/send_notification_parents",
+       "href": "/easy_com/send_notification_parents"
+      },
+      {
+       "name": "Send Email Parents",
+       "link": "/easy_com/send_email_parents",
+       "href": "/easy_com/send_email_parents"
+      },
+      {
+       "name": "Send WhatsApp Parents",
+       "link": "/easy_com/send_whatsapp_parents",
+       "href": "/easy_com/send_whatsapp_parents"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Timetable",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Assign Class Teacher",
+       "link": "/classteacher",
+       "href": "/classteacher"
+      },
+      {
+       "name": "Proxy Management",
+       "link": "/proxy_master",
+       "href": "/proxy_master"
+      },
+      {
+       "name": "Create Timetable",
+       "link": "timetable.index",
+       "href": "/front_desk/create-timetable"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Exam",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Mark Entry",
+       "link": "/exam/marks-entry",
+       "href": "/exam/marks-entry"
+      },
+      {
+       "name": "Co-scholastic Mark",
+       "link": "/result/co-scholastic-marks",
+       "href": "/result/co-scholastic-marks"
+      },
+      {
+       "name": "Upload Result",
+       "link": "/result/upload-result",
+       "href": "/result/upload-result"
+      },
+      {
+       "name": "HPC Activity Entry",
+       "link": "/result/hpc-activity-entry",
+       "href": "/result/hpc-activity-entry"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Admission",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Admission Inquiry",
+       "link": "/admissions/admission_enquiry/",
+       "href": "/admissions/admission_enquiry"
+      },
+      {
+       "name": "Admission Registration",
+       "link": "/admissions/admission_registration/",
+       "href": "/admissions/admission_registration"
+      },
+      {
+       "name": "Admission Confirmation",
+       "link": "/admissions/admission_confirmation/",
+       "href": "/admissions/admission_confirmation"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Inward Outward",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Add Inward",
+       "link": "/inward_outward/add_inward",
+       "href": "/inward_outward/add_inward"
+      },
+      {
+       "name": "Add Outward",
+       "link": "/inward_outward/add_outward",
+       "href": "/inward_outward/add_outward"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Petty Cash",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Petty Cash",
+       "link": "/admin-services/petty-cash",
+       "href": "/admin-services/petty-cash"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Circular",
+     "link": "circular.index",
+     "screens": [],
+     "href": "/front_desk/circular"
+    },
+    {
+     "name": "Hostel",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Hostel Room Allocation",
+       "link": "/hostel/hostel-room-allocation",
+       "href": "/hostel/hostel-room-allocation"
+      },
+      {
+       "name": "Visitor Details",
+       "link": "/hostel/visitor-details",
+       "href": "/hostel/visitor-details"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Parent Communication",
+     "link": "parent_communication.index",
+     "screens": [],
+     "href": "/front_desk/parent_communication"
+    },
+    {
+     "name": "Consent",
+     "link": "javascript:void(0);",
+     "screens": [],
+     "href": ""
+    },
+    {
+     "name": "PTM",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "PTM Attended Status",
+       "link": "/admin-services/ptm-attended-status",
+       "href": "/admin-services/ptm-attended-status"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Visitor Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Add Visitor",
+       "link": "/admin-services/add-visitor",
+       "href": "/admin-services/add-visitor"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Transport",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Student Transport Mapping",
+       "link": "/Transportation/student_transport_mapping",
+       "href": "/Transportation/student_transport_mapping"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Inventory",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Requisition Form",
+       "link": "/Inventory/requisition_form",
+       "href": "/Inventory/requisition_form"
+      },
+      {
+       "name": "Requisition Form Approved",
+       "link": "/Inventory/requisition_form_approved",
+       "href": "/Inventory/requisition_form_approved"
+      },
+      {
+       "name": "Item Direct Purchase",
+       "link": "/Inventory/item_direct_purchase",
+       "href": "/Inventory/item_direct_purchase"
+      },
+      {
+       "name": "Item Quotation",
+       "link": "/Inventory/item_quotation",
+       "href": "/Inventory/item_quotation"
+      },
+      {
+       "name": "Generat PO",
+       "link": "/Inventory/generate_po",
+       "href": "/Inventory/generate_po"
+      },
+      {
+       "name": "Negotiate PO",
+       "link": "/Inventory/negotiate_po",
+       "href": "/Inventory/negotiate_po"
+      },
+      {
+       "name": "Item Receivable",
+       "link": "/Inventory/item_receivable",
+       "href": "/Inventory/item_receivable"
+      },
+      {
+       "name": "Inventory Allocation",
+       "link": "/Inventory/inventory_allocation",
+       "href": "/Inventory/inventory_allocation"
+      },
+      {
+       "name": "Inventory Return",
+       "link": "/Inventory/inventory_return",
+       "href": "/Inventory/inventory_return"
+      },
+      {
+       "name": "Inventory Defective",
+       "link": "/Inventory/inventory_defective",
+       "href": "/Inventory/inventory_defective"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "SQAA",
+     "link": "/sqaa_master",
+     "screens": [],
+     "href": "/sqaa_master"
+    },
+    {
+     "name": "Front Desk",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Front Desk",
+       "link": "/admin-services/front-desk",
+       "href": "/admin-services/front-desk"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Complaint",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Complaint Management",
+       "link": "/admin-services/complaint-management",
+       "href": "/admin-services/complaint-management"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Utility",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Rollover",
+       "link": "/Utility/rollover",
+       "href": "/Utility/rollover"
+      },
+      {
+       "name": "Breakoff Rollover",
+       "link": "/Utility/breakoff-rollover",
+       "href": "/Utility/breakoff-rollover"
+      },
+      {
+       "name": "Update all Data",
+       "link": "/Utility/update-all-data",
+       "href": "/Utility/update-all-data"
+      },
+      {
+       "name": "Student Transfer",
+       "link": "/Utility/student-transfer",
+       "href": "/Utility/student-transfer"
+      },
+      {
+       "name": "Form Builder",
+       "link": "/general/form_builder",
+       "href": "/general/form_builder"
+      },
+      {
+       "name": "Custom Module",
+       "link": "/Utility/custom-module",
+       "href": "/Utility/custom-module"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Document Templates",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "All templates",
+       "link": "/document-templates",
+       "href": "/document-templates"
+      },
+      {
+       "name": "Certificates",
+       "link": "/document-templates?category=certificate",
+       "href": "/document-templates?category=certificate"
+      },
+      {
+       "name": "Template Management",
+       "link": "/general/template_management",
+       "href": "/general/template_management"
+      },
+      {
+       "name": "ID cards",
+       "link": "/document-templates?category=id_card",
+       "href": "/document-templates?category=id_card"
+      },
+      {
+       "name": "Result Template",
+       "link": "/result/result-template",
+       "href": "/result/templates"
+      },
+      {
+       "name": "Fee documents",
+       "link": "/document-templates?category=fees",
+       "href": "/document-templates?category=fees"
+      },
+      {
+       "name": "Admission documents",
+       "link": "/document-templates?category=admission",
+       "href": "/document-templates?category=admission"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Alumni Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Alumni Dashboard",
+       "link": "alumni/dashboard",
+       "href": "/alumni/dashboard"
+      },
+      {
+       "name": "Alumni List",
+       "link": "alumni/list",
+       "href": "/alumni/list"
+      },
+      {
+       "name": "Add Alumni",
+       "link": "alumni/add",
+       "href": "/alumni/add"
+      },
+      {
+       "name": "Pending Verification",
+       "link": "alumni/pending_verification",
+       "href": "/alumni/pending_verification"
+      },
+      {
+       "name": "Alumni Directory",
+       "link": "alumni/directory",
+       "href": "/alumni/directory"
+      },
+      {
+       "name": "Batches",
+       "link": "alumni/batches",
+       "href": "/alumni/batches"
+      },
+      {
+       "name": "Engagement",
+       "link": "alumni/engagement",
+       "href": "/alumni/engagement"
+      },
+      {
+       "name": "Mentorship",
+       "link": "alumni/mentorship",
+       "href": "/alumni/mentorship"
+      },
+      {
+       "name": "Jobs and Internships",
+       "link": "alumni/opportunities",
+       "href": "/alumni/opportunities"
+      },
+      {
+       "name": "Communication",
+       "link": "alumni/communication",
+       "href": "/alumni/communication"
+      },
+      {
+       "name": "Alumni Events",
+       "link": "alumni/events",
+       "href": "/alumni/events"
+      },
+      {
+       "name": "Alumni Surveys",
+       "link": "alumni/surveys",
+       "href": "/alumni/surveys"
+      },
+      {
+       "name": "Donations",
+       "link": "alumni/donations",
+       "href": "/alumni/donations"
+      },
+      {
+       "name": "Alumni Reports",
+       "link": "alumni/reports",
+       "href": "/alumni/reports"
+      },
+      {
+       "name": "Import Alumni",
+       "link": "alumni/import",
+       "href": "/alumni/import"
+      },
+      {
+       "name": "Alumni Audit Log",
+       "link": "alumni/audit",
+       "href": "/alumni/audit"
+      }
+     ],
+     "href": ""
+    }
+   ]
+  },
+  {
+   "name": "LMS + PAL",
+   "subs": [
+    {
+     "name": "Teach/Learn",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Course Catalog",
+       "link": "course-master/",
+       "href": "/course-master"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Exam & Assesment",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Student Homework",
+       "link": "/lms/homework",
+       "href": "/lms/homework"
+      },
+      {
+       "name": "Homework Submission",
+       "link": "/lms/homework/submission",
+       "href": "/lms/homework/submission"
+      },
+      {
+       "name": "Homework Review",
+       "link": "/lms/homework/review",
+       "href": "/lms/homework/review"
+      },
+      {
+       "name": "Assignment",
+       "link": "/lms/lmsAssignment",
+       "href": "/lms/lmsAssignment"
+      },
+      {
+       "name": "Assignment Submission",
+       "link": "lmsAssignment_submission.index",
+       "href": "/lms/lmsAssignment_submission"
+      },
+      {
+       "name": "Annotate Assignment",
+       "link": "lmsAnnotate_assignment.index",
+       "href": "/lms/lmsAnnotate_assignment"
+      },
+      {
+       "name": "Exam",
+       "link": "question_paper.index",
+       "href": "/lms/exam"
+      },
+      {
+       "name": "PAL",
+       "link": "pal.index",
+       "href": "/pal"
+      },
+      {
+       "name": "Worksheet",
+       "link": "/lms/worksheet",
+       "href": "/lms/worksheet"
+      },
+      {
+       "name": "Project",
+       "link": "/lms/project",
+       "href": "/lms/project"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Engagement",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Leader Board",
+       "link": "lmsLeaderboard.index",
+       "href": "/lms/leader-board"
+      },
+      {
+       "name": "Social & Collabrotive",
+       "link": "lmsSocialCollabrotive.index",
+       "href": "/lms/social-collaborative"
+      },
+      {
+       "name": "Portfolio",
+       "link": "lmsPortfolio.index",
+       "href": "/lms/portfolio"
+      },
+      {
+       "name": "Virtual Classroom",
+       "link": "lmsVirtualClassroom.index",
+       "href": "/lms/virtual-classroom"
+      },
+      {
+       "name": "Activity Stream",
+       "link": "lmsActivityStream.index",
+       "href": "/lms/activity-stream"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Curriculum Planning",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Curriculam Plan",
+       "link": "/lms/curriculum-planning/\r\n",
+       "href": "/lms/curriculum-planning"
+      },
+      {
+       "name": "Monthly",
+       "link": "/lms/monthly-plan/",
+       "href": "/lms/monthly-plan"
+      },
+      {
+       "name": "Lesson Planning",
+       "link": "/lms/lesson-plan/",
+       "href": "/lms/lesson-plan"
+      },
+      {
+       "name": "Reports",
+       "link": "/lms/reports/",
+       "href": "/lms/reports"
+      },
+      {
+       "name": "Framework",
+       "link": "new_pal.frameworks",
+       "href": "/pal/frameworks"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "PAL",
+     "link": "new_pal.index",
+     "screens": [
+      {
+       "name": "Content Model",
+       "link": "new_pal.content_model",
+       "href": "/pal/new/content-model"
+      },
+      {
+       "name": "Unified Learning Units",
+       "link": "new_pal.ulu",
+       "href": "/pal/ulu"
+      },
+      {
+       "name": "Coherence Map",
+       "link": "coherence.map",
+       "href": "/pal/new/coherence-map"
+      },
+      {
+       "name": "Pedagogy Engine",
+       "link": "new_pal.pedagogy_engine",
+       "href": "/pal/pedagogy-engine"
+      },
+      {
+       "name": "Administration",
+       "link": "new_pal.administration",
+       "href": "/pal/new/administration"
+      },
+      {
+       "name": "Gamification",
+       "link": "new_pal.gamification",
+       "href": "/pal/new/gamification"
+      },
+      {
+       "name": "ESO",
+       "link": "new_pal.eso",
+       "href": "/pal/eso"
+      },
+      {
+       "name": "AI Stack",
+       "link": "new_pal.ai_stack",
+       "href": "/pal/new/ai-stack"
+      },
+      {
+       "name": "Reports",
+       "link": "new_pal.reports",
+       "href": "/pal/reports/attainment"
+      },
+      {
+       "name": "Knowledge Graph",
+       "link": "new_pal.knowledge_graph",
+       "href": "/pal/learning-intelligence/knowledge-graph"
+      },
+      {
+       "name": "Learning Journey",
+       "link": "new_pal.learning_journey",
+       "href": "/new_pal.learning_journey"
+      },
+      {
+       "name": "Teacher Insights",
+       "link": "new_pal.teacher_insights",
+       "href": "/pal/learning-intelligence/teacher-insights"
+      },
+      {
+       "name": "Context Inspector",
+       "link": "new_pal.context_inspector",
+       "href": "/new_pal.context_inspector"
+      }
+     ],
+     "href": "/pal/new"
+    }
+   ]
+  },
+  {
+   "name": "People & Competency",
+   "subs": [
+    {
+     "name": "Organization Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Organization Profile",
+       "link": "/organization_managment/oragnization_profile",
+       "href": "/organization_managment/oragnization_profile"
+      },
+      {
+       "name": "Department",
+       "link": "/organization_managment/Department",
+       "href": "/organization_managment/Department"
+      },
+      {
+       "name": "Employee Directory",
+       "link": "/organization-management/employee-directory",
+       "href": "/organization-management/employee-directory"
+      },
+      {
+       "name": "Compliance Library",
+       "link": "/organization-management/compliance-library",
+       "href": "/organization-management/compliance-library"
+      },
+      {
+       "name": "Diciplinary Library",
+       "link": "/organization-management/disciplinary-library",
+       "href": "/organization-management/disciplinary-library"
+      },
+      {
+       "name": "Role & Permissions",
+       "link": "/organization-management/role-and-permissions",
+       "href": "/organization-management/role-and-permissions"
+      },
+      {
+       "name": "Employee Directory Report",
+       "link": "/organization-management/reports/employee-directory",
+       "href": "/organization-management/reports/employee-directory"
+      },
+      {
+       "name": "Compliance Report",
+       "link": "/organization-management/reports/compliance",
+       "href": "/organization-management/reports/compliance"
+      },
+      {
+       "name": "Disciplinary Report",
+       "link": "/organization-management/reports/disciplinary",
+       "href": "/organization-management/reports/disciplinary"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Task Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Task Management Dashboard",
+       "link": "/task-management/dashboard",
+       "href": "/task-management/dashboard"
+      },
+      {
+       "name": "My Tasks",
+       "link": "/task-management/my-tasks",
+       "href": "/task-management/my-tasks"
+      },
+      {
+       "name": "Projects & Workstreams",
+       "link": "/task-management/projects-workstreams",
+       "href": "/task-management/projects-workstreams"
+      },
+      {
+       "name": "Dependencies & Workstreams",
+       "link": "/task-management/dependencies-workstreams",
+       "href": "/task-management/dependencies-workstreams"
+      },
+      {
+       "name": "Task Calendar",
+       "link": "/task-management/calendar",
+       "href": "/task-management/calendar"
+      },
+      {
+       "name": "Reports & Analysis",
+       "link": "/task-management/reports-analysis",
+       "href": "/task-management/reports-analysis"
+      },
+      {
+       "name": "Status Management",
+       "link": "/task-management/administration/status-management",
+       "href": "/task-management/administration/status-management"
+      },
+      {
+       "name": "Permissions Matrix",
+       "link": "/task-management/administration/permissions-matrix",
+       "href": "/task-management/administration/permissions-matrix"
+      },
+      {
+       "name": "Integration",
+       "link": "/task-management/administration/integration",
+       "href": "/task-management/administration/integration"
+      },
+      {
+       "name": "Audit Logs",
+       "link": "/task-management/administration/audit-logs",
+       "href": "/task-management/administration/audit-logs"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Talent Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Talent Dashboard",
+       "link": "/talent-management/talent-dashboard",
+       "href": "/talent-management/talent-dashboard"
+      },
+      {
+       "name": "Recruitment",
+       "link": "/talent-management/recruitment",
+       "href": "/talent-management/recruitment"
+      },
+      {
+       "name": "Onbording",
+       "link": "/talent-management/onboarding",
+       "href": "/talent-management/onboarding"
+      },
+      {
+       "name": "Performance Reviews & Appraisals",
+       "link": "/talent-management/performance-reviews-and-appraisals",
+       "href": "/talent-management/performance-reviews-and-appraisals"
+      },
+      {
+       "name": "Mobility & Succession",
+       "link": "/talent-management/mobility-and-succession",
+       "href": "/talent-management/mobility-and-succession"
+      },
+      {
+       "name": "Offboarding",
+       "link": "/talent-management/offboarding",
+       "href": "/talent-management/offboarding"
+      },
+      {
+       "name": "Administration",
+       "link": "/talent-management/administration",
+       "href": "/talent-management/administration"
+      },
+      {
+       "name": "Employee Profiles",
+       "link": "/talent-management/employee-profiles",
+       "href": "/talent-management/employee-profiles"
+      },
+      {
+       "name": "Certification",
+       "link": "/talent-management/certifications",
+       "href": "/talent-management/certifications"
+      },
+      {
+       "name": "Development & Career Paths",
+       "link": "/talent-management/development-and-career-paths",
+       "href": "/talent-management/development-and-career-paths"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "HRIT Management",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Attendance Tracking",
+       "link": "hrit.attendance.tracking",
+       "href": "/hrit/attendance-management/attendance-tracking"
+      },
+      {
+       "name": "Attendance Reports",
+       "link": "hrit.attendance.reports",
+       "href": "/hrit/attendance-management/attendance-reports"
+      },
+      {
+       "name": "Leave Dashboard",
+       "link": "hrit.leave.dashboard",
+       "href": "/hrit/leave-management/leave-dashboard"
+      },
+      {
+       "name": "Leave Requests",
+       "link": "hrit.leave.requests",
+       "href": "/hrit/leave-management/leave-requests"
+      },
+      {
+       "name": "Leave Reports",
+       "link": "hrit.leave.reports",
+       "href": "/hrit/leave-management/leave-reports"
+      },
+      {
+       "name": "Leave Configuration",
+       "link": "hrit.leave.configuration",
+       "href": "/hrit/leave-management/leave-configuration"
+      },
+      {
+       "name": "Payroll Type",
+       "link": "hrit.payroll.type",
+       "href": "/hrit/payroll-management/payroll-type"
+      },
+      {
+       "name": "Salary Structure",
+       "link": "hrit.payroll.salary-structure",
+       "href": "/hrit/payroll-management/salary-structure"
+      },
+      {
+       "name": "Payroll Deduction",
+       "link": "hrit.payroll.deduction",
+       "href": "/hrit/payroll-management/payroll-deduction"
+      },
+      {
+       "name": "Form 16",
+       "link": "hrit.payroll.form16",
+       "href": "/hrit/payroll-management/form-16"
+      },
+      {
+       "name": "Salary Certificate",
+       "link": "hrit.payroll.salary-certificate",
+       "href": "/hrit/payroll-management/salary-certificate"
+      },
+      {
+       "name": "Monthly Payroll Report",
+       "link": "monthly_payroll_report.index",
+       "href": "/hrit/payroll-management/monthly-payroll-report"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Capability Intelligence",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Dashboard",
+       "link": "/capability-intelligence/dashboard",
+       "href": "/capability-intelligence/dashboard"
+      },
+      {
+       "name": "Capability Library",
+       "link": "/capability-intelligence/capability-library",
+       "href": "/capability-intelligence/capability-library"
+      },
+      {
+       "name": "Competency Library",
+       "link": "/capability-intelligence/competency-library",
+       "href": "/capability-intelligence/competency-library"
+      },
+      {
+       "name": "Competency Framework",
+       "link": "/capability-intelligence/competency-framework",
+       "href": "/capability-intelligence/competency-framework"
+      },
+      {
+       "name": "Capability Explorer",
+       "link": "/capability-intelligence/capability-explorer",
+       "href": "/capability-intelligence/capability-explorer"
+      },
+      {
+       "name": "Mentor Skill Mapping",
+       "link": "/capability-intelligence/mentor-skill-mapping",
+       "href": "/capability-intelligence/mentor-skill-mapping"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "LMS",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Learning Dashboard",
+       "link": "g2g_lms.learning_dashboard",
+       "href": "/people-competency/lms/learning-dashboard"
+      },
+      {
+       "name": "Learning Catalog",
+       "link": "g2g_lms.learning_catalog",
+       "href": "/people-competency/lms/learning-catalog"
+      },
+      {
+       "name": "My Learning",
+       "link": "g2g_lms.my_learning",
+       "href": "/people-competency/lms/my-learning"
+      },
+      {
+       "name": "Assignments",
+       "link": "g2g_lms.assignments",
+       "href": "/people-competency/lms/assignments"
+      },
+      {
+       "name": "Sessions & Calendar",
+       "link": "g2g_lms.sessions_calendar",
+       "href": "/people-competency/lms/sessions-calendar"
+      },
+      {
+       "name": "Certifications & Records",
+       "link": "g2g_lms.certifications_records",
+       "href": "/people-competency/lms/certifications-records"
+      },
+      {
+       "name": "Course Builder",
+       "link": "g2g_lms.course_builder",
+       "href": "/people-competency/lms/course-builder"
+      },
+      {
+       "name": "Administration & Governance",
+       "link": "g2g_lms.administration_governance",
+       "href": "/people-competency/lms/administration-governance"
+      },
+      {
+       "name": "Assessments",
+       "link": "g2g_lms.assessments",
+       "href": "/people-competency/lms/assessments"
+      }
+     ],
+     "href": ""
+    }
+   ]
+  },
+  {
+   "name": "Enterprise Brain",
+   "subs": [
+    {
+     "name": "Overview",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Organization",
+       "link": "javascript:void(0);",
+       "href": "#"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Foundation",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Departments",
+       "link": "/enterprise-brain/foundation/departments",
+       "href": "/enterprise-brain/foundation/departments"
+      },
+      {
+       "name": "People",
+       "link": "/enterprise-brain/foundation/people",
+       "href": "/enterprise-brain/foundation/people"
+      },
+      {
+       "name": "Students",
+       "link": "/enterprise-brain/foundation/students",
+       "href": "/enterprise-brain/foundation/students"
+      },
+      {
+       "name": "Capabilities",
+       "link": "/enterprise-brain/capabilities",
+       "href": "/enterprise-brain/capabilities"
+      },
+      {
+       "name": "Ingestion",
+       "link": "/enterprise-brain/ingestion",
+       "href": "/enterprise-brain/ingestion"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Intelligence Loop",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Signals",
+       "link": "/enterprise-brain/intelligence-loop/signals",
+       "href": "/enterprise-brain/intelligence-loop/signals"
+      },
+      {
+       "name": "Evidence",
+       "link": "/enterprise-brain/intelligence-loop/evidence",
+       "href": "/enterprise-brain/intelligence-loop/evidence"
+      },
+      {
+       "name": "Deliberation",
+       "link": "/enterprise-brain/intelligence-loop/deliberation",
+       "href": "/enterprise-brain/intelligence-loop/deliberation"
+      },
+      {
+       "name": "Intelligence Workspace",
+       "link": "/enterprise-brain/intelligence-loop/workspace",
+       "href": "/enterprise-brain/intelligence-loop/workspace"
+      },
+      {
+       "name": "Execution Center",
+       "link": "/enterprise-brain/intelligence-loop/executions",
+       "href": "/enterprise-brain/intelligence-loop/executions"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Analytics",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Executive Dashboard",
+       "link": "/enterprise-brain/analytics/executive",
+       "href": "/enterprise-brain/analytics/executive"
+      },
+      {
+       "name": "Decision Analytics",
+       "link": "/enterprise-brain/analytics/decisions",
+       "href": "/enterprise-brain/analytics/decisions"
+      },
+      {
+       "name": "Decision Intelligence",
+       "link": "/enterprise-brain/analytics/decision-intelligence",
+       "href": "/enterprise-brain/analytics/decision-intelligence"
+      },
+      {
+       "name": "Organizational Knowledge",
+       "link": "/enterprise-brain/analytics/mental-models",
+       "href": "/enterprise-brain/analytics/mental-models"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Knowledge",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Graph Explorer",
+       "link": "/enterprise-brain/knowledge/graph",
+       "href": "/enterprise-brain/knowledge/graph"
+      },
+      {
+       "name": "KASBA Explorer",
+       "link": "/enterprise-brain/knowledge/kasba",
+       "href": "/enterprise-brain/knowledge/kasba"
+      },
+      {
+       "name": "Knowledge Library",
+       "link": "/enterprise-brain/knowledge/library",
+       "href": "/enterprise-brain/knowledge/library"
+      },
+      {
+       "name": "Memory",
+       "link": "/enterprise-brain/knowledge/memory",
+       "href": "/enterprise-brain/knowledge/memory"
+      },
+      {
+       "name": "Ai Assistant",
+       "link": "/enterprise-brain/knowledge/ai-assistant",
+       "href": "/enterprise-brain/knowledge/ai-assistant"
+      },
+      {
+       "name": "Eso Library",
+       "link": "/enterprise-brain/knowledge/eso-library",
+       "href": "/enterprise-brain/knowledge/eso-library"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Automation",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Agent Management",
+       "link": "/enterprise-brain/automation/agents",
+       "href": "/enterprise-brain/automation/agents"
+      },
+      {
+       "name": "Task Orchestrator",
+       "link": "/enterprise-brain/automation/tasks",
+       "href": "/enterprise-brain/automation/tasks"
+      },
+      {
+       "name": "Policiy Mangement",
+       "link": "/enterprise-brain/automation/policies",
+       "href": "/enterprise-brain/automation/policies"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "Account/Settings",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Settings",
+       "link": "/enterprise-brain/settings",
+       "href": "/enterprise-brain/settings"
+      }
+     ],
+     "href": ""
+    }
+   ]
+  },
+  {
+   "name": "Career Counseling",
+   "subs": [
+    {
+     "name": "career awareness",
+     "link": "/career-awareness",
+     "screens": [
+      {
+       "name": "Career Certainty",
+       "link": "career_awareness.certainty",
+       "href": "/career-awareness/certainty"
+      },
+      {
+       "name": "Career Ambition",
+       "link": "career_awareness.ambition",
+       "href": "/career-awareness/ambition"
+      },
+      {
+       "name": "Career Alignment",
+       "link": "career_awareness.alignment",
+       "href": "/career-awareness/alignment"
+      },
+      {
+       "name": "Career Originality",
+       "link": "career_awareness.originality",
+       "href": "/career-awareness/originality"
+      }
+     ],
+     "href": "/career-awareness"
+    },
+    {
+     "name": "career counseling",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Interest Profile",
+       "link": "/career-counselling/interest-profile",
+       "href": "/career-counselling/interest-profile"
+      },
+      {
+       "name": "Knowing Yourself",
+       "link": "/career-counselling/knowing-yourself",
+       "href": "/career-counselling/knowing-yourself"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "career explorer",
+     "link": "javascript:void(0);",
+     "screens": [
+      {
+       "name": "Find Occupation",
+       "link": "career_explore.find_occupation",
+       "href": "/career-explorer"
+      },
+      {
+       "name": "College Profile",
+       "link": "career_explore.college",
+       "href": "/career-explorer/college"
+      },
+      {
+       "name": "Course Profile",
+       "link": "career_explore.courses",
+       "href": "/career-explorer/courses"
+      },
+      {
+       "name": "Employer Profile",
+       "link": "career_explore.employers",
+       "href": "/career-explorer/employers"
+      }
+     ],
+     "href": ""
+    },
+    {
+     "name": "career intelligence",
+     "link": "/career-intelligence",
+     "screens": [],
+     "href": "/career-intelligence"
+    }
+   ]
+  }
+ ],
+ "note": "Menu for the demo login on the live K12 site, 2026-11-25: module, sub-module and screen names with the route each opens. The sidebar is rights-filtered, so counts differ by login."
+}

@@ -1,0 +1,379 @@
+{
+  "family": "insight",
+  "family_sheet": {
+    "summary": "Brings findings from several school functions into one view and helps spot where attention is needed, with the evidence shown.",
+    "problem": "Leaders get answers from separate reports and personal memory, so it is hard to see where attention is needed, or why.",
+    "benefit": "Principals and trustees could find it easier to see where attention is needed, understand why, and keep a clear record of what was decided.",
+    "technology": [
+      "Rules-based reasoning",
+      "Knowledge graph of school records",
+      "Human approval before action",
+      "Explained with its working"
+    ],
+    "research": null,
+    "workflow": [
+      "Read school records",
+      "Apply rules",
+      "Show evidence",
+      "Person decides",
+      "Record outcome"
+    ],
+    "ai": [
+      "Findings come from fixed rules over school records, not generated text",
+      "Likely causes are written by people and shown only where approved",
+      "Explanations must cite verified evidence or fail the check",
+      "Recommendations are drafts; a named person approves, rejects or defers",
+      "Recommendation confidence is computed from evidence, never typed in"
+    ],
+    "evidence": [
+      "next_lms_erp/app/Brain/Intelligence/Reasoner.php",
+      "next_lms_erp/app/Brain/Intelligence/RuleCatalogue.php",
+      "next_lms_erp/app/Brain/Intelligence/Narrative.php",
+      "next_lms_erp/app/Domain/Governance/GroundedClaims.php",
+      "next_lms_erp/app/Domain/AI/Recommendations/RecommendationDrafter.php",
+      "next_lms_erp/app/Domain/AI/Decisions/DecisionGate.php",
+      "next_lms_erp/routes/brain.php",
+      "lms_k12/lib/brain/navigation.ts",
+      "g2gv0/docs/client-presentation/02-product-reality-ledger.md"
+    ]
+  },
+  "items": [
+    {
+      "id": "insight-overview",
+      "name": "Overview",
+      "k12_menu": "Enterprise Brain > Overview",
+      "screens": [
+        "Organization"
+      ],
+      "summary": "A leadership overview of the school: health across key areas, what changed, where attention is needed, and the actions to take first.",
+      "problem": "Leaders piece together attendance, fees, results and staff records by hand, so it is hard to see where attention is needed.",
+      "features": [
+        "Health score across school areas, with its working shown",
+        "Says plainly when data is too thin to score",
+        "Compares each class's attendance with the school baseline",
+        "Compares attendance with results where enough classes match",
+        "Priority actions, each with an owner and reasons"
+      ],
+      "research": null,
+      "technology": [
+        "Rules-based reasoning",
+        "Explained with its working"
+      ],
+      "benefit": "Principals and trustees could find it easier to see how the school is doing and where to look first.",
+      "workflow": [
+        "Read school records",
+        "Score each area",
+        "Show what changed",
+        "List priorities"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/page.tsx",
+        "lms_k12/app/enterprise-brain/_components/IntelligenceCard.tsx",
+        "lms_k12/lib/brain/menu-navigation.ts",
+        "next_lms_erp/app/Brain/Intelligence/HealthScores.php",
+        "next_lms_erp/app/Brain/Intelligence/CrossModuleInsights.php",
+        "next_lms_erp/app/Brain/Intelligence/TrendAnalyzer.php",
+        "next_lms_erp/routes/brain.php"
+      ],
+      "owner_to_confirm": [
+        "The menu lists Overview > Organization with no real link. Front-end code (lib/brain/menu-navigation.ts) swaps in /enterprise-brain. Confirm it opens from the live sidebar.",
+        "Several Overview panels and the health bands carry risk-worded titles (classes below the attendance baseline, students most often absent). That part rests on attendance only. Do not show those titles.",
+        "The overall score is a plain average of the areas that could be scored; thin areas are left out. Never quote a score as a result.",
+        "The attendance-versus-results card appears only when at least six classes match by label, and states association, never cause.",
+        "Findings refresh only when someone runs the loop (button or command). No scheduler entry found in app/Console/Kernel.php.",
+        "The UI says Enterprise Brain and the Brain throughout; the name Scholar Insight never appears in it.",
+        "docs/menu-data-source-audit.md (22 Aug) does not list Enterprise Brain at all. The data label here comes from reading the code."
+      ]
+    },
+    {
+      "id": "insight-foundation",
+      "name": "Foundation",
+      "k12_menu": "Enterprise Brain > Foundation",
+      "screens": [
+        "Departments",
+        "People",
+        "Students",
+        "Capabilities",
+        "Ingestion"
+      ],
+      "summary": "The base the insights stand on: departments, staff, students and capabilities, read from existing school records.",
+      "problem": "Insight is only as good as the records beneath it, and gaps in staff or department records stay hidden.",
+      "features": [
+        "Shows each department's head and staff count",
+        "Flags staff records missing email, mobile or department",
+        "Student roll shown beside the findings raised about it",
+        "Define capabilities and assign them to people or departments",
+        "Brings school records in; re-running never duplicates them"
+      ],
+      "research": null,
+      "technology": [
+        "Records checked by rules",
+        "Knowledge graph of school records"
+      ],
+      "benefit": "Leaders could find it easier to see who leads each department and which records need completing first.",
+      "workflow": [
+        "Read school records",
+        "Check completeness",
+        "Bring records in",
+        "Assign capabilities"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/foundation/departments/page.tsx",
+        "lms_k12/app/enterprise-brain/foundation/people/page.tsx",
+        "lms_k12/app/enterprise-brain/foundation/students/page.tsx",
+        "lms_k12/app/enterprise-brain/capabilities/page.tsx",
+        "lms_k12/app/enterprise-brain/ingestion/page.tsx",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainController.php",
+        "next_lms_erp/app/Brain/Ingestion/FoundationIngestor.php"
+      ],
+      "owner_to_confirm": [
+        "The Departments page renders nothing if its separate intelligence call fails (page returns null). Check it on the demo school.",
+        "Two empty dialog files exist (AddDepartmentDialog, AddNewPeopleDialog) and nothing imports them. No Add button is claimed.",
+        "Ingestion brings in organization, departments, people and capabilities only; students are read directly. Capabilities come from skill and competency records, so a school may show few.",
+        "The Students screen lists names, mobile numbers and dates of birth. Check privacy before showing real records on a slide.",
+        "Ingestion's own page text says rows are written to a Brain store; keep slide wording to bringing records in."
+      ]
+    },
+    {
+      "id": "insight-intelligence-loop",
+      "name": "Intelligence Loop",
+      "k12_menu": "Enterprise Brain > Intelligence Loop",
+      "screens": [
+        "Signals",
+        "Evidence",
+        "Deliberation",
+        "Intelligence Workspace",
+        "Execution Center"
+      ],
+      "summary": "Checks school records against fixed rules, keeps the evidence for each finding, and walks it through review, decision and follow-up.",
+      "problem": "Issues surface in separate reports, with no shared record of why something was flagged, who decided and whether it worked.",
+      "features": [
+        "Each finding opens to its evidence and reasoning steps",
+        "Likely cause shown only where a person approved one",
+        "Recommendations wait for a person's decision before any action",
+        "Marks an action verified only with proof and measurements",
+        "Shows checks that found nothing, as well as findings"
+      ],
+      "research": null,
+      "technology": [
+        "Rules-based reasoning",
+        "Human approval before action",
+        "Explained with its working"
+      ],
+      "benefit": "Leaders could find it easier to see why something was flagged, who decided, and whether it was followed up.",
+      "workflow": [
+        "Run checks",
+        "Keep evidence",
+        "Open case",
+        "Draft recommendation",
+        "Person decides",
+        "Record outcome"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/intelligence-loop/page.tsx",
+        "lms_k12/app/enterprise-brain/intelligence-loop/executions/_components/ExecutionCenterView.tsx",
+        "lms_k12/app/enterprise-brain/_components/IntelligenceCard.tsx",
+        "next_lms_erp/app/Brain/Intelligence/Reasoner.php",
+        "next_lms_erp/app/Brain/Intelligence/RuleCatalogue.php",
+        "next_lms_erp/app/Brain/Intelligence/Narrative.php",
+        "next_lms_erp/app/Brain/Intelligence/IntelligencePipeline.php",
+        "next_lms_erp/app/Brain/Intelligence/ExecutionCenterRules.php",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainIntelligenceController.php"
+      ],
+      "owner_to_confirm": [
+        "The live menu names the first screen Signals. The ledger says never show Signals as Insight (the G2G sales engine uses that name). Decide whether to show the name or describe it only as findings.",
+        "The evidence-and-reasoning detail opens on the section landing page (/enterprise-brain/intelligence-loop), not on the Signals menu screen, which is a plain table. Confirm clicking the section name opens it on the live site.",
+        "Reasoner.php records a hypothesis and a root-cause family for each case, chosen from a table a person approved (RuleCatalogue). Do not repeat that wording or say findings are traced to a cause.",
+        "Rules with no approved cause give a case with no explanation, shown as cause not yet confirmed. That is honest, but many rules are in that state.",
+        "Execution Center also holds sample records written by a demo seeder, labelled Sample data. Outcome confidence there is a fixed value set from the reported result, not a measurement.",
+        "Findings refresh only when someone presses Run intelligence or runs the command; no scheduler entry found in Kernel.php."
+      ]
+    },
+    {
+      "id": "insight-analytics",
+      "name": "Analytics",
+      "k12_menu": "Enterprise Brain > Analytics",
+      "screens": [
+        "Executive Dashboard",
+        "Decision Analytics",
+        "Decision Intelligence",
+        "Organizational Knowledge"
+      ],
+      "summary": "Shows how findings, decisions and outcomes are building up: headline counts, decisions by status, and patterns the school keeps meeting.",
+      "problem": "Without a record of decisions and outcomes, leaders cannot easily tell which actions were taken and what followed.",
+      "features": [
+        "Headline counts for findings, decisions and actions",
+        "Decisions counted by status, beside recorded outcomes",
+        "Recurring patterns noted, with how often each has recurred",
+        "Charts of staff, attendance, results and fee collection"
+      ],
+      "research": null,
+      "technology": [
+        "Rules-based reasoning"
+      ],
+      "benefit": "Leaders could find it easier to review how decisions turned out and which patterns keep returning, without gathering figures by hand.",
+      "workflow": [
+        "Read live records",
+        "Count decisions",
+        "Record outcomes",
+        "Note patterns"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/analytics/page.tsx",
+        "lms_k12/app/enterprise-brain/_components/ScreenView.tsx",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php",
+        "next_lms_erp/app/Brain/Intelligence/IntelligencePipeline.php",
+        "next_lms_erp/database/seeders/BrainDemoDataSeeder.php"
+      ],
+      "owner_to_confirm": [
+        "Decision Intelligence (risk register, reasoning patterns, learnings) and the Executive Dashboard recorded metrics read tables that no application code fills; only the demo seeder writes them. On a real school they may be empty. Decision Intelligence is not described as a feature.",
+        "The four menu screens are plain counts and tables. The charts belong to the Analytics landing page, which should open when the section name is clicked. Confirm on the live site.",
+        "Organizational Knowledge lists one model per cause family with a reinforcement count that rises when the family recurs. It is a counter, not learning.",
+        "Registry labels use the words Signals and Root cause family. Keep them off slides."
+      ]
+    },
+    {
+      "id": "insight-knowledge",
+      "name": "Knowledge",
+      "k12_menu": "Enterprise Brain > Knowledge",
+      "screens": [
+        "Graph Explorer",
+        "KASBA Explorer",
+        "Knowledge Library",
+        "Memory",
+        "Eso Library"
+      ],
+      "summary": "Explore how the school connects, from departments to staff, classes and students, alongside a library of patterns and standard operations.",
+      "problem": "Who connects to whom, and what the school has already noted from past findings, is hard to see in separate lists.",
+      "features": [
+        "Walk department to staff and class to students",
+        "Open findings appear on the item being explored",
+        "Counts knowledge, ability, skill, behaviour and attitude per capability",
+        "Searchable library of patterns noted from past findings",
+        "Library of standard operations with their trust level"
+      ],
+      "research": null,
+      "technology": [
+        "Knowledge graph of school records"
+      ],
+      "benefit": "Leaders could find it easier to see how departments, staff and classes connect and to revisit past findings.",
+      "workflow": [
+        "Pick a type",
+        "Follow connections",
+        "Open findings",
+        "Search library"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/knowledge/graph/page.tsx",
+        "lms_k12/app/enterprise-brain/knowledge/kasba/page.tsx",
+        "lms_k12/app/enterprise-brain/knowledge/page.tsx",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php",
+        "next_lms_erp/app/Brain/Intelligence/IntelligencePipeline.php",
+        "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php"
+      ],
+      "owner_to_confirm": [
+        "Ai Assistant is a live Knowledge screen but is left out here: its tables show model names, prompt templates and AI run history, which the ledger says not to present.",
+        "Memory (conversation sessions, stored events) reads tables that only the demo seeder fills. It is listed as a screen but not described as a feature.",
+        "Graph Explorer edges come from real record links (staff to department, class to student, class to teacher). Its skills and job-role entry points read an outside occupational taxonomy in the graph store and need that service reachable. Do not quote graph counts.",
+        "KASBA Explorer covers staff and organization capabilities, not students. Do not link it to student learning. Its page header reads Skills explorer; the menu says KASBA Explorer.",
+        "ESO is spelled out two ways in code (executable strategic objectives in the registry, executable standard operation in the catalogue). The menu says Eso Library. Confirm the plain name.",
+        "Knowledge Library entries are written once per cause family by the loop run, so the library is empty until findings have been run."
+      ]
+    },
+    {
+      "id": "insight-automation",
+      "name": "Automation",
+      "k12_menu": "Enterprise Brain > Automation",
+      "screens": [
+        "Task Orchestrator",
+        "Policiy Mangement"
+      ],
+      "summary": "Where approved actions are queued and tracked, under a policy that a named person must decide before anything is done.",
+      "problem": "Suggested actions can drift or happen without a clear record of who agreed to them and what rules applied.",
+      "features": [
+        "Approve or reject recommendations, with a reason recorded",
+        "Policy requires a named person's decision before action",
+        "Queue of approved actions with status and dates",
+        "Report the outcome so the record is complete",
+        "Task list shows the evidence each capability task needs"
+      ],
+      "research": null,
+      "technology": [
+        "Human approval before action",
+        "Rules and automation"
+      ],
+      "benefit": "Leaders could find it easier to keep a clear record of who approved each action, and what happened afterwards.",
+      "workflow": [
+        "Draft recommendation",
+        "Person decides",
+        "Action queued",
+        "Report outcome"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/automation/page.tsx",
+        "lms_k12/app/enterprise-brain/automation/tasks/page.tsx",
+        "lms_k12/app/enterprise-brain/automation/policies/page.tsx",
+        "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainIntelligenceController.php",
+        "next_lms_erp/app/Domain/AI/Decisions/DecisionGate.php",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php"
+      ],
+      "owner_to_confirm": [
+        "Agent Management is a live Automation screen but is left out: it shows model and provider columns and an agent-creation form with instructions, which the ledger says not to present.",
+        "The live menu spells the last screen Policiy Mangement. Listed as in the menu. Fix the menu row or confirm the deck shows the corrected spelling.",
+        "Approve and reject buttons sit on the Automation landing page (/enterprise-brain/automation), reached from the section name or Overview tiles, and ask for the reason in a plain browser prompt box. Defer exists in the backend with no button. Check how it looks before filming.",
+        "The decide route needs the update permission (teacher and clerk profiles hold it), not decision.approve. Settle who may approve before saying so.",
+        "The policy pins every standard operation at the suggest trust level with human-only executors. Its rule text shows on the landing page, not in the Policy Management table.",
+        "Task Orchestrator's capability tasks come from skill records brought in by Ingestion, so the list is empty until Ingestion is run."
+      ]
+    },
+    {
+      "id": "insight-settings",
+      "name": "Account and Settings",
+      "k12_menu": "Enterprise Brain > Account and Settings",
+      "screens": [
+        "Settings"
+      ],
+      "summary": "Shows your role and what it allows, the school's settings, and an audit trail of what has been done.",
+      "problem": "When something is decided or changed, leaders need to know who did it and whether they were allowed to.",
+      "features": [
+        "Shows your role and the permissions it carries",
+        "Audit log of actions, who did them, and when",
+        "Settings can be changed only with the right permission",
+        "Access follows each person's school role"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access"
+      ],
+      "benefit": "Leaders could find it easier to check who can do what in Insight, and to review what has been done.",
+      "workflow": [
+        "Check role",
+        "Review settings",
+        "Change setting",
+        "Read audit log"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/enterprise-brain/settings/page.tsx",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainController.php",
+        "next_lms_erp/config/brain.php",
+        "next_lms_erp/app/Brain/Authorization/Role.php",
+        "next_lms_erp/app/Brain/Authorization/Permission.php"
+      ],
+      "owner_to_confirm": [
+        "The page also lists API keys and a raw key-and-value settings editor. Neither is described as a feature; both are technical.",
+        "The page header reads Account / Settings; written here as Account and Settings.",
+        "Roles are mapped by profile name: principal and admin profiles get full rights, trustee and vice principal get manager, teacher and clerk get analyst, unlisted profiles read only. Confirm this matches what the school expects before presenting.",
+        "The technology line Role-based access sits outside the six-term vocabulary. Swap to Rules and automation if the list is strict."
+      ]
+    }
+  ]
+}
