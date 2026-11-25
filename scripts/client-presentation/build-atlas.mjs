@@ -35,7 +35,7 @@ const fails = []; const warns = []
 const fail = (m) => fails.push(m)
 const words = (t) => String(t).trim().split(/\s+/).filter(Boolean).length
 const slug = (s) => String(s).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-const norm = (s) => String(s).toLowerCase().replace(/assesment/g, 'assessment').replace(/[^a-z0-9]+/g, ' ').trim()
+const norm = (s) => String(s).toLowerCase().replace(/assesment/g, 'assessment').replace(/[^a-z0-9]+/g, ' ').replace(/\band\b/g, ' ').replace(/\s+/g, ' ').trim()
 
 function checkText(where, t, max) {
   if (typeof t !== 'string' || !t.trim()) return fail(`${where}: empty`)
@@ -86,7 +86,7 @@ for (const F of FAMILIES) {
     // real screen names come from the live menu, not from the older documents
     const subName = (it.k12_menu.split('>').pop() || it.name).trim()
     const liveSub = live.subs.find((s) => norm(s.name) === norm(subName)) || live.subs.find((s) => norm(s.name).startsWith(norm(it.name)))
-    const screens = liveSub ? liveSub.screens.map((c) => c.name) : (it.screens || [])
+    const screens = liveSub && liveSub.screens.length ? liveSub.screens.map((c) => c.name) : (it.screens || [])
     if (!liveSub && !/^learn-pal-/.test(it.id)) warns.push(`${it.id}: no live sub-module "${subName}"; screens taken from the sheet`)
     const subSlug = liveSub ? slug(liveSub.name) : slug(subName)
     const mine = shots.filter((s) => s.startsWith(`${slug(F.k12)}--${subSlug}--`)).sort()
