@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
+import { CurrencyBadge } from '@/components/domain/portfolio/currency-badge'
+import { ANY_CURRENCY, currencyChoices, currencyPayload, currencyValue } from '@/lib/crm/tax-rate-currency'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { crmService } from '@/services/crm'
 import type { CrmTaxRate } from '@/types/crm'
@@ -13,6 +16,7 @@ function AddRateForm({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [percentage, setPercentage] = useState('')
+  const [currency, setCurrency] = useState(ANY_CURRENCY)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -21,8 +25,8 @@ function AddRateForm({ onAdded }: { onAdded: () => void }) {
     setSubmitting(true)
     setError('')
     try {
-      await crmService.createTaxRate(context, { name: name.trim(), percentage: Number(percentage) })
-      setName(''); setPercentage(''); setOpen(false)
+      await crmService.createTaxRate(context, { name: name.trim(), percentage: Number(percentage), currency: currencyPayload(currency) })
+      setName(''); setPercentage(''); setCurrency(ANY_CURRENCY); setOpen(false)
       onAdded()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to add this tax rate.')
@@ -44,6 +48,7 @@ function AddRateForm({ onAdded }: { onAdded: () => void }) {
     <div className="flex flex-wrap items-center gap-2">
       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (e.g. GST)" className="h-8 w-40" />
       <Input type="number" min={0} max={100} step="0.001" value={percentage} onChange={(e) => setPercentage(e.target.value)} placeholder="Percent" className="h-8 w-24" />
+      <div className="w-44"><Select value={currency} onChange={setCurrency} options={currencyChoices(null)} aria-label="Currency of the new tax rate" /></div>
       <Button size="sm" disabled={submitting || !name.trim() || percentage === ''} onClick={() => void submit()}>
         {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : 'Add'}
       </Button>
@@ -57,19 +62,24 @@ function RateRow({ rate, onChanged }: { rate: CrmTaxRate; onChanged: () => void 
   const context = useMemo(() => getLaravelContext(), [])
   const [editingName, setEditingName] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const update = async (payload: Partial<{ name: string; isDefault: boolean; isActive: boolean }>) => {
+  const update = async (payload: Partial<{ name: string; isDefault: boolean; isActive: boolean; currency: string | null }>) => {
     setBusy(true)
+    setError('')
     try {
       await crmService.updateTaxRate(context, rate.id, payload)
       onChanged()
+    } catch (reason) {
+      // The server refuses a currency that is not in the list, and says so in a sentence; show it beside the rate it belongs to.
+      setError(reason instanceof Error ? reason.message : 'Unable to change this tax rate.')
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <li className={`flex items-center gap-3 rounded-md px-2 py-1.5 ${rate.isActive ? '' : 'opacity-50'}`}>
+    <li className={`flex flex-wrap items-center gap-3 rounded-md px-2 py-1.5 ${rate.isActive ? '' : 'opacity-50'}`}>
       <button
         type="button"
         aria-label={`Make ${rate.name} the default rate`}
@@ -102,10 +112,22 @@ function RateRow({ rate, onChanged }: { rate: CrmTaxRate; onChanged: () => void 
         {rate.percentage}%
       </span>
 
+      <div data-tax-rate-currency className="flex w-44 shrink-0 items-center gap-1.5" title="A rate tied to a currency is offered only for a Sub-product priced in that currency. Any currency fits all.">
+        {rate.currency ? <CurrencyBadge code={rate.currency} /> : null}
+        <Select
+          value={currencyValue(rate.currency)}
+          onChange={(chosen) => void update({ currency: currencyPayload(chosen) })}
+          options={currencyChoices(rate.currency)}
+          disabled={busy}
+          aria-label={`Currency for ${rate.name}`}
+        />
+      </div>
+
       <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
         <input type="checkbox" checked={rate.isActive} disabled={busy} onChange={(e) => void update({ isActive: e.target.checked })} />
         Active
       </label>
+      {error && <p role="alert" className="w-full pl-7 text-xs text-destructive">{error}</p>}
     </li>
   )
 }
@@ -159,7 +181,7 @@ export function CrmTaxRateAdmin() {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Used on Products, Services, and Quote line items.</p>
+        <p className="text-sm text-muted-foreground">Used on Sub-products and on the lines of quotes, orders and invoices. A rate tied to a currency (India: GST in INR) is offered only for a Sub-product priced in that currency.</p>
         <AddRateForm onAdded={() => void load()} />
       </div>
       {rates.length === 0 && <p className="px-2 text-sm text-muted-foreground">No tax rates yet.</p>}

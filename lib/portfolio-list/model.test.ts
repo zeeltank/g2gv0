@@ -62,8 +62,8 @@ describe('the words of the list', () => {
     assert.equal(icpTone('none'), 'default')
   })
 
-  it('writes money with its currency and an Indian grouping, and nothing for a missing amount', () => {
-    assert.equal(formatMoney(120000, 'INR'), 'INR 1,20,000.00')
+  it('writes money with its currency symbol and an Indian grouping, and nothing for a missing amount', () => {
+    assert.equal(formatMoney(120000, 'INR'), '₹1,20,000.00')
     assert.equal(formatMoney(null, 'INR'), null)
     assert.equal(formatMoney(5, null), '5.00')
   })

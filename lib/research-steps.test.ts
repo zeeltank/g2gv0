@@ -152,7 +152,8 @@ describe('progress bar wiring', () => {
     assert.doesNotMatch(hook, /inFlight\.current = outcome\.reason/)
   })
 
-  it('the Generate button is disabled only without a product or while a run is active, and never by readiness (which is explained instead)', () => {
-    assert.match(screen, /disabled=\{!selected \|\| run\.running\}/)
+  // CHANGED ON PURPOSE (S17, 25 Nov 2026): also off for "All ICP types" (a run is for one type).
+  it('the Generate button is disabled only without a product or an ICP type or while a run is active, and never by readiness (which is explained instead)', () => {
+    assert.match(screen, /disabled=\{!selected \|\| run\.running \|\| icpType === 'all'\}/)
   })
 })

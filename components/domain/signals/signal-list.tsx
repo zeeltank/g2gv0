@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2,
   Clock,
@@ -12,7 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
-import { NativeSelect } from '@/components/shared/scaffolds/form-field'
 import type { ListQuery } from '@/components/shared/scaffolds/list-query'
 import { ListSearch } from '@/components/shared/scaffolds/list-search'
 import type { LaravelContext } from '@/lib/laravel-context'
@@ -29,23 +28,19 @@ import { FallbackSignals } from '@/components/domain/signals/fallback-signals'
 import { ExportCsvButton, ScreenNoticeBanner, type ScreenNotice } from '@/components/domain/signals/signal-export-button'
 import { wantsFallback } from '@/lib/signal-fallback'
 import { rangeText } from '@/lib/signal-dates'
-import { createLatestOnly, listErrorMode } from '@/lib/signal-run-view'
-import { fitChoices, FRESHNESS_CHOICES, reviewStatusOf, STATUS_CHOICES, summaryTiles, type Choice } from '@/lib/signals/list-model'
-import {
-  DEFAULT_PER_PAGE, isNarrowedHere, listRequest, OPPORTUNITY_SORT_CHOICES, opportunityListState, PER_PAGE_LABELS,
-} from '@/lib/signals/opportunity-query'
+import { createLatestOnly, listErrorMode, regionSignature } from '@/lib/signal-run-view'
+import { reviewStatusOf, summaryTiles } from '@/lib/signals/list-model'
+import { isNarrowedHere, listRequest, opportunityListState } from '@/lib/signals/opportunity-query'
 import { replaceRow } from '@/lib/signals/opportunity-row'
 import { BANNER_TONE } from '@/lib/signals/tones'
 import { cn } from '@/lib/utils'
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof ApiError || e instanceof Error ? e.message : fallback)
 
-/** The list's search, filters, order, page and page size, kept in the address by the screen around it (the list only reads them and asks to change them). */
+/** The list's search and page (and the facets a link may carry), kept in the address by the screen around it (the list only reads them and asks to change them). */
 export interface SignalListControls {
   query: ListQuery
   setSearch: (q: string) => void
-  setFilter: (name: string, value: string) => void
-  setSort: (sort: string) => void
   setPage: (page: number) => void
   /** Clears the search and the facets (not the product). */
   clearFilters: () => void
@@ -61,9 +56,10 @@ const TILE_HINTS = [
 
 /**
  * Unified Signals List and Dashboard:
- * Four counts from the server, three source tabs (All, Generated, Manually Added), search, Status / Freshness / Fit / Sort / Page size, and the signals as
- * cards. It reads stored rows only; choosing filters or pagination never starts research. The search, filters, order, page and page size live in the
- * address (`controls`), so a refresh, the Back button and a pasted link open the same view.
+ * Four counts from the server, the source tabs (All, Generated, Connectors, Manually Added), search, Export CSV, and the signals as cards. It reads stored
+ * rows only; choosing filters or pagination never starts research. The list is filtered by the screen's own selectors (sub-product, ICP type, places:
+ * `scope_filter`, each one narrowing only when it is set), not by boxes of its own. The search and the page live in the address (`controls`), so a
+ * refresh, the Back button and a pasted link open the same view.
  */
 export function SignalList({
   context,
@@ -79,7 +75,6 @@ export function SignalList({
   customerModel = 'b2b',
   regions = [],
   runId = null,
-  allSignals = false,
   dateFrom,
   dateTo,
   controls,
@@ -93,13 +88,13 @@ export function SignalList({
   /** YYYY-MM-DD of a successful run, or null when viewing all dates or when the product has none yet. */
   runDate: string | null
   allDates?: boolean
-  allSignals?: boolean
   refreshKey: number
   onTotal?: (total: number | null) => void
   /** What that day's runs did (from the run history), used to explain an empty day. */
   dayInfo?: { searches: number; sources: number; organisations: number; rejected: number; note: string | null } | null
+  /** The selectors, as filters: a sub-product (none = every one), an ICP type (null = every type), places (none = every place). */
   offerId?: string | null
-  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  customerModel?: 'b2b' | 'b2c' | 'b2g' | null
   regions?: { country: string; state?: string; city?: string }[]
   /** The research run whose signals to show. Set right after a run finishes. */
   runId?: number | null
@@ -108,11 +103,11 @@ export function SignalList({
   controls: SignalListControls
 }) {
   const { query } = controls
+  // Status, freshness, fit and order are no longer boxes on the screen; a link made for the Signal Review can still carry them, and they still apply.
   const { q, sort, page } = query
   const status = query.filters.status ?? 'all'
   const freshness = query.filters.freshness ?? 'all'
   const fit = query.filters.fit ?? 'all'
-  const per = query.filters.per ?? String(DEFAULT_PER_PAGE)
 
   const [sourceTab, setSourceTab] = useState<'all' | 'generated' | 'connectors' | 'manual'>('all')
   const [data, setData] = useState<OpportunityListResponse | null>(null)
@@ -125,7 +120,8 @@ export function SignalList({
 
   // Another product or another day: nothing of the previous view stays on screen, and the list goes back to page one. Not on the first render: a link
   // that opens on page three must stay on page three.
-  const scope = [productKey, productMasterId ?? '', runDate ?? '', allDates ? 1 : 0, dateFrom ?? '', dateTo ?? '', offerId ?? '', customerModel, runId ?? ''].join('|')
+  const regionsKey = regionSignature(regions)
+  const scope = [productKey, productMasterId ?? '', runDate ?? '', allDates ? 1 : 0, dateFrom ?? '', dateTo ?? '', offerId ?? '', customerModel ?? 'all', regionsKey, runId ?? ''].join('|')
   const lastScope = useRef(scope)
   const { setPage } = controls
   useEffect(() => {
@@ -135,24 +131,25 @@ export function SignalList({
     if (page > 1) setPage(1)
   }, [scope, page, setPage])
 
-  // What the list asks the server for: the screen's scope (product, day, sub-product, ICP type, places, source tab) and the address's search, facets, order,
-  // page and page size. The CSV export reads every page of this SAME request (the button below), so the file is the list without the paging.
+  // What the list asks the server for: the screen's scope (product, day, source tab), the selectors as FILTERS (`scopeFilter`: the sub-product, the ICP type
+  // and the places each narrow the list only when they are set; a chosen place also matches the places inside it) and the address's search, facets, order and
+  // page. The CSV export reads every page of this SAME request (the button below), so the file is the list without the paging.
   const request = useMemo((): OpportunityQuery => ({
     product: productKey,
     productMasterId: productMasterId ?? undefined,
-    offerId: allSignals ? undefined : (offerId ?? undefined),
-    customerModel: allSignals ? undefined : customerModel,
-    regions: allSignals ? undefined : regions,
+    offerId: offerId ?? undefined,
+    customerModel: customerModel ?? undefined,
+    regions: regions.length > 0 ? regions : undefined,
+    scopeFilter: true,
     runDate: allDates || dateFrom ? undefined : (runDate ?? undefined),
     from: dateFrom ?? undefined,
     to: dateTo ?? undefined,
     runId: runId ?? undefined,
-    ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit, per } }),
+    ...listRequest({ q, sort, dir: 'desc', page, filters: { product: '', status, freshness, fit } }),
     expired: 'include',
-    allSignals: Boolean(allSignals),
     // "From connectors" is narrowed on this screen (by found_via); the server only knows all, generated and manual.
     source: sourceTab === 'connectors' ? 'all' : sourceTab,
-  }), [productKey, productMasterId, allSignals, offerId, customerModel, regions, allDates, dateFrom, runDate, dateTo, runId, q, sort, page, status, freshness, fit, per, sourceTab])
+  }), [productKey, productMasterId, offerId, customerModel, regions, allDates, dateFrom, runDate, dateTo, runId, q, sort, page, status, freshness, fit, sourceTab])
 
   const load = useCallback(async () => {
     if (!allDates && !runDate && !dateFrom) {
@@ -327,16 +324,11 @@ export function SignalList({
           </Button>
         </div>
 
-        {/* Search and the facets: the Signal Review's own, kept in the address. They wrap, so a narrow screen never scrolls sideways. */}
+        {/* Search and Export CSV. The filters are the selectors above (Main Product, Sub-Product, ICP Type, Region); they wrap, so a narrow screen never scrolls sideways. */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:max-w-sm sm:flex-1">
             <ListSearch value={q} onSearch={controls.setSearch} placeholder="Search by company or summary…" label="Search signals" />
           </div>
-          <Facet label="Status" value={status} choices={STATUS_CHOICES} onChange={(v) => controls.setFilter('status', v)} />
-          <Facet label="Freshness" value={freshness} choices={FRESHNESS_CHOICES} onChange={(v) => controls.setFilter('freshness', v)} />
-          <Facet label="Fit" value={fit} choices={fitChoices(data?.filters?.business_fits, data?.filters?.products, fit)} onChange={(v) => controls.setFilter('fit', v)} />
-          <Facet label="Sort" value={sort} choices={OPPORTUNITY_SORT_CHOICES} onChange={controls.setSort} />
-          <Facet label="Page size" value={per} choices={PER_PAGE_LABELS} onChange={(v) => controls.setFilter('per', v)} />
           {/* Every page of what the list asks for (the filters above are in it), up to the file's cap; works in every scope. */}
           <ExportCsvButton label="Export CSV" read={(exportPage, size) => opportunitiesService.list(context, { ...request, page: exportPage, perPage: size })} onNotice={setExportNotice} />
         </div>
@@ -386,7 +378,7 @@ export function SignalList({
             title={filtered ? 'No signals match these filters' : (everyProduct ? 'No saved signals yet' : (allDates ? `No saved ${productLabel} signals yet` : 'No signals match these filters'))}
             description={
               filtered
-                ? 'Try adjusting your search, status, freshness, fit, source tab or date filters.'
+                ? 'Try adjusting your search, the source tab or the date, or change the selectors above.'
                 : (everyProduct ? 'Choose a product and press Generate Signals to run research for it. Its results are kept here.' : (allDates ? `Press Generate Signals to run research for ${productLabel}.` : 'Try a different filter or search.'))
             }
             action={filtered ? <Button type="button" variant="outline" onClick={controls.clearFilters}>Clear filters</Button> : undefined}
@@ -433,19 +425,6 @@ export function SignalList({
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-/** A labelled native select: it takes the label wiring, and these lists are short. */
-function Facet({ label, value, choices, onChange }: { label: string; value: string; choices: readonly Choice[]; onChange: (value: string) => void }) {
-  const id = useId()
-  return (
-    <div className="flex min-w-[9rem] flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
-      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-        {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
-      </NativeSelect>
     </div>
   )
 }

@@ -4,6 +4,7 @@
  * Three kinds of record: a product (a top-level group such as ScholarClone), a sub-product (an item inside it, which is a Portfolio offer and may also
  * be sold from the CRM catalogue) and an item (something only in the CRM catalogue, such as a training day).
  */
+import type { Currency } from '@/lib/money/currencies'
 
 export type PmKind = 'product' | 'sub_product' | 'item'
 export type PmStatus = 'active' | 'archived'
@@ -87,15 +88,6 @@ export interface PmCrmItem {
   active: boolean
 }
 
-export interface PmPriceBookEntry {
-  priceBookId: number
-  priceBookNo: string | null
-  name: string
-  currency: string | null
-  active: boolean
-  listPrice: number
-}
-
 export interface PmOption {
   id: number
   key: string
@@ -109,6 +101,8 @@ export interface PmTaxRate {
   id: number
   name: string
   percentage: number
+  /** The catalogue code of the currency this rate is for (India: GST in INR); null fits any currency. Absent from a server that predates S16 (read as null). */
+  currency?: string | null
 }
 
 /** What the caller may do on this screen. The server works these out from the same rules it enforces on every write. */
@@ -130,5 +124,12 @@ export interface PmMeta {
   readinessStatuses: string[]
   itemTypes: PmItemType[]
   taxRates: PmTaxRate[]
+  /** The currency catalogue (S16): the same list as `lib/money/currencies.ts`. Absent from a server that predates S16. */
+  currencies?: PmCurrency[]
+  /** The code a new Sub-product starts with (the organisation's own, else INR). */
+  defaultCurrency?: string
   can: PmCan
 }
+
+/** One currency of the catalogue, as `GET /product-master/meta` sends it. */
+export type PmCurrency = Currency

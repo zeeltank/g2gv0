@@ -12,12 +12,10 @@ import type { CrmModule, CrmPicklistAdminRow } from '@/types/crm'
 const MODULE_LABEL: Record<CrmModule, string> = {
   leads: 'Leads', contacts: 'Contacts', organizations: 'Organizations', campaigns: 'Campaigns',
   opportunities: 'Opportunities', quotes: 'Quotes', products: 'Products', services: 'Services',
-  // sms_log/price_books never actually appear here - CrmPicklistController's
-  // own FIELD_KEYS has no entry for either (SMS's one field, status, is a
-  // fixed enum; Price Books has no picklist-backed field at all) - present
-  // only to satisfy Record<CrmModule, string>'s completeness.
+  // sms_log never actually appears here - CrmPicklistController's own
+  // FIELD_KEYS has no entry for it (SMS's one field, status, is a fixed
+  // enum) - present only to satisfy Record<CrmModule, string>'s completeness.
   sms_log: 'SMS Notifier',
-  price_books: 'Price Books',
   vendors: 'Vendors',
   sales_orders: 'Sales Orders',
   purchase_orders: 'Purchase Orders',

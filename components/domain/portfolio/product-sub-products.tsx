@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
-import { formatMoney, sellWord, typeWord } from '@/lib/portfolio/page-model'
-import type { PmListCan, PmListRow, PmPaging } from '@/services/product-master/record-types'
+import { sellWord, typeWord } from '@/lib/portfolio/page-model'
+import type { PmListCan, PmListRow, PmPaging, PmPriceTotal } from '@/services/product-master/record-types'
+import { Money } from './currency-badge'
 import { IcpChip, ReadinessChip, SellChip } from './portfolio-chips'
+import { PriceTotals } from './price-card'
 
 /** The address of a Sub-product's own page. */
 export const subProductHref = (id: number): string => `/portfolio/products/${id}`
@@ -24,8 +26,10 @@ export interface SubProductsData {
  * The Sub-products tab of a Product: a paged list, each name linking to its own page, with Add sub-product. The state and the readiness are open to every
  * signed-in person; the price column appears only when the server sent a price (it does so only for a caller who may view that Sub-product's Sell section).
  */
-export function SubProductsTab({ data, error, loading, canAdd, onAdd, onPage }: {
+export function SubProductsTab({ data, totals, error, loading, canAdd, onAdd, onPage }: {
   data: SubProductsData | null
+  /** What the Sub-products add up to (S16), one block per currency; nothing is drawn for none. */
+  totals?: readonly PmPriceTotal[] | null
   error: string
   loading: boolean
   canAdd: boolean
@@ -42,6 +46,7 @@ export function SubProductsTab({ data, error, loading, canAdd, onAdd, onPage }: 
 
   return (
     <div className="space-y-3">
+      <PriceTotals totals={totals} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{data.paging.total} {data.paging.total === 1 ? 'sub-product' : 'sub-products'}</p>
         {add}
@@ -60,7 +65,7 @@ export function SubProductsTab({ data, error, loading, canAdd, onAdd, onPage }: 
                 <TableCell className="font-medium"><Link href={subProductHref(r.id)} className="text-foreground underline underline-offset-2 hover:no-underline">{r.name}</Link></TableCell>
                 <TableCell>{typeWord(r.type)}</TableCell>
                 {showSold && <TableCell><SellChip word={sellWord(r.state)} /></TableCell>}
-                {showPrice && <TableCell className="text-right">{formatMoney(r.unitPrice ?? null, r.currency ?? null) ?? '—'}</TableCell>}
+                {showPrice && <TableCell className="text-right">{r.unitPrice === null || r.unitPrice === undefined ? '—' : <Money amount={r.unitPrice} code={r.currency ?? null} />}</TableCell>}
                 <TableCell><ReadinessChip readiness={r.readiness} />{!r.readiness && <span className="text-muted-foreground">Not described</span>}</TableCell>
                 <TableCell className="text-right">{r.signalsFound === null ? '—' : r.signalsFound}</TableCell>
                 <TableCell><IcpChip state={r.icp} /></TableCell>

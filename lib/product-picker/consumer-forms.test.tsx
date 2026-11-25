@@ -7,7 +7,7 @@ import { forgetResolved } from './resolver'
 
 /**
  * The other places that choose a Sub-product (slice 15, P3-C), each as a person meets it: the REAL page or dialog, the REAL picker and services, only the
- * network replaced. Each one must save the CATALOGUE id exactly as before (a string for a ticket, an asset and a FAQ, the number the price book always sent,
+ * network replaced. Each one must save the CATALOGUE id exactly as before (a string for a ticket, an asset and a FAQ,
  * the text an opportunity tag always sent), must show an id it already holds by name even when the picker no longer offers it, and must not ask the old product
  * list for anything.
  */
@@ -46,63 +46,6 @@ function recorder(api: ApiOptions = {}, extra: (call: Call) => unknown = () => u
   }
   return { saved, respond }
 }
-
-describe('a price book: Add Sub-product Price', () => {
-  afterEach(async () => { await disposeAll() })
-
-  async function open() {
-    const { saved, respond } = recorder({}, (call) => {
-      if (call.path.endsWith('/crm/price-books/3/items') && call.method === 'GET') return { status: 1, message: '', data: [{ id: '5', productId: '11', name: 'Scholar School ERP', itemType: 'product', basePrice: 25000, listPrice: 20000 }] }
-      if (call.method === 'POST') return { status: 1, message: 'Price added.' }
-      return undefined
-    })
-    const screen = await mountWith(respond, (h) => h(PriceBookPage, { priceBook: { id: '3', priceBookNo: 'PB-3', name: 'Schools 2026', currency: 'INR', isActive: true, description: null, assignedTo: '2', createdBy: '2', createdAt: null, updatedAt: null }, onSaved: () => undefined, onBack: () => undefined }), { pathname: '/module/crm/sales/price-books/3' })
-    return { ...screen, saved }
-  }
-  let PriceBookPage: unknown
-  afterEach(() => { PriceBookPage = undefined })
-
-  it('offers a Sub-product, starts the list price from its base price, and posts the catalogue id as a number', async () => {
-    PriceBookPage = (await import('../../components/domain/crm/price-book-detail-page')).PriceBookDetailPage
-    const s = await open()
-    await s.k.click(s.k.withText('Add Sub-product Price')!)
-    await s.k.tick(40)
-    await choose(s.k, 10)
-    const price = s.k.one('#pb-item-price') as HTMLInputElement
-    assert.equal(price.value, '999', 'the list price starts from the base price')
-    assert.ok(s.k.bodyText().includes('Base price: 999.00'))
-    await s.k.click(s.k.withText('Add')!)
-    await s.k.tick(40)
-    const post = writes(s.saved, 'POST', '/crm/price-books/3/items')
-    assert.equal(post.length, 1)
-    assert.strictEqual(post[0].body.productId, 10, 'the catalogue id, as the number the price book has always sent')
-    assert.equal(post[0].body.listPrice, 999)
-    noOldList(s.calls)
-    s.restore()
-  })
-
-  it('names an entry of the book a Sub-product (a service stays a Service), never a Product', async () => {
-    PriceBookPage = (await import('../../components/domain/crm/price-book-detail-page')).PriceBookDetailPage
-    const s = await open()
-    const text = s.k.bodyText()
-    assert.ok(text.includes('Sub-product · Base 25000.00'), text.slice(0, 400))
-    assert.ok(!/(^|[^-])Product · Base/.test(text), 'the word Product is for the level above')
-    s.restore()
-  })
-
-  it('does not offer a Sub-product that is already in the book, and asks for room for the one it hides', async () => {
-    PriceBookPage = (await import('../../components/domain/crm/price-book-detail-page')).PriceBookDetailPage
-    const s = await open()
-    await s.k.click(s.k.withText('Add Sub-product Price')!)
-    await s.k.tick(40)
-    await s.k.click(triggerOf(s.k))
-    await s.k.tick(40)
-    assert.equal(s.k.one('[data-picker-option="11"]'), null, 'Scholar School ERP has a price in this book already')
-    assert.ok(s.k.one('[data-picker-option="10"]'))
-    assert.equal(s.to('/product-master/picker')[0].query.get('limit'), '21')
-    s.restore()
-  })
-})
 
 describe('an opportunity: Sub-products of Interest', () => {
   afterEach(async () => { await disposeAll() })

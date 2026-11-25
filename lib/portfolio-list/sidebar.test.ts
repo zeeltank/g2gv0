@@ -9,6 +9,8 @@ import { collapseSignalsNav } from '../signals-nav'
  * (468, 469) stay in the database with status 1 (a Role & Permissions save deletes the rights of every row that is not status 1), so the change is made in code, here:
  * neither row is drawn (the list is the "Product Portfolio" tab of Market Signals: a second sidebar entry would be its twin), the old addresses still resolve, and a
  * visit to the Product and Sub-product pages highlights Market Signals. REWRITTEN ON PURPOSE on 24 Nov: it used to pin a "Product Portfolio" entry where Products was.
+ * REWRITTEN ON PURPOSE AGAIN on 25 Nov (S16): Price Books were removed, so the Price Books row (470) is folded out of the sidebar the same way. It used to assert that the
+ * row was drawn ('Quotes', 'Price Books', 'Market Signals'); it now asserts that it is not.
  */
 
 const leaf = (id: number, label: string, accessLink: string | null): NavNode => ({ id: String(id), label, accessLink, children: [] })
@@ -23,17 +25,17 @@ const signals = (withPortfolio: boolean): NavNode => ({
 const crm = (children: NavNode[]): NavModule => ({ id: '199', label: 'Sales & Marketing', short: 'S&M', accessLink: null, children })
 
 /** A person's Sales & Marketing menu with the rows they hold. */
-function menu(have: { products: boolean; services: boolean; portfolio: boolean }): NavModule[] {
+function menu(have: { products: boolean; services: boolean; portfolio: boolean; priceBooks?: boolean }): NavModule[] {
   return [crm([
     leaf(466, 'Quotes', '/module/crm/sales/quotes'),
-    ...(have.products ? [PRODUCTS()] : []), ...(have.services ? [SERVICES()] : []), PRICE_BOOKS(), signals(have.portfolio),
+    ...(have.products ? [PRODUCTS()] : []), ...(have.services ? [SERVICES()] : []), ...(have.priceBooks === false ? [] : [PRICE_BOOKS()]), signals(have.portfolio),
   ])]
 }
 
 const labels = (m: NavModule[]) => m[0].children.map((c) => c.label)
 const find = (m: NavModule[], id: string) => m[0].children.find((c) => c.id === id)
 
-describe('the Products and Services rows are not drawn in the sidebar, with each combination of Products, Services and Portfolio rights', () => {
+describe('the Products, Services and Price Books rows are not drawn in the sidebar, with each combination of Products, Services and Portfolio rights', () => {
   const SIGNALS_ENTRY = { moduleId: '199', menuId: '489', submenuId: '489' }
   const combos: Array<[boolean, boolean, boolean]> = []
   for (const products of [true, false]) for (const services of [true, false]) for (const portfolio of [true, false]) combos.push([products, services, portfolio])
@@ -44,28 +46,30 @@ describe('the Products and Services rows are not drawn in the sidebar, with each
       const out = collapseSignalsNav(menu({ products, services, portfolio }))
       const shown = labels(out.modules)
 
-      // Neither row, and no Product Portfolio entry, is drawn: the list is the Product Portfolio tab of Market Signals.
-      for (const word of ['Products', 'Services', 'Product Portfolio']) assert.equal(shown.includes(word), false, `${word} is never drawn in the sidebar`)
+      // None of the rows, and no Product Portfolio entry, is drawn: the list is the Product Portfolio tab of Market Signals.
+      for (const word of ['Products', 'Services', 'Price Books', 'Product Portfolio']) assert.equal(shown.includes(word), false, `${word} is never drawn in the sidebar`)
       assert.equal(find(out.modules, '468'), undefined)
       assert.equal(find(out.modules, '469'), undefined)
+      assert.equal(find(out.modules, '470'), undefined, 'the Price Books row (470) is not drawn')
 
       // The Product Portfolio pages belong to Market Signals (the module the tab is in), whatever rows the person holds.
       assert.deepEqual(out.owners['/portfolio'], SIGNALS_ENTRY, 'a visit to /portfolio highlights Market Signals')
 
       // The old addresses stay resolvable (their pages redirect) only for a row the person held, and highlight Market Signals while being redirected.
-      assert.deepEqual(out.retired, [...(products ? ['/module/crm/sales/products'] : []), ...(services ? ['/module/crm/sales/services'] : [])])
+      assert.deepEqual(out.retired, [...(products ? ['/module/crm/sales/products'] : []), ...(services ? ['/module/crm/sales/services'] : []), '/module/crm/sales/price-books'])
+      assert.deepEqual(out.owners['/module/crm/sales/price-books'], SIGNALS_ENTRY, 'the removed Price Books address highlights Market Signals while it redirects')
       assert.deepEqual(out.owners['/module/crm/sales/products'], products ? SIGNALS_ENTRY : undefined)
       assert.deepEqual(out.owners['/module/crm/sales/services'], services ? SIGNALS_ENTRY : undefined)
 
       // Everything else in the menu is untouched.
-      assert.deepEqual(shown, ['Quotes', 'Price Books', 'Market Signals'])
+      assert.deepEqual(shown, ['Quotes', 'Market Signals'])
       assert.deepEqual(find(out.modules, '489')!.children, [], 'Market Signals stays one flat link')
     })
   }
 
   it("highlights Market Signals for every address of the Portfolio, old and new, and for the tab's own route", () => {
     const out = collapseSignalsNav(menu({ products: true, services: true, portfolio: true }))
-    for (const path of ['/signals', '/ingestion', '/partners', '/portfolio', '/signals/portfolio', '/module/crm/sales/products', '/module/crm/sales/services']) assert.deepEqual(out.owners[path], SIGNALS_ENTRY, path)
+    for (const path of ['/signals', '/ingestion', '/partners', '/portfolio', '/signals/portfolio', '/module/crm/sales/products', '/module/crm/sales/services', '/module/crm/sales/price-books']) assert.deepEqual(out.owners[path], SIGNALS_ENTRY, path)
   })
 
   it('does not touch a Products row that has children, so nothing else can change with it, while the Services leaf is dropped', () => {
@@ -78,20 +82,36 @@ describe('the Products and Services rows are not drawn in the sidebar, with each
 
   it('finds the rows by their address, whatever their label, so a renamed row is dropped too', () => {
     const renamed = leaf(468, 'Catalogue', '/module/crm/sales/products')
-    const out = collapseSignalsNav([crm([renamed, PRICE_BOOKS()])])
-    assert.deepEqual(out.modules[0].children.map((c) => c.label), ['Price Books'])
+    const renamedBooks = leaf(470, 'Rate cards', '/module/crm/sales/price-books')
+    const out = collapseSignalsNav([crm([renamed, renamedBooks, leaf(466, 'Quotes', '/module/crm/sales/quotes')])])
+    assert.deepEqual(out.modules[0].children.map((c) => c.label), ['Quotes'], 'a renamed Products row and a renamed Price Books row are dropped; the rest stays')
   })
 
   it('finds the rows at any depth; with no Market Signals group nothing is highlighted for them', () => {
     const deep: NavModule[] = [{ id: '1', label: 'Mod', short: 'M', accessLink: null, children: [{ id: '10', label: 'Group', accessLink: null, children: [PRODUCTS(), SERVICES(), PRICE_BOOKS()] }] }]
     const out = collapseSignalsNav(deep)
-    assert.deepEqual(out.modules[0].children[0].children.map((c) => c.label), ['Price Books'])
+    assert.deepEqual(out.modules[0].children[0].children.map((c) => c.label), [])
     assert.equal(out.owners['/portfolio'], undefined, 'no Signals group, no owner')
+    assert.equal(out.owners['/module/crm/sales/price-books'], undefined, 'no Signals group, so nothing owns the removed address either')
+    assert.deepEqual(out.retired, ['/module/crm/sales/products', '/module/crm/sales/services', '/module/crm/sales/price-books'])
+  })
+
+  it('does not touch a Price Books row that has children, and drops the leaf (S16: the rows are found by address, leaves only)', () => {
+    const parent: NavNode = { ...PRICE_BOOKS(), children: [leaf(901, 'Something else', '/y')] }
+    const out = collapseSignalsNav([crm([parent])])
+    assert.equal(find(out.modules, '470')!.label, 'Price Books', 'a row that has children is never dropped, so nothing else can disappear with it')
+    assert.deepEqual(out.retired, [], 'and it is not claimed as a retired address')
+    assert.deepEqual(labels(collapseSignalsNav([crm([PRICE_BOOKS()])]).modules), [], 'the leaf is dropped')
+  })
+
+  it('a person with no Price Books row has nothing retired for it and no owner for its address', () => {
+    const out = collapseSignalsNav(menu({ products: true, services: true, portfolio: true, priceBooks: false }))
     assert.deepEqual(out.retired, ['/module/crm/sales/products', '/module/crm/sales/services'])
+    assert.equal(out.owners['/module/crm/sales/price-books'], undefined)
   })
 
   it('changes nothing in place and returns the same objects when the person has neither row', () => {
-    const input = menu({ products: false, services: false, portfolio: false })
+    const input = menu({ products: false, services: false, portfolio: false, priceBooks: false })
     const before = JSON.stringify(input)
     const out = collapseSignalsNav(input)
     assert.equal(JSON.stringify(input), before, 'the input is not changed')
@@ -113,7 +133,7 @@ const raw = (n: NavNode, parent: number | null, sort: number): Record<string, un
 })
 const serverMenu = (m: NavModule[]) => m.map((mod, i) => raw(mod, null, i + 1))
 
-async function throughTheHook(have: { products: boolean; services: boolean; portfolio: boolean }) {
+async function throughTheHook(have: { products: boolean; services: boolean; portfolio: boolean; priceBooks?: boolean }) {
   const k = await kit()
   /* eslint-disable @typescript-eslint/no-require-imports */
   // `require`, not `import()`: the hook loads these through the same loader, and a dynamic import would give this file a second copy of each module.
@@ -163,7 +183,7 @@ describe('through the real sidebar hook', () => {
 
   it('draws no Product Portfolio, Products or Services entry, and highlights Market Signals for /portfolio, a Sub-product page and a Product page', async () => {
     const report = await throughTheHook({ products: true, services: true, portfolio: true })
-    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Price Books', 'Market Signals'], 'no Products, no Services, no Product Portfolio')
+    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Market Signals'], 'no Products, no Services, no Product Portfolio')
     assert.deepEqual(report.active.portfolio, signalsEntry)
     assert.deepEqual(report.active.subProduct, signalsEntry, '/portfolio/products/5 belongs to Market Signals')
     assert.deepEqual(report.active.product, signalsEntry, '/portfolio/scholarclone belongs to Market Signals')
@@ -175,24 +195,25 @@ describe('through the real sidebar hook', () => {
     assert.equal(report.resolved.products, '/module/crm/sales/products')
     assert.equal(report.resolved.services, '/module/crm/sales/services')
     assert.equal(report.resolved.portfolio, '/portfolio')
-    assert.equal(report.resolved.priceBooks, '/module/crm/sales/price-books', 'another address resolves as ever')
+    assert.equal(report.resolved.priceBooks, '/module/crm/sales/price-books', 'the removed Price Books address resolves to itself for a person who held the row: its page redirects')
   })
 
   it('does not resolve an old address a person could not see (the dashboard, as before)', async () => {
-    const report = await throughTheHook({ products: false, services: false, portfolio: true })
+    const report = await throughTheHook({ products: false, services: false, portfolio: true, priceBooks: false })
     assert.equal(report.resolved.products, '/dashboard')
     assert.equal(report.resolved.services, '/dashboard')
+    assert.equal(report.resolved.priceBooks, '/dashboard')
   })
 
   it('draws no Services entry either for a person who has Services but not Products (the tab has the Type filter)', async () => {
     const report = await throughTheHook({ products: false, services: true, portfolio: true })
-    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Price Books', 'Market Signals'])
+    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Market Signals'])
     assert.deepEqual(report.active.portfolio, signalsEntry)
   })
 
   it('keeps /portfolio on Market Signals for a person with neither row, as the tab always did', async () => {
     const report = await throughTheHook({ products: false, services: false, portfolio: true })
-    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Price Books', 'Market Signals'])
+    assert.deepEqual(report.sidebar.map((s) => s.label), ['Quotes', 'Market Signals'])
     assert.deepEqual(report.active.portfolio, signalsEntry)
   })
 })

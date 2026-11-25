@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { currencyMismatchSentence } from '@/lib/crm/currency-mismatch'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
@@ -75,6 +76,7 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages }: 
   const [lineItems, setLineItems] = useState<CrmSalesOrderLineItemInput[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(true)
   const [savingLineItems, setSavingLineItems] = useState(false)
+  const [lineError, setLineError] = useState('')
   const [taxRates, setTaxRates] = useState<CrmTaxRate[]>([])
 
   const [stageHistory, setStageHistory] = useState<CrmSalesOrderStatusHistoryEntry[]>([])
@@ -130,12 +132,16 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages }: 
   const saveLineItems = async () => {
     setSavingLineItems(true)
     setNotice('')
+    setLineError('')
     try {
       const response = await crmService.saveSalesOrderLineItems(context, salesOrder.id, lineItems)
       setNotice(response.message)
       onSaved()
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : 'Unable to save these line items.')
+      // A Sub-product priced in another currency than this sales order is refused with a plain sentence: it belongs on the line table, where the line is.
+      const mismatch = currencyMismatchSentence(reason)
+      if (mismatch) setLineError(mismatch)
+      else setNotice(reason instanceof Error ? reason.message : 'Unable to save these line items.')
     } finally {
       setSavingLineItems(false)
     }
@@ -289,7 +295,7 @@ export function SalesOrderDetailPage({ salesOrder, onSaved, onBack, soStages }: 
             </div>
           ) : (
             <div className="space-y-3">
-              <SalesOrderLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={salesOrder.currency} />
+              <SalesOrderLineItemTable lineItems={lineItems} onChange={(next) => { setLineItems(next); setLineError('') }} error={lineError} taxRates={taxRates} currency={salesOrder.currency} />
               <div className="flex items-center gap-3 pt-2">
                 <Button disabled={savingLineItems} onClick={() => void saveLineItems()}>
                   {savingLineItems && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}

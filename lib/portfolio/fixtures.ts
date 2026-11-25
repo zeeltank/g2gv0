@@ -1,13 +1,14 @@
 import type { PmListData, PmMeta, PmCan } from '../../services/product-master/types'
 import type { PmFullRecord, PmHistoryRow, PmListRow, PmRemovalBlock, PmRemovalPreview, PmSell, PmUsageFull } from '../../services/product-master/record-types'
 import type { TaxonomyData } from '../../services/portfolio/types'
+import { CURRENCIES } from '../money/currencies'
 
 /** Data for the unified Product Portfolio form and pages: the shapes hp_erp's ProductMasterController answers (read from the code on 14 Nov 2026). */
 
 export function sellRow(over: Partial<PmSell> = {}): PmSell {
   return {
     state: 'sold', crmProductId: 301, productNo: 'PRD-AAAA1111', type: 'product', sku: 'SCH-FEE', category: 'Software', glAccount: '4000', descriptionOnQuotes: 'Fee collection licence',
-    unitPrice: 1500, costPrice: 900, commissionRate: 5, currency: 'INR', taxRateId: 3, isActive: true, vendor: 'Acme', qtyInStock: 12, qtyInDemand: 2, reorderLevel: 4, weight: 1.5,
+    unitPrice: 1500, costPrice: 900, commissionRate: 5, currency: 'INR', taxRateId: 3, taxPercent: 18, isActive: true, vendor: 'Acme', qtyInStock: 12, qtyInDemand: 2, reorderLevel: 4, weight: 1.5,
     usageUnit: 'licence', assignedTo: 2, imageUrl: null, taxRateName: 'GST', productMasterId: 1, createdBy: 2, createdAt: '2026-11-01 10:00:00', updatedAt: '2026-11-02 10:00:00', ...over,
   }
 }
@@ -47,7 +48,10 @@ export function can(over: Partial<PmCan> = {}): PmCan {
 }
 
 export function meta(over: Partial<PmMeta> = {}, canOver: Partial<PmCan> = {}): PmMeta {
-  return { readinessStatuses: ['Proposal / concept', 'Prototype', 'Live – with client'], itemTypes: ['product', 'service'], taxRates: [{ id: 3, name: 'GST', percentage: 18 }], can: can(canOver), ...over }
+  return {
+    readinessStatuses: ['Proposal / concept', 'Prototype', 'Live – with client'], itemTypes: ['product', 'service'], taxRates: [{ id: 3, name: 'GST', percentage: 18, currency: 'INR' }],
+    currencies: [...CURRENCIES], defaultCurrency: 'INR', can: can(canOver), ...over,
+  }
 }
 
 /** A caller with the Portfolio's right and no row on Products or Services (HR): she may add and edit an About and sell nothing. */
@@ -80,8 +84,8 @@ export function everything(): { status: number; data: PmListData } {
 
 export function usageFull(over: Partial<PmUsageFull> = {}): PmUsageFull {
   return {
-    signals: 4, icp: 'active', priceBooks: [{ priceBookId: 7, priceBookNo: 'PB-0007', name: 'Standard 2026', currency: 'INR', active: true, listPrice: 1200 }], quotes: 2, basePrice: 1500, currency: 'INR',
-    counts: { quotes: 2, salesOrders: 1, purchaseOrders: 0, invoices: 1, opportunities: 3, priceBooks: 1, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
+    signals: 4, icp: 'active', quotes: 2, basePrice: 1500, currency: 'INR',
+    counts: { quotes: 2, salesOrders: 1, purchaseOrders: 0, invoices: 1, opportunities: 3, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
     pointers: null,
     latest: {
       quotes: [{ id: 91, number: 'Q-0091', date: '2026-11-03', status: 'Sent' }, { id: 90, number: 'Q-0090', date: '2026-11-01', status: 'Draft' }],

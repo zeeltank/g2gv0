@@ -39,11 +39,10 @@ export interface SubProductHrefs {
   quotes: string
   salesOrders: string
   invoices: string
-  priceBooks: string
 }
 
 export const DEFAULT_HREFS: SubProductHrefs = {
-  portfolio: '/portfolio', quotes: '/module/crm/sales/quotes', salesOrders: '/module/crm/sales/sales-orders', invoices: '/module/crm/sales/invoices', priceBooks: '/module/crm/sales/price-books',
+  portfolio: '/portfolio', quotes: '/module/crm/sales/quotes', salesOrders: '/module/crm/sales/sales-orders', invoices: '/module/crm/sales/invoices',
 }
 
 interface Notice { tone: 'success' | 'error'; text: string }

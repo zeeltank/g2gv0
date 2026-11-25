@@ -3,7 +3,7 @@
 /**
  * An Email Template's full-page detail view -
  * /module/crm/support/email-templates/[id]. Same `parseRoutePath`-resolved
- * `initialActive` reasoning as the Price Book/FAQ detail routes - this is a
+ * `initialActive` reasoning as the Quote/FAQ detail routes - this is a
  * fresh route with no guaranteed menu-row id yet, so nothing here hardcodes
  * one; `EMAIL_TEMPLATES_ACCESS_LINK` is this route's own local constant (not
  * imported from lib/gtg-navigation.ts), same precedent FAQ's own

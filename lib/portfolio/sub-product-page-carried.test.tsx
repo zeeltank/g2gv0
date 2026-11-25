@@ -74,19 +74,15 @@ describe('a Sub-product page: what the old record pages pinned', () => {
     assert.ok(k.bodyText().includes('Collects school fees online.'), 'the other tabs still work')
   })
 
-  it('says it is in no price book yet, and what a quote uses instead', async () => {
-    const { k } = await openPage({ usage: usageFull({ priceBooks: [], basePrice: 1500, currency: 'INR' }) })
+  it('says nothing about price books on the Usage tab: no card, no empty state, no button, no link (S16 removed them; the price is on the Sub-product)', async () => {
+    const { k } = await openPage({ usage: usageFull() })
     await openTab(k, 'Usage')
     await k.tick(30)
     const text = k.bodyText()
-    assert.ok(text.includes('Not in any price book yet'))
-    assert.ok(text.includes('a quote line uses its base price, INR 1,500.00'), `the base price is named: ${text.slice(0, 300)}`)
-    assert.ok(k.all('a').some((a) => a.getAttribute('href') === '/module/crm/sales/price-books'), 'with a way to the price books')
-    await disposeAll()
-    const bare = await openPage({ usage: usageFull({ priceBooks: [], basePrice: null }) })
-    await openTab(bare.k, 'Usage')
-    await bare.k.tick(30)
-    assert.ok(bare.k.bodyText().includes('which is empty'), 'a base price that is not set is said to be empty')
+    assert.ok(text.includes('Where it is used'), 'the Usage tab still works without the old answer key')
+    for (const gone of ['Price book', 'Price Books', 'Not in any price book yet', 'Open Price Books', 'base price']) assert.equal(text.includes(gone), false, `"${gone}" is gone`)
+    assert.equal(k.all('a').some((a) => (a.getAttribute('href') ?? '').includes('price-books')), false, 'and so is every link into the Price Books')
+    assert.equal(k.all('dt').some((dt) => dt.textContent === 'Price books'), false, 'its count is gone from the list of uses')
   })
 
   it('draws a real zero in the usage counts as 0', async () => {

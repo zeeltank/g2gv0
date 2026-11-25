@@ -6,7 +6,21 @@
  * `service`. `sell` is always a key of the answer, and null for a caller who may not view the Sell section of that record's type: a person who may see
  * no price never receives one, so the screens draw a price only from a non-null `sell`.
  */
-import type { PmCrmItem, PmIcpState, PmKind, PmPriceBookEntry, PmStatus, PmItemType } from './types'
+import type { PmCrmItem, PmIcpState, PmKind, PmStatus, PmItemType } from './types'
+
+/**
+ * What the Sub-products of a Product add up to in ONE currency (S16): `subtotal` is the sum of their prices, `tax` the sum of the tax each one's own rate adds,
+ * `total` the two together, `counted` how many Sub-products are in it. `uncounted` is how many active Sub-products of the Product are in no total (no price yet,
+ * paused, not sold): the same number in every block. Figures are JSON numbers rounded to the currency's digits.
+ */
+export interface PmPriceTotal {
+  currency: string | null
+  subtotal: number
+  tax: number
+  total: number
+  counted: number
+  uncounted: number
+}
 
 export type PmSellState = 'sold' | 'paused' | 'binned'
 
@@ -26,6 +40,8 @@ export interface PmSell {
   commissionRate: number | null
   currency: string | null
   taxRateId: number | null
+  /** The percentage of its tax rate (S16), null with no rate. Absent from a server that predates S16. */
+  taxPercent?: number | null
   /** "Offered on new documents": the ONE switch once the record has been saved. */
   isActive: boolean
   vendor: string | null
@@ -95,6 +111,10 @@ export interface PmFullRecord {
   icp: PmIcpState | null
   /** The record a pair review merged this one into; null (or absent on an older server) for every other record. */
   mergedInto?: { id: number; key: string | null; name: string } | null
+  /** A Product's total, one block per currency (S16). Empty for a caller who may not view prices and for a Product with nothing priced; absent on any other record. */
+  priceTotals?: PmPriceTotal[]
+  /** How many Sub-products the totals hold. */
+  subProductsCounted?: number
   createdAt: string | null
   updatedAt: string | null
 }
@@ -111,7 +131,6 @@ export interface PmUsageDoc {
 export interface PmUsageFull {
   signals: number | null
   icp: PmIcpState | null
-  priceBooks: PmPriceBookEntry[]
   quotes: number
   basePrice: number | null
   currency: string | null
@@ -167,6 +186,11 @@ export interface PmListRow {
   qtyInStock?: number | null
   unitPrice?: number | null
   currency?: string | null
+  /** The percentage of the Sub-product's tax rate (S16); null with no rate. */
+  taxPercent?: number | null
+  /** A Product row's total, one block per currency (S16); absent on a Sub-product row and for a caller who may not view prices. */
+  priceTotals?: PmPriceTotal[]
+  subProductsCounted?: number
 }
 
 export interface PmListCan {

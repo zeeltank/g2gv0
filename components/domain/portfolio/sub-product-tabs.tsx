@@ -4,14 +4,14 @@ import Link from 'next/link'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SectionCard } from '@/components/shared/business/shared'
 import { FIELD_ERROR_TEXT } from '@/lib/org-accounts/tones'
 import {
-  describeChange, detailRows, docHref, DOC_KINDS, eventWord, formatMoney, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, visibleChanges, whenWord, typeWord,
+  describeChange, detailRows, docHref, DOC_KINDS, eventWord, icpStateLabel, latestDocs, signalsHref, STORE_WORD, usageCounts, visibleChanges, whenWord, typeWord,
 } from '@/lib/portfolio/page-model'
 import type { IcpStates } from '@/lib/portfolio/icp-state'
 import type { PmFullRecord, PmHistoryRow, PmPaging, PmSell, PmUsageFull } from '@/services/product-master/record-types'
+import { PriceCard } from './price-card'
 import { IcpChip } from './portfolio-chips'
 import { Fact } from './sub-product-overview'
 
@@ -26,6 +26,7 @@ export function DetailsTab({ sell, name, assignee, inBin }: { sell: PmSell; name
     <div className="space-y-4">
       {inBin && <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">This entry is in the Recycle Bin: it is not offered on new documents, and old documents still show it. Switch Sell in CRM on in Edit to bring it back.</p>}
       <SectionCard title={typeWord(sell.type) === 'Service' ? 'Service details' : 'Sub-product details'}>
+        <PriceCard className="mb-4" price={sell.unitPrice} currency={sell.currency} taxPercent={sell.taxPercent ?? null} taxName={sell.taxRateName} />
         <div className="flex flex-wrap items-start gap-4">
           {sell.imageUrl && <img src={sell.imageUrl} alt={`${name} picture`} className="size-20 rounded-xl border border-border object-cover" />}
           <dl className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
@@ -34,7 +35,7 @@ export function DetailsTab({ sell, name, assignee, inBin }: { sell: PmSell; name
             {rows.map((row) => <Fact key={row.label} label={row.label} value={row.value} />)}
           </dl>
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">The unit price is its base price. A price book can set another price on a quote.</p>
+        <p className="mt-4 text-xs text-muted-foreground">The unit price is the price before tax. Quotes, orders and invoices take their price, currency and tax from here.</p>
       </SectionCard>
     </div>
   )
@@ -45,7 +46,7 @@ export function DetailsTab({ sell, name, assignee, inBin }: { sell: PmSell; name
 export function UsageTab({ usage, error, hrefs }: {
   usage: PmUsageFull | null
   error: string
-  hrefs: { quotes: string; salesOrders: string; invoices: string; priceBooks: string }
+  hrefs: { quotes: string; salesOrders: string; invoices: string }
 }) {
   if (error) return notice(error, 'alert')
   if (!usage) return notice('Loading…')
@@ -89,34 +90,6 @@ export function UsageTab({ usage, error, hrefs }: {
           </SectionCard>
         )
       })}
-
-      {usage.priceBooks.length === 0
-        ? (
-          <EmptyState
-            title="Not in any price book yet"
-            description={`Add it to a price book to give it a quotable price. Until then a quote line uses its base price${usage.basePrice === null ? ', which is empty' : `, ${formatMoney(usage.basePrice, usage.currency)}`}.`}
-            action={<Button variant="outline" asChild><Link href={hrefs.priceBooks}>Open Price Books</Link></Button>}
-          />
-        )
-        : (
-          <SectionCard title="Price books" description="A quote is priced from the price book it uses. Prices are edited in Price Books, not here." actions={<Button variant="outline" size="sm" asChild><Link href={hrefs.priceBooks}>Open Price Books</Link></Button>}>
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <Table>
-                <TableHeader><TableRow><TableHead>Price book</TableHead><TableHead>Number</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Price</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {usage.priceBooks.map((b) => (
-                    <TableRow key={b.priceBookId}>
-                      <TableCell className="font-medium">{b.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{b.priceBookNo ?? '—'}</TableCell>
-                      <TableCell>{b.active ? 'Active' : 'Inactive'}</TableCell>
-                      <TableCell className="text-right">{formatMoney(b.listPrice, b.currency) ?? '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </SectionCard>
-        )}
     </div>
   )
 }

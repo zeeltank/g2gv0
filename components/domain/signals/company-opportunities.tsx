@@ -35,18 +35,25 @@ type RunDate = RunDatesResponse['data']['dates'][number]
 
 /** Said beside Generate Signals when a run can start: pressing it spends search and AI quota. */
 const RUN_COST_NOTE = 'A run uses search and AI quota, so start one only when you need new signals.'
+/** Said beside Generate Signals while the ICP Type is "All ICP types": a run is for one type. */
+const NEEDS_ONE_ICP_TYPE = 'Choose one ICP type to generate signals.'
 
 /**
  * Company Opportunities: pick a product, press Generate Signals (its progress shows right below), then read what that product's research saved
  * for a day: today and the two days before it by default, any older day from the calendar. Choosing a product or a day only reads stored rows;
  * research starts only from the Generate Signals button. Product details and the ICP are edited in Product Portfolio.
  *
- * It is also where a signal is reviewed (the Signal Review screen's abilities): All products, and the search, Status, Freshness, Fit, Sort, page and page
- * size, are kept in the address under the Review's own names (`q`, `status`, `freshness`, `fit`, `sort`, `page`, `product`, plus `per`), so a link made for
- * the Review opens the same view here. A link that only searches or filters (`?status=all&q=…`) opens on All products, because the signal it points at may
- * belong to any product. All products has no run to start: Generate Signals, the sub-product, the ICP type and the places belong to one product.
+ * It is also where a signal is reviewed (the Signal Review screen's abilities): All products, the search and the page are kept in the address under the
+ * Review's own names (`q`, `page`, `product`, and `status`, `freshness`, `fit`, `sort` when a link carries them), so a link made for the Review opens
+ * the same view here. A link that only searches or filters (`?status=all&q=…`) opens on All products, because the signal it points at may
+ * belong to any product. All products has no run to start: Generate Signals and the sub-product belong to one product.
  *
- * Also from the Signal Review (P1-A2): "Run health & cost" (the organisation's runs, in every scope), "Export CSV" beside the page size (see SignalList), and
+ * The four selectors at the top are the list's filters as well as the inputs of Generate Signals ("the same selectors do both"): the Sub-Product, the ICP
+ * Type and the Region each narrow the list only when they are set (a chosen place also matches the places inside it; "All ICP types" and no place filter
+ * nothing), in every scope. Generate Signals needs one product and one ICP type. The list has no Status, Freshness, Fit, Sort or Page size boxes: a link
+ * made for the Signal Review can still carry status, freshness, fit and sort in the address, but nothing on this screen sets them.
+ *
+ * Also from the Signal Review (P1-A2): "Run health & cost" (the organisation's runs, in every scope), "Export CSV" beside the search (see SignalList), and
  * the checks of its Generate dialog on the Generate Signals button: the line beside it (what a run costs, or why it is off), the products that would not load
  * with a Retry, and every refusal of a start said in plain words (see useGenerateSignals).
  */
@@ -92,12 +99,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const controls: SignalListControls = {
     query,
     setSearch: list.setSearch,
-    setFilter,
-    setSort: (sort) => setQuery({ sort }),
     setPage: list.setPage,
     clearFilters: () => setQuery(clearOpportunityFiltersPatch()),
   }
-  const [icpType, setIcpType] = useState<'b2b' | 'b2c' | 'b2g'>('b2b')
+  // 'all' = every ICP type: the list is not filtered by it, and Generate Signals (which needs one type) is off.
+  const [icpType, setIcpType] = useState<'all' | 'b2b' | 'b2c' | 'b2g'>('b2b')
   const [regions, setRegions] = useState<RegionSelection[]>(DEFAULT_REGIONS)
   const [draft, setDraft] = useState<RegionDraft>(emptyDraft())
   const [regionProblems, setRegionProblems] = useState<string[]>([])
@@ -111,7 +117,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const run = useGenerateSignals(context, selected ? selected.key : null, products, offerId, regions, reloadProducts)
   const setCustomerModel = run.setCustomerModel
   useEffect(() => {
-    setCustomerModel(icpType)
+    if (icpType !== 'all') setCustomerModel(icpType)
   }, [icpType, setCustomerModel])
 
   const [dates, setDates] = useState<RunDate[] | null>(null)
@@ -162,7 +168,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     let live = true
     const finished = run.completedCount !== seenCompleted.current
     seenCompleted.current = run.completedCount
-    opportunitiesService.getRunDates(context, key, icpType, offerId, regions)
+    // With "All ICP types" the days are the product's days across every scope (the same `all_signals` the server's date list has always had).
+    opportunitiesService.getRunDates(context, key, icpType === 'all' ? 'b2b' : icpType, offerId, regions, icpType === 'all')
       .then((res) => {
         if (!live) return
         setDates(res.data.dates)
@@ -174,12 +181,12 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
     return () => { live = false }
   }, [context, key, offerId, icpType, regions, run.refreshKey, run.completedCount])
 
-  const currentModelStatus = offerId
+  const currentModelStatus = icpType === 'all' ? undefined : offerId
     ? selected?.offers.find((offer) => offer.offer_id === offerId)?.icp_models?.[icpType]
     : selected?.icp_models?.[icpType]
   // The line beside Generate: what a run costs, before Start. (origin/main, 82b4922: Generate is no longer held back by a client-side readiness check, because
   // the server now creates or completes the sub-product's ICP region itself, so the old "this profile is not ready" line is gone with the check.)
-  const generateHint = selected ? RUN_COST_NOTE : (everyProduct ? 'Choose one product to generate signals for it.' : '')
+  const generateHint = selected ? (icpType === 'all' ? NEEDS_ONE_ICP_TYPE : RUN_COST_NOTE) : (everyProduct ? 'Choose one product to generate signals for it.' : '')
   const today = timezone ? todayIn(timezone) : null
   const availableDates = dates ?? []
   const datesWithSignals = availableDates.filter((d) => d.qualified > 0)
@@ -190,6 +197,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
   const shownRun = run.activeRun ?? (latest && (latest.status === 'running' || latest.status === 'failed' || latest.status === 'skipped') ? latest : null)
 
   const generate = () => {
+    if (icpType === 'all') return
     const c = commitPending(regions, draft)
     if (c.problems.length > 0) { setRegionProblems(c.problems); return }
     setRegionProblems([])
@@ -283,10 +291,11 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               id="icp-type-select"
               aria-label="ICP Type"
               value={icpType}
-              onChange={(e) => setIcpType(e.target.value as 'b2b' | 'b2c' | 'b2g')}
-              disabled={run.running || !selected}
+              onChange={(e) => setIcpType(e.target.value as 'all' | 'b2b' | 'b2c' | 'b2g')}
+              disabled={run.running}
               className="h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
+              <option value="all">All ICP types</option>
               {[
                 { key: 'b2b' as const, label: 'B2B Customer Acquisition' },
                 { key: 'b2c' as const, label: 'B2B Partner Acquisition' },
@@ -300,7 +309,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           </div>
 
           {/* Dropdown 3: Region */}
-          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running || !selected} context={context} />
+          <RegionSelector value={regions} onChange={(next) => { setRegions(next); setRegionProblems([]); persistSavedRegions(next) }} draft={draft} onDraft={(d) => { setDraft(d); setRegionProblems([]) }} suggestions={selected?.icp?.regions ?? []} disabled={run.running} context={context} />
 
         </div>
 
@@ -314,8 +323,8 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
             size="lg"
             className="h-11 w-full rounded-xl shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-48"
             onClick={generate}
-            disabled={!selected || run.running}
-            title={everyProduct ? 'Choose one product to generate signals for it.' : undefined}
+            disabled={!selected || run.running || icpType === 'all'}
+            title={everyProduct ? 'Choose one product to generate signals for it.' : (icpType === 'all' ? NEEDS_ONE_ICP_TYPE : undefined)}
           >
             {run.running ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
             {run.running ? 'Finding Signals…' : 'Generate Signals'}
@@ -445,14 +454,13 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
               productKey={listKey}
               productMasterId={masterId}
               offerId={offerId}
-              customerModel={icpType}
+              customerModel={icpType === 'all' ? null : icpType}
               regions={regions}
               productLabel={listLabel}
               runDate={everyProduct || (datePreset === 'all' && !dateRange && !picked) ? null : (dateRange ? null : activeDate)}
               dateFrom={everyProduct ? undefined : dateRange?.from}
               dateTo={everyProduct ? undefined : dateRange?.to}
               allDates={everyProduct || (datePreset === 'all' && !dateRange && !picked)}
-              allSignals={everyProduct || allSignals || !offerId}
               runId={picked === null ? viewRunId : null}
               refreshKey={run.refreshKey}
               onTotal={setTotal}
@@ -473,7 +481,7 @@ export function CompanyOpportunities({ context }: { context: LaravelContext }) {
           productLabel={selected.label}
           offerId={offerId}
           offerLabel={offerId ? (selected.offers.find((o) => o.offer_id === offerId)?.name ?? offerId) : null}
-          customerModel={icpType}
+          customerModel={icpType === 'all' ? 'b2b' : icpType}
           today={today}
         />
       )}

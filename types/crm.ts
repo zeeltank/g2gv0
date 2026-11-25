@@ -651,7 +651,7 @@ export interface CrmBulkActionResponse {
  */
 export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
-  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log' | 'price_books'
+  | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log'
   | 'vendors' | 'sales_orders' | 'purchase_orders' | 'invoices'
   | 'tickets' | 'faqs' | 'service_contracts' | 'assets'
 
@@ -841,6 +841,11 @@ export interface CrmTaxRate {
   percentage: number
   isDefault: boolean
   isActive: boolean
+  /**
+   * The catalogue code of the currency this rate is for (India: GST in INR); null fits any currency (S16). Absent from a server that predates S16: read it as null.
+   * A rate with a currency is offered only for a Sub-product priced in that currency.
+   */
+  currency?: string | null
 }
 
 export type CrmTaxRatePayload = Partial<Omit<CrmTaxRate, 'id'>>
@@ -1109,6 +1114,13 @@ export interface CrmOpportunityProduct {
   name: string
   itemType: CrmItemType
   quantity: number
+  /**
+   * The Sub-product's own price, currency and tax rate (S16), read only. All three are ABSENT from the answer when the viewer may not see prices (or the server
+   * predates S16). `unitPrice: null` is "no price yet"; a null `currency` is a price saved before currencies existed.
+   */
+  unitPrice?: number | null
+  currency?: string | null
+  taxPercent?: number | null
 }
 
 export interface CrmOpportunityProductsResponse {
@@ -1129,8 +1141,6 @@ export interface CrmQuote {
   contactName: string | null
   opportunityId: string | null
   opportunityName: string | null
-  priceBookId: string | null
-  priceBookName: string | null
   quoteStage: string | null
   validTill: string | null
   currency: string | null
@@ -1171,7 +1181,7 @@ export interface CrmQuote {
 export type CrmQuotePayload = Partial<
   Omit<
     CrmQuote,
-    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName' | 'priceBookName'
+    'id' | 'quoteNo' | 'organizationName' | 'contactName' | 'opportunityName'
     | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
     | 'createdAt' | 'updatedAt' | 'createdBy'
   >
@@ -1181,44 +1191,6 @@ export interface CrmQuoteListResponse {
   status: number
   message: string
   data: { items: CrmQuote[]; pagination: CrmPagination }
-}
-
-export interface CrmPriceBook {
-  id: string
-  priceBookNo: string | null
-  name: string
-  currency: string | null
-  isActive: boolean
-  description: string | null
-  assignedTo: string | null
-  createdBy: string | null
-  createdAt: string | null
-  updatedAt: string | null
-}
-
-export type CrmPriceBookPayload = Partial<
-  Omit<CrmPriceBook, 'id' | 'priceBookNo' | 'createdAt' | 'updatedAt' | 'createdBy'>
->
-
-export interface CrmPriceBookListResponse {
-  status: number
-  message: string
-  data: { items: CrmPriceBook[]; pagination: CrmPagination }
-}
-
-export interface CrmPriceBookResponse {
-  status: number
-  message: string
-  data: CrmPriceBook
-}
-
-export interface CrmPriceBookItem {
-  id: string
-  productId: string
-  name: string
-  itemType: CrmItemType
-  basePrice: number | null
-  listPrice: number
 }
 
 export interface CrmQuoteResponse {

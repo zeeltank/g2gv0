@@ -67,7 +67,7 @@ describe('the review', () => {
     assert.deepEqual(k.all('thead th').map((t) => t.textContent?.trim()), ['Sold in CRM as', 'Looks like this Sub-product', 'Why', 'Name to keep', 'Your decision'])
     void heads
     const row = rowOf('Scholar One ERP - Gujarat Edition')!.textContent!
-    for (const part of ['Scholar One ERP - Gujarat Edition', 'SCH-01-GUJ', 'INR 95,000.00', 'Used on 3 records', 'Scholar School ERP', 'SCH-01', 'AMBIGUOUS', 'category “School ERP” is inside the Sub-product name', 'Same product', 'Different']) {
+    for (const part of ['Scholar One ERP - Gujarat Edition', 'SCH-01-GUJ', '₹95,000.00', 'Used on 3 records', 'Scholar School ERP', 'SCH-01', 'AMBIGUOUS', 'category “School ERP” is inside the Sub-product name', 'Same product', 'Different']) {
       assert.ok(row.includes(part), `the row shows ${part}: ${row}`)
     }
   })

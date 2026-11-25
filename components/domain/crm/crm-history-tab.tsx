@@ -35,8 +35,7 @@ function fieldLabel(field: string): string {
  * Deliberately NOT used by Opportunity/Quote/SalesOrder/PurchaseOrder/
  * Invoice/Ticket - each already has its own narrower stage/status-history
  * tab, and showing both would answer the same "what happened here" question
- * twice on one page. Also not used by PriceBook, which has no tab system at
- * all yet (see this phase's integration report for that one).
+ * twice on one page.
  */
 export function CrmHistoryTab({ entries, loading }: Props) {
   return (

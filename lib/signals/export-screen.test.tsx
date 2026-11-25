@@ -78,16 +78,17 @@ describe('Export CSV: where it is', () => {
     ['a link that only searches', 'status=all&q=Hillcrest'],
   ]
   for (const [name, search] of SCOPES) {
-    it(`${name}: "Export CSV" is in the row of the filters, right after the page size`, async () => {
-      const { k, facet } = await openScreen({ search })
+    // CHANGED ON PURPOSE (S17, 25 Nov 2026): the page size (and the other list boxes) are gone; the button is in the row of the search box.
+    it(`${name}: "Export CSV" is in the row of the search box`, async () => {
+      const { k } = await openScreen({ search })
       const button = exportButton(k)
       assert.ok(button, 'the button is there')
       assert.equal(button.textContent?.trim(), 'Export CSV')
       assert.equal(button.disabled, false)
-      const row = facet('Page size').closest('.flex-wrap') as HTMLElement
-      assert.ok(row.contains(button), 'the button is in the same wrapping row as the Page size box')
-      const controls = Array.from(row.querySelectorAll('select, button'))
-      assert.equal(controls[controls.indexOf(button) - 1], facet('Page size'), 'what comes just before it is the Page size select')
+      const searchBox = k.one('input[aria-label="Search signals"]') as HTMLInputElement
+      const row = searchBox.closest('.flex-wrap') as HTMLElement
+      assert.ok(row.contains(button), 'the button is in the same wrapping row as the search box')
+      assert.equal(row.querySelectorAll('select').length, 0, 'and that row holds no list box of its own')
     })
   }
 })
@@ -115,7 +116,9 @@ describe('Export CSV: what it asks for and what it saves', () => {
         assert.equal(q.sort, 'priority')
         assert.equal(q.product, 'all')
         assert.equal(q.expired, 'include')
-        assert.equal(q.allSignals, true)
+        assert.equal(q.scopeFilter, true, 'the selectors filter the file as they filter the list')
+        assert.equal(q.customerModel, 'b2b')
+        assert.equal(q.allSignals, undefined)
         assert.equal(q.source, 'all')
       }
       assert.equal(router.written.length, 0, 'exporting does not touch the address or the page the list is on')
@@ -154,11 +157,12 @@ describe('Export CSV: what it asks for and what it saves', () => {
     try {
       await press(k)
       assert.equal(exportRequests(listCalls).length, 1, 'one request: 30 signals fit in one page of fifty')
-      assert.equal(exportRequests(listCalls)[0].reviewStatus, undefined, 'every status')
-      await choose('Status', 'dismissed')
+      assert.equal(exportRequests(listCalls)[0].customerModel, 'b2b', 'the ICP type the selector holds')
+      await choose('ICP Type', 'b2g')
       await press(k)
       assert.equal(exportRequests(listCalls).length, 2, 'and one more for the second export')
-      assert.equal(exportRequests(listCalls)[1].reviewStatus, 'Dismissed', 'with the status that is chosen now')
+      assert.equal(exportRequests(listCalls)[1].customerModel, 'b2g', 'with the ICP type that is chosen now')
+      assert.equal(exportRequests(listCalls)[1].scopeFilter, true)
       assert.equal(files.downloads.length, 2)
     } finally { files.restore() }
   })
@@ -388,7 +392,9 @@ describe('Export CSV: the REAL request, with fetch faked', () => {
           assert.equal(p.get('business_fit'), 'g2g')
           assert.equal(p.get('sort'), 'priority')
           assert.equal(p.get('expired'), 'include')
-          assert.equal(p.get('all_signals'), '1')
+          assert.equal(p.get('scope_filter'), '1')
+          assert.equal(p.get('customer_model'), 'b2b')
+          assert.equal(p.has('all_signals'), false, 'no all_signals forcing')
           assert.equal(p.has('product'), false, 'All products sends no product')
           assert.equal(p.has('source'), false, 'the source tab "All" sends nothing')
           assert.equal(c.auth, 'Bearer test-token')

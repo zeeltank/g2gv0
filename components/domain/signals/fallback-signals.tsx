@@ -27,7 +27,8 @@ export function FallbackSignals({
   /** What to show when the product has no saved signals at all: a setup / diagnostic state (never a fake card). */
   empty: React.ReactNode
   offerId?: string | null
-  customerModel?: 'b2b' | 'b2c' | 'b2g'
+  /** null = every ICP type (the screen's "All ICP types"). */
+  customerModel?: 'b2b' | 'b2c' | 'b2g' | null
   regions?: { country: string; state?: string; city?: string }[]
 }) {
   const [data, setData] = useState<OpportunityListResponse | null>(null)
@@ -38,7 +39,7 @@ export function FallbackSignals({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setData(await opportunitiesService.list(context, { product: productKey, offerId, customerModel, regions, latestSaved: true, page, expired: 'include' }))
+      setData(await opportunitiesService.list(context, { product: productKey, offerId, customerModel: customerModel ?? undefined, regions: regions.length > 0 ? regions : undefined, scopeFilter: true, latestSaved: true, page, expired: 'include' }))
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not load the earlier signals.')

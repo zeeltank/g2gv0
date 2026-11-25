@@ -25,7 +25,7 @@ export interface SubProductPickerProps {
    */
   scope?: PickerScope
   /**
-   * A listed row that is not sold can be chosen. Off by default: the documents, tickets, assets, FAQs and price books store the id of the entry in CRM, and a
+   * A listed row that is not sold can be chosen. Off by default: the documents, tickets, assets and FAQs store the id of the entry in CRM, and a
    * Sub-product that is not sold has none. A form that can store something else for it (the Sub-product's own id, `picked.masterId`) turns it on; the chosen row
    * then has an empty `productId` and a null `crmProductId`. The one list of which form does what is lib/product-picker/consumer-rules.ts.
    */
@@ -38,7 +38,7 @@ export interface SubProductPickerProps {
   disabled?: boolean
   /** Adds a Clear button inside the list, for a field that may be left empty. */
   clearable?: boolean
-  /** Catalogue ids the form already holds (a price book's own items): they are not offered again. */
+  /** Catalogue ids the form already holds: they are not offered again. */
   excluded?: ReadonlySet<string>
   className?: string
 }
@@ -47,7 +47,7 @@ type Phase = 'idle' | 'loading' | 'ready' | 'error'
 type NameState = { key: string; described: DescribedProduct | null; failed: boolean }
 
 /**
- * THE Sub-product picker: every document line, ticket, asset, FAQ and price book that chooses something to sell uses this one component (slice 15, P3-C).
+ * THE Sub-product picker: every document line, ticket, asset and FAQ that chooses something to sell uses this one component (slice 15, P3-C).
  * It searches as the person types (one request after a short pause, an older answer never replaces a newer one), groups the rows by their Product, shows the
  * SKU and (only when the server sent one) the price, and hands back the CATALOGUE id the documents store. A value a document already holds that the list no
  * longer offers (paused, in the Recycle Bin) is read by name, never drawn blank.

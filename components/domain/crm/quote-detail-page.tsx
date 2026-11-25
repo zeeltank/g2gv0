@@ -14,10 +14,11 @@ import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { useQuotePdfDownload } from '@/hooks/use-quote-pdf-download'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { currencyMismatchSentence } from '@/lib/crm/currency-mismatch'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmPriceBookItem, CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmQuoteStageHistoryEntry, CrmTaxRate } from '@/types/crm'
+import type { CrmPicklistValue, CrmQuote, CrmQuoteLineItemInput, CrmQuoteStageHistoryEntry, CrmTaxRate } from '@/types/crm'
 import { CreateQuoteModal } from './create-quote-modal'
 import { QuoteLineItemTable } from './quote-line-item-table'
 import { useAssignableEmployees } from './lead-employees'
@@ -40,7 +41,7 @@ function money(currency: string | null, n: number): string {
   return `${currency ?? ''} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`.trim()
 }
 
-/** A clickable cross-reference to another CRM record, or a muted dash when there isn't one - the ReadField convention this page's linked fields (Organization/Contact/Opportunity/Price Book) all share. */
+/** A clickable cross-reference to another CRM record, or a muted dash when there isn't one - the ReadField convention this page's linked fields (Organization/Contact/Opportunity) all share. */
 function LinkedField({ label, href, name }: { label: string; href: string | null; name: string | null }) {
   const router = useRouter()
   return (
@@ -66,8 +67,8 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
   const [lineItems, setLineItems] = useState<CrmQuoteLineItemInput[]>([])
   const [lineItemsLoading, setLineItemsLoading] = useState(true)
   const [savingLineItems, setSavingLineItems] = useState(false)
+  const [lineError, setLineError] = useState('')
   const [taxRates, setTaxRates] = useState<CrmTaxRate[]>([])
-  const [priceBookItems, setPriceBookItems] = useState<CrmPriceBookItem[]>([])
   const [stageHistory, setStageHistory] = useState<CrmQuoteStageHistoryEntry[]>([])
   const [stageHistoryLoading, setStageHistoryLoading] = useState(true)
 
@@ -117,22 +118,19 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
       .catch(() => { /* the line-item builder still works with no tax rates to choose */ })
   }, [context])
 
-  useEffect(() => {
-    if (!isLaravelContextReady(context) || !quote.priceBookId) { queueMicrotask(() => setPriceBookItems([])); return }
-    crmService.getPriceBookItems(context, quote.priceBookId)
-      .then((response) => setPriceBookItems(response.data))
-      .catch(() => { /* a newly-added line item just falls back to each product's base price */ })
-  }, [context, quote.priceBookId])
-
   const saveLineItems = async () => {
     setSavingLineItems(true)
     setNotice('')
+    setLineError('')
     try {
       const response = await crmService.saveQuoteLineItems(context, quote.id, lineItems)
       setNotice(response.message)
       onSaved()
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : 'Unable to save these line items.')
+      // A Sub-product priced in another currency than this quote is refused with a plain sentence: it belongs on the line table, where the line is.
+      const mismatch = currencyMismatchSentence(reason)
+      if (mismatch) setLineError(mismatch)
+      else setNotice(reason instanceof Error ? reason.message : 'Unable to save these line items.')
     } finally {
       setSavingLineItems(false)
     }
@@ -213,7 +211,6 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
               <LinkedField label="Organization" name={quote.organizationName} href={quote.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${quote.organizationId}` : null} />
               <LinkedField label="Contact" name={quote.contactName} href={quote.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${quote.contactId}` : null} />
               <LinkedField label="Opportunity" name={quote.opportunityName} href={quote.opportunityId ? resolveAccessLink('/module/crm/sales/opportunities') + `/${quote.opportunityId}` : null} />
-              <LinkedField label="Price Book" name={quote.priceBookName} href={quote.priceBookId ? resolveAccessLink('/module/crm/sales/price-books') + `/${quote.priceBookId}` : null} />
               <ReadField label="Valid Till" value={quote.validTill && <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 text-muted-foreground" aria-hidden="true" />{quote.validTill}</span>} />
               <ReadField label="Assigned To" value={assignedToName && <span className="inline-flex items-center gap-1.5"><User className="size-3.5 text-muted-foreground" aria-hidden="true" />{assignedToName}</span>} />
             </dl>
@@ -255,7 +252,7 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
             </div>
           ) : (
             <div className="space-y-3">
-              <QuoteLineItemTable lineItems={lineItems} onChange={setLineItems} taxRates={taxRates} currency={quote.currency} priceBookItems={priceBookItems} />
+              <QuoteLineItemTable lineItems={lineItems} onChange={(next) => { setLineItems(next); setLineError('') }} taxRates={taxRates} currency={quote.currency} error={lineError} />
               <div className="flex items-center gap-3 pt-2">
                 <Button disabled={savingLineItems} onClick={() => void saveLineItems()}>
                   {savingLineItems && <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />}

@@ -5,20 +5,18 @@ import { FRESHNESS_CHOICES, isNarrowed, listScreenState, reviewStatusOf, STATUS_
 
 /**
  * Company Opportunities' list as the address keeps it. The names are the Signal Review's own (`q`, `sort`, `page`, `product`, `status`, `freshness`,
- * `fit`), so a link made for the Review opens the same view here, plus `per` (the page size). Pure, so the rules that matter (what a link with only a
- * search means, what a number in `product` means, what a request carries) are proved without a browser.
+ * `fit`), so a link made for the Review opens the same view here. No box on the screen sets `status`, `freshness`, `fit` or `sort` any more (the
+ * Product, Sub-Product, ICP Type and Region selectors above the list are its filters); they stay readable from a link. Pure, so the rules that matter
+ * (what a link with only a search means, what a number in `product` means, what a request carries) are proved without a browser.
  */
 
 // ── The address ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Signals per page: five as the screen always showed, and two longer pages for people who triage in bulk. The server allows up to 50. */
-export const PER_PAGE_CHOICES = ['5', '20', '50'] as const
+/** Signals per page: five, as the screen always showed. There is no page-size box and no `per` in the address. */
 export const DEFAULT_PER_PAGE = 5
 
-export const PER_PAGE_LABELS: Choice[] = PER_PAGE_CHOICES.map((value) => ({ value, label: `${value} per page` }))
-
 /**
- * The orders a person can pick. `default` is the order the screen has always used and the one it opens on; `recent` is the Signal Review's "newest
+ * The orders a link can ask for (no box on the screen picks one any more). `default` is the order the screen has always used and the one it opens on; `recent` is the Signal Review's "newest
  * evidence first, undated last". The words match the Review where the order is the same.
  */
 export const OPPORTUNITY_SORT_CHOICES: Choice[] = [
@@ -42,7 +40,6 @@ export const OPPORTUNITIES_QUERY: ListQueryConfig = {
     status: { default: 'all', allowed: STATUS_CHOICES.map((choice) => choice.value) },
     freshness: { default: 'all', allowed: FRESHNESS_CHOICES.map((choice) => choice.value) },
     fit: { default: 'all' },
-    per: { default: String(DEFAULT_PER_PAGE), allowed: PER_PAGE_CHOICES },
   },
 }
 
@@ -56,12 +53,6 @@ export function asksTheList(params: { get(name: string): string | null }): boole
 
 /** What the server accepts for `search` (`max:100`). A longer text from a link is cut to it, so a long title finds its signal instead of failing with a 422. */
 export const SEARCH_MAX = 100
-
-/** The page size the address holds. Anything not in the choices is the default (the address reader has already said so; this is for a hand-built query). */
-export function perPageOf(query: Pick<ListQuery, 'filters'>): number {
-  const value = Number(query.filters.per)
-  return (PER_PAGE_CHOICES as readonly string[]).includes(String(value)) ? value : DEFAULT_PER_PAGE
-}
 
 /** "Clear filters": no search, every status, any age, any fit. The product stays: it says which signals the screen is about, it is not a filter of them. */
 export function clearOpportunityFiltersPatch(): ListQueryPatch {
@@ -79,7 +70,7 @@ export function listRequest(query: ListQuery): Pick<OpportunityQuery, 'search' |
     businessFit: fit && fit !== 'all' ? fit : undefined,
     sort: query.sort as OpportunityQuery['sort'],
     page: query.page,
-    perPage: perPageOf(query),
+    perPage: DEFAULT_PER_PAGE,
   }
 }
 

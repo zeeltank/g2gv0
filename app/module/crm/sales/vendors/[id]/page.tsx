@@ -2,7 +2,7 @@
 
 /**
  * A Vendor's full-page detail view - /module/crm/sales/vendors/[id]. Same
- * `parseRoutePath`-resolved `initialActive` reasoning as the Price Book
+ * `parseRoutePath`-resolved `initialActive` reasoning as the Quote
  * detail route - "Sales" is a fresh menu insert, its id isn't guaranteed to
  * match between connections, so nothing here hardcodes it.
  */
