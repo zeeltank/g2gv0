@@ -164,6 +164,29 @@ export interface SignalAssessment {
   opportunity?: { strength: SignalStrength; reason: string; age_days: number | null } | null
 }
 
+export interface ContactSource {
+  /** crm_record = typed into the CRM by a person; stated_in_source = printed in the signal's own source. Neither is independently verified. */
+  status: 'crm_record' | 'stated_in_source'
+  label: string
+  url: string | null
+}
+
+export interface SignalContact {
+  status: 'complete' | 'partial' | 'not_available'
+  name: string | null
+  designation: string | null
+  company: string | null
+  email: string | null
+  phone: string | null
+  website: string | null
+  linkedin: string | null
+  location: { city?: string; state?: string; country?: string; text?: string } | []
+  email_source: ContactSource | null
+  phone_source: ContactSource | null
+  verified: boolean
+  message: string
+}
+
 export interface Opportunity {
   /** Added by a person, not found by research: it has no run, and is listed under the day it was saved. */
   entered_manually?: boolean
@@ -269,6 +292,8 @@ export interface Opportunity {
   product_master_id?: number | null
   product_master_name?: string | null
   date_info?: DateInfo
+  /** Contact details for the signal. Information only: it never changes whether the signal is qualified or shown. */
+  contact?: SignalContact
   crm_qualification?: {
     can_promote: boolean
     promotion_requirements_met: boolean
