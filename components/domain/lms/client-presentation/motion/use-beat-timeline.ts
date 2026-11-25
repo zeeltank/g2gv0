@@ -40,6 +40,11 @@ export function useBeatTimeline(scope: RefObject<HTMLElement | null>, build: (tl
         if (tl.labels[`b${i}`] === undefined) tl.addLabel(`b${i}`, tl.duration())
       }
       tlRef.current = tl
+      // Render mode (render-atlas.mjs): the page steps the whole timeline by time, so hand it over and stay out of the way.
+      if (typeof window !== 'undefined' && /\/client-presentation\/atlas\//.test(window.location.pathname)) {
+        ;(window as unknown as { __atlasTl?: gsap.core.Timeline }).__atlasTl = tl
+        return
+      }
       if (reduced || entry !== 'forward') tl.seek(`b${beat}`, false)
       else {
         tl.seek(0, false)

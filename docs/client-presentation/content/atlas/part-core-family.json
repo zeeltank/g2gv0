@@ -1,0 +1,24 @@
+{
+  "family": "core",
+  "family_sheet": {
+    "summary": "The everyday school office in one place: admissions, student records, fees, attendance, exams, transport, library, communication and more.",
+    "problem": "Office work is spread across registers, spreadsheets and separate tools, so staff re-enter the same details and answers come slowly.",
+    "benefit": "Staff could work from one set of records, spend less time compiling reports, and answer parents and leaders faster.",
+    "technology": [
+      "Rules and automation",
+      "Online payment connection",
+      "Reports and exports",
+      "Role-based access"
+    ],
+    "research": null,
+    "workflow": ["Enquiry", "Admission", "Student record", "Daily work", "Reports"],
+    "ai": [
+      "AI-assisted drafting for health notes and admission remarks",
+      "Staff can ask questions of school records in plain words"
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/scholarclone.story.json",
+      "next_lms_erp/routes/ai.php"
+    ]
+  }
+}

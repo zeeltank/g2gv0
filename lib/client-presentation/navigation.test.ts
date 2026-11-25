@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { ATLAS_KEYS } from './atlas'
+
 import { CHOOSER_TARGETS, FULL_ORDER, SHORT_ORDER, detour, goto, initial, keyAt, next, prev, progress, returnFromDetour, setMode } from './navigation'
 
 const beatsOf = (k: string) => (k === 's4' ? 8 : k === 's1' ? 2 : 1)
@@ -81,7 +83,7 @@ test('an unknown scene key leaves the state unchanged', () => {
 })
 
 test('the 59-second film is the sixth scene, between the introduction and the ecosystem', () => {
-  assert.equal(FULL_ORDER.length, 17)
+  assert.equal(FULL_ORDER.length, 17 + ATLAS_KEYS.length)
   assert.deepEqual(FULL_ORDER.slice(4, 8), ['s5', 's17', 's6', 's16'])
   const beats = (k: string) => (k === 's17' ? 0 : beatsOf(k)) // the film has no steps: one press of Next leaves it
   let s = goto(initial('full'), 's5', beats, true)

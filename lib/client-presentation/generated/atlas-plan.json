@@ -1,0 +1,349 @@
+[
+ {
+  "kind": "big",
+  "theme": "ink",
+  "beats": 0,
+  "title": "What every module is",
+  "kicker": "Summary",
+  "ghost": "01",
+  "key": "a1",
+  "n": 201
+ },
+ {
+  "kind": "families",
+  "theme": "paper",
+  "beats": 0,
+  "title": "What every module is",
+  "kicker": "Summary",
+  "ghost": "01",
+  "key": "a2",
+  "n": 202
+ },
+ {
+  "kind": "big",
+  "theme": "ink",
+  "beats": 0,
+  "title": "Which problem we solve",
+  "kicker": "Problems",
+  "ghost": "02",
+  "key": "a3",
+  "n": 203
+ },
+ {
+  "kind": "problems",
+  "theme": "paper",
+  "beats": 0,
+  "title": "Which problem we solve",
+  "kicker": "Problems",
+  "ghost": "02",
+  "key": "a4",
+  "n": 204
+ },
+ {
+  "kind": "big",
+  "theme": "ink",
+  "beats": 0,
+  "title": "Inside every module",
+  "kicker": "Modules and sub-modules",
+  "ghost": "03",
+  "key": "a5",
+  "n": 205
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "1/5",
+  "family": "core",
+  "subs": [
+   "core-student",
+   "core-admission",
+   "core-attendance",
+   "core-users",
+   "core-front-desk"
+  ],
+  "intro": true,
+  "beats": 5,
+  "key": "a6",
+  "n": 206
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "2/5",
+  "family": "core",
+  "subs": [
+   "core-visitor-management",
+   "core-timetable",
+   "core-exam",
+   "core-fees",
+   "core-petty-cash"
+  ],
+  "intro": false,
+  "beats": 4,
+  "key": "a7",
+  "n": 207
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "3/5",
+  "family": "core",
+  "subs": [
+   "core-inventory",
+   "core-transport",
+   "core-hostel",
+   "core-library",
+   "core-inward-outward"
+  ],
+  "intro": false,
+  "beats": 4,
+  "key": "a8",
+  "n": 208
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "4/5",
+  "family": "core",
+  "subs": [
+   "core-utility",
+   "core-document-templates",
+   "core-communication",
+   "core-circular",
+   "core-parent-communication"
+  ],
+  "intro": false,
+  "beats": 4,
+  "key": "a9",
+  "n": 209
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "5/5",
+  "family": "core",
+  "subs": [
+   "core-consent",
+   "core-ptm",
+   "core-complaint",
+   "core-mobile-apps",
+   "core-alumni-management"
+  ],
+  "intro": false,
+  "beats": 4,
+  "key": "a10",
+  "n": 210
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "1/2",
+  "family": "learn",
+  "subs": [
+   "learn-teach-learn",
+   "learn-exam-assessment",
+   "learn-engagement",
+   "learn-curriculum-planning"
+  ],
+  "intro": true,
+  "beats": 4,
+  "key": "a11",
+  "n": 211
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "2/2",
+  "family": "learn",
+  "subs": [
+   "learn-pal-content-model",
+   "learn-pal-knowledge-graph",
+   "learn-pal-engines"
+  ],
+  "intro": false,
+  "beats": 2,
+  "key": "a12",
+  "n": 212
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "1/2",
+  "family": "ccb",
+  "subs": [
+   "ccb-organization-management",
+   "ccb-task-management",
+   "ccb-talent-management"
+  ],
+  "intro": true,
+  "beats": 3,
+  "key": "a13",
+  "n": 213
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "2/2",
+  "family": "ccb",
+  "subs": [
+   "ccb-hrit-management",
+   "ccb-capability-intelligence",
+   "ccb-lms"
+  ],
+  "intro": false,
+  "beats": 2,
+  "key": "a14",
+  "n": 214
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "1/2",
+  "family": "insight",
+  "subs": [
+   "insight-overview",
+   "insight-foundation",
+   "insight-intelligence-loop",
+   "insight-analytics"
+  ],
+  "intro": true,
+  "beats": 4,
+  "key": "a15",
+  "n": 215
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "2/2",
+  "family": "insight",
+  "subs": [
+   "insight-knowledge",
+   "insight-automation",
+   "insight-settings"
+  ],
+  "intro": false,
+  "beats": 2,
+  "key": "a16",
+  "n": 216
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "1/1",
+  "family": "compass",
+  "subs": [
+   "compass-career-awareness",
+   "compass-career-counseling",
+   "compass-career-explorer",
+   "compass-career-intelligence"
+  ],
+  "intro": true,
+  "beats": 4,
+  "key": "a17",
+  "n": 217
+ },
+ {
+  "kind": "big",
+  "theme": "paper",
+  "beats": 0,
+  "title": "How the work flows",
+  "kicker": "Workflows",
+  "ghost": "04",
+  "key": "a18",
+  "n": 218
+ },
+ {
+  "kind": "workflows",
+  "theme": "ink",
+  "beats": 0,
+  "title": "How the work flows",
+  "kicker": "Workflows",
+  "ghost": "04",
+  "key": "a19",
+  "n": 219
+ },
+ {
+  "kind": "big",
+  "theme": "ink",
+  "beats": 0,
+  "title": "Where our AI helps",
+  "kicker": "AI and technology",
+  "ghost": "05",
+  "key": "a20",
+  "n": 220
+ },
+ {
+  "kind": "tech",
+  "theme": "paper",
+  "beats": 2,
+  "title": "Where our AI helps",
+  "kicker": "AI and technology",
+  "ghost": "05",
+  "key": "a21",
+  "n": 221
+ },
+ {
+  "kind": "big",
+  "theme": "paper",
+  "beats": 0,
+  "title": "What could become easier",
+  "kicker": "Benefits",
+  "ghost": "06",
+  "key": "a22",
+  "n": 222
+ },
+ {
+  "kind": "benefits",
+  "theme": "ink",
+  "beats": 0,
+  "title": "What could become easier",
+  "kicker": "Benefits",
+  "ghost": "06",
+  "key": "a23",
+  "n": 223
+ },
+ {
+  "kind": "big",
+  "theme": "ink",
+  "beats": 0,
+  "title": "See it for real",
+  "kicker": "Screens",
+  "ghost": "07",
+  "key": "a24",
+  "n": 224
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "beats": 4,
+  "title": "See it for real",
+  "kicker": "Screens",
+  "ghost": "07",
+  "key": "a25",
+  "n": 225
+ }
+]

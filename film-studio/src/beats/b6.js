@@ -52,7 +52,7 @@ export async function make({ renderer, envs, beat }) {
     return { role, q, a, ln: a.wrap.querySelector('.ln') }
   })
   const credit = document.createElement('div')
-  credit.className = 'hud'; credit.textContent = 'Photos: Fahad Puthawala, Katerina Holmes, World Sikh Organization of Canada / Pexels. Illustrative stock imagery.'
+  credit.className = 'hud'; credit.textContent = 'Illustrative stock imagery.'
   Object.assign(credit.style, { right: '56px', bottom: '36px', fontSize: '17px', letterSpacing: '0.04em', textTransform: 'none', fontWeight: '600' })
   document.getElementById('dom').appendChild(credit)
 

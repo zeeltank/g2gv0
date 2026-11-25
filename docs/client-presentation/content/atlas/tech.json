@@ -1,0 +1,57 @@
+{
+  "pillars": [
+    {
+      "name": "Knowledge graph",
+      "lines": [
+        "Links concepts, prerequisites and common misconceptions",
+        "Maps school frameworks to concepts and career paths",
+        "Joins staff, classes and students from real records"
+      ],
+      "evidence": [
+        "next_lms_erp/app/Domain/KnowledgeGraph/GraphQueryService.php",
+        "next_lms_erp/app/Services/PAL/Coherence/CoherenceMapRepository.php",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php"
+      ]
+    },
+    {
+      "name": "AI",
+      "lines": [
+        "Drafts questions and content for school staff to use",
+        "Checks what it drafts before staff see it",
+        "School administrators set what AI may do"
+      ],
+      "evidence": [
+        "next_lms_erp/app/Domain/GenerativeAI/SafetyChecker.php",
+        "next_lms_erp/app/Services/AI/AiPolicyResolver.php"
+      ]
+    },
+    {
+      "name": "Intelligence",
+      "lines": [
+        "Rule-based reasoning that shows its working",
+        "Recommendations wait for a person to approve",
+        "When data is too thin, it says so instead of guessing"
+      ],
+      "evidence": [
+        "next_lms_erp/app/Brain/Intelligence/Reasoner.php",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php"
+      ]
+    }
+  ],
+  "designed_from": {
+    "items": [
+      "Bloom's taxonomy",
+      "Webb's depth of knowledge",
+      "CASEL",
+      "NGSS",
+      "Gardner's framework mapping",
+      "NCERT and NCF curriculum",
+      "O*NET occupations"
+    ],
+    "evidence": [
+      "next_lms_erp/docs/lms-pal-content-intelligence-master-prompt.md",
+      "next_lms_erp/docs/content-design-system/vocabulary.md",
+      "next_lms_erp/database/neo4j/frameworks/gardner.cypher"
+    ]
+  }
+}

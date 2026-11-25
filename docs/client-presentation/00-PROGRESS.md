@@ -77,3 +77,11 @@ Owner: liked the film, but the boxes and cards repeat; wants unique advanced mot
 - **Nine beats rebuilt** as 3D scenes with real CC0 models, HDRIs and textures. Modules frame redesigned as a 3 x 2 blueprint grid with one real object per bay doing its product's job; workflow, stakeholder, connections, benefit and end beats follow the same fixed-grid rule.
 - **Same words, same timings** (`film.json` unchanged), so the checker, claims and PowerPoint slide 6 are unchanged; only the video file changes.
 - **Open:** PowerPoint autoplay and repair-prompt check, phone and projector playback, consented photographs for the three stakeholder windows, GSAP licence read, outside-leader test, module-owner sign-off.
+
+## Round 5 (2026-11-25): the Product Atlas
+Owner: the deck must cover every module and sub-module (summary, problem, features, research, technology, workflows, AI, benefits) and end with real K12 screenshots, edited and animated; big-letter slides plus animated slides, no maximum on the number of slides; screenshots from the live K12 site with the demo login (he first accepted a local copy, then asked for the live site).
+- Built: 49 verified sheets, `build-atlas.mjs`, 25 new web scenes, PowerPoint atlas slides (`pptx-atlas.mjs`), `capture-k12.mjs` (masked, read-only), unit tests, layout lint on the new slides.
+- See section 9 of `11-explainer-style-notes.md`.
+- **Open:** module-owner sign-off of the new text; owner decisions in each sheet's owner-to-confirm notes (hidden screens, places where the old menu document and the code disagree); PowerPoint open check; videos for the PowerPoint atlas slides.
+
+- **Round 5 end state (2026-11-25):** all checks above pass; 25 atlas slides, 25 videos, 110-slide PowerPoint, film credit lines reduced to the generic label. Nothing committed or pushed yet (waiting for the owner's go).

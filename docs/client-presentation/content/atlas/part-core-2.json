@@ -1,0 +1,531 @@
+{
+  "family": "core",
+  "items": [
+    {
+      "id": "core-fees",
+      "name": "Fees",
+      "k12_menu": "Institute ERP > Fees",
+      "screens": [
+        "Fees Collect",
+        "Online Fees Collect",
+        "Fees Cancel/Refund",
+        "Fees Circular",
+        "Other Fees Collect",
+        "Other Fees Cancel",
+        "S1 Export NACH Excel",
+        "S2 Import NACH Excel",
+        "S3 Export NACH Excel",
+        "S4 Import NACH Excel",
+        "Fees Late Master",
+        "Update Fees BreckOff",
+        "Additional Fees Mapping",
+        "Other Fees Title",
+        "Fees Circular Master",
+        "New Fees Title",
+        "Fees BreakOff",
+        "Fees Config Master",
+        "Fees Receipt Book Master",
+        "Fees Collection Report",
+        "Other Fees Report",
+        "Other Fees Cancel Report",
+        "DateWise Summary Report",
+        "Fees Structure Report",
+        "Fees Monthly Report",
+        "Fees Cancel Report",
+        "Fees Type Wise Report",
+        "Fees Defaulter Report",
+        "Student Breakoff Report"
+      ],
+      "summary": "Collects school fees at the counter or online, issues receipts, handles cancellations and refunds, and prepares auto-debit files.",
+      "problem": "Tracking collections, cancellations, refunds and pending dues across classes and months takes time when each is kept separately.",
+      "features": [
+        "Collect fees with fine, discount and printed receipt",
+        "Cancel receipts or record refunds with remarks",
+        "Print circulars for students with pending fees",
+        "Parents can pay online through a school link",
+        "Export and import bank auto-debit files"
+      ],
+      "research": null,
+      "technology": [
+        "Online payment connection",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Front-office staff could see dues, receipts and refunds in one place, and parents could pay without visiting the school.",
+      "workflow": [
+        "Set up fees",
+        "Collect fees",
+        "Print receipt",
+        "Cancel or refund",
+        "Run reports"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/fees/collect/[studentId]/page.tsx",
+        "lms_k12/app/fees/cancel-refund/page.tsx",
+        "lms_k12/app/fees/online_fees_collect/page.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/fees.php",
+        "next_lms_erp/app/Http/Controllers/fees/fees_collect/fees_collect_controller.php",
+        "next_lms_erp/routes/public_pay.php",
+        "next_lms_erp/docs/PUBLIC_FEE_PAY.md",
+        "next_lms_erp/app/Brain/Intelligence/FeesSignalRules.php"
+      ],
+      "owner_to_confirm": [
+        "The parent pay-by-link page (lms_k12/app/pay/[code]) has no sidebar entry; confirm it is switched on for the demo school. Its own doc lists a known gap: bulk discounts are not applied on that page.",
+        "Online Fees Collect needs a payment connection set up per school under API Settings (Master); the code lists several bank gateways, kept off the slides on purpose.",
+        "Sidebar also shows an item labelled 'AI insights' for Fees. The code behind it is rule-based over the school's own fee records, with no AI model; the menu text and a database menu named 'Fees Prediction' should not be repeated on slides.",
+        "Screens list spans three menu groups (Institute ERP > Fees, Fees (Master), Fees Report); the first ten are the daily-use screens, trim for the slide. Menu names carry typos (BreckOff) in the database.",
+        "Audit trail tab under Fees reports reads system_audit_logs; the API returns an empty list if that table is missing in an environment. Not listed as a feature for that reason.",
+        "Fees AI Stack page comment says its tabs are static placeholders; not described."
+      ]
+    },
+    {
+      "id": "core-petty-cash",
+      "name": "Petty Cash",
+      "k12_menu": "Institute ERP > Petty Cash",
+      "screens": [
+        "Petty Cash",
+        "Petty Cash Master",
+        "Petty Cash Report"
+      ],
+      "summary": "Records small day-to-day school expenses against named heads, keeps the bill image, and reports spending by date and head.",
+      "problem": "Small cash expenses are hard to trace later when the bill, the head and the amount are kept in different places.",
+      "features": [
+        "Record expenses with date, head and amount",
+        "Attach a photo of the bill",
+        "Maintain a list of expense heads",
+        "Report spending by date range and head",
+        "Show the total spent for any period"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional ledger with bill upload",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Accounts staff could find any small expense, its bill and its head quickly instead of searching old registers.",
+      "workflow": [
+        "Add heads",
+        "Record expense",
+        "Attach bill",
+        "Review report"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/petty-cash/page.tsx",
+        "lms_k12/app/admin-services/petty-cash-report/page.tsx",
+        "lms_k12/app/admin-services/petty-cash-master/page.tsx",
+        "next_lms_erp/app/Http/Controllers/api/PettyCashApiController.php",
+        "next_lms_erp/routes/api.php",
+        "next_lms_erp/app/Brain/Intelligence/PettyCashIntelligence.php"
+      ],
+      "owner_to_confirm": [
+        "Amounts are whole numbers only (the database column is an integer); fractions are rejected by the entry screen.",
+        "The data has no approval or payment-status column, so do not describe an approval step for petty cash.",
+        "Petty Cash Master sits under the Institute (Master) menu group and Petty Cash Report under Reports > Other Reports; the sidebar group 'Petty Cash' itself holds only the entry screen.",
+        "The 'AI insights' sidebar item for petty cash is rule-based (calls out claims far above the school's own average) and reports all-time figures, not by academic year; not claimed as a feature.",
+        "Petty Cash AI Stack page exists in code; not described."
+      ]
+    },
+    {
+      "id": "core-inventory",
+      "name": "Inventory",
+      "k12_menu": "Institute ERP > Inventory",
+      "screens": [
+        "Requisition Form",
+        "Requisition Form Approved",
+        "Item Direct Purchase",
+        "Item Quotation",
+        "Generat PO",
+        "Negotiate PO",
+        "Item Receivable",
+        "Inventory Allocation",
+        "Inventory Return",
+        "Inventory Defective",
+        "Inventory Master Setup",
+        "Item Category Master",
+        "Item Sub Category Master",
+        "Inventory Item Master",
+        "Tax Master",
+        "Vendor Master",
+        "Requisition Report",
+        "Staff Wise Report",
+        "Item Delivery Status Report",
+        "Item Wise Report",
+        "Overall Item Report"
+      ],
+      "summary": "Runs the school store from requisition to purchase order, receiving, allocation, return and defective-item records.",
+      "problem": "Without a clear trail, nobody can say who asked for an item, who approved it, what was ordered or where it went.",
+      "features": [
+        "Raise requisitions and approve quantities",
+        "Record vendor quotations and generate purchase orders",
+        "Negotiate order rates, tax and payment terms",
+        "Receive items against a purchase order",
+        "Allocate, return and log defective items"
+      ],
+      "research": null,
+      "technology": [
+        "Approval steps on requisitions and orders",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Store and purchase staff could follow each request from approval to delivery and see what is received, issued or returned.",
+      "workflow": [
+        "Raise requisition",
+        "Approve",
+        "Order",
+        "Receive",
+        "Allocate",
+        "Return"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/Inventory/api.ts",
+        "lms_k12/app/Inventory/requisition_form/RequisitionFormPage.tsx",
+        "lms_k12/app/Inventory/generate_po/GeneratePoPage.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/inventory.php",
+        "next_lms_erp/app/Http/Controllers/api/InventoryApiController.php",
+        "next_lms_erp/app/Brain/Intelligence/InventorySignalRules.php"
+      ],
+      "owner_to_confirm": [
+        "Stock balance is not fully reconciled: the Inventory AI Stack code comment says the item stock figure rises on purchase but is not reduced when stock is issued. The Overall Item Report builds opening, purchased, issued and closing from the records instead. Confirm before promising live stock levels.",
+        "The sidebar 'AI insights' item for Inventory is rule-based and reads stock-take scan records (the same scan table the Library Scan Book writes) plus requisitions awaiting a decision; confirm this scope is intended before showing it.",
+        "Screens list spans three menu groups (Institute ERP > Inventory, Inventory (Master), Inventory Report); first ten are the daily-use screens. Menu names carry typos ('Generat PO').",
+        "Direct purchases add to item stock in the API; not listed as a feature because the stock caveat above applies.",
+        "Inventory AI Stack page exists in code; not described."
+      ]
+    },
+    {
+      "id": "core-transport",
+      "name": "Transport",
+      "k12_menu": "Institute ERP > Transport",
+      "screens": [
+        "Student Transport Mapping",
+        "Add Driver/Conductor",
+        "Add Shift",
+        "Add Vehicle",
+        "Add Route",
+        "Add Stop",
+        "Map Route-Bus",
+        "Map Route-Stop",
+        "Add Transport Rate",
+        "Van Wise Report",
+        "Van Summery Report"
+      ],
+      "summary": "Manages vehicles, drivers, routes, stops and distance-based rates, and places each student on a bus, stop and shift.",
+      "problem": "Matching students to buses and stops by hand makes it hard to see which vehicle is full and who rides where.",
+      "features": [
+        "Keep vehicles with seats, driver and conductor",
+        "Define routes and stops with pickup and drop times",
+        "Set distance-based rate slabs",
+        "Map students in bulk with seat check",
+        "Van-wise lists and summaries with CSV export"
+      ],
+      "research": null,
+      "technology": [
+        "Seat limits checked before mapping",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Transport staff could see how full each vehicle is, who rides on which route and stop, and update mappings quickly.",
+      "workflow": [
+        "Add vehicles",
+        "Add routes",
+        "Add stops",
+        "Set rates",
+        "Map students"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/Transportation/student_transport_mapping/page.tsx",
+        "lms_k12/app/Transportation/api.ts",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/tranceport.php",
+        "next_lms_erp/app/Http/Controllers/api/TransportationApiController.php",
+        "next_lms_erp/app/Brain/Intelligence/TransportSignalRules.php"
+      ],
+      "owner_to_confirm": [
+        "Only Student Transport Mapping sits under the Institute ERP > Transport group; the eight setup screens are in a separate 'Transportation (Master)' group and the two van reports are under Reports > Student Report. Trim the screens list for the slide.",
+        "Not confirmed: whether the distance rate slabs fill the amount on a student's mapping automatically; the mapping API only accepts an optional amount.",
+        "A Transport dashboard (routes, vehicles, students mapped, capacity use) and a late-bus SMS route exist in code but are not in the menu snapshot; not claimed.",
+        "'Add Vehicle' also appears under API Settings (Master) in the menu reference.",
+        "The sidebar 'AI insights' item for Transport is rule-based (for example vehicles carrying more riders than seats); no AI model.",
+        "Menu names carry typos ('Van Summery Report')."
+      ]
+    },
+    {
+      "id": "core-hostel",
+      "name": "Hostel",
+      "k12_menu": "Institute ERP > Hostel",
+      "screens": [
+        "Hostel Room Allocation",
+        "Visitor Details",
+        "Type Master",
+        "Room Type Master",
+        "Hostel Master",
+        "Admission Category Master",
+        "Building Master",
+        "Floor Master",
+        "Room Master",
+        "Visitor Report",
+        "Hostel Report",
+        "Available Room Report"
+      ],
+      "summary": "Sets up hostels, buildings, floors and rooms, allocates beds and lockers to students and staff, and records visitors.",
+      "problem": "Knowing which room, bed and locker belongs to whom, and which rooms still have space, is hard to keep current on paper.",
+      "features": [
+        "Define hostels, buildings, floors and rooms",
+        "Allocate bed, locker, table and bedsheet numbers",
+        "Place students and staff, filtered by class and gender",
+        "See rooms with beds still available",
+        "Log hostel visitors with ID card and photo"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional records with filters",
+        "Reports and exports"
+      ],
+      "benefit": "Hostel staff could see who is placed where, which rooms have space, and who has visited, without searching registers.",
+      "workflow": [
+        "Set up hostels",
+        "Add rooms",
+        "Allocate beds",
+        "Log visitors",
+        "Check availability"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/hostel/_components/HostelModulePage.tsx",
+        "lms_k12/app/hostel/_components/VisitorModulePage.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/hostel_management.php",
+        "next_lms_erp/app/Http/Controllers/api/HostelSetupApiController.php"
+      ],
+      "owner_to_confirm": [
+        "Setup screens sit in a separate 'Hostel (Master)' group and the three reports under 'Hostel Report'; only two screens are directly under Institute ERP > Hostel. Trim the screens list for the slide.",
+        "The code registry marks Hostel's 'AI insights' as partial and says it reports insufficient data for non-boarding schools; deliberately not claimed here.",
+        "Visitor Details appears in both the Hostel group and the Hostel Report group (same page).",
+        "An unused HostelGapPage component in the front end lists 'backend gaps'; it is not routed, so nothing from it is claimed.",
+        "Confirm the demo school actually has boarding data before showing allocation screens."
+      ]
+    },
+    {
+      "id": "core-library",
+      "name": "Library",
+      "k12_menu": "Institute ERP > Library",
+      "screens": [
+        "Book Resources",
+        "Quick Return",
+        "Print Barcode",
+        "Scan Book",
+        "Add Book Remark",
+        "Report",
+        "Issue/Overdue Report",
+        "Scanned Book Report",
+        "Pending Scan Report",
+        "Lost & Damage report"
+      ],
+      "summary": "Keeps the book catalogue with individual copy codes, prints barcodes, handles returns by code, and verifies the shelf by scanning.",
+      "problem": "Without copy-level codes and a shelf check, lost, damaged or overdue books are found late, if at all.",
+      "features": [
+        "Catalogue books with copy-level item codes",
+        "Print barcode sheets for items and members",
+        "Return a book by entering its code",
+        "Scan shelf stock and note lost or damaged",
+        "Overdue, lost and pending-scan reports"
+      ],
+      "research": null,
+      "technology": [
+        "Barcode and item-code scanning",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Librarians could find any copy, see what is overdue or not yet verified, and finish a stock check faster.",
+      "workflow": [
+        "Add books",
+        "Print barcodes",
+        "Return by code",
+        "Scan stock",
+        "Review reports"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/library/book_resources/page.tsx",
+        "lms_k12/app/library/scan_book/page.tsx",
+        "lms_k12/app/library/print_barcode/page.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/web.php",
+        "next_lms_erp/app/Http/Controllers/library/BookController.php",
+        "next_lms_erp/app/Http/Controllers/library/itemScanController.php",
+        "next_lms_erp/app/Brain/Intelligence/LibrarySignalRules.php"
+      ],
+      "owner_to_confirm": [
+        "Issuing a book to a student is NOT built in the new Book Resources screen: its own code comment says the issue/return pop-up and per-book items view were left out because the backend returns page fragments, not data. Quick Return and the Issue/Overdue report depend on loans issued elsewhere. Confirm where staff issue books before saying 'issue and return'.",
+        "Screens are split across three menu groups (Books, Stock Verification, Library Report); trim for the slide.",
+        "The sidebar 'AI insights' item for Library is rule-based (high-demand titles, overdue volume, titles never borrowed); no AI model.",
+        "Library AI Stack page exists in code; not described."
+      ]
+    },
+    {
+      "id": "core-inward-outward",
+      "name": "Inward Outward",
+      "k12_menu": "Institute ERP > Inward Outward",
+      "screens": [
+        "Add Inward",
+        "Add Outward",
+        "Physical File Location",
+        "Place Master",
+        "Inward Report",
+        "Outward Report"
+      ],
+      "summary": "Keeps a register of letters and documents received and sent, with place, number, subject, file location and an attached image.",
+      "problem": "Paper letters and files are hard to find later when nobody recorded where they came from or where they were kept.",
+      "features": [
+        "Record inward and outward entries with numbers",
+        "Attach an image of each document",
+        "Note the physical file location",
+        "Maintain lists of places and file locations",
+        "Filter registers by any column and export"
+      ],
+      "research": null,
+      "technology": [
+        "Conventional register with attachments",
+        "Reports and exports",
+        "Rule-based insights from school records"
+      ],
+      "benefit": "Office staff could trace any letter by number, subject or place and know where the physical file is kept.",
+      "workflow": [
+        "Add places",
+        "Add file locations",
+        "Record entry",
+        "Attach image",
+        "Search register"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/inward_outward/_components/RegisterPage.tsx",
+        "lms_k12/app/inward_outward/_components/ReportPage.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/inward_outward.php",
+        "next_lms_erp/app/Http/Controllers/inward_outward/inwardController.php",
+        "next_lms_erp/app/Brain/Intelligence/CorrespondenceSignalRules.php"
+      ],
+      "owner_to_confirm": [
+        "The entry form requires an image attachment on a new entry and accepts images only; confirm whether PDF scans are expected before saying 'scanned copy'.",
+        "Place and file-location lists are in a separate 'Inward Outward (Master)' group and the two reports in 'Inward Outward Report'; only two screens sit directly under Institute ERP > Inward Outward.",
+        "The sidebar 'AI insights' item for Inward Outward is rule-based (for example duplicate inward numbers, entries with no file location, inward entries with no attachment); no AI model.",
+        "Inward Outward AI Stack page exists in code; not described."
+      ]
+    },
+    {
+      "id": "core-utility",
+      "name": "Utility",
+      "k12_menu": "Institute ERP > Utility",
+      "screens": [
+        "Rollover",
+        "Breakoff Rollover",
+        "Update all Data",
+        "Student Transfer",
+        "Form Builder",
+        "Custom Module",
+        "Transfer Student"
+      ],
+      "summary": "Year-end and administrative tools: roll data into the next year, promote or transfer students, and design your own forms and tables.",
+      "problem": "Year-end changeover and one-off setup jobs take staff time when each record has to be copied or changed by hand.",
+      "features": [
+        "Copy master data and fee structures to next year",
+        "Promote students to their next standard",
+        "Move students to another institute of the client",
+        "Bulk year-end updates from Excel",
+        "Design custom forms and record tables"
+      ],
+      "research": null,
+      "technology": [
+        "Batch year-end actions with checks",
+        "Form and table designer"
+      ],
+      "benefit": "Administrators could start a new academic year with less repeated entry and add their own simple forms and record tables.",
+      "workflow": [
+        "Run rollover",
+        "Carry fees forward",
+        "Promote students",
+        "Bulk update",
+        "Build forms"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/Utility/rollover/api.ts",
+        "lms_k12/app/Utility/update-all-data/page.tsx",
+        "lms_k12/app/Utility/custom-module/api.ts",
+        "lms_k12/app/general/form_builder/FormBuilderEditor.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/student.php",
+        "next_lms_erp/routes/custom_module.php"
+      ],
+      "owner_to_confirm": [
+        "Update all Data includes heavy year-end actions (make all students inactive, delete fee breakoff months); show with care in a live school, ideally on a demo school.",
+        "Rollover refuses to run with fewer than four modules ticked and always includes academic year, fee year map and fee title tables.",
+        "Student Transfer moves students only between institutes of the same client; Transfer Student (promotion to next year) sits under the Institute (Master) menu group.",
+        "Not confirmed: whether forms saved in Form Builder are consumed by any other screen; the screen stores the form definition (JSON and XML).",
+        "Custom Module creates database tables from a screen and registers routes from them at start-up; confirm this is safe to show to client admins.",
+        "Utility has no 'AI insights' item in the code registry; none claimed."
+      ]
+    },
+    {
+      "id": "core-document-templates",
+      "name": "Document Templates",
+      "k12_menu": "Institute ERP > Document Templates",
+      "screens": [
+        "All templates",
+        "Template Management",
+        "Certificates",
+        "Result Template",
+        "ID cards",
+        "Fee documents",
+        "Admission documents"
+      ],
+      "summary": "A template library and visual designer for certificates, ID cards, fee documents and admission letters, filled with school and student details.",
+      "problem": "Certificates, ID cards and receipts get retyped or reformatted for every student when the layout is not reusable.",
+      "features": [
+        "Design layouts on a page canvas",
+        "Insert school and student merge fields",
+        "Preview with a real student's details",
+        "Keep drafts, publish, archive, restore earlier versions",
+        "Export as PDF or image"
+      ],
+      "research": null,
+      "technology": [
+        "Visual template designer",
+        "Merge fields from school records",
+        "PDF and image export"
+      ],
+      "benefit": "Staff could reuse one approved layout for every student and keep older versions safe, instead of reformatting each document.",
+      "workflow": [
+        "Pick category",
+        "Design layout",
+        "Insert fields",
+        "Preview student",
+        "Publish",
+        "Export"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/document-templates/api.ts",
+        "lms_k12/components/document-template/editor/Topbar.tsx",
+        "lms_k12/components/document-template/editor/PreviewBar.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/app/Http/Controllers/api/DocumentTemplateApiController.php"
+      ],
+      "owner_to_confirm": [
+        "Two template systems exist side by side: the new visual designer (All templates, Certificates, ID cards, Fee documents, Admission documents) and older HTML merge-tag editors (Template Management, Result Template). Confirm which one is shown in the demo.",
+        "PDF and image export runs in the browser (page capture), not on the server; check output quality on the demo machine.",
+        "The backend also holds an assistant-only template category; not described.",
+        "Issuing and printing a certificate for a student is on the Student menu (Student Certificate), outside this module.",
+        "The sidebar 'AI insights' item for Document Templates exists in the registry but only at the basic findings level; not claimed.",
+        "Document Templates AI Stack page exists in code; not described."
+      ]
+    }
+  ]
+}

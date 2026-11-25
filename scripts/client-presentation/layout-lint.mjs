@@ -4,13 +4,17 @@
 // FAIL = text over text, text crossing a box edge, text outside the 1920 x 1080 stage.  WARN = cramped margin, near-aligned edges (2 to 10 px
 // apart), type under 20 px.  Exit 1 on any FAIL (and on WARN with --strict). Runs every slide at every beat at 1920 x 1080 (the stage scales).
 import { createRequire } from 'node:module'
-import { mkdirSync, readdirSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1] }
 const base = arg('base', 'http://localhost:3210'); const out = arg('out', 'layout-shots')
 const only = arg('slides', null)?.split(',').map(Number)
 const strict = process.argv.includes('--strict')
 const BEATS = { 1: 2, 2: 2, 3: 2, 4: 8, 5: 2, 6: 4, 7: 3, 8: 7, 9: 2, 10: 6, 11: 3, 12: 3, 13: 3, 14: 5, 15: 1, 16: 4, 17: 0 }
+// The Product Atlas slides (201 and up) and their beats come from the generated plan (build-atlas.mjs).
+const PLAN = JSON.parse(readFileSync(new URL('../../lib/client-presentation/generated/atlas-plan.json', import.meta.url), 'utf8'))
+for (const a of PLAN) BEATS[a.n] = a.beats
+const ALL = [...Array.from({ length: 17 }, (_, i) => i + 1), ...PLAN.map((a) => a.n)]
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')
 const exe = readdirSync(process.env.LOCALAPPDATA + '/ms-playwright').filter((d) => d.startsWith('chromium-') && !d.includes('headless')).map((d) => `${process.env.LOCALAPPDATA}/ms-playwright/${d}/chrome-win64/chrome.exe`)[0]
@@ -106,7 +110,7 @@ const analyse = () => {
 }
 
 let totalF = 0; let totalW = 0
-for (let n = 1; n <= 17; n++) {
+for (const n of ALL) {
   if (only && !only.includes(n)) continue
   for (let b = 0; b <= BEATS[n]; b++) {
     await page.goto(`${base}/module/lms/learning/client-presentation/scholarclone?slide=${n}&beat=${b}`, { waitUntil: 'domcontentloaded', timeout: 90000 })

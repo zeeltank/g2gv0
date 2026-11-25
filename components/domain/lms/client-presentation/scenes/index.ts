@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react'
 
+import { ATLAS_PLAN } from '@/lib/client-presentation/atlas'
 import { FULL_ORDER, SHORT_ORDER } from '@/lib/client-presentation/navigation'
 
+import AtlasScene from './atlas-scenes'
 import S01, { BEATS as B01 } from './s01-hook'
 import S02, { BEATS as B02 } from './s02-hidden-question'
 import S03, { BEATS as B03 } from './s03-familiar-situation'
@@ -52,6 +54,9 @@ export const SCENES: Record<string, SceneDef> = {
   'short-2': { key: 'short-2', slides: [2, 4], beats: BS2, Component: Short2 },
   'short-3': { key: 'short-3', slides: [5, 6], beats: BS3, Component: Short3 },
 }
+
+// The Product Atlas slides: one scene component, a plan entry each (lib/client-presentation/atlas.ts).
+for (const a of ATLAS_PLAN) SCENES[a.key] = { key: a.key, slides: [a.n], beats: a.beats, Component: AtlasScene }
 
 export const beatsOf = (key: string): number => SCENES[key]?.beats ?? 0
 

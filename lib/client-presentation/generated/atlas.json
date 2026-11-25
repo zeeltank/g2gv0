@@ -1,0 +1,2057 @@
+{
+ "captured": "2026-11-25",
+ "products": [
+  {
+   "key": "core",
+   "product": "Scholar Core",
+   "k12_module": "Institute ERP",
+   "family": {
+    "summary": "The everyday school office in one place: admissions, student records, fees, attendance, exams, transport, library, communication and more.",
+    "problem": "Office work is spread across registers, spreadsheets and separate tools, so staff re-enter the same details and answers come slowly.",
+    "benefit": "Staff could work from one set of records, spend less time compiling reports, and answer parents and leaders faster.",
+    "technology": [
+     "Rules and automation",
+     "Online payment connection",
+     "Reports and exports",
+     "Role-based access"
+    ],
+    "research": null,
+    "workflow": [
+     "Enquiry",
+     "Admission",
+     "Student record",
+     "Daily work",
+     "Reports"
+    ],
+    "ai": [
+     "AI-assisted drafting for health notes and admission remarks",
+     "Staff can ask questions of school records in plain words"
+    ]
+   },
+   "subs": [
+    {
+     "id": "core-student",
+     "name": "Student",
+     "screens": [
+      "Search/Edit Student",
+      "Student Documents",
+      "Bulk Student Update",
+      "Student Certificate",
+      "Student Infirmary",
+      "Student I-card",
+      "Student Vaccination",
+      "Student Height Weight",
+      "Student Health",
+      "Student Request"
+     ],
+     "screen_count": 10,
+     "summary": "Keeps each student's record in order: enrolment, profile, documents, health notes, certificates and I-cards, by section, class and division.",
+     "problem": "Scattered registers make finding, updating and certifying student details slow and repetitive.",
+     "features": [
+      "Search students by class, division, name or GR number",
+      "Add students with an automatic GR number",
+      "Update chosen details for a whole class",
+      "Print certificates and I-cards from templates",
+      "See which students have missing documents"
+     ],
+     "research": null,
+     "technology": [
+      "Templates for certificates and I-cards",
+      "AI-assisted drafting for health and vaccination notes"
+     ],
+     "benefit": "Finding, updating and certifying student records could become easier for office staff.",
+     "workflow": [
+      "Add student",
+      "Map subjects",
+      "Check documents",
+      "Record health",
+      "Print I-card",
+      "Issue certificate"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--student--search-edit-student.webp"
+     ]
+    },
+    {
+     "id": "core-admission",
+     "name": "Admission",
+     "screens": [
+      "Admission Inquiry",
+      "Admission Registration",
+      "Admission Confirmation"
+     ],
+     "screen_count": 3,
+     "summary": "Takes a family from first enquiry to confirmed admission: enquiries, follow-ups, registration with documents, and confirmation.",
+     "problem": "Enquiries, follow-up dates and registration papers in different places make it easy to lose track of a family.",
+     "features": [
+      "Log enquiries and follow-ups for each family",
+      "Track registrations with document and fee status",
+      "Confirm admission and add the student record",
+      "Export confirmation lists to Excel, PDF or print",
+      "Draft enquiry remarks with AI assistance"
+     ],
+     "research": null,
+     "technology": [
+      "AI-assisted drafting for enquiry remarks",
+      "Reports and exports"
+     ],
+     "benefit": "Following up enquiries and moving families through registration and confirmation could become easier for the admission team.",
+     "workflow": [
+      "Log enquiry",
+      "Follow up",
+      "Register",
+      "Confirm admission",
+      "Add student"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--admission--admission-inquiry.webp"
+     ]
+    },
+    {
+     "id": "core-attendance",
+     "name": "Attendance",
+     "screens": [
+      "Student Attendance"
+     ],
+     "screen_count": 1,
+     "summary": "Daily class attendance: choose the class and date, mark present or absent, and save the register.",
+     "problem": "Taking, correcting and sharing daily attendance on paper is slow.",
+     "features": [
+      "Pick class and date, then load the register",
+      "Mark present or absent, or mark all together",
+      "School calendar holidays and Sundays block marking",
+      "Saving again the same day updates earlier marks",
+      "Sends app notifications to families for same-day marking"
+     ],
+     "research": null,
+     "technology": [
+      "Rules and automation for holidays and alerts"
+     ],
+     "benefit": "Taking attendance and keeping families informed could become easier for teachers.",
+     "workflow": [
+      "Pick class",
+      "Pick date",
+      "Load register",
+      "Mark attendance",
+      "Save"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--attendance--student-attendance.webp"
+     ]
+    },
+    {
+     "id": "core-users",
+     "name": "Users",
+     "screens": [
+      "User Master",
+      "Teacher Transfer Utility",
+      "User I-card"
+     ],
+     "screen_count": 3,
+     "summary": "The staff directory: add and edit employee accounts, give each an access profile, record teacher subjects and lectures.",
+     "problem": "Keeping staff accounts and the right access for each person up to date is slow when records are scattered.",
+     "features": [
+      "Add and edit staff accounts with access profiles",
+      "Record teachers' subjects and total lectures",
+      "Search and sort the staff list",
+      "Deactivate accounts instead of deleting them",
+      "Only administrators can assign administrator profiles"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access to view, add, edit and delete"
+     ],
+     "benefit": "Adding staff, setting their access and switching off leavers could become easier for administrators.",
+     "workflow": [
+      "Add user",
+      "Choose profile",
+      "Add subjects",
+      "Save",
+      "Search list"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--users--user-master.webp"
+     ]
+    },
+    {
+     "id": "core-front-desk",
+     "name": "Front Desk",
+     "screens": [
+      "Front Desk"
+     ],
+     "screen_count": 1,
+     "summary": "A front-desk log of parent and other visitors: who came, whom they met, why, and when they left.",
+     "problem": "Paper visitor registers make it hard to see quickly who met whom, when and why.",
+     "features": [
+      "Log each visitor with student and staff member met",
+      "Record in time, out time and visitor photo",
+      "Choose parent or other visitor type",
+      "Staff see only entries addressed to them",
+      "Search the log; export to CSV, Excel or print"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access: staff see their own visitors",
+      "Reports and exports"
+     ],
+     "benefit": "Reception could keep a searchable record of visits, and staff could find the visits meant for them.",
+     "workflow": [
+      "Choose visitor type",
+      "Add details",
+      "Add photo",
+      "Save entry",
+      "Record out time"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--front-desk--front-desk.webp"
+     ]
+    },
+    {
+     "id": "core-visitor-management",
+     "name": "Visitor Management",
+     "screens": [
+      "Add Visitor"
+     ],
+     "screen_count": 1,
+     "summary": "A gate register for visitors: who came, whom they met, why, with ID card and photo, and when they left.",
+     "problem": "Gate visits written on paper are hard to search, and leaving times are often missed.",
+     "features": [
+      "Record gate visits with ID card and photo",
+      "Log direct or prior-appointment visits",
+      "Check visitors out from today's list",
+      "Welcome and exit text messages, when switched on",
+      "Search and export today's visitor list"
+     ],
+     "research": null,
+     "technology": [
+      "Visitor text messages through the school's gateway",
+      "Reports and exports"
+     ],
+     "benefit": "Gate staff could record and close visits quickly, and hosts could be told when a visitor arrives.",
+     "workflow": [
+      "Choose appointment",
+      "Enter details",
+      "Save check-in",
+      "Check out",
+      "Review today's list"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--visitor-management--add-visitor.webp"
+     ]
+    },
+    {
+     "id": "core-timetable",
+     "name": "Timetable",
+     "screens": [
+      "Assign Class Teacher",
+      "Proxy Management",
+      "Create Timetable"
+     ],
+     "screen_count": 3,
+     "summary": "Class teacher assignments, the weekly timetable grid, and substitute-teacher cover for absent staff.",
+     "problem": "Clashes between periods and sudden teacher absences take time to sort out by hand.",
+     "features": [
+      "Assign one class teacher to each class",
+      "Build the weekly grid by subject, teacher and period",
+      "Stops a teacher being booked twice in a period",
+      "Shows each teacher's remaining lectures while planning",
+      "Lists only available teachers as substitutes"
+     ],
+     "research": null,
+     "technology": [
+      "Rules and automation for clash checks",
+      "Reports and exports"
+     ],
+     "benefit": "Planning periods and arranging substitute cover could become easier for the timetable coordinator.",
+     "workflow": [
+      "Assign class teacher",
+      "Pick class",
+      "Fill period grid",
+      "Save entries",
+      "Assign substitute"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--timetable--assign-class-teacher.webp"
+     ]
+    },
+    {
+     "id": "core-exam",
+     "name": "Exam",
+     "screens": [
+      "Mark Entry",
+      "Co-scholastic Mark",
+      "Upload Result",
+      "HPC Activity Entry"
+     ],
+     "screen_count": 4,
+     "summary": "Marks entry, co-scholastic grades, result file uploads and holistic progress card activities for each class and term.",
+     "problem": "Entering, checking and approving marks across many classes and sheets takes a lot of time.",
+     "features": [
+      "Enter marks by term, class, subject and exam",
+      "Grades fill in from the school's grade ranges",
+      "Approve co-scholastic grades per class and term",
+      "Upload a result file for each student",
+      "Record holistic progress card activities per student"
+     ],
+     "research": null,
+     "technology": [
+      "Automatic grade and mark-limit checks",
+      "Approval step for co-scholastic grades"
+     ],
+     "benefit": "Entering and approving marks could become easier, and results could be prepared from checked entries.",
+     "workflow": [
+      "Select class",
+      "Enter marks",
+      "Add co-scholastic",
+      "Record activities",
+      "Approve grades",
+      "Upload results"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--exam--mark-entry.webp"
+     ]
+    },
+    {
+     "id": "core-fees",
+     "name": "Fees",
+     "screens": [
+      "Fees Collect",
+      "Fees Cancel/Refund",
+      "Fees Circular",
+      "Other Fees Collect",
+      "Other Fees Cancel",
+      "S1 Export NACH Excel",
+      "S2 Import NACH Excel",
+      "S3 Export NACH Excel",
+      "S4 Import NACH Excel"
+     ],
+     "screen_count": 9,
+     "summary": "Collects school fees at the counter or online, issues receipts, handles cancellations and refunds, and prepares auto-debit files.",
+     "problem": "Tracking collections, cancellations, refunds and pending dues across classes and months takes time when each is kept separately.",
+     "features": [
+      "Collect fees with fine, discount and printed receipt",
+      "Cancel receipts or record refunds with remarks",
+      "Print circulars for students with pending fees",
+      "Parents can pay online through a school link",
+      "Export and import bank auto-debit files"
+     ],
+     "research": null,
+     "technology": [
+      "Online payment connection",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Front-office staff could see dues, receipts and refunds in one place, and parents could pay without visiting the school.",
+     "workflow": [
+      "Set up fees",
+      "Collect fees",
+      "Print receipt",
+      "Cancel or refund",
+      "Run reports"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--fees--fees-collect.webp"
+     ]
+    },
+    {
+     "id": "core-petty-cash",
+     "name": "Petty Cash",
+     "screens": [
+      "Petty Cash"
+     ],
+     "screen_count": 1,
+     "summary": "Records small day-to-day school expenses against named heads, keeps the bill image, and reports spending by date and head.",
+     "problem": "Small cash expenses are hard to trace later when the bill, the head and the amount are kept in different places.",
+     "features": [
+      "Record expenses with date, head and amount",
+      "Attach a photo of the bill",
+      "Maintain a list of expense heads",
+      "Report spending by date range and head",
+      "Show the total spent for any period"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional ledger with bill upload",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Accounts staff could find any small expense, its bill and its head quickly instead of searching old registers.",
+     "workflow": [
+      "Add heads",
+      "Record expense",
+      "Attach bill",
+      "Review report"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--petty-cash--petty-cash.webp"
+     ]
+    },
+    {
+     "id": "core-inventory",
+     "name": "Inventory",
+     "screens": [
+      "Requisition Form",
+      "Requisition Form Approved",
+      "Item Direct Purchase",
+      "Item Quotation",
+      "Generat PO",
+      "Negotiate PO",
+      "Item Receivable",
+      "Inventory Allocation",
+      "Inventory Return",
+      "Inventory Defective"
+     ],
+     "screen_count": 10,
+     "summary": "Runs the school store from requisition to purchase order, receiving, allocation, return and defective-item records.",
+     "problem": "Without a clear trail, nobody can say who asked for an item, who approved it, what was ordered or where it went.",
+     "features": [
+      "Raise requisitions and approve quantities",
+      "Record vendor quotations and generate purchase orders",
+      "Negotiate order rates, tax and payment terms",
+      "Receive items against a purchase order",
+      "Allocate, return and log defective items"
+     ],
+     "research": null,
+     "technology": [
+      "Approval steps on requisitions and orders",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Store and purchase staff could follow each request from approval to delivery and see what is received, issued or returned.",
+     "workflow": [
+      "Raise requisition",
+      "Approve",
+      "Order",
+      "Receive",
+      "Allocate",
+      "Return"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--inventory--requisition-form.webp"
+     ]
+    },
+    {
+     "id": "core-transport",
+     "name": "Transport",
+     "screens": [
+      "Student Transport Mapping"
+     ],
+     "screen_count": 1,
+     "summary": "Manages vehicles, drivers, routes, stops and distance-based rates, and places each student on a bus, stop and shift.",
+     "problem": "Matching students to buses and stops by hand makes it hard to see which vehicle is full and who rides where.",
+     "features": [
+      "Keep vehicles with seats, driver and conductor",
+      "Define routes and stops with pickup and drop times",
+      "Set distance-based rate slabs",
+      "Map students in bulk with seat check",
+      "Van-wise lists and summaries with CSV export"
+     ],
+     "research": null,
+     "technology": [
+      "Seat limits checked before mapping",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Transport staff could see how full each vehicle is, who rides on which route and stop, and update mappings quickly.",
+     "workflow": [
+      "Add vehicles",
+      "Add routes",
+      "Add stops",
+      "Set rates",
+      "Map students"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--transport--student-transport-mapping.webp"
+     ]
+    },
+    {
+     "id": "core-hostel",
+     "name": "Hostel",
+     "screens": [
+      "Hostel Room Allocation",
+      "Visitor Details"
+     ],
+     "screen_count": 2,
+     "summary": "Sets up hostels, buildings, floors and rooms, allocates beds and lockers to students and staff, and records visitors.",
+     "problem": "Knowing which room, bed and locker belongs to whom, and which rooms still have space, is hard to keep current on paper.",
+     "features": [
+      "Define hostels, buildings, floors and rooms",
+      "Allocate bed, locker, table and bedsheet numbers",
+      "Place students and staff, filtered by class and gender",
+      "See rooms with beds still available",
+      "Log hostel visitors with ID card and photo"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional records with filters",
+      "Reports and exports"
+     ],
+     "benefit": "Hostel staff could see who is placed where, which rooms have space, and who has visited, without searching registers.",
+     "workflow": [
+      "Set up hostels",
+      "Add rooms",
+      "Allocate beds",
+      "Log visitors",
+      "Check availability"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--hostel--hostel-room-allocation.webp"
+     ]
+    },
+    {
+     "id": "core-library",
+     "name": "Library",
+     "screens": [
+      "Book Resources",
+      "Report",
+      "Scan Book",
+      "Quick Return",
+      "Issue/Overdue Report",
+      "Add Book Remark",
+      "Print Barcode",
+      "Scanned Book Report",
+      "Pending Scan Report",
+      "Lost & Damage report"
+     ],
+     "screen_count": 10,
+     "summary": "Keeps the book catalogue with individual copy codes, prints barcodes, handles returns by code, and verifies the shelf by scanning.",
+     "problem": "Without copy-level codes and a shelf check, lost, damaged or overdue books are found late, if at all.",
+     "features": [
+      "Catalogue books with copy-level item codes",
+      "Print barcode sheets for items and members",
+      "Return a book by entering its code",
+      "Scan shelf stock and note lost or damaged",
+      "Overdue, lost and pending-scan reports"
+     ],
+     "research": null,
+     "technology": [
+      "Barcode and item-code scanning",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Librarians could find any copy, see what is overdue or not yet verified, and finish a stock check faster.",
+     "workflow": [
+      "Add books",
+      "Print barcodes",
+      "Return by code",
+      "Scan stock",
+      "Review reports"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--library--book-resources.webp"
+     ]
+    },
+    {
+     "id": "core-inward-outward",
+     "name": "Inward Outward",
+     "screens": [
+      "Add Inward",
+      "Add Outward"
+     ],
+     "screen_count": 2,
+     "summary": "Keeps a register of letters and documents received and sent, with place, number, subject, file location and an attached image.",
+     "problem": "Paper letters and files are hard to find later when nobody recorded where they came from or where they were kept.",
+     "features": [
+      "Record inward and outward entries with numbers",
+      "Attach an image of each document",
+      "Note the physical file location",
+      "Maintain lists of places and file locations",
+      "Filter registers by any column and export"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional register with attachments",
+      "Reports and exports",
+      "Rule-based insights from school records"
+     ],
+     "benefit": "Office staff could trace any letter by number, subject or place and know where the physical file is kept.",
+     "workflow": [
+      "Add places",
+      "Add file locations",
+      "Record entry",
+      "Attach image",
+      "Search register"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--inward-outward--add-inward.webp"
+     ]
+    },
+    {
+     "id": "core-utility",
+     "name": "Utility",
+     "screens": [
+      "Rollover",
+      "Breakoff Rollover",
+      "Update all Data",
+      "Student Transfer",
+      "Form Builder",
+      "Custom Module"
+     ],
+     "screen_count": 6,
+     "summary": "Year-end and administrative tools: roll data into the next year, promote or transfer students, and design your own forms and tables.",
+     "problem": "Year-end changeover and one-off setup jobs take staff time when each record has to be copied or changed by hand.",
+     "features": [
+      "Copy master data and fee structures to next year",
+      "Promote students to their next standard",
+      "Move students to another institute of the client",
+      "Bulk year-end updates from Excel",
+      "Design custom forms and record tables"
+     ],
+     "research": null,
+     "technology": [
+      "Batch year-end actions with checks",
+      "Form and table designer"
+     ],
+     "benefit": "Administrators could start a new academic year with less repeated entry and add their own simple forms and record tables.",
+     "workflow": [
+      "Run rollover",
+      "Carry fees forward",
+      "Promote students",
+      "Bulk update",
+      "Build forms"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--utility--rollover.webp"
+     ]
+    },
+    {
+     "id": "core-document-templates",
+     "name": "Document Templates",
+     "screens": [
+      "All templates",
+      "Certificates",
+      "Template Management",
+      "ID cards",
+      "Result Template",
+      "Fee documents",
+      "Admission documents"
+     ],
+     "screen_count": 7,
+     "summary": "A template library and visual designer for certificates, ID cards, fee documents and admission letters, filled with school and student details.",
+     "problem": "Certificates, ID cards and receipts get retyped or reformatted for every student when the layout is not reusable.",
+     "features": [
+      "Design layouts on a page canvas",
+      "Insert school and student merge fields",
+      "Preview with a real student's details",
+      "Keep drafts, publish, archive, restore earlier versions",
+      "Export as PDF or image"
+     ],
+     "research": null,
+     "technology": [
+      "Visual template designer",
+      "Merge fields from school records",
+      "PDF and image export"
+     ],
+     "benefit": "Staff could reuse one approved layout for every student and keep older versions safe, instead of reformatting each document.",
+     "workflow": [
+      "Pick category",
+      "Design layout",
+      "Insert fields",
+      "Preview student",
+      "Publish",
+      "Export"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--document-templates--all-templates.webp"
+     ]
+    },
+    {
+     "id": "core-communication",
+     "name": "Communication",
+     "screens": [
+      "Send SMS Parents",
+      "Send SMS Staff",
+      "Send Notification Parents",
+      "Send Email Parents",
+      "Send WhatsApp Parents"
+     ],
+     "screen_count": 5,
+     "summary": "Compose SMS, e-mail, app and WhatsApp messages to parents, and SMS to staff, by class or staff group, with message logs.",
+     "problem": "Reaching parents on several channels often means repeating work in different tools and losing track of who was contacted.",
+     "features": [
+      "Pick a class and see each parent's contact",
+      "Contacts that cannot be reached are not selectable",
+      "Write e-mails with a subject and attachment",
+      "Draft message wording with an AI assistant, then review",
+      "Message logs with filters and CSV export"
+     ],
+     "research": null,
+     "technology": [
+      "AI-assisted message drafting",
+      "Reports and exports of message logs"
+     ],
+     "benefit": "Staff could reach the right families from one place, on any supported channel, and look back at past messages more easily.",
+     "workflow": [
+      "Pick class",
+      "Choose recipients",
+      "Write message",
+      "Send",
+      "Check log"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--communication--send-sms-parents.webp"
+     ]
+    },
+    {
+     "id": "core-circular",
+     "name": "Circular",
+     "screens": [],
+     "screen_count": 0,
+     "summary": "Publish school circulars to chosen classes or every standard, with type, message and attachment, and keep a searchable list.",
+     "problem": "Paper notices and scattered messages make it hard to reach the right classes and to find what was announced earlier.",
+     "features": [
+      "Choose circular type, date, title and message",
+      "Attach a PDF or image to each circular",
+      "Target selected classes or all standards at once",
+      "Parents can be alerted in the school mobile app",
+      "Printable circular report for any date range"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional circular register with printable report"
+     ],
+     "benefit": "Staff could publish a notice to many classes together and find earlier circulars by date or class more easily.",
+     "workflow": [
+      "Pick classes",
+      "Add details",
+      "Attach file",
+      "Publish",
+      "Review list"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--circular--circular.webp"
+     ]
+    },
+    {
+     "id": "core-parent-communication",
+     "name": "Parent Communication",
+     "screens": [],
+     "screen_count": 0,
+     "summary": "Review messages parents send from the mobile app and the replies staff recorded, by date range, with student and class details.",
+     "problem": "Parent questions can get lost in calls and chats, so families wait without knowing whether the school replied.",
+     "features": [
+      "Parents write to the school from the mobile app",
+      "List shows student, class, mobile, title and message",
+      "Each reply shows who replied and when",
+      "Filter messages by from and to date",
+      "Teachers see messages for their own classes"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional message and reply register",
+      "Role-based access by class and subject"
+     ],
+     "benefit": "Staff could find parent messages and their replies in one list, making follow-up on unanswered questions easier.",
+     "workflow": [
+      "Set dates",
+      "Search",
+      "Read messages",
+      "Check replies"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--parent-communication--parent-communication.webp"
+     ]
+    },
+    {
+     "id": "core-consent",
+     "name": "Consent",
+     "screens": [],
+     "screen_count": 0,
+     "summary": "Issue a consent for selected students of a class, then review issued consents with their parent status.",
+     "problem": "Collecting permissions on paper makes it hard to know which students were asked and where each consent stands.",
+     "features": [
+      "Find students by section, standard and division",
+      "Set title, date and accountable status once",
+      "Issue the same consent to many students together",
+      "Consent report with parent status, filters and export",
+      "Select and delete issued consents"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional consent records with reports"
+     ],
+     "benefit": "Staff could raise a consent for a whole class together and later see which students it covers and its parent status.",
+     "workflow": [
+      "Pick class",
+      "Select students",
+      "Enter details",
+      "Save consent",
+      "Review report"
+     ],
+     "data": "live",
+     "shots": []
+    },
+    {
+     "id": "core-ptm",
+     "name": "PTM",
+     "screens": [
+      "PTM Attended Status"
+     ],
+     "screen_count": 1,
+     "summary": "Define meeting slots for each class, let parents book through the mobile app, mark who attended and review bookings.",
+     "problem": "Parent-teacher meetings are hard to schedule and track, and it is easy to lose count of who attended.",
+     "features": [
+      "Define time slots by class, title and date",
+      "Add several time ranges for one meeting day",
+      "Parents book a teacher slot in the app",
+      "Mark each student's attendance with remarks",
+      "Report of bookings with attendance and remarks"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional slot booking and attendance records"
+     ],
+     "benefit": "Staff could set up meeting slots once per class and see at a glance which bookings were kept and which were missed.",
+     "workflow": [
+      "Define slots",
+      "Parents book",
+      "Mark attendance",
+      "Review report"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--ptm--ptm-attended-status.webp"
+     ]
+    },
+    {
+     "id": "core-complaint",
+     "name": "Complaint",
+     "screens": [
+      "Complaint Management"
+     ],
+     "screen_count": 1,
+     "summary": "Record complaints with a date, description and attachment, then note the solution, who resolved it and its current status.",
+     "problem": "Complaints raised verbally or on paper are easily forgotten, with no clear record of who handled them or how.",
+     "features": [
+      "Raise a complaint with title, date and description",
+      "Attach a supporting file to a complaint",
+      "New complaints start as pending automatically",
+      "Record the solution, its status and who resolved it",
+      "Complaint report for any date range, with export"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional complaint register with reports"
+     ],
+     "benefit": "Staff could keep every complaint and its outcome in one searchable register instead of scattered notes.",
+     "workflow": [
+      "Raise complaint",
+      "Attach file",
+      "Record solution",
+      "Set resolver",
+      "Review report"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--complaint--complaint-management.webp"
+     ]
+    },
+    {
+     "id": "core-mobile-apps",
+     "name": "Mobile Apps",
+     "screens": [
+      "Calendar",
+      "Photo Video Gallary",
+      "Leave Application",
+      "Exam Schedule"
+     ],
+     "screen_count": 4,
+     "summary": "Manage the calendar, photo and video albums, exam schedules and leave requests that students and parents use in the school app.",
+     "problem": "Dates, photos and schedules shared through notice boards and chat groups reach families unevenly and are hard to find later.",
+     "features": [
+      "Add class events and vacations to the calendar",
+      "Publish photo albums or video links by class",
+      "Upload exam schedule files for chosen classes",
+      "Review student leave requests, replies and status",
+      "Teachers can approve or reject leave in their app"
+     ],
+     "research": null,
+     "technology": [
+      "Conventional publishing to the school mobile app",
+      "Secure one-time sign-in from app to web"
+     ],
+     "benefit": "Staff could keep school dates, photos and schedules current in one place so families find them in the app.",
+     "workflow": [
+      "Pick classes",
+      "Add details",
+      "Publish",
+      "Review list"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--mobile-apps--calendar.webp"
+     ]
+    },
+    {
+     "id": "core-alumni-management",
+     "name": "Alumni Management",
+     "screens": [
+      "Alumni Dashboard",
+      "Alumni List",
+      "Add Alumni",
+      "Pending Verification",
+      "Alumni Directory",
+      "Batches",
+      "Engagement",
+      "Mentorship",
+      "Jobs and Internships",
+      "Communication",
+      "Alumni Events",
+      "Alumni Surveys",
+      "Donations",
+      "Alumni Reports",
+      "Import Alumni",
+      "Alumni Audit Log"
+     ],
+     "screen_count": 16,
+     "summary": "Keep a record of former students and run mentorship, job listings, events, surveys, donations and communication in one module.",
+     "problem": "Once students leave, schools lose touch, and alumni details, offers to help and event records end up in scattered spreadsheets.",
+     "features": [
+      "Alumni records with career, education and achievements",
+      "Directory respects the privacy level each alumnus sets",
+      "Mentor matching, job listings, events and surveys",
+      "Campaigns respect each alumnus's contact consent",
+      "Donation tracking with receipts after verification"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access with audit history",
+      "Rules and automation for notices and reminders",
+      "Reports and exports with privacy masking"
+     ],
+     "benefit": "Staff could stay in touch with former students, involve them with the school and keep their records current with less effort.",
+     "workflow": [
+      "Add alumni",
+      "Verify records",
+      "Use directory",
+      "Engage alumni",
+      "Record gifts",
+      "Review reports"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/institute-erp--alumni-management--alumni-list.webp"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "learn",
+   "product": "Scholar Learn",
+   "k12_module": "LMS + PAL",
+   "family": {
+    "summary": "Scholar Learn brings courses, exams, discussion, curriculum planning and an adaptive learning engine into one K-12 learning module.",
+    "problem": "Teaching content, assessments, lesson plans and student progress sit in separate places, so teachers rebuild the picture by hand each term.",
+    "benefit": "Preparing lessons, setting and marking work, and seeing where students need help could become easier, with staff reviewing AI drafts.",
+    "technology": [
+     "Knowledge graph of concepts and prerequisites",
+     "AI-assisted drafting for staff",
+     "Rules and adaptive practice",
+     "Intelligence from linked records"
+    ],
+    "research": "Question drafting designed from Bloom; concept notes use Webb DOK; framework views use CASEL, NGSS, NCDG; lessons use NCF and NCERT outcomes.",
+    "workflow": [
+     "Set up course",
+     "Schedule lessons",
+     "Teach and assign",
+     "Set exams",
+     "Mark and review",
+     "Track mastery"
+    ],
+    "ai": [
+     "Drafts questions and lesson content for staff to review and approve",
+     "Suggests concept tags and prerequisite links as drafts, never as facts",
+     "Writes short report summaries from recorded figures only",
+     "Rules decide each learning step; AI only phrases it",
+     "Drafts text in forms such as homework and exam instructions"
+    ]
+   },
+   "subs": [
+    {
+     "id": "learn-teach-learn",
+     "name": "Teach/Learn",
+     "screens": [
+      "Course Catalog"
+     ],
+     "screen_count": 1,
+     "summary": "The course catalogue for each class and subject, opening into curriculum, chapters, lesson plans, a question bank and a concept map.",
+     "problem": "Teaching material, question banks and lesson plans are scattered across files, so staff struggle to find what exists for each chapter.",
+     "features": [
+      "Browse courses by class and category",
+      "Open curriculum, chapters, lesson plans and question bank",
+      "Upload content or draft presentations for teachers",
+      "Draft questions by Bloom level for staff review",
+      "Review suggested prerequisite links between concepts"
+     ],
+     "research": "Question drafting designed from Bloom's levels; concept notes carry Webb DOK levels; lesson drafts use NCF and NCERT learning outcomes.",
+     "technology": [
+      "Knowledge graph of concepts and prerequisites",
+      "AI-assisted drafting for staff"
+     ],
+     "benefit": "Finding, preparing and reviewing chapter material could become easier, with drafts ready for staff to check and approve.",
+     "workflow": [
+      "Pick course",
+      "Open chapter",
+      "Add content",
+      "Draft questions",
+      "Review and approve",
+      "Check prerequisites"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--teach-learn--course-catalog.webp"
+     ]
+    },
+    {
+     "id": "learn-exam-assessment",
+     "name": "Exam & Assessment",
+     "screens": [
+      "Student Homework",
+      "Homework Submission",
+      "Homework Review",
+      "Assignment",
+      "Assignment Submission",
+      "Annotate Assignment",
+      "Exam",
+      "PAL",
+      "Worksheet",
+      "Project"
+     ],
+     "screen_count": 10,
+     "summary": "Set, collect and mark homework, assignments, worksheets, projects and exams, with question papers, blueprints, scanned answer sheets and a results dashboard.",
+     "problem": "Homework, papers and marking sit in separate files and registers, so teachers lose time chasing submissions and compiling results.",
+     "features": [
+      "Assign work to chosen students or a whole class",
+      "Build papers from a Bloom and DOK question mix",
+      "Scan answer sheets; teachers approve marks before publishing",
+      "Mark assignments question by question with remarks",
+      "Students take a chapter diagnostic and adaptive practice"
+     ],
+     "research": "Blueprints designed from published CBSE and Delhi Directorate of Education paper designs; question picking filters by Bloom and DOK tags.",
+     "technology": [
+      "AI-assisted drafting for staff",
+      "Rules and adaptive practice",
+      "Reports and exports"
+     ],
+     "benefit": "Setting work, collecting submissions and publishing marks could become easier to run from one place for teachers and coordinators.",
+     "workflow": [
+      "Design blueprint",
+      "Set paper",
+      "Print paper",
+      "Mark and review",
+      "View results"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--exam-and-assesment--student-homework.webp"
+     ]
+    },
+    {
+     "id": "learn-engagement",
+     "name": "Engagement",
+     "screens": [
+      "Leader Board",
+      "Social & Collabrotive",
+      "Portfolio",
+      "Virtual Classroom",
+      "Activity Stream"
+     ],
+     "screen_count": 5,
+     "summary": "A space where students and teachers raise doubts, discuss lessons and reply in threads, linked to subjects and chapters.",
+     "problem": "Students' doubts get lost between classes, and teachers have no single place to see and answer them by subject and chapter.",
+     "features": [
+      "Raise doubts and discussions by subject and chapter",
+      "Reply in threads with teachers and classmates",
+      "Share with everyone or your class only",
+      "Search the feed by subject or see only yours"
+     ],
+     "research": null,
+     "technology": [
+      "Rules and automation"
+     ],
+     "benefit": "Following up on student doubts could become easier, with each discussion kept against its subject, chapter and topic.",
+     "workflow": [
+      "Pick subject",
+      "Post doubt",
+      "Attach file",
+      "Reply in thread",
+      "Follow up"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--engagement--leader-board.webp"
+     ]
+    },
+    {
+     "id": "learn-curriculum-planning",
+     "name": "Curriculum Planning",
+     "screens": [
+      "Curriculam Plan",
+      "Monthly",
+      "Lesson Planning",
+      "Reports",
+      "Framework"
+     ],
+     "screen_count": 5,
+     "summary": "Turns the curriculum into month and period plans, tracks what was delivered and assessed, and shows framework signals for each concept.",
+     "problem": "Curriculum, monthly schedules and daily lessons are kept in separate files, so teachers and coordinators cannot see what has been covered.",
+     "features": [
+      "See curriculum by subject and month, with NCF goals",
+      "Compare expected, delivered and assessed learning outcomes",
+      "Add, edit and review period lessons on a calendar",
+      "Track lesson-planning completion by subject",
+      "Browse CASEL, NGSS and NCDG signals per concept"
+     ],
+     "research": "Lesson drafts designed from NCF and NCERT learning outcomes; framework views read CASEL, NGSS and NCDG vocabularies.",
+     "technology": [
+      "Rules and automation",
+      "AI-assisted drafting for staff"
+     ],
+     "benefit": "Seeing what has been taught against the curriculum, month by month, could become easier for teachers and coordinators.",
+     "workflow": [
+      "Review curriculum",
+      "Schedule month",
+      "Draft lessons",
+      "Review lessons",
+      "Track completion"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--curriculum-planning--curriculam-plan.webp"
+     ]
+    },
+    {
+     "id": "learn-pal-content-model",
+     "name": "PAL: Content model",
+     "screens": [
+      "Content Model",
+      "Unified Learning Units",
+      "Coherence Map",
+      "Pedagogy Engine",
+      "Administration",
+      "Gamification",
+      "ESO",
+      "AI Stack",
+      "Reports",
+      "Knowledge Graph",
+      "Learning Journey",
+      "Teacher Insights",
+      "Context Inspector"
+     ],
+     "screen_count": 13,
+     "summary": "Organises each chapter's content into four types, with authoring, review and a written rule set for choosing teaching methods.",
+     "problem": "Teaching content is hard to tag, check and reuse when each chapter's concepts, practice and fixes live in different places.",
+     "features": [
+      "See chapter coverage across four content types",
+      "Edit content, add languages, restore earlier versions",
+      "Review AI-suggested tags before they go live",
+      "Keep a library of common mistakes with fixes",
+      "Browse learning units and teaching-method rules"
+     ],
+     "research": "Content levels designed from Bloom's taxonomy and Webb DOK; framework tags use CASEL, NGSS and NCDG vocabularies.",
+     "technology": [
+      "AI-assisted drafting for staff",
+      "Rules and automation"
+     ],
+     "benefit": "Preparing, tagging and reviewing chapter content could become easier, and the teaching rules could be read by anyone.",
+     "workflow": [
+      "Extract chapter",
+      "Edit content",
+      "Add languages",
+      "Review drafts",
+      "Approve"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+     ]
+    },
+    {
+     "id": "learn-pal-knowledge-graph",
+     "name": "PAL: Knowledge graph",
+     "screens": [
+      "Content Model",
+      "Unified Learning Units",
+      "Coherence Map",
+      "Pedagogy Engine",
+      "Administration",
+      "Gamification",
+      "ESO",
+      "AI Stack",
+      "Reports",
+      "Knowledge Graph",
+      "Learning Journey",
+      "Teacher Insights",
+      "Context Inspector"
+     ],
+     "screen_count": 13,
+     "summary": "Shows how concepts connect through prerequisites, from curriculum units down to single concepts, and where a class stands on them.",
+     "problem": "It is hard to see which earlier concept is holding a class back when prerequisites are not written down anywhere.",
+     "features": [
+      "See which concepts must be learned first",
+      "Browse curriculum from units down to concepts",
+      "Open one concept to see its prerequisite links",
+      "Show AI-suggested links, clearly marked as drafts",
+      "Teachers see a class learning map and mistakes board"
+     ],
+     "research": null,
+     "technology": [
+      "Knowledge graph of concepts and prerequisites",
+      "AI-assisted drafting for staff"
+     ],
+     "benefit": "Finding the earlier concept behind a learning gap could become easier for teachers and academic coordinators.",
+     "workflow": [
+      "Pick class",
+      "Open map",
+      "Select concept",
+      "See prerequisites",
+      "Review links"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+     ]
+    },
+    {
+     "id": "learn-pal-engines",
+     "name": "PAL: Learning engines",
+     "screens": [
+      "Content Model",
+      "Unified Learning Units",
+      "Coherence Map",
+      "Pedagogy Engine",
+      "Administration",
+      "Gamification",
+      "ESO",
+      "AI Stack",
+      "Reports",
+      "Knowledge Graph",
+      "Learning Journey",
+      "Teacher Insights",
+      "Context Inspector"
+     ],
+     "screen_count": 13,
+     "summary": "Rules choose each student's next learning step, with gamification, attainment reports, settings and AI controls around them.",
+     "problem": "Every student walks the same path through a chapter, so time is spent on what is already known and gaps go unnoticed.",
+     "features": [
+      "Skip known concepts, repair gaps, recheck after days",
+      "Personal bests, streaks, badges and team challenges",
+      "Opt-in weekly challenge board, switchable off by teachers",
+      "Compare curriculum covered with what students demonstrated",
+      "Set AI policies, prompts and guardrails for review"
+     ],
+     "research": "Adaptive rules designed from the Adaptive Learning Engine Developer Brief and decision records ADR-001 and ADR-002 on mastery and rule order.",
+     "technology": [
+      "Rules and adaptive practice",
+      "AI-assisted drafting for staff"
+     ],
+     "benefit": "Students could spend more time on what they actually need, and teachers could see coverage next to demonstrated learning.",
+     "workflow": [
+      "Diagnostic quiz",
+      "Skip or teach",
+      "Fix mistakes",
+      "Practise",
+      "Verify mastery",
+      "Recheck later"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ccb",
+   "product": "Scholar CCB",
+   "k12_module": "People & Competency",
+   "family": {
+    "summary": "Scholar CCB helps schools manage staff capability: roles and competencies, tasks, talent records, HR operations and learning, all under People & Competency.",
+    "problem": "Staff roles, skills, tasks, reviews and training sit in separate tools, so schools struggle to see who is ready for what.",
+    "benefit": "Role needs, capability ratings, tasks, reviews and learning could become easier to connect, so development conversations could start from clearer information.",
+    "technology": [
+     "Role-to-competency map",
+     "Role-based access",
+     "Reports and exports",
+     "Knowledge graph"
+    ],
+    "research": "Capability Explorer designed from O*NET and SkillsFuture Singapore occupational reference data, per its source notes.",
+    "workflow": [
+     "Define roles",
+     "Map competencies",
+     "Rate capability",
+     "Plan development",
+     "Assign work",
+     "Deliver learning"
+    ],
+    "ai": [
+     "Draft department SOPs from a short brief, then edit",
+     "Write quiz questions from a course's own lessons"
+    ]
+   },
+   "subs": [
+    {
+     "id": "ccb-organization-management",
+     "name": "Organization Management",
+     "screens": [
+      "Organization Profile",
+      "Department",
+      "Employee Directory",
+      "Compliance Library",
+      "Diciplinary Library",
+      "Role & Permissions",
+      "Employee Directory Report",
+      "Compliance Report",
+      "Disciplinary Report"
+     ],
+     "screen_count": 9,
+     "summary": "One place for the school's organization profile, departments, staff directory, compliance duties, disciplinary records and role-wise screen access.",
+     "problem": "Staff details, compliance deadlines and discipline records are often kept apart, so ownership is hard to see.",
+     "features": [
+      "Department pages with employees, job roles and SOPs",
+      "Staff directory with filters, status switch and CSV export",
+      "Compliance register with calendar, overdue list and templates",
+      "Disciplinary records by department and employee",
+      "Role and permissions matrix for screen access"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access",
+      "Rules and automation",
+      "Reports and exports"
+     ],
+     "benefit": "Staff, compliance and discipline records could become easier to find, and responsibilities easier to follow, in one place.",
+     "workflow": [
+      "Set up departments",
+      "Keep staff records",
+      "Track compliance",
+      "Record incidents",
+      "Set role access"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--organization-management--organization-profile.webp"
+     ]
+    },
+    {
+     "id": "ccb-task-management",
+     "name": "Task Management",
+     "screens": [
+      "Task Management Dashboard",
+      "My Tasks",
+      "Projects & Workstreams",
+      "Dependencies & Workstreams",
+      "Task Calendar",
+      "Reports & Analysis",
+      "Status Management",
+      "Permissions Matrix",
+      "Integration",
+      "Audit Logs"
+     ],
+     "screen_count": 10,
+     "summary": "Staff tasks, projects, dependencies and deadlines in one workspace, with reports on delays and productivity and a full audit trail.",
+     "problem": "When tasks live in chats and spreadsheets, owners, deadlines and delays are hard to follow.",
+     "features": [
+      "My Tasks in list or board view",
+      "Link each task to the capability it builds",
+      "Dependency map, timeline and milestone views",
+      "Deadline extension requests with approve or reject",
+      "Productivity and delay reports with audit log export"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access",
+      "Reports and exports"
+     ],
+     "benefit": "Task ownership, deadlines and blockers could become easier to see, and staff work could connect more clearly to capability.",
+     "workflow": [
+      "Create task",
+      "Assign owner",
+      "Track progress",
+      "Request extension",
+      "Review reports"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--task-management--task-management-dashboard.webp"
+     ]
+    },
+    {
+     "id": "ccb-talent-management",
+     "name": "Talent Management",
+     "screens": [
+      "Talent Dashboard",
+      "Recruitment",
+      "Onbording",
+      "Performance Reviews & Appraisals",
+      "Mobility & Succession",
+      "Offboarding",
+      "Administration",
+      "Employee Profiles",
+      "Certification",
+      "Development & Career Paths"
+     ],
+     "screen_count": 10,
+     "summary": "Hiring, onboarding, reviews, internal moves, exits, certifications and capability ratings for school staff, connected in one lifecycle view.",
+     "problem": "Hiring, reviews, certifications and staff skills are tracked separately, so leaders lack a joined-up view of their people.",
+     "features": [
+      "Hiring flow from job opening to offer",
+      "Onboarding journey with probation and confirmation",
+      "Goals, reviews and appraisals in review cycles",
+      "Rate staff on capability items from one to five",
+      "Development plans show gaps against role needs"
+     ],
+     "research": null,
+     "technology": [
+      "Role-to-competency map",
+      "Role-based access"
+     ],
+     "benefit": "Staff journeys from hiring to development could become easier to follow, with capability ratings and role needs visible side by side.",
+     "workflow": [
+      "Post job opening",
+      "Onboard staff",
+      "Run review cycle",
+      "Rate capabilities",
+      "Track certifications",
+      "Plan development"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--talent-management--talent-dashboard.webp"
+     ]
+    },
+    {
+     "id": "ccb-hrit-management",
+     "name": "HRIT Management",
+     "screens": [
+      "Attendance Tracking",
+      "Attendance Reports",
+      "Leave Dashboard",
+      "Leave Requests",
+      "Leave Reports",
+      "Leave Configuration",
+      "Payroll Type",
+      "Salary Structure",
+      "Payroll Deduction",
+      "Form 16",
+      "Salary Certificate",
+      "Monthly Payroll Report"
+     ],
+     "screen_count": 12,
+     "summary": "Attendance, leave and payroll records for school staff, with approvals, configuration and reports in one HR operations area.",
+     "problem": "Attendance registers, leave requests and payroll papers are handled separately, which can slow approvals and month-end checks.",
+     "features": [
+      "Punch in and out with attendance KPIs",
+      "Leave requests with single and bulk approval",
+      "Leave types, holidays and approval workflow settings",
+      "Payroll types, salary structures and deductions",
+      "Form 16, salary certificates and monthly payroll report"
+     ],
+     "research": null,
+     "technology": [
+      "Rules and automation",
+      "Role-based access",
+      "Reports and exports"
+     ],
+     "benefit": "Attendance, leave and payroll steps could become easier to complete and review, with records ready when approvals or reports are needed.",
+     "workflow": [
+      "Record attendance",
+      "Request leave",
+      "Approve requests",
+      "Set up payroll",
+      "Issue certificates"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--hrit-management--attendance-tracking.webp"
+     ]
+    },
+    {
+     "id": "ccb-capability-intelligence",
+     "name": "Capability Intelligence",
+     "screens": [
+      "Dashboard",
+      "Capability Library",
+      "Competency Library",
+      "Competency Framework",
+      "Capability Explorer",
+      "Mentor Skill Mapping"
+     ],
+     "screen_count": 6,
+     "summary": "Capability and competency libraries, role-to-competency framework, command dashboard, skills graph explorer and mentor skill matching.",
+     "problem": "Without one shared skill language, roles, skills and required levels are described differently across teams, so gaps are hard to compare.",
+     "features": [
+      "Library of job roles, tasks, knowledge, ability and behaviour",
+      "Competency library with clone, archive and CSV export",
+      "Map competencies to job roles with required levels",
+      "Dashboard filtered by department, job role and location",
+      "Explore skills and job roles as a graph"
+     ],
+     "research": "Explorer designed from a reference occupational ontology sourced from O*NET and SkillsFuture Singapore, per its source notes.",
+     "technology": [
+      "Role-to-competency map",
+      "Knowledge graph",
+      "Reports and exports"
+     ],
+     "benefit": "Roles, skills and required levels could become easier to describe in one shared language, so capability gaps could be easier to compare.",
+     "workflow": [
+      "Build libraries",
+      "Define competencies",
+      "Map to roles",
+      "Set required levels",
+      "Review dashboard"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--capability-intelligence--dashboard.webp"
+     ]
+    },
+    {
+     "id": "ccb-lms",
+     "name": "LMS",
+     "screens": [
+      "Learning Dashboard",
+      "Learning Catalog",
+      "My Learning",
+      "Assignments",
+      "Sessions & Calendar",
+      "Certifications & Records",
+      "Course Builder",
+      "Administration & Governance",
+      "Assessments"
+     ],
+     "screen_count": 9,
+     "summary": "Staff learning hub: course catalog, my learning player, course builder, session calendar, certificates and administration for training teams.",
+     "problem": "Training courses, sessions and certificates are scattered, so it is hard to see who learned what and who is due.",
+     "features": [
+      "Course catalog; assign courses to people, departments or roles",
+      "Course builder with modules, lessons and quizzes",
+      "Map each course to the capabilities it builds",
+      "My Learning player with notes, discussions and certificates",
+      "Training sessions calendar with registration"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access"
+     ],
+     "benefit": "Training, sessions and certificates could become easier to organise, and staff learning could link more clearly to the capabilities schools need.",
+     "workflow": [
+      "Build course",
+      "Choose audience",
+      "Staff learn",
+      "Run sessions",
+      "Issue certificates"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/people-and-competency--lms--learning-dashboard.webp"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "insight",
+   "product": "Scholar Insight",
+   "k12_module": "Enterprise Brain",
+   "family": {
+    "summary": "Brings findings from several school functions into one view and helps spot where attention is needed, with the evidence shown.",
+    "problem": "Leaders get answers from separate reports and personal memory, so it is hard to see where attention is needed, or why.",
+    "benefit": "Principals and trustees could find it easier to see where attention is needed, understand why, and keep a clear record of what was decided.",
+    "technology": [
+     "Rules-based reasoning",
+     "Knowledge graph of school records",
+     "Human approval before action",
+     "Explained with its working"
+    ],
+    "research": null,
+    "workflow": [
+     "Read school records",
+     "Apply rules",
+     "Show evidence",
+     "Person decides",
+     "Record outcome"
+    ],
+    "ai": [
+     "Findings come from fixed rules over school records, not generated text",
+     "Likely causes are written by people and shown only where approved",
+     "Explanations must cite verified evidence or fail the check",
+     "Recommendations are drafts; a named person approves, rejects or defers",
+     "Recommendation confidence is computed from evidence, never typed in"
+    ]
+   },
+   "subs": [
+    {
+     "id": "insight-overview",
+     "name": "Overview",
+     "screens": [
+      "Organization"
+     ],
+     "screen_count": 1,
+     "summary": "A leadership overview of the school: health across key areas, what changed, where attention is needed, and the actions to take first.",
+     "problem": "Leaders piece together attendance, fees, results and staff records by hand, so it is hard to see where attention is needed.",
+     "features": [
+      "Health score across school areas, with its working shown",
+      "Says plainly when data is too thin to score",
+      "Compares each class's attendance with the school baseline",
+      "Compares attendance with results where enough classes match",
+      "Priority actions, each with an owner and reasons"
+     ],
+     "research": null,
+     "technology": [
+      "Rules-based reasoning",
+      "Explained with its working"
+     ],
+     "benefit": "Principals and trustees could find it easier to see how the school is doing and where to look first.",
+     "workflow": [
+      "Read school records",
+      "Score each area",
+      "Show what changed",
+      "List priorities"
+     ],
+     "data": "live",
+     "shots": []
+    },
+    {
+     "id": "insight-foundation",
+     "name": "Foundation",
+     "screens": [
+      "Departments",
+      "People",
+      "Students",
+      "Capabilities",
+      "Ingestion"
+     ],
+     "screen_count": 5,
+     "summary": "The base the insights stand on: departments, staff, students and capabilities, read from existing school records.",
+     "problem": "Insight is only as good as the records beneath it, and gaps in staff or department records stay hidden.",
+     "features": [
+      "Shows each department's head and staff count",
+      "Flags staff records missing email, mobile or department",
+      "Student roll shown beside the findings raised about it",
+      "Define capabilities and assign them to people or departments",
+      "Brings school records in; re-running never duplicates them"
+     ],
+     "research": null,
+     "technology": [
+      "Records checked by rules",
+      "Knowledge graph of school records"
+     ],
+     "benefit": "Leaders could find it easier to see who leads each department and which records need completing first.",
+     "workflow": [
+      "Read school records",
+      "Check completeness",
+      "Bring records in",
+      "Assign capabilities"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--foundation--departments.webp"
+     ]
+    },
+    {
+     "id": "insight-intelligence-loop",
+     "name": "Intelligence Loop",
+     "screens": [
+      "Signals",
+      "Evidence",
+      "Deliberation",
+      "Intelligence Workspace",
+      "Execution Center"
+     ],
+     "screen_count": 5,
+     "summary": "Checks school records against fixed rules, keeps the evidence for each finding, and walks it through review, decision and follow-up.",
+     "problem": "Issues surface in separate reports, with no shared record of why something was flagged, who decided and whether it worked.",
+     "features": [
+      "Each finding opens to its evidence and reasoning steps",
+      "Likely cause shown only where a person approved one",
+      "Recommendations wait for a person's decision before any action",
+      "Marks an action verified only with proof and measurements",
+      "Shows checks that found nothing, as well as findings"
+     ],
+     "research": null,
+     "technology": [
+      "Rules-based reasoning",
+      "Human approval before action",
+      "Explained with its working"
+     ],
+     "benefit": "Leaders could find it easier to see why something was flagged, who decided, and whether it was followed up.",
+     "workflow": [
+      "Run checks",
+      "Keep evidence",
+      "Open case",
+      "Draft recommendation",
+      "Person decides",
+      "Record outcome"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--intelligence-loop--signals.webp"
+     ]
+    },
+    {
+     "id": "insight-analytics",
+     "name": "Analytics",
+     "screens": [
+      "Executive Dashboard",
+      "Decision Analytics",
+      "Decision Intelligence",
+      "Organizational Knowledge"
+     ],
+     "screen_count": 4,
+     "summary": "Shows how findings, decisions and outcomes are building up: headline counts, decisions by status, and patterns the school keeps meeting.",
+     "problem": "Without a record of decisions and outcomes, leaders cannot easily tell which actions were taken and what followed.",
+     "features": [
+      "Headline counts for findings, decisions and actions",
+      "Decisions counted by status, beside recorded outcomes",
+      "Recurring patterns noted, with how often each has recurred",
+      "Charts of staff, attendance, results and fee collection"
+     ],
+     "research": null,
+     "technology": [
+      "Rules-based reasoning"
+     ],
+     "benefit": "Leaders could find it easier to review how decisions turned out and which patterns keep returning, without gathering figures by hand.",
+     "workflow": [
+      "Read live records",
+      "Count decisions",
+      "Record outcomes",
+      "Note patterns"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--analytics--executive-dashboard.webp"
+     ]
+    },
+    {
+     "id": "insight-knowledge",
+     "name": "Knowledge",
+     "screens": [
+      "Graph Explorer",
+      "KASBA Explorer",
+      "Knowledge Library",
+      "Memory",
+      "Ai Assistant",
+      "Eso Library"
+     ],
+     "screen_count": 6,
+     "summary": "Explore how the school connects, from departments to staff, classes and students, alongside a library of patterns and standard operations.",
+     "problem": "Who connects to whom, and what the school has already noted from past findings, is hard to see in separate lists.",
+     "features": [
+      "Walk department to staff and class to students",
+      "Open findings appear on the item being explored",
+      "Counts knowledge, ability, skill, behaviour and attitude per capability",
+      "Searchable library of patterns noted from past findings",
+      "Library of standard operations with their trust level"
+     ],
+     "research": null,
+     "technology": [
+      "Knowledge graph of school records"
+     ],
+     "benefit": "Leaders could find it easier to see how departments, staff and classes connect and to revisit past findings.",
+     "workflow": [
+      "Pick a type",
+      "Follow connections",
+      "Open findings",
+      "Search library"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--knowledge--graph-explorer.webp"
+     ]
+    },
+    {
+     "id": "insight-automation",
+     "name": "Automation",
+     "screens": [
+      "Agent Management",
+      "Task Orchestrator",
+      "Policiy Mangement"
+     ],
+     "screen_count": 3,
+     "summary": "Where approved actions are queued and tracked, under a policy that a named person must decide before anything is done.",
+     "problem": "Suggested actions can drift or happen without a clear record of who agreed to them and what rules applied.",
+     "features": [
+      "Approve or reject recommendations, with a reason recorded",
+      "Policy requires a named person's decision before action",
+      "Queue of approved actions with status and dates",
+      "Report the outcome so the record is complete",
+      "Task list shows the evidence each capability task needs"
+     ],
+     "research": null,
+     "technology": [
+      "Human approval before action",
+      "Rules and automation"
+     ],
+     "benefit": "Leaders could find it easier to keep a clear record of who approved each action, and what happened afterwards.",
+     "workflow": [
+      "Draft recommendation",
+      "Person decides",
+      "Action queued",
+      "Report outcome"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/enterprise-brain--automation--task-orchestrator.webp"
+     ]
+    },
+    {
+     "id": "insight-settings",
+     "name": "Account and Settings",
+     "screens": [
+      "Settings"
+     ],
+     "screen_count": 1,
+     "summary": "Shows your role and what it allows, the school's settings, and an audit trail of what has been done.",
+     "problem": "When something is decided or changed, leaders need to know who did it and whether they were allowed to.",
+     "features": [
+      "Shows your role and the permissions it carries",
+      "Audit log of actions, who did them, and when",
+      "Settings can be changed only with the right permission",
+      "Access follows each person's school role"
+     ],
+     "research": null,
+     "technology": [
+      "Role-based access"
+     ],
+     "benefit": "Leaders could find it easier to check who can do what in Insight, and to review what has been done.",
+     "workflow": [
+      "Check role",
+      "Review settings",
+      "Change setting",
+      "Read audit log"
+     ],
+     "data": "live",
+     "shots": []
+    }
+   ]
+  },
+  {
+   "key": "compass",
+   "product": "Scholar Compass",
+   "k12_module": "Career Counseling",
+   "family": {
+    "summary": "Helps students name a career goal, learn their interests, explore occupations, and compare their profile with a covered career's needs.",
+    "problem": "Students can choose subjects without knowing what their chosen career needs, and counsellors have little recorded evidence to start the conversation.",
+    "benefit": "Students and counsellors could find it easier to explore careers and, where covered, see how subject choices fit a career goal.",
+    "technology": [
+     "Knowledge graph of careers and skills",
+     "Rules-based alignment check",
+     "AI-assisted narration of results",
+     "Intelligence from linked records"
+    ],
+    "research": "Designed from O*NET occupation data and its Interest Profiler. Each covered career's entry requirements carry a named source.",
+    "workflow": [
+     "Learn the ideas",
+     "Name a goal",
+     "Find interests",
+     "Explore careers",
+     "Compare with needs",
+     "Review evidence"
+    ],
+    "ai": [
+     "AI explains an alignment result using only the facts returned",
+     "The alignment result itself comes from rules, not from AI",
+     "When no AI is set up, the screen says so",
+     "AI counsellor note rests on records, or says evidence is thin"
+    ]
+   },
+   "subs": [
+    {
+     "id": "compass-career-awareness",
+     "name": "Career Awareness",
+     "screens": [
+      "Career Certainty",
+      "Career Ambition",
+      "Career Alignment",
+      "Career Originality"
+     ],
+     "screen_count": 4,
+     "summary": "Four short pages explain career certainty, ambition, alignment and originality, and let the student record the job they expect at age 30.",
+     "problem": "Students can reach subject choices without having named a job they want, or checked what education that job asks for.",
+     "features": [
+      "Plain-language pages on four career ideas",
+      "Student names the job expected at age 30",
+      "Student marks how sure they are",
+      "Optional entry for the job the family expects",
+      "Pick from the occupation list or type your own"
+     ],
+     "research": null,
+     "technology": [
+      "Occupation list or typed-in choice",
+      "Saved student answers"
+     ],
+     "benefit": "Students could find it easier to put a career goal into words, so subject and stream talks start from something concrete.",
+     "workflow": [
+      "Read the idea",
+      "Name a job",
+      "Say how sure",
+      "Save answer"
+     ],
+     "data": "mixed",
+     "shots": [
+      "/client-presentation/atlas/career-counseling--career-awareness--career-certainty.webp"
+     ]
+    },
+    {
+     "id": "compass-career-counseling",
+     "name": "Career Counseling",
+     "screens": [
+      "Interest Profile",
+      "Knowing Yourself"
+     ],
+     "screen_count": 2,
+     "summary": "Students take school counselling tests and the O*NET Interest Profiler, then see their six interest areas explained.",
+     "problem": "Students may pick careers without knowing which kinds of work interest them, so counselling starts without a shared picture.",
+     "features": [
+      "Counselling courses and personality tests set by the school",
+      "Shows past attempts with date and result",
+      "60-question Interest Profiler across six interest areas",
+      "Tap an area to read what it means",
+      "AI counsellor note from alignment and practice records"
+     ],
+     "research": "Designed from the O*NET Interest Profiler and its six interest areas: Realistic, Investigative, Artistic, Social, Enterprising, Conventional.",
+     "technology": [
+      "AI-assisted narration of results",
+      "Knowledge graph of careers and skills"
+     ],
+     "benefit": "Students could find it easier to learn what interests them, and counsellors could start from the school's own tests and records.",
+     "workflow": [
+      "Choose a test",
+      "Answer questions",
+      "See interest areas",
+      "Read counsellor note"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/career-counseling--career-counseling--interest-profile.webp"
+     ]
+    },
+    {
+     "id": "compass-career-explorer",
+     "name": "Career Explorer",
+     "screens": [
+      "Find Occupation",
+      "College Profile",
+      "Course Profile",
+      "Employer Profile"
+     ],
+     "screen_count": 4,
+     "summary": "Students browse career clusters, search occupations and open detailed profiles, then look up colleges, courses and employers.",
+     "problem": "Students often know few careers beyond familiar ones, and college, course and employer details are scattered.",
+     "features": [
+      "Browse career clusters and their pathways",
+      "Search occupations by keyword, career name or major",
+      "Filter by abilities, interests, skills and work styles",
+      "Open a detailed profile for each occupation",
+      "Look up colleges, courses and employers"
+     ],
+     "research": "Designed from O*NET occupation data, including abilities, interests, skills and knowledge for each occupation.",
+     "technology": [
+      "Occupation database with filters and search"
+     ],
+     "benefit": "Students could find it easier to discover careers they had not considered and see what each one asks of them.",
+     "workflow": [
+      "Browse or search",
+      "Apply filters",
+      "Open occupation",
+      "Look up colleges"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/career-counseling--career-explorer--find-occupation.webp"
+     ]
+    },
+    {
+     "id": "compass-career-intelligence",
+     "name": "Career Intelligence",
+     "screens": [],
+     "screen_count": 0,
+     "summary": "A student records a career goal, sees how current subjects compare with it, and reviews the evidence recorded so far.",
+     "problem": "Students can choose subjects without knowing what their chosen career needs, and counsellors have little recorded evidence to start from.",
+     "features": [
+      "Compares a student's profile with a covered career's needs",
+      "Says insufficient data rather than guessing",
+      "Subject evidence from online exams and adaptive practice",
+      "Ranks occupations by match with recorded knowledge",
+      "Adds a plain-language AI explanation of the result"
+     ],
+     "research": "Designed from O*NET occupation data. Each covered career's entry requirements cite named sources, for example the Council of Architecture.",
+     "technology": [
+      "Rules-based alignment check",
+      "Knowledge graph of careers and skills",
+      "AI-assisted narration of results"
+     ],
+     "benefit": "Students and counsellors could find it easier to see where subjects and a career goal fit, and what evidence is missing.",
+     "workflow": [
+      "Record career goal",
+      "Read subjects",
+      "Compare with career",
+      "Show evidence",
+      "Explain result"
+     ],
+     "data": "live",
+     "shots": [
+      "/client-presentation/atlas/career-counseling--career-intelligence--career-intelligence.webp"
+     ]
+    }
+   ]
+  }
+ ],
+ "tech": {
+  "pillars": [
+   {
+    "name": "Knowledge graph",
+    "lines": [
+     "Links concepts, prerequisites and common misconceptions",
+     "Maps school frameworks to concepts and career paths",
+     "Joins staff, classes and students from real records"
+    ]
+   },
+   {
+    "name": "AI",
+    "lines": [
+     "Drafts questions and content for school staff to use",
+     "Checks what it drafts before staff see it",
+     "School administrators set what AI may do"
+    ]
+   },
+   {
+    "name": "Intelligence",
+    "lines": [
+     "Rule-based reasoning that shows its working",
+     "Recommendations wait for a person to approve",
+     "When data is too thin, it says so instead of guessing"
+    ]
+   }
+  ],
+  "designed_from": [
+   "Bloom's taxonomy",
+   "Webb's depth of knowledge",
+   "CASEL",
+   "NGSS",
+   "Gardner's framework mapping",
+   "NCERT and NCF curriculum",
+   "O*NET occupations"
+  ]
+ }
+}

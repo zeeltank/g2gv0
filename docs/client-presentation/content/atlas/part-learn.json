@@ -1,0 +1,493 @@
+{
+  "family": "learn",
+  "family_sheet": {
+    "summary": "Scholar Learn brings courses, exams, discussion, curriculum planning and an adaptive learning engine into one K-12 learning module.",
+    "problem": "Teaching content, assessments, lesson plans and student progress sit in separate places, so teachers rebuild the picture by hand each term.",
+    "benefit": "Preparing lessons, setting and marking work, and seeing where students need help could become easier, with staff reviewing AI drafts.",
+    "technology": [
+      "Knowledge graph of concepts and prerequisites",
+      "AI-assisted drafting for staff",
+      "Rules and adaptive practice",
+      "Intelligence from linked records"
+    ],
+    "research": {
+      "text": "Question drafting designed from Bloom; concept notes use Webb DOK; framework views use CASEL, NGSS, NCDG; lessons use NCF and NCERT outcomes.",
+      "evidence": [
+        "next_lms_erp/config/pal_content_model.php",
+        "next_lms_erp/config/pal_h5p.php",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php",
+        "next_lms_erp/docs/content-design-system/vocabulary.md"
+      ]
+    },
+    "workflow": [
+      "Set up course",
+      "Schedule lessons",
+      "Teach and assign",
+      "Set exams",
+      "Mark and review",
+      "Track mastery"
+    ],
+    "ai": [
+      "Drafts questions and lesson content for staff to review and approve",
+      "Suggests concept tags and prerequisite links as drafts, never as facts",
+      "Writes short report summaries from recorded figures only",
+      "Rules decide each learning step; AI only phrases it",
+      "Drafts text in forms such as homework and exam instructions"
+    ],
+    "evidence": [
+      "lms_k12/app/course-master/page.tsx",
+      "lms_k12/app/lms/exam/page.tsx",
+      "lms_k12/app/pal/page.tsx",
+      "lms_k12/app/pal/eso/page.tsx",
+      "next_lms_erp/app/Services/Eso/EsoPolicyService.php",
+      "next_lms_erp/docs/adr/ADR-001-PAL-Mastery-Definition.md",
+      "next_lms_erp/docs/adr/ADR-002-PAL-Rule-Precedence.md",
+      "next_lms_erp/config/pal_content_model.php",
+      "next_lms_erp/routes/pal_api.php",
+      "lms_k12/docs/menu-data-source-audit.md",
+      "g2gv0/docs/client-presentation/content/atlas/k12-menu-2026-11-25.json",
+      "Downloads/Scholar_Adaptive_Learning_Engine_Developer_Brief_v1.docx"
+    ]
+  },
+  "items": [
+    {
+      "id": "learn-teach-learn",
+      "name": "Teach/Learn",
+      "k12_menu": "LMS + PAL > Teach/Learn",
+      "screens": [
+        "Course Catalog"
+      ],
+      "summary": "The course catalogue for each class and subject, opening into curriculum, chapters, lesson plans, a question bank and a concept map.",
+      "problem": "Teaching material, question banks and lesson plans are scattered across files, so staff struggle to find what exists for each chapter.",
+      "features": [
+        "Browse courses by class and category",
+        "Open curriculum, chapters, lesson plans and question bank",
+        "Upload content or draft presentations for teachers",
+        "Draft questions by Bloom level for staff review",
+        "Review suggested prerequisite links between concepts"
+      ],
+      "research": {
+        "text": "Question drafting designed from Bloom's levels; concept notes carry Webb DOK levels; lesson drafts use NCF and NCERT learning outcomes.",
+        "evidence": [
+          "next_lms_erp/config/pal_content_model.php",
+          "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php",
+          "lms_k12/app/course-master/[courseId]/chapters/page.tsx"
+        ]
+      },
+      "technology": [
+        "Knowledge graph of concepts and prerequisites",
+        "AI-assisted drafting for staff"
+      ],
+      "benefit": "Finding, preparing and reviewing chapter material could become easier, with drafts ready for staff to check and approve.",
+      "workflow": [
+        "Pick course",
+        "Open chapter",
+        "Add content",
+        "Draft questions",
+        "Review and approve",
+        "Check prerequisites"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/course-master/page.tsx",
+        "lms_k12/app/course-master/_components/CourseMasterTabs.tsx",
+        "lms_k12/app/course-master/[courseId]/chapters/page.tsx",
+        "lms_k12/app/course-master/data/coherenceMap.ts",
+        "lms_k12/app/course-master/data/lmsCourses.ts",
+        "lms_k12/app/course-master/data/authoring.ts",
+        "next_lms_erp/config/lms_content.php",
+        "next_lms_erp/app/Http/Controllers/api/lms/IntelligenceQuestionGenerationApiController.php",
+        "next_lms_erp/app/Services/LessonIntelligence/LessonIntelligenceService.php",
+        "lms_k12/docs/menu-data-source-audit.md"
+      ],
+      "owner_to_confirm": [
+        "The live menu lists only Course Catalog here. Curriculum, Chapters, Lesson plans, Question Bank and Coherence Map are tabs inside a course, not menu screens.",
+        "H5P Content and Content Library menu rows are switched off (module-intelligence doc, Sept 2026). Not claimed.",
+        "Simulations and virtual-lab items sit inside the chapter view. Simulation Learning is review-only, so none of it is claimed.",
+        "Question drafts are saved to the question bank for staff to Approve or Hold. Presentations are drafted through an outside text-generation service named in config; do not name it. Each draft is a paid call and needs the lms.content create right.",
+        "The chapter screen carries built-in demo content for demo courses that have no concept data. The 22 Aug audit says the course list is static; the code now loads it from /api/lms-courses.",
+        "Coherence Map tab: prerequisite links start as AI drafts and show dashed until staff Approve or Dismiss them. Always say suggested.",
+        "The term schedule and AI period lessons are produced on the Lesson plans tab. The schedule step is arithmetic; the AI lesson step is one call per period and an explicit staff action.",
+        "Estate data is thin (Sept 2026 doc): content is published against few courses and mostly at one school, and many chapter names do not resolve. Confirm the demo school has content before showing."
+      ]
+    },
+    {
+      "id": "learn-exam-assessment",
+      "name": "Exam & Assessment",
+      "k12_menu": "LMS + PAL > Exam & Assessment",
+      "screens": [
+        "Student Homework",
+        "Homework Submission",
+        "Homework Review",
+        "Assignment",
+        "Assignment Submission",
+        "Annotate Assignment",
+        "Exam",
+        "PAL",
+        "Worksheet",
+        "Project"
+      ],
+      "summary": "Set, collect and mark homework, assignments, worksheets, projects and exams, with question papers, blueprints, scanned answer sheets and a results dashboard.",
+      "problem": "Homework, papers and marking sit in separate files and registers, so teachers lose time chasing submissions and compiling results.",
+      "features": [
+        "Assign work to chosen students or a whole class",
+        "Build papers from a Bloom and DOK question mix",
+        "Scan answer sheets; teachers approve marks before publishing",
+        "Mark assignments question by question with remarks",
+        "Students take a chapter diagnostic and adaptive practice"
+      ],
+      "research": {
+        "text": "Blueprints designed from published CBSE and Delhi Directorate of Education paper designs; question picking filters by Bloom and DOK tags.",
+        "evidence": [
+          "next_lms_erp/app/Domain/Exam/AssessmentBlueprintPresets.php",
+          "lms_k12/app/lms/exam/page.tsx",
+          "next_lms_erp/docs/content-design-system/vocabulary.md"
+        ]
+      },
+      "technology": [
+        "AI-assisted drafting for staff",
+        "Rules and adaptive practice",
+        "Reports and exports"
+      ],
+      "benefit": "Setting work, collecting submissions and publishing marks could become easier to run from one place for teachers and coordinators.",
+      "workflow": [
+        "Design blueprint",
+        "Set paper",
+        "Print paper",
+        "Mark and review",
+        "View results"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/lms/exam/page.tsx",
+        "lms_k12/app/lms/exam/_assessment-blueprint/AssessmentBlueprints.tsx",
+        "lms_k12/app/lms/exam/_exam-evaluation/ExamEvaluation.tsx",
+        "lms_k12/app/lms/homework/page.tsx",
+        "lms_k12/app/lms/_shared/assign-work-panel.tsx",
+        "lms_k12/app/lms/lmsAnnotate_assignment/api.ts",
+        "lms_k12/app/exam/data/aiPaper.ts",
+        "lms_k12/app/pal/page.tsx",
+        "next_lms_erp/app/Domain/Exam/AssessmentBlueprintPresets.php",
+        "next_lms_erp/app/Services/PAL/Diagnostic/DiagnosticScorer.php",
+        "next_lms_erp/routes/api.php"
+      ],
+      "owner_to_confirm": [
+        "The live menu spells it Exam & Assesment; written correctly here.",
+        "AI marking is NOT claimed. Homework and assignment submissions show an AI check status with AI-proposed marks, and Exam evaluation also proposes marks for written answers. The teacher's marks are the final ones (code comments say the AI proposes, the teacher disposes).",
+        "The Exams tab button reads AI generated exam, but the code picks questions from the question bank by a Bloom and DOK mix in the browser. Do not call it AI-written.",
+        "DOK in the paper picker comes from a legacy mapping that equates DOK with easy, medium and hard (vocabulary doc, collision 5). So this record says DOK tags, never Webb.",
+        "Blueprint presets: two Delhi Directorate designs (2025-26) and one CBSE Class X design. Code notes the CBSE competency weights should be checked against the official sample paper, and the Delhi presets store no source link.",
+        "Student exam view hides the PAL tab; students see Online Exam and Offline Exam.",
+        "On the PAL screen the chapter diagnostic is student-only (staff pick a student first). It is a fixed 15-question set scored into four levels by fixed cut points, so it is rule bands, not an AI diagnosis.",
+        "Usage outside the demo schools is thin (Sept 2026 doc: homework used by very few schools). Expect empty lists on other tenants.",
+        "The 22 Aug audit lists static student exam datasets; the code now loads them live, so the audit is out of date.",
+        "Assigning work and homework review are staff-only screens."
+      ]
+    },
+    {
+      "id": "learn-engagement",
+      "name": "Engagement",
+      "k12_menu": "LMS + PAL > Engagement",
+      "screens": [
+        "Leader Board",
+        "Social & Collabrotive",
+        "Portfolio",
+        "Virtual Classroom",
+        "Activity Stream"
+      ],
+      "summary": "A space where students and teachers raise doubts, discuss lessons and reply in threads, linked to subjects and chapters.",
+      "problem": "Students' doubts get lost between classes, and teachers have no single place to see and answer them by subject and chapter.",
+      "features": [
+        "Raise doubts and discussions by subject and chapter",
+        "Reply in threads with teachers and classmates",
+        "Share with everyone or your class only",
+        "Search the feed by subject or see only yours"
+      ],
+      "research": null,
+      "technology": [
+        "Rules and automation"
+      ],
+      "benefit": "Following up on student doubts could become easier, with each discussion kept against its subject, chapter and topic.",
+      "workflow": [
+        "Pick subject",
+        "Post doubt",
+        "Attach file",
+        "Reply in thread",
+        "Follow up"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/lms/social-collaborative/page.tsx",
+        "lms_k12/app/lms/data/socialCollaborative.ts",
+        "lms_k12/app/lms/data/leaderBoard.ts",
+        "lms_k12/app/lms/data/virtualClassroom.ts",
+        "lms_k12/app/lms/data/portfolio.ts",
+        "lms_k12/app/lms/data/activityStream.ts",
+        "next_lms_erp/routes/api.php",
+        "next_lms_erp/app/Services/lms/LmsLeaderboardService.php"
+      ],
+      "owner_to_confirm": [
+        "Only Social & Collabrotive is described. It is live (REST routes exist), has no edit or delete by design, and shows posts as Everyone or Class only.",
+        "Portfolio and Virtual Classroom have no server route (no portfolio or virtual-classroom route in next_lms_erp/routes). The front end shows built-in demo records, and Add or Schedule only changes a list in the browser. Not claimed; do not demo as working.",
+        "Activity Stream mixes real Task Management tasks with built-in sample activities (sample teacher names and times). Not claimed.",
+        "Leader Board is read-only and nothing in the ERP writes its points ledger (route comment and code search). It is probably empty, so it is not claimed. Confirm whether a process fills it.",
+        "Menu spelling Social & Collabrotive kept as in the live menu.",
+        "Virtual Classroom only stores a meeting link; no video is hosted by the platform."
+      ]
+    },
+    {
+      "id": "learn-curriculum-planning",
+      "name": "Curriculum Planning",
+      "k12_menu": "LMS + PAL > Curriculum Planning",
+      "screens": [
+        "Curriculam Plan",
+        "Monthly",
+        "Lesson Planning",
+        "Reports",
+        "Framework"
+      ],
+      "summary": "Turns the curriculum into month and period plans, tracks what was delivered and assessed, and shows framework signals for each concept.",
+      "problem": "Curriculum, monthly schedules and daily lessons are kept in separate files, so teachers and coordinators cannot see what has been covered.",
+      "features": [
+        "See curriculum by subject and month, with NCF goals",
+        "Compare expected, delivered and assessed learning outcomes",
+        "Add, edit and review period lessons on a calendar",
+        "Track lesson-planning completion by subject",
+        "Browse CASEL, NGSS and NCDG signals per concept"
+      ],
+      "research": {
+        "text": "Lesson drafts designed from NCF and NCERT learning outcomes; framework views read CASEL, NGSS and NCDG vocabularies.",
+        "evidence": [
+          "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php",
+          "next_lms_erp/config/pal_h5p.php",
+          "lms_k12/app/lms/curriculum-planning/CurriculumTab.tsx"
+        ]
+      },
+      "technology": [
+        "Rules and automation",
+        "AI-assisted drafting for staff"
+      ],
+      "benefit": "Seeing what has been taught against the curriculum, month by month, could become easier for teachers and coordinators.",
+      "workflow": [
+        "Review curriculum",
+        "Schedule month",
+        "Draft lessons",
+        "Review lessons",
+        "Track completion"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/lms/curriculum-planning/page.tsx",
+        "lms_k12/app/lms/curriculum-planning/CurriculumTab.tsx",
+        "lms_k12/app/lms/curriculum-planning/OutcomesTab.tsx",
+        "lms_k12/app/lms/curriculum-planning/dialogs.tsx",
+        "lms_k12/app/lms/monthly-plan/page.tsx",
+        "lms_k12/app/lms/lesson-plan/page.tsx",
+        "lms_k12/app/lms/reports/page.tsx",
+        "lms_k12/app/pal/data/pal-content-model.ts",
+        "next_lms_erp/app/Services/LessonIntelligence/MacroPlanService.php",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php",
+        "next_lms_erp/app/Http/Controllers/api/lms/CurriculumOutcomesApiController.php"
+      ],
+      "owner_to_confirm": [
+        "On Curriculam Plan the Add topic, Filter and Edit topic dialogs are static forms that save nothing (dialogs.tsx says so). Not claimed.",
+        "Reports has an Export PDF button with no action behind it. Not claimed.",
+        "The term schedule and AI-drafted period lessons are generated on Teach/Learn > Course Catalog > Lesson plans. This sub-module shows and edits the resulting periods (objectives, notes, resources, homework).",
+        "Period lesson drafts are one AI call per period, started by staff. Periods show Materials ready or Needs review.",
+        "The NCF goals tree shows only where goals are recorded; otherwise the screen says none are recorded.",
+        "Framework lists keyword matches found in each concept's notes. It is a set of signals, not a checked alignment; keep the word signals.",
+        "Outcomes achievement uses exam evidence; PAL-verified mastery is rare. Missing evidence is shown as Data not available, never as zero.",
+        "Menu spelling Curriculam Plan kept as in the live menu. The 22 Aug audit calls Reports static; it now loads from the server, so the audit is out of date."
+      ]
+    },
+    {
+      "id": "learn-pal-content-model",
+      "name": "PAL: Content model",
+      "k12_menu": "LMS + PAL > PAL",
+      "screens": [
+        "Content Model",
+        "Unified Learning Units",
+        "Pedagogy Engine"
+      ],
+      "summary": "Organises each chapter's content into four types, with authoring, review and a written rule set for choosing teaching methods.",
+      "problem": "Teaching content is hard to tag, check and reuse when each chapter's concepts, practice and fixes live in different places.",
+      "features": [
+        "See chapter coverage across four content types",
+        "Edit content, add languages, restore earlier versions",
+        "Review AI-suggested tags before they go live",
+        "Keep a library of common mistakes with fixes",
+        "Browse learning units and teaching-method rules"
+      ],
+      "research": {
+        "text": "Content levels designed from Bloom's taxonomy and Webb DOK; framework tags use CASEL, NGSS and NCDG vocabularies.",
+        "evidence": [
+          "next_lms_erp/config/pal_content_model.php",
+          "next_lms_erp/config/pal_h5p.php",
+          "next_lms_erp/docs/content-design-system/vocabulary.md",
+          "next_lms_erp/docs/lms-pal-content-intelligence-master-prompt.md"
+        ]
+      },
+      "technology": [
+        "AI-assisted drafting for staff",
+        "Rules and automation"
+      ],
+      "benefit": "Preparing, tagging and reviewing chapter content could become easier, and the teaching rules could be read by anyone.",
+      "workflow": [
+        "Extract chapter",
+        "Edit content",
+        "Add languages",
+        "Review drafts",
+        "Approve"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/pal/new/content-model/page.tsx",
+        "lms_k12/app/pal/new/content-model/authoring/page.tsx",
+        "lms_k12/app/pal/new/content-model/review/page.tsx",
+        "lms_k12/app/pal/new/content-model/misconceptions/page.tsx",
+        "lms_k12/app/pal/ulu/page.tsx",
+        "lms_k12/app/pal/ulu/manage/page.tsx",
+        "lms_k12/app/pal/pedagogy-engine/page.tsx",
+        "next_lms_erp/app/Http/Controllers/api/PAL/NewPalContentModelController.php",
+        "next_lms_erp/app/Services/PAL/Pedagogy/PedagogyEngineService.php",
+        "next_lms_erp/docs/lms-pal-content-intelligence-master-prompt.md",
+        "next_lms_erp/docs/content-design-system/vocabulary.md"
+      ],
+      "owner_to_confirm": [
+        "Content depth is the risk. The Aug 2026 master prompt says the PAL content tables were nearly empty, and the AI tagging run reached about half of the busiest questions, all as drafts. Confirm the demo school has authored content before showing.",
+        "AI tags and enrichment are drafts only; code forbids a batch from approving anything. A named human reviewer is needed.",
+        "The mistakes library is hand-written (a small starter set in Aug); more needs subject experts.",
+        "ADR-001 is headed Accepted and implemented, yet its decision section still reads Proposed, requires approval. Do not present its new evidence-floor or 30-day expiry rules as live until confirmed.",
+        "The Pedagogy Engine rule set contains learning-style rules and the config maps Gardner intelligences. Neither is claimed or cited.",
+        "Unified Learning Units (menu) is a read-only view built from the chapter's concept data. The approve page at /pal/ulu/manage is not linked from the menu.",
+        "The Pedagogy Engine is a read-only rule reference and is labelled Teaching methods in the PAL tab bar.",
+        "Nine languages are registered (English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali, Kannada, Malayalam). Do not promise translated content for all of them."
+      ]
+    },
+    {
+      "id": "learn-pal-knowledge-graph",
+      "name": "PAL: Knowledge graph",
+      "k12_menu": "LMS + PAL > PAL",
+      "screens": [
+        "Coherence Map",
+        "Knowledge Graph",
+        "Teacher Insights"
+      ],
+      "summary": "Shows how concepts connect through prerequisites, from curriculum units down to single concepts, and where a class stands on them.",
+      "problem": "It is hard to see which earlier concept is holding a class back when prerequisites are not written down anywhere.",
+      "features": [
+        "See which concepts must be learned first",
+        "Browse curriculum from units down to concepts",
+        "Open one concept to see its prerequisite links",
+        "Show AI-suggested links, clearly marked as drafts",
+        "Teachers see a class learning map and mistakes board"
+      ],
+      "research": null,
+      "technology": [
+        "Knowledge graph of concepts and prerequisites",
+        "AI-assisted drafting for staff"
+      ],
+      "benefit": "Finding the earlier concept behind a learning gap could become easier for teachers and academic coordinators.",
+      "workflow": [
+        "Pick class",
+        "Open map",
+        "Select concept",
+        "See prerequisites",
+        "Review links"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/pal/new/coherence-map/page.tsx",
+        "lms_k12/app/pal/new/data/coherence-map.ts",
+        "lms_k12/app/pal/learning-intelligence/knowledge-graph/page.tsx",
+        "lms_k12/app/pal/learning-intelligence/teacher-insights/page.tsx",
+        "lms_k12/app/pal/learning-intelligence/context-inspector/page.tsx",
+        "lms_k12/app/data/routeMapper.ts",
+        "lms_k12/app/components/DashboardShell.tsx",
+        "next_lms_erp/app/Services/PAL/Coherence/CoherenceRecommender.php",
+        "next_lms_erp/app/Services/PAL/Coherence/CurriculumGraphBuilder.php",
+        "next_lms_erp/docs/context-graph/KG_CG_USAGE_MAP.md"
+      ],
+      "owner_to_confirm": [
+        "Learning Journey and Context Inspector are in the live menu but switched off in the app: Context Inspector's page is a notice, and the menu links /new_pal.learning_journey and /new_pal.context_inspector are not real routes (routeMapper and DashboardShell say soft-disabled). They are left out of screens and features. A separate student Your Journey page works from Exam & Assessment > PAL.",
+        "Prerequisite links are suggestions. When last measured (24 Aug) every link was an AI-tagged draft, none reviewed, and the graph contains loops; the Coherence Map page says so itself. Staff can Approve or Dismiss links on Teach/Learn > Course Catalog > Coherence Map.",
+        "No graph node counts are quoted anywhere, as instructed.",
+        "Mastery shading comes from a probabilistic mastery signal that ADR-001 says is not shown to students as their mastery. The Sept 2026 coverage doc found few mastery rows and no concept link on questions, so expect little learner data on the map.",
+        "Teacher Insights class map makes one request per student and loads only when a teacher asks, so it can be slow on large classes.",
+        "The AI overlay on Knowledge Graph reads the graph database. Aug 2026 notes record hardening gaps there (weak password, plain HTTP, old version). Confirm security before any outside demo.",
+        "Knowledge Graph and Coherence Map are teacher and admin views; a student session does not use them."
+      ]
+    },
+    {
+      "id": "learn-pal-engines",
+      "name": "PAL: Learning engines",
+      "k12_menu": "LMS + PAL > PAL",
+      "screens": [
+        "ESO",
+        "Gamification",
+        "AI Stack",
+        "Administration",
+        "Reports"
+      ],
+      "summary": "Rules choose each student's next learning step, with gamification, attainment reports, settings and AI controls around them.",
+      "problem": "Every student walks the same path through a chapter, so time is spent on what is already known and gaps go unnoticed.",
+      "features": [
+        "Skip known concepts, repair gaps, recheck after days",
+        "Personal bests, streaks, badges and team challenges",
+        "Opt-in weekly challenge board, switchable off by teachers",
+        "Compare curriculum covered with what students demonstrated",
+        "Set AI policies, prompts and guardrails for review"
+      ],
+      "research": {
+        "text": "Adaptive rules designed from the Adaptive Learning Engine Developer Brief and decision records ADR-001 and ADR-002 on mastery and rule order.",
+        "evidence": [
+          "next_lms_erp/docs/adr/ADR-001-PAL-Mastery-Definition.md",
+          "next_lms_erp/docs/adr/ADR-002-PAL-Rule-Precedence.md",
+          "next_lms_erp/app/Services/Eso/EsoPolicyService.php",
+          "Downloads/Scholar_Adaptive_Learning_Engine_Developer_Brief_v1.docx"
+        ]
+      },
+      "technology": [
+        "Rules and adaptive practice",
+        "AI-assisted drafting for staff"
+      ],
+      "benefit": "Students could spend more time on what they actually need, and teachers could see coverage next to demonstrated learning.",
+      "workflow": [
+        "Diagnostic quiz",
+        "Skip or teach",
+        "Fix mistakes",
+        "Practise",
+        "Verify mastery",
+        "Recheck later"
+      ],
+      "data": "live",
+      "evidence": [
+        "next_lms_erp/app/Services/Eso/EsoPolicyService.php",
+        "next_lms_erp/docs/adr/ADR-001-PAL-Mastery-Definition.md",
+        "next_lms_erp/docs/adr/ADR-002-PAL-Rule-Precedence.md",
+        "next_lms_erp/app/Services/PAL/Gamification/ChallengeModeService.php",
+        "next_lms_erp/app/Services/PAL/Gamification/PersonalBestService.php",
+        "next_lms_erp/app/Services/PAL/Reporting/AttainmentReportService.php",
+        "next_lms_erp/config/pal_architecture.php",
+        "lms_k12/app/pal/eso/page.tsx",
+        "lms_k12/app/pal/new/gamification/page.tsx",
+        "lms_k12/app/pal/new/administration/page.tsx",
+        "lms_k12/app/pal/reports/attainment/page.tsx",
+        "lms_k12/lib/new-pal/new-pal-ai-stack.ts",
+        "Downloads/Scholar_Adaptive_Learning_Engine_Developer_Brief_v1.docx"
+      ],
+      "owner_to_confirm": [
+        "Clicking ESO in the menu with no concept chosen shows a notice asking for a concept. The real entry is the student's chapter Adaptive Learning button, and staff cannot start a session (student-only route). Demo it with a student login.",
+        "No pilot results exist in any file opened. The Developer Brief sets a two-arm pilot and a success bar decided before results. Never claim time saved, mastery gains or retention.",
+        "ESO updates mastery with a simple step rule; a separate probabilistic signal feeds the map. ADR-001 says only the ESO verdict is shown to students.",
+        "ADR-001 is headed Accepted and implemented but its decision section still reads Proposed. Its evidence-floor and 30-day expiry rules may not be live.",
+        "The Brief takes its five principles from an outside program and names it. Not named on screen; the Brief says adapted for CBSE.",
+        "Gamification: Personal Best compares a student only with their own past. Challenge Mode is the only comparison: opt-in, Grade 4 and up, a teacher can switch it off per class, weekly top five by first name. Career Quest also creates a career report; word it carefully.",
+        "Administration is a settings control plane. Only admin, principal and director profiles can write, and changes affect how every learner is assessed. It is not a student feature.",
+        "AI Stack has nine tabs (Policies, Models, Prompts, Templates, Knowledge Base, Automations, Usage & Cost, Guardrails, Activity). Models and Usage may show provider names and costs; check before projecting.",
+        "Reports is staff-only and includes a short AI-written paragraph grounded only in the report's figures. Mastery evidence in the estate is thin (Sept 2026 doc), so it may show little.",
+        "Risk-style endpoints (failure, burnout, disengagement) exist in the PAL routes but are not on these screens and are not claimed. Learning-style rules exist in the pedagogy selector and are not claimed."
+      ]
+    }
+  ]
+}

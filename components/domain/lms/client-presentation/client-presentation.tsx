@@ -45,7 +45,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
   const reducedPref = useReducedMotion()
   const reduced = Boolean(reducedPref)
   const [state, dispatch] = useReducer(reducer, undefined, () => {
-    const s = initial(mode, initialSlide ? `s${initialSlide}` : undefined)
+    const s = initial(mode, initialSlide ? (initialSlide > 200 ? `a${initialSlide - 200}` : `s${initialSlide}`) : undefined)   // 201 and up are the Product Atlas slides (a1, a2, ...)
     return initialBeat ? { ...s, beat: Math.min(Math.max(0, Math.floor(initialBeat)), beatsOf(keyAt(s))) } : s
   })
   const rootRef = useRef<HTMLDivElement>(null)

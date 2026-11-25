@@ -1,0 +1,402 @@
+{
+  "family": "core",
+  "items": [
+    {
+      "id": "core-student",
+      "name": "Student",
+      "k12_menu": "Institute ERP > Student",
+      "screens": [
+        "Search/Edit Student",
+        "Student Documents",
+        "Add Student",
+        "Add House",
+        "Bulk Student Update",
+        "Map Optional Subjects",
+        "Subject Elective",
+        "Student Certificate",
+        "Student Infirmary",
+        "Student I-card",
+        "Student Vaccination",
+        "Student Height Weight",
+        "Student Health",
+        "Student Request"
+      ],
+      "summary": "Keeps each student's record in order: enrolment, profile, documents, health notes, certificates and I-cards, by section, class and division.",
+      "problem": "Scattered registers make finding, updating and certifying student details slow and repetitive.",
+      "features": [
+        "Search students by class, division, name or GR number",
+        "Add students with an automatic GR number",
+        "Update chosen details for a whole class",
+        "Print certificates and I-cards from templates",
+        "See which students have missing documents"
+      ],
+      "research": null,
+      "technology": [
+        "Templates for certificates and I-cards",
+        "AI-assisted drafting for health and vaccination notes"
+      ],
+      "benefit": "Finding, updating and certifying student records could become easier for office staff.",
+      "workflow": [
+        "Add student",
+        "Map subjects",
+        "Check documents",
+        "Record health",
+        "Print I-card",
+        "Issue certificate"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/students/search_student/api.ts",
+        "lms_k12/app/student/add_student/page.tsx",
+        "lms_k12/app/students/student_documents/api.ts",
+        "lms_k12/app/student/_components/StudentCareModule.tsx",
+        "lms_k12/docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/adminapi.php",
+        "next_lms_erp/routes/student.php",
+        "next_lms_erp/app/Http/Controllers/api/StudentRegistrationApiController.php",
+        "next_lms_erp/app/Http/Controllers/student/StudentCertificateApiController.php"
+      ],
+      "owner_to_confirm": [
+        "Screen list comes from next_lms_erp/docs/V1_Menu_Reference.docx (a snapshot). The live sidebar is built from database rows, so confirm the demo school shows these 14 screens.",
+        "On Search/Edit Student, the Export and Transfer buttons (shown after ticking rows) have no action wired, and the profile drawer's certificate and I-card buttons only write to the browser console. None of these are claimed.",
+        "docs/menu-data-source-audit.md (22 Aug) calls the student area mixed with five sample-data screens. The code now loads Student Documents and the other student pages (discipline, health overview, house, ID card preview) from the server. The last four are not in the menu snapshot, so they are not presented.",
+        "Subject Elective is a generic read-only table, not a full setup screen. Student Request only submits requests; no approve or reject screen was found in the front end.",
+        "I-card layouts are four built-in templates (plus two for one specific school id). Certificate templates come from the school's own template list.",
+        "AI-assisted drafting is on the health remarks and vaccination note boxes only (docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md). It uses a local-model route in the front end; confirm model, key and data handling before promising it.",
+        "The Intelligence screen is attached to the menu by front-end matching (components/intelligence/module/registry.ts), not by the menu snapshot. The registry itself says its action loop is not wired. Confirm it appears for this module on the demo school."
+      ]
+    },
+    {
+      "id": "core-admission",
+      "name": "Admission",
+      "k12_menu": "Institute ERP > Admission",
+      "screens": [
+        "Admission Inquiry",
+        "Admission Registration",
+        "Admission Confirmation"
+      ],
+      "summary": "Takes a family from first enquiry to confirmed admission: enquiries, follow-ups, registration with documents, and confirmation.",
+      "problem": "Enquiries, follow-up dates and registration papers in different places make it easy to lose track of a family.",
+      "features": [
+        "Log enquiries and follow-ups for each family",
+        "Track registrations with document and fee status",
+        "Confirm admission and add the student record",
+        "Export confirmation lists to Excel, PDF or print",
+        "Draft enquiry remarks with AI assistance"
+      ],
+      "research": null,
+      "technology": [
+        "AI-assisted drafting for enquiry remarks",
+        "Reports and exports"
+      ],
+      "benefit": "Following up enquiries and moving families through registration and confirmation could become easier for the admission team.",
+      "workflow": [
+        "Log enquiry",
+        "Follow up",
+        "Register",
+        "Confirm admission",
+        "Add student"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admissions/confirmation/page.tsx",
+        "lms_k12/app/admissions/admission_registration/workflow.ts",
+        "lms_k12/app/admissions/admission_enquiry/page.tsx",
+        "lms_k12/docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md",
+        "next_lms_erp/routes/admission.php",
+        "next_lms_erp/routes/api.php"
+      ],
+      "owner_to_confirm": [
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar shows Inquiry, Registration and Confirmation.",
+        "docs/menu-data-source-audit.md (22 Aug) calls two admission pages static sample data (admission_form, admission_followUp). The code now loads both from the server, but neither is in the menu snapshot, so they are not presented.",
+        "The registration table shows a registration fee status column; the exact rule that decides Pending or Paid was not traced. The Add Student button is enabled by an eligibility check in the confirmation page that was not read in full.",
+        "The enquiry remarks box uses a local-model route in the front end (docs/AI_FIELD_ASSISTANT.md). Confirm model, key and data handling before promising it.",
+        "Admission reports (enquiry, registration, confirmation, follow-up) sit under the Reports module, not here.",
+        "The Intelligence screen is attached by front-end matching; the registry says its action loop is not wired. Confirm it appears on the demo school."
+      ]
+    },
+    {
+      "id": "core-attendance",
+      "name": "Attendance",
+      "k12_menu": "Institute ERP > Attendance",
+      "screens": [
+        "Student Attendance"
+      ],
+      "summary": "Daily class attendance: choose the class and date, mark present or absent, and save the register.",
+      "problem": "Taking, correcting and sharing daily attendance on paper is slow.",
+      "features": [
+        "Pick class and date, then load the register",
+        "Mark present or absent, or mark all together",
+        "School calendar holidays and Sundays block marking",
+        "Saving again the same day updates earlier marks",
+        "Sends app notifications to families for same-day marking"
+      ],
+      "research": null,
+      "technology": [
+        "Rules and automation for holidays and alerts"
+      ],
+      "benefit": "Taking attendance and keeping families informed could become easier for teachers.",
+      "workflow": [
+        "Pick class",
+        "Pick date",
+        "Load register",
+        "Mark attendance",
+        "Save"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/student/student_attendance/page.tsx",
+        "lms_k12/app/attendance/_lib/attendance-api.ts",
+        "next_lms_erp/app/Http/Controllers/student/studentAttendanceController.php",
+        "next_lms_erp/routes/student.php",
+        "lms_k12/components/intelligence/module/registry.ts"
+      ],
+      "owner_to_confirm": [
+        "Only two codes exist in the data model: present and absent. There is no late or leave status, so do not show one.",
+        "App notifications go to devices registered with the family's mobile number, and only when a student's mark is first saved on the same day (not on later edits). Confirm the wording and that the demo school has registered devices.",
+        "A separate attendance dashboard (trend charts, daily register) at /attendance/attendance_dashboard is reachable from the teacher dashboard, and face attendance screens exist in app/face_attendance. Neither is in the menu snapshot, so neither is presented. docs/menu-data-source-audit.md calls the dashboard static; the code now loads it from the server.",
+        "Day-wise, month-wise and yearly attendance reports sit under the Reports module, not here.",
+        "The Intelligence screen uses attendance bands described only as 'the board's' lines, with no named source, so research is left empty. Its action loop is not wired per the registry.",
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar."
+      ]
+    },
+    {
+      "id": "core-users",
+      "name": "Users",
+      "k12_menu": "Institute ERP > Users",
+      "screens": [
+        "Users"
+      ],
+      "summary": "The staff directory: add and edit employee accounts, give each an access profile, record teacher subjects and lectures.",
+      "problem": "Keeping staff accounts and the right access for each person up to date is slow when records are scattered.",
+      "features": [
+        "Add and edit staff accounts with access profiles",
+        "Record teachers' subjects and total lectures",
+        "Search and sort the staff list",
+        "Deactivate accounts instead of deleting them",
+        "Only administrators can assign administrator profiles"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access to view, add, edit and delete"
+      ],
+      "benefit": "Adding staff, setting their access and switching off leavers could become easier for administrators.",
+      "workflow": [
+        "Add user",
+        "Choose profile",
+        "Add subjects",
+        "Save",
+        "Search list"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/user/add_user/page.tsx",
+        "lms_k12/app/user/_components/StaffCompetencyDrawer.tsx",
+        "next_lms_erp/app/Http/Controllers/api/UserManagementApiController.php",
+        "next_lms_erp/routes/api.php",
+        "lms_k12/components/intelligence/module/registry.ts"
+      ],
+      "owner_to_confirm": [
+        "Only one screen (Users) sits under this heading in the menu snapshot. User profile setup is under Institute (Master), and the user report is under Reports.",
+        "Each button (add, edit, deactivate, competency) appears only if the signed-in person has that right; a non-administrator sees only their own record. Demo with an administrator login.",
+        "A staff competency side panel opens from the list. It needs an HR or administrator role and competency data; not claimed as a feature.",
+        "Circular and Parent Communication appear directly under Institute ERP in the snapshot, next to Users. They are not covered here.",
+        "The Intelligence screen is the staff (HR) one, matched by route in the front-end registry; its action loop is not wired per the registry. Confirm it appears on the demo school."
+      ]
+    },
+    {
+      "id": "core-front-desk",
+      "name": "Front Desk",
+      "k12_menu": "Institute ERP > Front Desk",
+      "screens": [
+        "Front Desk"
+      ],
+      "summary": "A front-desk log of parent and other visitors: who came, whom they met, why, and when they left.",
+      "problem": "Paper visitor registers make it hard to see quickly who met whom, when and why.",
+      "features": [
+        "Log each visitor with student and staff member met",
+        "Record in time, out time and visitor photo",
+        "Choose parent or other visitor type",
+        "Staff see only entries addressed to them",
+        "Search the log; export to CSV, Excel or print"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access: staff see their own visitors",
+        "Reports and exports"
+      ],
+      "benefit": "Reception could keep a searchable record of visits, and staff could find the visits meant for them.",
+      "workflow": [
+        "Choose visitor type",
+        "Add details",
+        "Add photo",
+        "Save entry",
+        "Record out time"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/front-desk/page.tsx",
+        "lms_k12/app/admin-services/_lib/frontdesk.ts",
+        "lms_k12/components/erp/RecordTable.tsx",
+        "next_lms_erp/app/Http/Controllers/api/FrontDeskApiController.php",
+        "next_lms_erp/routes/api.php"
+      ],
+      "owner_to_confirm": [
+        "The menu snapshot puts one screen under Front Desk. Circular and Parent Communication (app/front_desk) sit directly under Institute ERP instead; decide whether to present them with Front Desk.",
+        "Visitor type has only two choices on this screen: Parents and Other. Every entry must name a student.",
+        "Out time is added by editing the entry; there is no separate check-out button here (that is on Visitor Management).",
+        "The front desk report sits under the Reports module. No Intelligence screen is registered for Front Desk.",
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar."
+      ]
+    },
+    {
+      "id": "core-visitor-management",
+      "name": "Visitor Management",
+      "k12_menu": "Institute ERP > Visitor Management",
+      "screens": [
+        "Add Visitor"
+      ],
+      "summary": "A gate register for visitors: who came, whom they met, why, with ID card and photo, and when they left.",
+      "problem": "Gate visits written on paper are hard to search, and leaving times are often missed.",
+      "features": [
+        "Record gate visits with ID card and photo",
+        "Log direct or prior-appointment visits",
+        "Check visitors out from today's list",
+        "Welcome and exit text messages, when switched on",
+        "Search and export today's visitor list"
+      ],
+      "research": null,
+      "technology": [
+        "Visitor text messages through the school's gateway",
+        "Reports and exports"
+      ],
+      "benefit": "Gate staff could record and close visits quickly, and hosts could be told when a visitor arrives.",
+      "workflow": [
+        "Choose appointment",
+        "Enter details",
+        "Save check-in",
+        "Check out",
+        "Review today's list"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/admin-services/add-visitor/page.tsx",
+        "lms_k12/app/admin-services/_lib/visitor.ts",
+        "next_lms_erp/app/Http/Controllers/visitor_management/visitor_masterController.php",
+        "next_lms_erp/routes/visitor_management.php",
+        "lms_k12/components/intelligence/module/registry.ts"
+      ],
+      "owner_to_confirm": [
+        "Text messages (welcome to host and visitor, exit to visitor, sent once) go out only if the school has set up its SMS gateway and switched each message on. Confirm the demo school has this, or show it as a setting.",
+        "The form lists a 'Pick-up student' appointment type, but the one-time-code check for pick-ups exists only in the back end and is not in this screen. Not claimed.",
+        "The visitor-type list is built from past visits (code comment in _lib/visitor.ts), so a brand-new school may see an empty list until types exist.",
+        "The Intelligence registry notes that entry and exit times are unreliable, so no visit duration is shown. Do not promise dwell time. This module's action loop is marked wired in the registry; confirm on the demo school.",
+        "Hostel visitor details is a different module. The visitor report sits under Reports.",
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar."
+      ]
+    },
+    {
+      "id": "core-timetable",
+      "name": "Timetable",
+      "k12_menu": "Institute ERP > Timetable",
+      "screens": [
+        "Assign Class Teacher",
+        "Proxy Management",
+        "Create Timetable"
+      ],
+      "summary": "Class teacher assignments, the weekly timetable grid, and substitute-teacher cover for absent staff.",
+      "problem": "Clashes between periods and sudden teacher absences take time to sort out by hand.",
+      "features": [
+        "Assign one class teacher to each class",
+        "Build the weekly grid by subject, teacher and period",
+        "Stops a teacher being booked twice in a period",
+        "Shows each teacher's remaining lectures while planning",
+        "Lists only available teachers as substitutes"
+      ],
+      "research": null,
+      "technology": [
+        "Rules and automation for clash checks",
+        "Reports and exports"
+      ],
+      "benefit": "Planning periods and arranging substitute cover could become easier for the timetable coordinator.",
+      "workflow": [
+        "Assign class teacher",
+        "Pick class",
+        "Fill period grid",
+        "Save entries",
+        "Assign substitute"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/front_desk/create-timetable/api.ts",
+        "lms_k12/app/proxy_master/api.ts",
+        "lms_k12/app/classteacher/api.ts",
+        "next_lms_erp/app/Http/Controllers/school_setup/timetableController.php",
+        "next_lms_erp/app/Http/Controllers/school_setup/proxyController.php",
+        "next_lms_erp/app/Http/Controllers/api/ClassTeacherApiController.php"
+      ],
+      "owner_to_confirm": [
+        "The double-booking block is the default; a school setting (timetable_teacher = Yes) switches it off. Confirm the demo school keeps it on.",
+        "Substitute suggestions come from the saved timetable rows (teachers with no lecture in that period and weekday). Teachers with no timetable rows may also appear. Check with real data before showing.",
+        "The remaining-lectures figure appears only for teachers whose total lectures were set on the Users screen; otherwise it shows nothing.",
+        "Class-wise and faculty-wise timetable views sit under the Reports module. The timetable screens live in the front_desk folder of the code but belong to this menu group.",
+        "No Intelligence screen is registered for Timetable.",
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar."
+      ]
+    },
+    {
+      "id": "core-exam",
+      "name": "Exam",
+      "k12_menu": "Institute ERP > Exam",
+      "screens": [
+        "Mark Entry",
+        "Co-scholastic Mark",
+        "Upload Result",
+        "HPC Activity Entry",
+        "HPC Entry v1"
+      ],
+      "summary": "Marks entry, co-scholastic grades, result file uploads and holistic progress card activities for each class and term.",
+      "problem": "Entering, checking and approving marks across many classes and sheets takes a lot of time.",
+      "features": [
+        "Enter marks by term, class, subject and exam",
+        "Grades fill in from the school's grade ranges",
+        "Approve co-scholastic grades per class and term",
+        "Upload a result file for each student",
+        "Record holistic progress card activities per student"
+      ],
+      "research": null,
+      "technology": [
+        "Automatic grade and mark-limit checks",
+        "Approval step for co-scholastic grades"
+      ],
+      "benefit": "Entering and approving marks could become easier, and results could be prepared from checked entries.",
+      "workflow": [
+        "Select class",
+        "Enter marks",
+        "Add co-scholastic",
+        "Record activities",
+        "Approve grades",
+        "Upload results"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/exam/marks-entry/page.tsx",
+        "lms_k12/app/result/co-scholastic-marks/page.tsx",
+        "lms_k12/app/result/upload-result/page.tsx",
+        "next_lms_erp/routes/result.php",
+        "next_lms_erp/routes/resultapi.php",
+        "next_lms_erp/app/Http/Controllers/result/marks_entry/marks_entry_controller.php"
+      ],
+      "owner_to_confirm": [
+        "Mark Entry accepts the codes AB, N.A. and EX as well as numbers; the meaning of each code was not found in the code, so it is not explained on screen. Grade ranges come from the school's own grade setup.",
+        "The back end can lock an exam so marks can no longer change, and has a marks approval step, but the Mark Entry screen has no approve button. Only co-scholastic grades have an approve step on screen.",
+        "The Exam menu snapshot has five screens. Exam creation, grade and exam masters, report cards and result reports sit in other menu groups (Exam (Master) and Reports).",
+        "HPC Entry v1 is a version name from the menu; confirm whether to show it or only HPC Activity Entry.",
+        "Exam Intelligence is not built, and Result Intelligence is only part built (registry), so no Intelligence is claimed here.",
+        "Exam creation has AI-assisted drafting for the description box, but that screen is not in this menu group, so it is not claimed.",
+        "Screen list comes from the Word menu snapshot; confirm the live sidebar."
+      ]
+    }
+  ]
+}
