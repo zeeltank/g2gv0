@@ -4,6 +4,7 @@ import { History as HistoryIcon, Loader2 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionCard } from '@/components/shared/business/shared'
 import type { CrmAuditEntry } from '@/types/crm'
+import { WhoChip } from './people/who-chip'
 
 interface Props {
   entries: CrmAuditEntry[]
@@ -58,7 +59,10 @@ export function CrmHistoryTab({ entries, loading }: Props) {
           {entries.map((entry) => (
             <div key={entry.id} className="space-y-2 p-3 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-foreground">{entry.actorName ?? 'System'}</span>
+                <span className="flex flex-wrap items-center gap-2 font-medium text-foreground">
+                  {entry.actorName ?? 'System'}
+                  <WhoChip row={entry} />
+                </span>
                 <span className="shrink-0 text-xs text-muted-foreground">{entry.occurredAt}</span>
               </div>
               {entry.changes.length === 0 ? (

@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { SectionCard } from '@/components/shared/business/shared'
 import type { CrmEmailLinkEntry } from '@/types/crm'
+import { WhoChip } from './people/who-chip'
 
 interface Props {
   emails: CrmEmailLinkEntry[]
@@ -109,6 +110,7 @@ export function CrmEmailTab({ emails, loading, onCompose }: Props) {
                     <span className="text-xs text-muted-foreground">#{row.id}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <WhoChip row={row} />
                     <StatusBadge variant={statusVariant(row.status)}>{row.status ?? 'Draft'}</StatusBadge>
                     {isExpanded ? (
                       <ChevronUp className="size-4 text-muted-foreground" />

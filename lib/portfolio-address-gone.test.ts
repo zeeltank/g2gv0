@@ -46,6 +46,7 @@ const ALLOWED: Allowance[] = [
   { file: 'lib/signals-nav.ts', line: /^const (?:PRODUCTS|SERVICES|PRICE_BOOKS)_PATH = '\/module\/crm\/sales\/(?:products|services|price-books)'\s*$/, why: 'the sidebar fold names the three menu rows it does not draw (Products and Services are the Product Portfolio, Price Books were removed), and the addresses that still resolve' },
   { file: 'lib/gtg-navigation.ts', line: /^export const CRM_(?:PRODUCTS|SERVICES)_ACCESS_LINK = '\/module\/crm\/sales\/(?:products|services)'\s*$/, why: 'the identity (access_link) of the two menu rows 468 and 469, which stay in the database; old screens and the sidebar hook still resolve them' },
   { file: 'lib/portfolio-list/sidebar.test.ts', why: 'tests the sidebar fold, so it names the two menu rows on purpose' },
+  { file: 'lib/crm/people-sidebar.test.ts', line: /sales\/products/, why: 'S18: proves the Contacts fold leaves the Products fold as it was, so one test menu holds a Products row' },
   { file: 'lib/product-picker/product-page-link.test.tsx', why: 'proves the product-page link no longer resolves the old Products address: it has to spell the address it forbids (a comment and one `includes` check)' },
   { file: 'lib/portfolio-list/screen-kit.ts', why: 'a fixture of the real menu, which still holds the two rows (468 and 469 keep status 1)' },
   // A saved link: the Ask chat draws a stored answer's link, and the page behind it redirects.

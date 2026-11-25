@@ -20,14 +20,22 @@ import { CreateEventModal } from '@/components/domain/task/create-event-modal'
 import { EventDetailsDrawer } from '@/components/domain/task/event-details-drawer'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { taskService } from '@/services/task'
+import { companyActivityService } from '@/services/crm/contacts'
+import type { CompanyActivityScope, PersonTag } from '@/types/crm'
 import type { CalendarEvent } from '@/types/task-management'
 import type { LinkedRecordType } from './linked-record-picker'
+import { WhoChip } from './people/who-chip'
 
 interface Props {
   linkedType: LinkedRecordType
   linkedId: string
   /** Shown in the create modal's caption ("Linking to: <recordLabel>"). */
   recordLabel: string
+  /**
+   * An organization's page only (S18): which events it lists, its own (`company`) or its own and its people's (`people`, each tagged with whose it is).
+   * Left out, the tab reads the record's own events as it always did.
+   */
+  include?: CompanyActivityScope
 }
 
 function formatWhen(event: CalendarEvent): string {
@@ -43,8 +51,8 @@ function statusClasses(status: CalendarEvent['status']): string {
   return 'bg-muted text-muted-foreground'
 }
 
-export function CrmScheduleTab({ linkedType, linkedId, recordLabel }: Props) {
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+export function CrmScheduleTab({ linkedType, linkedId, recordLabel, include }: Props) {
+  const [events, setEvents] = useState<Array<CalendarEvent & PersonTag>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -60,14 +68,16 @@ export function CrmScheduleTab({ linkedType, linkedId, recordLabel }: Props) {
     setLoading(true)
     setError('')
     try {
-      const response = await taskService.getLinkedCalendarEvents(context, linkedType, linkedId)
+      const response = include && linkedType === 'ORGANIZATION'
+        ? await companyActivityService.schedule(context, linkedId, include)
+        : await taskService.getLinkedCalendarEvents(context, linkedType, linkedId)
       setEvents(response.data.entries)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load scheduled activities.')
     } finally {
       setLoading(false)
     }
-  }, [linkedType, linkedId])
+  }, [linkedType, linkedId, include])
 
   useEffect(() => {
     // Deferred so this load's first setState lands after this render, same
@@ -121,8 +131,11 @@ export function CrmScheduleTab({ linkedType, linkedId, recordLabel }: Props) {
                 <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
                 <p className="truncate text-xs text-muted-foreground">{formatWhen(event)}</p>
               </div>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClasses(event.status)}`}>
-                {event.status}
+              <span className="flex shrink-0 items-center gap-2">
+                <WhoChip row={event} />
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClasses(event.status)}`}>
+                  {event.status}
+                </span>
               </span>
             </button>
           ))}

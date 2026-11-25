@@ -441,10 +441,21 @@ export interface Contact {
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  // S18 (25 Nov 2026): a person is one company's Primary or not, and holds a Role there. Every field below is optional so an older server still works.
+  /** The company's primary person. At most one per company. */
+  isPrimary?: boolean
+  /** A value of the `contact_role` picklist (Decision maker, Influencer, Billing, Technical, User, Other). */
+  contactRole?: string | null
+  reportsToName?: string | null
+  linkedinUrl?: string | null
+  /** The contract's name for the mailing postal code; the older answer calls it `mailingCode`. A reader takes either. */
+  mailingPostalCode?: string | null
+  otherPostalCode?: string | null
 }
 
+/** What the server is asked to store: the person's own fields (never what the server derives, and never Primary, which has its own call). */
 export type ContactPayload = Partial<
-  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'isPrimary' | 'reportsToName'>
 >
 
 export interface ContactListResponse {
@@ -466,6 +477,54 @@ export interface ContactListQuery {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   organizationId?: string
+  /** Only the primary person of each company. */
+  primary?: boolean
+  /** Only the people assigned to this user id. */
+  owner?: string
+  /** Only people whose consent has this status (opted_in, opted_out, unknown). */
+  consent?: string
+  doNotCall?: boolean
+  /** Only people with no company. */
+  noCompany?: boolean
+}
+
+/** A row of the company-wide lists (`include=people`): which person it belongs to; `personName` is null for a row of the company itself, absent when the list was not asked for people. */
+export interface PersonTag {
+  personId?: string | null
+  personName?: string | null
+}
+
+/** Which rows a company's Emails, Schedule, Documents, Comments, History and Quotes show: its own (`company`) or its own and its people's (`people`, the default). */
+export type CompanyActivityScope = 'people' | 'company'
+
+/** One deal-like row of `GET /crm/contacts/{id}/deals`. Which fields a table has varies (a ticket has no amount), so every one but `id` is optional. */
+export interface ContactDealRow {
+  id: string | number
+  /** The record's number (QT-0042, INV-0031). */
+  number?: string | null
+  name?: string | null
+  subject?: string | null
+  title?: string | null
+  status?: string | null
+  stage?: string | null
+  amount?: number | string | null
+  total?: number | string | null
+  currency?: string | null
+  date?: string | null
+}
+
+export interface ContactDeals {
+  opportunities: ContactDealRow[]
+  quotes: ContactDealRow[]
+  salesOrders: ContactDealRow[]
+  invoices: ContactDealRow[]
+  tickets: ContactDealRow[]
+}
+
+export interface ContactDealsResponse {
+  status: number
+  message: string
+  data: ContactDeals
 }
 
 export interface Campaign {
@@ -1131,7 +1190,7 @@ export interface CrmOpportunityProductsResponse {
 
 // ── Quotes ─────────────────────────────────────────────────────────────────
 
-export interface CrmQuote {
+export interface CrmQuote extends PersonTag {
   id: string
   quoteNo: string | null
   subject: string
@@ -2088,7 +2147,7 @@ export interface CrmBulkSendSmsResponse {
 // Ticket keeps its own CrmTicketComment above - these 4 entities share one
 // identical row shape instead of 4 near-duplicate types.
 
-export interface CrmComment {
+export interface CrmComment extends PersonTag {
   id: string
   comment: string
   createdBy: string | null
@@ -2110,7 +2169,7 @@ export interface CrmAddCommentResponse {
 
 // ── Linked Documents (Lead/Contact/Organization/Opportunity/Ticket) ────────
 
-export interface CrmLinkedDocument {
+export interface CrmLinkedDocument extends PersonTag {
   id: string
   title: string | null
   originalFileName: string | null
@@ -2188,7 +2247,7 @@ export interface CrmEmailListQuery {
 }
 
 /** What `HasCrmEmailLinks::getEmails()` returns for one record's own Emails tab - same fields as CrmEmail plus the sender's display name. */
-export interface CrmEmailLinkEntry {
+export interface CrmEmailLinkEntry extends PersonTag {
   id: string
   subject: string
   body: string
@@ -2254,7 +2313,7 @@ export interface CrmEmailTemplateListQuery {
 
 // ── Audit Trail (generic, cross-entity) ─────────────────────────────────
 
-export interface CrmAuditEntry {
+export interface CrmAuditEntry extends PersonTag {
   id: string
   type: string
   changes: { field: string; oldValue: unknown; newValue: unknown }[]

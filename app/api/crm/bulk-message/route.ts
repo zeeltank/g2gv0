@@ -171,8 +171,15 @@ export async function POST(request: NextRequest) {
     const recordMap = new Map<number, any>()
     if (isCrmEntity && cleanIds.length > 0) {
       const placeholders = cleanIds.map(() => '?').join(',')
+      // Each table has its own columns (S18, 25 Nov 2026): only crm_leads has `company`, a person (crm_contacts) has none (it works at a company, which is a row of its
+      // own), and a company (crm_organizations) has a `name` and no first or last name or mobile. One list for all three made the query fail for a person and a company.
+      const recipientColumns: Record<string, string> = {
+        crm_leads: 'id, first_name, last_name, company, email, mobile, phone, sub_institute_id',
+        crm_contacts: 'id, first_name, last_name, NULL AS company, email, mobile, phone, sub_institute_id',
+        crm_organizations: 'id, NULL AS first_name, name AS last_name, NULL AS company, email, NULL AS mobile, phone, sub_institute_id',
+      }
       const querySql = `
-        SELECT id, first_name, last_name, company, email, mobile, phone, sub_institute_id
+        SELECT ${recipientColumns[tableName]}
         FROM ${tableName}
         WHERE id IN (${placeholders}) AND sub_institute_id = ?
       `

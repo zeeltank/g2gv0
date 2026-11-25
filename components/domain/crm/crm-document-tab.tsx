@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/shared/business/shared'
 import { formatFileDate, formatFileSize } from '@/components/domain/documents/documents-ui'
 import { accountService } from '@/services/account'
 import type { CrmLinkedDocument } from '@/types/crm'
+import { WhoChip } from './people/who-chip'
 
 const MAX_UPLOAD_MB = 50
 
@@ -144,6 +145,7 @@ export function CrmDocumentTab({ documents, loading, onUpload }: CrmDocumentTabP
               <span className="flex size-9 shrink-0 items-center justify-center">
                 <FileTypeIcon mimeType={doc.mimeType} fileName={doc.originalFileName} className="h-full w-full" />
               </span>
+              <WhoChip row={doc} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{doc.title || doc.originalFileName || 'Untitled'}</p>
                 <p className="truncate text-xs text-muted-foreground">

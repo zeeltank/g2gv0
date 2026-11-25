@@ -198,14 +198,22 @@ describe('Account 360 tab: the signals', () => {
 describe('Account 360 tab: contacts and deals', () => {
   afterEach(disposeAll)
 
-  it('lists the CRM and GTM contacts as plain text with the consent in words, and no mailto or tel link', async () => {
+  // S18 (25 Nov 2026): the section was called Contacts and is now People (CHANGED ON PURPOSE); a CRM person is a link to that person on the company's People tab, a GTM one is plain text.
+  it('lists the CRM and GTM people as plain text with the consent in words, and no mailto or tel link', async () => {
     const { k, section } = await setup()
-    const contacts = section('Contacts')!
+    const contacts = section('People')!
     assert.ok(contacts.textContent!.includes('Sunita Verma'), "contacts.textContent!.includes('Sunita Verma')")
     assert.ok(contacts.textContent!.includes('Accountant · sunita@riverdale.example · +91 98200 11111'), "contacts.textContent!.includes('Accountant · sunita@riverdale.example · +91 98200 11111')")
     assert.ok(contacts.textContent!.includes('Consent: opted in'), "contacts.textContent!.includes('Consent: opted in')")
     assert.equal(contacts.querySelectorAll('[data-consent]').length, 1, 'a GTM contact has no consent recorded and says nothing')
     assert.ok(!k.all('a').some((a) => /^(mailto|tel):/.test(a.getAttribute('href') ?? '')), "!k.all('a').some((a) => /^(mailto|tel):/.test(a.getAttribute('href') ?? ''))")
+  })
+
+  it('links a CRM person to that person on the company\'s People tab, and leaves a GTM person as plain text', async () => {
+    const { section } = await setup()
+    const links = Array.from(section('People')!.querySelectorAll('a'))
+    assert.deepEqual(links.map((a) => [a.textContent, a.getAttribute('href')]), [['Sunita Verma', '/module/crm/marketing/organizations/11?tab=people&person=62']])
+    assert.ok(section('People')!.textContent!.includes('Dev Patel'), 'the GTM person is still listed')
   })
 
   it('lists the open opportunities and the GTM deals, not the closed CRM ones, and links a CRM opportunity to its screen', async () => {

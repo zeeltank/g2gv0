@@ -13,6 +13,7 @@ import { ReadField, SectionCard } from '@/components/shared/business/shared'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
+import { personHref } from '@/lib/org-accounts/links'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
@@ -256,7 +257,7 @@ export function TicketDetailPage({ ticket, onSaved, onBack, ticketStatuses, tick
               <ReadField label="Severity" value={ticket.severity} />
               <ReadField label="Category" value={ticket.category && <IconValue icon={Tag}>{ticket.category}</IconValue>} />
               <LinkedField label="Organization" name={ticket.organizationName} href={ticket.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${ticket.organizationId}` : null} />
-              <LinkedField label="Contact" name={ticket.contactName} href={ticket.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${ticket.contactId}` : null} />
+              <LinkedField label="Contact" name={ticket.contactName} href={ticket.contactId ? personHref({ id: ticket.contactId }, 'marketing', resolveAccessLink) : null} />
               <ReadField label="Sub-product" value={ticket.productId ? <ProductPageLink crmProductId={ticket.productId}>{ticket.productName || `#${ticket.productId}`}</ProductPageLink> : null} />
               <LinkedField label="Asset" name={ticket.assetName} href={ticket.assetId ? resolveAccessLink('/module/crm/support/assets') + `/${ticket.assetId}` : null} />
               <LinkedField label="Service Contract" name={ticket.serviceContractNo} href={ticket.serviceContractId ? resolveAccessLink('/module/crm/support/service-contracts') + `/${ticket.serviceContractId}` : null} />
