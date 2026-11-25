@@ -21,7 +21,7 @@ function Slide() {
   const slide = slideByN(deck, plan.n)
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden bg-[#02080f]">
-      <div className="cp-root" style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080 }} data-atlas-ready="1">
+      <div className="cp-root at-render" style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080 }} data-atlas-ready="1">
         <div className="cp-frame">
           <AtlasScene deck={deck} slide={slide} beat={0} beats={plan.beats} entry="jump" reduced={false} short={false} nav={{ detour: () => {}, goto: () => {}, returnBack: () => {}, canReturn: false }} />
         </div>

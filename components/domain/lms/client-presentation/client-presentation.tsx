@@ -1,5 +1,6 @@
 'use client'
 
+import { PRODUCT_NAV } from '@/lib/client-presentation/atlas'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 
@@ -119,6 +120,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
       else if (k === 'Home') dispatch({ t: 'goto', key: keyAt(initial(state.mode)) })
       else if (k === 'End') dispatch({ t: 'goto', key: 's15', end: true })
       else if (k === 'Escape') { if (credits) setCredits(false); else if (state.back) dispatch({ t: 'return' }) }
+      else if (/^[1-9]$/.test(k) && PRODUCT_NAV[Number(k) - 1]) dispatch({ t: 'goto', key: PRODUCT_NAV[Number(k) - 1].opener })   // 1 to 5: open a product of the Product Atlas
       else if (k === 'p' || k === 'P') openPresenter()
       else if (k === 'f' || k === 'F') toggleFullscreen()
       else if (k === 'c' || k === 'C') setCredits((v) => !v)

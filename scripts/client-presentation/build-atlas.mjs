@@ -118,15 +118,18 @@ if (fails.length) { for (const f of fails) console.log('FAIL ' + f); console.log
 const n = out.products.reduce((a, p) => a + p.subs.length, 0)
 console.log(`ok   ${out.products.length} families, ${n} sub-module sheets, ${out.products.reduce((a, p) => a + p.subs.filter((s) => s.shots.length).length, 0)} with screenshots`)
 // the plan of atlas slides (the same rules as buildAtlasPlan in lib/client-presentation/atlas.ts; atlas.test.ts checks that the two agree)
-const BIGT = [['What every module is', 'Summary', '01'], ['Which problem we solve', 'Problems', '02'], ['Inside every module', 'Modules and sub-modules', '03'], ['How the work flows', 'Workflows', '04'], ['Where our AI helps', 'AI and technology', '05'], ['What could become easier', 'Benefits', '06'], ['See it for real', 'Screens', '07']]
 function chunk(items, max = 5) { if (!items.length) return []; const parts = Math.ceil(items.length / max); const size = Math.ceil(items.length / parts); const o = []; for (let i = 0; i < items.length; i += size) o.push(items.slice(i, i + size)); return o }
 function buildPlan() {
-  const plan = []; const filled = out.products.filter((p) => p.subs.length); if (!filled.length) return []
-  const big = (i, theme) => plan.push({ kind: 'big', theme, beats: 0, title: BIGT[i][0], kicker: BIGT[i][1], ghost: BIGT[i][2] })
-  const named = (kind, i, theme, beats = 0) => plan.push({ kind, theme, beats, title: BIGT[i][0], kicker: BIGT[i][1], ghost: BIGT[i][2] })
-  big(0, 'ink'); named('families', 0, 'paper'); big(1, 'ink'); named('problems', 1, 'paper'); big(2, 'ink')
-  for (const p of filled) { const groups = chunk(p.subs, 5); groups.forEach((g, i) => { const intro = i === 0 && Boolean(p.family); plan.push({ kind: 'subs', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: `${i + 1}/${groups.length}`, family: p.key, subs: g.map((x) => x.id), intro, beats: intro ? g.length : g.length - 1 }) }) }
-  big(3, 'paper'); named('workflows', 3, 'ink'); big(4, 'ink'); named('tech', 4, 'paper', 2); big(5, 'paper'); named('benefits', 5, 'ink'); big(6, 'ink'); named('gallery', 6, 'paper', filled.length - 1)
+  const filled = out.products.filter((p) => p.subs.length); if (!filled.length) return []
+  const plan = [{ kind: 'hub', theme: 'ink', title: 'Choose a product', kicker: 'Products', ghost: '', beats: 0 }]
+  for (const p of filled) {
+    plan.push({ kind: 'opener', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
+    const groups = chunk(p.subs, 5)
+    groups.forEach((g, i) => plan.push({ kind: 'subs', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: `${i + 1}/${groups.length}`, family: p.key, subs: g.map((x) => x.id), beats: g.length - 1 }))
+    plan.push({ kind: 'glance', theme: 'paper', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
+    const gal = chunk(p.subs.filter((x) => x.shots.length), 9)
+    gal.forEach((g, i) => plan.push({ kind: 'gallery', theme: 'paper', title: p.product, kicker: p.k12_module, ghost: gal.length > 1 ? `${i + 1}/${gal.length}` : '', family: p.key, subs: g.map((x) => x.id), beats: 0 }))
+  }
   return plan.map((x, i) => ({ ...x, key: `a${i + 1}`, n: 200 + i + 1 }))
 }
 if (!checkOnly) {
