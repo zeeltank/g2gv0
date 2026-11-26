@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert'
 import { afterEach, beforeEach, describe, it, mock } from 'node:test'
 import { JSDOM } from 'jsdom'
 
-// A real render of the Region form with the State dropdown on (Prospecting), the network service replaced by a script.
+// A real render of the Region form with the State dropdown on (a list that belongs to one place), the network service replaced by a script.
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true })
 Object.assign(globalThis, { window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true })
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
@@ -56,7 +56,7 @@ async function setup(country = 'India', stateDropdown = true) {
   return { host, latest, flush, click, setValue, unmount: () => React.act(async () => root.unmount()) }
 }
 
-describe('Region form: State as a searchable dropdown (Prospecting)', () => {
+describe('Region form: State as a searchable dropdown', () => {
   beforeEach(() => mock.timers.enable({ apis: ['setTimeout'] }))
   afterEach(() => mock.timers.reset())
 

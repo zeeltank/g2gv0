@@ -169,7 +169,7 @@ function AgentCard({ agent, aiConfigured, onRan }: { agent: GtmAgentInfo; aiConf
           )}
           {needsContact && (
             <select className={SELECT} value={input.contact_id ?? ''} onChange={(e) => setInput({ ...input, contact_id: e.target.value })} disabled={!input.account_id}>
-              <option value="">{input.account_id && contacts.length === 0 ? 'No contacts — add one first' : 'Contact…'}</option>
+              <option value="">{input.account_id && contacts.length === 0 ? 'No contacts at this account' : 'Contact…'}</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
             </select>
           )}

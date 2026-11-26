@@ -7,14 +7,11 @@
  */
 
 import { apiClient } from '@/services/core'
-import type { RegionSelection } from '@/lib/region-scope'
-import type { AccountCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 
 export const ACCOUNT_STAGES = ['target', 'engaged', 'opportunity', 'customer', 'churned', 'disqualified'] as const
 export type AccountStage = (typeof ACCOUNT_STAGES)[number]
 
 export const CONTACT_ROLES = ['champion', 'economic_buyer', 'decision_maker', 'influencer', 'user', 'blocker'] as const
-export const ACTIVITY_TYPES = ['note', 'call', 'meeting', 'email', 'linkedin', 'task'] as const
 
 export interface GtmOverview {
   measured: {
@@ -24,7 +21,6 @@ export interface GtmOverview {
     accounts_without_contacts: number
     signals_by_priority: Record<string, number>
     signals_unreviewed: number
-    companies_not_yet_accounts: number
     activities_30d_by_type: Record<string, number>
     activities_30d_total: number
   }
@@ -127,106 +123,15 @@ export interface GtmSignal {
   event_date: string | null
 }
 
-export interface GtmCandidate {
-  id: number
-  /** The scope of its strongest signal: where it is filed when promoted from an all-products view. */
-  product_key?: string | null
-  customer_model?: 'b2b' | 'b2c' | 'b2g' | null
-  /** The one place its strongest signal was found for, when there is exactly one. */
-  region?: { country: string | null; state: string | null; city: string | null } | null
-  name: string
-  website: string | null
-  industry: string | null
-  location: string | null
-  signals_count: number
-  top_signal: { title: string; priority: string; kind: string | null; source_url: string | null } | null
-}
-
 export interface AccountDetail {
   account: GtmAccount
   contacts: GtmContact[]
   signals: GtmSignal[]
   activities: GtmActivity[]
   analyses: { id: number; kind: string; status: string; is_estimate: boolean; provider: string | null; model: string | null; created_at: string }[]
-  /** S20: the leads qualified from this account, oldest first. Missing on a server that is not updated yet. */
-  leads?: GtmAccountLead[]
-}
-
-/** A lead made from a person at this account ("Qualify as lead"). `contactId` is null for a lead named after the company. */
-export interface GtmAccountLead {
-  id: string
-  leadNo: string | null
-  name: string
-  status: string | null
-  contactId: number | null
-}
-
-/** POST /gtm/accounts/{id}/qualify-as-lead: 201 when the lead was made now, 200 with `created: false` for a person who already has one. */
-export interface QualifyAsLeadResult {
-  lead_id: string
-  lead_no: string | null
-  created: boolean
-  stage: string
 }
 
 type Env<T> = { status: number; data: T; message?: string }
-
-/** The product, customer type and region a list is for. 'all' (or empty) and a missing region mean no filter. */
-export interface ProspectScopeQuery {
-  product?: string
-  customer_model?: string
-  /** One place picked with the same Region control as Market Signals. The server validates it with the same location data. */
-  region?: RegionSelection | null
-}
-
-/** The place as the flat fields the Prospecting endpoints read (they work in a query string and in a body). */
-export function regionFields(region: RegionSelection | null | undefined): Record<string, string> {
-  if (!region || !region.country) return {}
-  const out: Record<string, string> = { region_country: region.country }
-  if (region.state) out.region_state = region.state
-  if (region.city) out.region_city = region.city
-  if (region.country_code) out.region_country_code = region.country_code
-  if (region.state_code) out.region_state_code = region.state_code
-  if (region.city_id !== undefined) out.region_city_id = String(region.city_id)
-  return out
-}
-
-/** A request body with its `region` replaced by the flat fields. */
-function withRegion<T extends { region?: RegionSelection | null }>(input: T): Omit<T, 'region'> & Record<string, unknown> {
-  const { region, ...rest } = input
-  return { ...rest, ...regionFields(region) }
-}
-
-export interface AccountInput {
-  /** Product key, customer type and region the account is added under. */
-  product?: string | null
-  customer_model?: string | null
-  region?: RegionSelection | null
-  name: string
-  domain?: string | null
-  website?: string | null
-  industry?: string | null
-  employee_range?: string | null
-  location?: string | null
-  email?: string | null
-  phone?: string | null
-  stage?: AccountStage
-  notes?: string | null
-  owner_user_id?: number | null
-}
-
-export const CONTACT_STATUSES = ['active', 'bounced', 'unsubscribed', 'do_not_contact'] as const
-
-export interface ContactPatch {
-  full_name?: string
-  title?: string | null
-  email?: string | null
-  phone?: string | null
-  linkedin_url?: string | null
-  role_in_deal?: (typeof CONTACT_ROLES)[number] | null
-  status?: (typeof CONTACT_STATUSES)[number]
-  notes?: string | null
-}
 
 /** GET /gtm/directory: the organisation's own users and departments (id + name only). */
 export interface GtmDirectory {
@@ -234,66 +139,19 @@ export interface GtmDirectory {
   departments: { id: number; name: string }[]
 }
 
-/**
- * Values a server may mask for restricted viewers contain mask characters. They must never be
- * sent back as an edit, or the masked text would overwrite the real value.
- */
-export const isMasked = (v: string | null | undefined): boolean => !!v && /[*•●]/.test(v)
-
 export const gtmService = {
   directory: () => apiClient.get<Env<GtmDirectory>>('/gtm/directory'),
 
   overview: () => apiClient.get<Env<GtmOverview>>('/gtm/overview'),
 
-  listAccounts: (q: { q?: string; stage?: string; page?: number; sort?: string } & ProspectScopeQuery = {}) => {
-    const params: Record<string, string> = { page: String(q.page ?? 1), ...regionFields(q.region) }
-    if (q.product && q.product !== 'all') params.product = q.product
-    if (q.customer_model && q.customer_model !== 'all') params.customer_model = q.customer_model
+  /** The accounts of this organisation, for the pickers of Agents, Campaigns, Customers, Deals and Outreach. */
+  listAccounts: (q: { q?: string; page?: number } = {}) => {
+    const params: Record<string, string> = { page: String(q.page ?? 1) }
     if (q.q) params.q = q.q
-    if (q.stage) params.stage = q.stage
-    if (q.sort) params.sort = q.sort
     return apiClient.get<Env<{ items: GtmAccount[]; total: number; page: number; per_page: number }>>('/gtm/accounts', params)
   },
 
-  candidates: (scope: ProspectScopeQuery = {}) => {
-    const params: Record<string, string> = { ...regionFields(scope.region) }
-    if (scope.product && scope.product !== 'all') params.product = scope.product
-    if (scope.customer_model && scope.customer_model !== 'all') params.customer_model = scope.customer_model
-    return apiClient.get<Env<{ items: GtmCandidate[] }>>('/gtm/accounts/candidates', params)
-  },
-
   getAccount: (id: number) => apiClient.get<Env<AccountDetail>>(`/gtm/accounts/${id}`),
-
-  // Sales & Marketing unification, Phase 7.
-  getAccountCrossModuleLinks: (id: number) => apiClient.get<Env<AccountCrossModuleLinks>>(`/gtm/accounts/${id}/cross-module-links`),
-
-  createAccount: (input: AccountInput) => apiClient.post<Env<{ account: GtmAccount }>>('/gtm/accounts', withRegion(input)),
-
-  promoteCompany: (companyId: number, scope: ProspectScopeQuery = {}) =>
-    apiClient.post<Env<{ account: GtmAccount; created: boolean }>>(`/gtm/accounts/from-company/${companyId}`, withRegion(scope)),
-
-  updateAccount: (id: number, input: Partial<AccountInput>) =>
-    apiClient.patch<Env<{ account: GtmAccount }>>(`/gtm/accounts/${id}`, withRegion(input)),
-
-  /** One CRM lead that names this person; the account moves to Engaged. `assignedTo` is the owner (the caller when omitted). */
-  qualifyAsLead: (accountId: number, body: { contactId: number; assignedTo?: number }) =>
-    apiClient.post<Env<QualifyAsLeadResult>>(`/gtm/accounts/${accountId}/qualify-as-lead`, body),
-
-  scoreIcp: (id: number) =>
-    apiClient.post<Env<{ account: GtmAccount; score: number | null; basis: IcpBasis }>>(`/gtm/accounts/${id}/score-icp`, {}),
-
-  deleteAccount: (id: number) => apiClient.delete<Env<null>>(`/gtm/accounts/${id}`),
-
-  addContact: (accountId: number, input: Partial<GtmContact> & { full_name: string }) =>
-    apiClient.post<Env<{ contact: GtmContact }>>(`/gtm/accounts/${accountId}/contacts`, input),
-
-  updateContact: (id: number, patch: ContactPatch) =>
-    apiClient.patch<Env<{ contact: GtmContact }>>(`/gtm/contacts/${id}`, patch),
-
-  deleteContact: (id: number) => apiClient.delete<Env<null>>(`/gtm/contacts/${id}`),
-
-  logActivity: (accountId: number, input: { type: string; subject: string; body?: string; contact_id?: number }) =>
-    apiClient.post<Env<{ activity: GtmActivity }>>(`/gtm/accounts/${accountId}/activities`, input),
 }
 
 export const PLAYBOOK_KINDS = ['role_playbook', 'methodology', 'industry_pack', 'template', 'workflow'] as const
@@ -595,33 +453,4 @@ export const outreachService = {
   reject: (id: number, note: string) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/reject`, { note }),
   cancel: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/cancel`, {}),
   send: (id: number) => apiClient.post<Env<{ message: OutreachMessage }>>(`/gtm/outreach/${id}/send`, {}),
-}
-
-export interface ImportPreview {
-  headers: string[]
-  sample: string[][]
-  row_count: number
-  suggested_mapping: Record<string, number | null>
-  fields: string[]
-}
-
-export interface ImportResult {
-  summary: {
-    rows: number; valid: number; duplicate: number; invalid: number; imported: number
-    /** Companies in the file; of them, how many are new accounts and how many existing ones had empty details filled in. */
-    companies?: number; accounts_created: number; accounts_updated?: number
-    /** Contacts that were already there and had missing details filled in; duplicate companies merged into one. */
-    contacts_updated?: number; accounts_merged?: number
-  }
-  rows: { line: number; status: 'ok' | 'update' | 'duplicate' | 'invalid'; errors: string[]; warnings: string[]; name: string; email: string | null; account: string | null; creates_account: boolean }[]
-  accounts_to_create: string[]
-  accounts_to_update?: string[]
-  accounts_to_merge?: string[]
-  committed: boolean
-}
-
-export const importService = {
-  preview: (csv: string) => apiClient.post<Env<ImportPreview>>('/gtm/contacts/import/preview', { csv }),
-  run: (input: { csv: string; mapping: Record<string, number | null>; default_account_id?: number | null; create_missing_accounts?: boolean; dry_run: boolean } & ProspectScopeQuery) =>
-    apiClient.post<Env<ImportResult>>('/gtm/contacts/import', withRegion(input)),
 }

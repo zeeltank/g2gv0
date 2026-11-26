@@ -20,13 +20,6 @@ export const LEAD_CONFIRM = {
 export const CONVERT_TO_LEAD = 'Convert to lead'
 export const CONVERTING_LEAD = 'Converting…'
 
-/** What the person-choosing question says, when the company's Prospecting account has people (S20). */
-export const LEAD_PERSON_CONFIRM = {
-  title: 'Convert this signal to a lead?',
-  description: 'Choose the person the lead is for, or convert it without one: the lead is then named after the company. The signal’s history records it.',
-  confirmLabel: 'Convert',
-}
-
 /** The lead a signal was turned into, as the list and the detail name it. */
 export interface SignalLead {
   id: string

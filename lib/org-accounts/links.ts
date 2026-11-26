@@ -4,8 +4,6 @@
 export interface OrgLinks {
   /** CRM › Organizations; an organisation's page is `${crmOrganisations}/${crm id}`. */
   crmOrganisations: string | null
-  /** The GTM accounts screen. It has no page for one account, so a row opens the list (the same as the GTM & Signals tab did). */
-  gtm: string | null
   /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
   signals: string | null
   opportunities: string | null
@@ -13,7 +11,6 @@ export interface OrgLinks {
 
 export const ACCESS_LINKS = {
   crmOrganisations: '/module/crm/marketing/organizations',
-  gtm: '/gtm/prospecting',
   signals: '/signals',
   opportunities: '/module/crm/sales/opportunities',
 } as const
@@ -29,7 +26,6 @@ export function buildLinks(resolve: (accessLink: string) => string): OrgLinks {
   }
   return {
     crmOrganisations: orNull(ACCESS_LINKS.crmOrganisations),
-    gtm: orNull(ACCESS_LINKS.gtm),
     signals: orNull(ACCESS_LINKS.signals),
     opportunities: orNull(ACCESS_LINKS.opportunities),
   }
@@ -50,7 +46,6 @@ export function signalHref(links: Pick<OrgLinks, 'signals'>, title: string): str
 /** For tests and previews: every screen present, at the paths the menu holds. */
 export const DEFAULT_LINKS: OrgLinks = {
   crmOrganisations: ACCESS_LINKS.crmOrganisations,
-  gtm: ACCESS_LINKS.gtm,
   signals: ACCESS_LINKS.signals,
   opportunities: ACCESS_LINKS.opportunities,
 }
