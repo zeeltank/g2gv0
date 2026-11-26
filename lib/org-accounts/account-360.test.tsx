@@ -118,18 +118,18 @@ describe('Account 360 tab: the linked records', () => {
     assert.equal(row('signals')!.querySelector('[data-basis]')!.textContent, 'linked because the names are identical')
   })
 
-  it('sends the GTM row and the Signals row to their screens (GTM has no page for one account), and the CRM row nowhere', async () => {
+  it('sends the Signals row to its screen, and the CRM row and the GTM row nowhere (a GTM account has no screen of its own to open)', async () => {
     const { row } = await setup()
-    assert.equal(row('gtm')!.querySelector('a')!.getAttribute('href'), '/gtm/prospecting')
     assert.equal(row('signals')!.querySelector('a')!.getAttribute('href'), '/signals')
     assert.ok(row('crm')!.querySelector('a') === null, 'the CRM row (this record) has no link')
+    assert.ok(row('gtm')!.querySelector('a') === null, 'the GTM row has no link')
+    assert.ok(row('gtm')!.textContent!.includes('Hillcrest Academy'), 'the name is still there as text')
   })
 
   it('draws no link to a screen the person has no menu row for', async () => {
-    const { row } = await setup({ links: { ...DEFAULT_LINKS, gtm: null, signals: null } })
-    assert.ok(row('gtm')!.querySelector('a') === null, 'no GTM link without its menu row')
+    const { row } = await setup({ links: { ...DEFAULT_LINKS, signals: null } })
     assert.ok(row('signals')!.querySelector('a') === null, 'no Signals link without its menu row')
-    assert.ok(row('gtm')!.textContent!.includes('Hillcrest Academy'), 'the name is still there as text')
+    assert.ok(row('signals')!.textContent!.includes('Hillcrest Academy'), 'the name is still there as text')
   })
 
   it('says "No GTM account found" and "No Signals company found" for an organization that is only in the CRM, and "the only record found" for the CRM row (D6)', async () => {

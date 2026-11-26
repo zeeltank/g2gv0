@@ -47,11 +47,9 @@ const MasterFieldsRoute = createLazyComponent(() => import('@/app/module/crm/mas
 
 // GTM Intelligence Modules (Unified Single-Pane)
 const CommandCenterView = createLazyComponent(() => import('@/domain/gtm/command-center-view').then((m) => ({ default: m.CommandCenterView })))
-const ProspectingView = createLazyComponent(() => import('@/domain/gtm/prospecting-view').then((m) => ({ default: m.ProspectingView })))
 const PlaybooksView = createLazyComponent(() => import('@/domain/gtm/playbooks-view').then((m) => ({ default: m.PlaybooksView })))
 const CampaignsView = createLazyComponent(() => import('@/domain/gtm/campaigns-view').then((m) => ({ default: m.CampaignsView })))
 const OutreachView = createLazyComponent(() => import('@/domain/gtm/outreach-view').then((m) => ({ default: m.OutreachView })))
-const ForecastView = createLazyComponent(() => import('@/domain/gtm/forecast-view').then((m) => ({ default: m.ForecastView })))
 const CustomersView = createLazyComponent(() => import('@/domain/gtm/customers-view').then((m) => ({ default: m.CustomersView })))
 const AgentsView = createLazyComponent(() => import('@/domain/gtm/agents-view').then((m) => ({ default: m.AgentsView })))
 const WorkflowsView = createLazyComponent(() => import('@/domain/gtm/workflows-view').then((m) => ({ default: m.WorkflowsView })))
@@ -68,10 +66,6 @@ export const CRM_CONTENT: ContentRoute[] = [
   // Signal Review has no entry here any more: it was merged into Company Opportunities (13 Nov 2026). Its two old addresses are redirect pages under app/, which send
   // a visitor to /signals with the query kept; the menu row stays in the database and the sidebar hides it in code (lib/signals-nav.ts).
   { accessLink: '/module/crm/marketing/signal-inbox', component: MarketSignalsView },
-
-  // 3. Prospecting & ICP Discovery
-  { accessLink: '/gtm/prospecting', component: ProspectingView },
-  { accessLink: '/module/crm/prospecting', component: ProspectingView },
 
   // 4. Playbooks & Sequences
   { accessLink: '/gtm/playbooks', component: PlaybooksView },
@@ -100,10 +94,6 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 11. Opportunities & Deals Pipeline (with AI Coach & MEDDPICC)
   { accessLink: '/module/crm/sales/opportunities', component: OpportunityListView },
   { accessLink: '/gtm/deals', component: OpportunityListView },
-
-  // 12. Revenue Forecasting
-  { accessLink: '/gtm/forecast', component: ForecastView },
-  { accessLink: '/module/crm/sales/forecast', component: ForecastView },
 
   // 13. CPQ: Quotes
   { accessLink: '/module/crm/sales/quotes', component: QuoteListView },

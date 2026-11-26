@@ -73,7 +73,7 @@ export function DealsView() {
           <div><div className="text-xs text-muted-foreground">Won, last {pipeline.closed_last_days} days</div><div className="font-medium">{pipeline.won.count} · {money(pipeline.won.value_by_currency)}</div></div>
           <div><div className="text-xs text-muted-foreground">Lost, last {pipeline.closed_last_days} days</div><div className="font-medium">{pipeline.lost.count} · {money(pipeline.lost.value_by_currency)}</div></div>
           <MeasuredTag />
-          <p className="basis-full text-xs text-muted-foreground">Weighted forecasts use stage settings your organisation sets: see <Link href="/gtm/forecast" className="text-primary underline">Forecast</Link>.</p>
+          <p className="basis-full text-xs text-muted-foreground">Open value is the total of the open deals&apos; amounts, not a weighted forecast.</p>
         </div>
       )}
 

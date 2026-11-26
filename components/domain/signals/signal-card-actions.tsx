@@ -121,7 +121,7 @@ export function useSignalCard({ signal, service, onChanged, funnelService = sign
   return {
     decision, lead, funnel, history, requested, notice, forbidden, openHistory, begin, requestLead,
     retryHistory: () => void loadHistory(),
-    saving: decision.saving || lead.saving || funnel.adding,
+    saving: decision.saving || lead.saving,
     actions: availableDecisions(signal.review_status),
   }
 }
@@ -132,7 +132,7 @@ const variantOf = (action: DecisionAction) => (action.tone === 'primary' ? 'defa
 
 /**
  * The card's buttons: the decisions that fit its status (Contacted, Reviewed, Not relevant…, or Reopen… on a dismissed one), "Convert to lead" (or
- * "Lead created" with a link, once there is one), and the funnel: "In Prospecting" (or "Add to Prospecting") and "Convert to opportunity" (or its opportunity). Each decision opens the dialog; nothing is sent by the button alone. Also holds the dialogs themselves.
+ * "Lead created" with a link, once there is one), and "Convert to opportunity" (or its opportunity). Each decision opens the dialog; nothing is sent by the button alone. Also holds the dialogs themselves.
  */
 export function SignalCardActions({ card, signal, reasons }: { card: SignalCardState; signal: Opportunity; reasons: ReasonOption[] }) {
   const noReasons = reasons.length === 0
@@ -159,7 +159,6 @@ export function SignalCardActions({ card, signal, reasons }: { card: SignalCardS
       </div>
       <SignalDecisionDialog {...card.decision.dialog} signalTitle={signal.title} currentStatus={signal.review_status} reasons={reasons} />
       {card.lead.confirmDialog}
-      {card.lead.personDialog}
     </>
   )
 }

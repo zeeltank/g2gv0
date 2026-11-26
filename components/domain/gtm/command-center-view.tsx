@@ -10,7 +10,7 @@ import { money } from './deals-view'
 import { EstimateTag, GtmPageHeader, MeasuredTag, StatTile, errMsg, useGtmReady } from './gtm-shared'
 
 const MORE_PAGES: [string, string][] = [
-  ['/gtm/forecast', 'Forecast'], ['/gtm/campaigns', 'Campaigns'], ['/gtm/customers', 'Customers'],
+  ['/gtm/campaigns', 'Campaigns'], ['/gtm/customers', 'Customers'],
   ['/gtm/workflows', 'Workflows'], ['/gtm/reports', 'Reports'], ['/gtm/monitoring', 'Monitoring'],
 ]
 
@@ -22,8 +22,7 @@ const STAGE_LABEL: Record<string, string> = {
 /**
  * Command Center. Every number is read from the database through /api/gtm/overview.
  * "Measured" tiles are counts of rows; "AI estimate" tiles are model output and say so.
- * Deal figures are counted from deal records, per currency. Weighted forecasts live on the
- * Forecast page, which uses stage settings the organisation sets.
+ * Deal figures are counted from deal records, per currency.
  */
 export function CommandCenterView() {
   const ready = useGtmReady()
@@ -80,10 +79,9 @@ export function CommandCenterView() {
 
       <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline of accounts</h2>
       <section className="mb-6 grid gap-3 md:grid-cols-4">
-        <StatTile label="Accounts" value={m.accounts_total} tag={<MeasuredTag />} hint={m.accounts_total === 0 ? 'None yet — promote a researched company in Prospecting.' : undefined} />
+        <StatTile label="Accounts" value={m.accounts_total} tag={<MeasuredTag />} hint={m.accounts_total === 0 ? 'None yet — an account appears here when a CRM opportunity is created.' : undefined} />
         <StatTile label="Contacts" value={m.contacts_total} tag={<MeasuredTag />} />
         <StatTile label="Accounts with no contact" value={m.accounts_without_contacts} tag={<MeasuredTag />} tone={m.accounts_without_contacts > 0 ? 'warn' : undefined} hint="Cannot be contacted until a person is added." />
-        <StatTile label="Researched, not yet accounts" value={m.companies_not_yet_accounts} tag={<MeasuredTag />} hint="Companies your research found." />
       </section>
 
       {m.accounts_total > 0 && (
@@ -135,8 +133,7 @@ export function CommandCenterView() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Forecasts, renewals and customer health live on their own pages (links above); nothing on this page is estimated except the labelled AI figures.{' '}
-        <Link href="/gtm/prospecting" className="text-primary underline">Go to Prospecting</Link>
+        Renewals and customer health live on their own pages (links above); nothing on this page is estimated except the labelled AI figures.
       </p>
     </div>
   )

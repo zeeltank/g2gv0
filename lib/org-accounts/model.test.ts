@@ -232,9 +232,8 @@ describe('where the links go', () => {
   const menu = (held: string[]) => (accessLink: string) => (held.includes(accessLink) ? accessLink : '/dashboard')
 
   it('draws a link only for a screen the person has a menu row for', () => {
-    const links = buildLinks(menu([ACCESS_LINKS.crmOrganisations, ACCESS_LINKS.gtm]))
+    const links = buildLinks(menu([ACCESS_LINKS.crmOrganisations]))
     assert.equal(links.crmOrganisations, '/module/crm/marketing/organizations')
-    assert.equal(links.gtm, '/gtm/prospecting')
     assert.equal(links.signals, null)
     assert.equal(links.opportunities, null)
   })
@@ -244,7 +243,7 @@ describe('where the links go', () => {
     const links = buildLinks((accessLink) => { asked.push(accessLink); return accessLink })
     assert.deepEqual(asked.filter((accessLink) => accessLink.includes('review')), [], 'the retired row is not asked for, under either spelling')
     assert.ok(asked.includes(ACCESS_LINKS.signals), 'the Signals screen is asked for')
-    assert.deepEqual(Object.keys(links).sort(), ['crmOrganisations', 'gtm', 'opportunities', 'signals'], 'there is no separate Signal Review link left to draw or to hide')
+    assert.deepEqual(Object.keys(links).sort(), ['crmOrganisations', 'opportunities', 'signals'], 'there is no separate Signal Review link left to draw or to hide, and none for the GTM account')
     assert.deepEqual(Object.keys(DEFAULT_LINKS).sort(), Object.keys(links).sort())
   })
 

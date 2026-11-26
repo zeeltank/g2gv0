@@ -265,8 +265,7 @@ export interface Opportunity {
   promoted_lead_id?: string | null
   promoted_lead_no?: string | null
   promoted_lead_status?: string | null
-  /** S20: the company's Prospecting account and the CRM opportunity this signal was converted into. */
-  prospecting?: { account_id: number; stage: string; contacts_count: number } | null
+  /** S20: the CRM opportunity this signal was converted into. */
   converted_opportunity?: { id: number; name: string } | null
   /** The Product Master record the signal is filed under (null when it has none) and how old its evidence really is: the list endpoint sends both. */
   product_master_id?: number | null
