@@ -64,6 +64,18 @@ const RESEARCH_TEXT: Record<string, string> = {
   not_set_up: 'Public contact search is not set up (no web-search provider key).',
 }
 
+/** The sentence about the last public search: what it actually did, so an empty card is never a mystery. */
+export function researchText(r: NonNullable<SignalContact['research']>): string {
+  const a = r.attempt
+  if (a && a.outcome === 'failed') {
+    return `The last search could not run: ${a.failed} of ${a.searches} requests to the search provider failed. This is a provider or key problem, not "no contacts exist". Try again, or ask an administrator to check the provider key.`
+  }
+  if (a && a.outcome === 'none' && r.state !== 'found') {
+    return `The last search made ${a.searches} request${a.searches === 1 ? '' : 's'} and found no published contact details for this organisation. Nothing is guessed.`
+  }
+  return RESEARCH_TEXT[r.state] ?? ''
+}
+
 /**
  * Every signal shows its contact details, or says "Not Available". Missing details never hide the signal.
  * `onSearch` runs a public-web contact search for the organisation; `onRefresh` reloads the signal to show what it found.
@@ -121,7 +133,7 @@ export function ContactSection({ c, onSearch, onRefresh, busy, notice }: {
         </div>
       )}
       <p className="text-[11px] text-muted-foreground" data-testid="contact-message">{c.message}</p>
-      {research && <p className="text-[11px] text-muted-foreground" data-testid="contact-research-state">{RESEARCH_TEXT[research.state] ?? ''}</p>}
+      {research && <p className="text-[11px] text-muted-foreground" data-testid="contact-research-state">{researchText(research)}</p>}
       {(onSearch && research?.can_search !== false) && (
         <div className="flex flex-wrap items-center gap-2 pt-0.5">
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onSearch} data-testid="find-contacts">{busy ? 'Searching…' : 'Find contacts'}</Button>

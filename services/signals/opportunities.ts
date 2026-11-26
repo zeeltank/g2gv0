@@ -186,7 +186,13 @@ export interface SignalContact {
   /** Everyone found on the public web for this organisation (a decision-maker, or the organisation's own published line). All unverified. */
   contacts?: ContactPerson[]
   /** Where the public contact search stands: found, none_found, not_searched, or not_set_up (no search provider configured). */
-  research?: { state: 'found' | 'none_found' | 'not_searched' | 'not_set_up'; searched_at: string | null; can_search: boolean } | null
+  research?: {
+    state: 'found' | 'none_found' | 'not_searched' | 'not_set_up'
+    searched_at: string | null
+    can_search: boolean
+    /** What the last lookup did, even when it found nothing or could not search. */
+    attempt?: { at: string; outcome: 'found' | 'none' | 'failed'; searches: number; failed: number; found: number } | null
+  } | null
   verified: boolean
   message: string
 }
