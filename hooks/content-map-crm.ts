@@ -33,12 +33,6 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
 
-// AI Agent Runs
-const AgentRunsView = createLazyComponent(() => import('@/domain/crm/agent-runs-view').then((m) => ({ default: m.AgentRunsView })))
-
-// Master Fields Admin
-const MasterFieldsRoute = createLazyComponent(() => import('@/app/module/crm/master-fields/page').then((m) => ({ default: m.default })))
-
 // GTM Intelligence Modules (Unified Single-Pane)
 const CommandCenterView = createLazyComponent(() => import('@/domain/gtm/command-center-view').then((m) => ({ default: m.CommandCenterView })))
 const PlaybooksView = createLazyComponent(() => import('@/domain/gtm/playbooks-view').then((m) => ({ default: m.PlaybooksView })))
@@ -113,8 +107,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/agents', component: AgentsView },
   { accessLink: '/module/crm/agents', component: AgentsView },
 
-  // 24. AI Agent Run History & Telemetry
-  { accessLink: '/module/crm/marketing/agent-runs', component: AgentRunsView },
+  // 24. Agent Run History is the "Sales & Marketing agents" tab of the Agentic AI Run Log (26 Nov 2026). The old address is a redirect page under
+  // app/module/crm/marketing/agent-runs, so nothing is mapped here.
 
   // 25. The Revenue Workflows engine is the Automations and Runs tabs of the Workflows page in Platform Services (26 Nov 2026). The old GTM address is a redirect page
   // under app/gtm/workflows, so nothing is mapped here.
@@ -128,8 +122,7 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/monitoring', component: MonitoringView },
   { accessLink: '/module/crm/monitoring', component: MonitoringView },
 
-  // 28. Governance: Master Fields Admin
-  { accessLink: '/module/crm/master-fields', component: MasterFieldsRoute },
+  // 28. Master Fields are tabs of Field settings (26 Nov 2026). The old address is a redirect page under app/module/crm/master-fields, so nothing is mapped here.
 
   // Fallback for legacy Consent link
   { accessLink: '/module/crm/marketing/consent', component: ConsentListView },

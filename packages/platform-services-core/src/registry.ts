@@ -267,7 +267,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     name: 'Field settings',
     section: 'setup',
     icon: 'SlidersHorizontal',
-    purpose: 'Add the fields this organisation needs to records the product ships.',
+    purpose: 'Add the fields this organisation needs to records the product ships. Sales & Marketing also keeps its picklist values, tax rates, lead rules and SLA policies here.',
     whyCentral:
       'Every tenant needs a slightly different record, and a code change per tenant is not a product.',
     todayInG2g:

@@ -13,7 +13,8 @@ import {
 const AgAgentDashboard = createLazyComponent(() => import('@/domain/agentic/ag-agent-dashboard').then((m) => ({ default: m.AgAgentDashboard })))
 const AgAgentLibrary = createLazyComponent(() => import('@/domain/agentic/ag-agent-library').then((m) => ({ default: m.AgAgentLibrary })))
 const AgCreateAgent = createLazyComponent(() => import('@/domain/agentic/ag-create-agent').then((m) => ({ default: m.AgCreateAgent })))
-const AgRunLog = createLazyComponent(() => import('@/domain/agentic/ag-run-log').then((m) => ({ default: m.AgRunLog })))
+// The Run Log page: the Agentic AI runs, plus (for a person the agent API lets in) the Sales & Marketing agents that were Agent Run History (26 Nov 2026).
+const AgRunLog = createLazyComponent(() => import('@/domain/agentic/ag-run-log-page').then((m) => ({ default: m.AgRunLogPage })))
 const AgAnalytics = createLazyComponent(() => import('@/domain/agentic/ag-analytics').then((m) => ({ default: m.AgAnalytics })))
 const AgMultiAgent = createLazyComponent(() => import('@/domain/agentic/ag-multi-agent').then((m) => ({ default: m.AgMultiAgent })))
 const AgReflection = createLazyComponent(() => import('@/domain/agentic/ag-reflection').then((m) => ({ default: m.AgReflection })))

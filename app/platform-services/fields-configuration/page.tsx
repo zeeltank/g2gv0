@@ -37,9 +37,16 @@ import {
   type FieldType,
 } from '@/lib/platform/fields'
 import { isDecentralizedModule } from '@/lib/platform/access-links'
+import { fieldsTabRules } from '@/lib/platform/fields-tabs'
+import { CrmLeadCaptureAdmin } from '@/domain/crm/crm-lead-capture-admin'
+import { CrmLeadRoutingAdmin } from '@/domain/crm/crm-lead-routing-admin'
+import { CrmPicklistAdmin } from '@/domain/crm/crm-picklist-admin'
+import { CrmSlaPolicyAdmin } from '@/domain/crm/crm-sla-policy-admin'
+import { CrmTaxRateAdmin } from '@/domain/crm/crm-tax-rate-admin'
 
 import { PanelError, PanelLoading, RefreshButton, StaleNotice } from '../_components/console-parts'
 import { ServiceShell } from '../_components/ServiceShell'
+import { FieldsTabs } from './_components/FieldsTabs'
 
 const TYPES: FieldType[] = ['text', 'textarea', 'number', 'date', 'checkbox', 'dropdown', 'file']
 
@@ -276,9 +283,14 @@ function FieldsConfigurationConsole() {
     [data, reload],
   )
 
-  return (
-    <ServiceShell slug="fields-configuration">
-      <div className="mt-6 space-y-4">
+  /*
+   * Sales & Marketing also carries the five master-data consoles that the retired Master Fields screen held (see lib/platform/fields-tabs.ts): this body is then the
+   * "Custom fields" tab, and the tab bar supplies the space above it. Every other module shows this body alone, as before.
+   */
+  const tabbed = fieldsTabRules(moduleKey).showTabBar
+
+  const customFieldsPanel = (
+      <div className={tabbed ? 'space-y-4' : 'mt-6 space-y-4'}>
         {error && !data && <PanelError message={error} onRetry={reload} />}
         {error && data && <StaleNotice message={error} onRetry={reload} />}
         {loading && !data && !error && <PanelLoading label="Loading custom fields…" />}
@@ -636,6 +648,21 @@ function FieldsConfigurationConsole() {
           </>
         )}
       </div>
+  )
+
+  return (
+    <ServiceShell slug="fields-configuration">
+      <FieldsTabs
+        moduleKey={moduleKey}
+        panels={{
+          custom: customFieldsPanel,
+          picklists: <CrmPicklistAdmin />,
+          'tax-rates': <CrmTaxRateAdmin />,
+          'lead-scoring': <CrmLeadRoutingAdmin />,
+          'web-to-lead': <CrmLeadCaptureAdmin />,
+          'sla-policies': <CrmSlaPolicyAdmin />,
+        }}
+      />
     </ServiceShell>
   )
 }

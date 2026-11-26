@@ -42,7 +42,7 @@ export interface OrgAgentPanelProps {
 /**
  * The Organisation agent on one organisation: press Run agent, and it reads what the CRM knows (signals, deals, notes, tasks), writes a short brief that
  * cites its evidence, and proposes next steps. What the organisation's settings allow it to do alone (notes and tasks, by default) it does at once and
- * marks "Agent"; everything else waits here for a person to accept or dismiss. Every run is recorded in Agent Run History. It never sends anything.
+ * marks "Agent"; everything else waits here for a person to accept or dismiss. Every run is recorded in the Run Log (the Sales & Marketing agents section). It never sends anything.
  *
  * MOUNT it on the Organization detail page with the identity it already has: `<OrgAgentPanel orgAccountId={identityId} onRecordsChanged={reloadNotesAndTasks} />`,
  * or, knowing only the CRM organisation: `<OrgAgentPanel crmOrganizationId={crmId} />`. It needs no other prop and fetches its own data.
