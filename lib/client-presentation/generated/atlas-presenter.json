@@ -1,0 +1,11 @@
+{
+ "core": {
+  "summary": "Let the three lines land one at a time. Ask: which of these desks in your school is the busiest on a Monday morning?",
+  "problem": "Tell it as their morning, not ours. Pause after 'three versions of the truth'. Say it is an illustration, not their school.",
+  "intelligence": "These are questions, not predictions. Each insight shows the records behind it. If asked: the insights are rules over the school's own records, not an AI model.",
+  "ai": "Only drafting. Say clearly that nothing is applied until a person presses Apply. If asked about control: administrators set what AI may do for the admissions and attendance screens; confirm for the rest.",
+  "research": "Use only the figures the owner has approved. No percentages unless the sourced-figure rule has been agreed.",
+  "features": "One group at a time. Do not read the lines; let them point at the group their desk is in and open that screen.",
+  "roles": "Let the client name their own role first, then open it. Every use line is an illustration. For Students, say the school app is where students and families see these things, and show the staff-side screens behind it."
+ }
+}

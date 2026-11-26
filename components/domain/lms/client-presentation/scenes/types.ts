@@ -12,6 +12,8 @@ export interface SceneNav {
   /** Return from a detour. */
   returnBack: () => void
   canReturn: boolean
+  /** Jump to a beat of this scene without playing through the ones in between (the tabs of a product tour). */
+  setBeat: (beat: number) => void
 }
 
 export interface SceneProps {

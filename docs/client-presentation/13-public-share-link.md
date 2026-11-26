@@ -35,6 +35,8 @@ A page anyone can open is found by search engines, guessed, scraped and forwarde
 
    It prints the link, the **link id** and the expiry. Write the id next to the client's name. The script stores nothing.
 
+A link that never expires: add `--no-expiry` instead of `--days`. It stays valid until 1 January 2100 and can still be switched off by its id (or by changing the secret). Use it only for someone you will always want to reach, and keep a note of who holds it.
+
 ## Switch a link off
 
 Add its id to `CLIENT_PRESENTATION_REVOKED_IDS` (comma separated), then redeploy. To end every link at once, change the secret.

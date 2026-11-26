@@ -1,0 +1,117 @@
+/* The product tour: one slide, seven tabs. Fixed 1920 x 1080 stage; every panel uses the same two zones (text at x 140 to 980, picture at x 1010 to 1780),
+   labels in the same place in every cell, nothing clickable below y 1000. All motion is on one GSAP timeline (tour-scene.tsx), so nothing here transitions. */
+.tr { --tr-white: #fff; }
+.tr * { box-sizing: border-box; }
+
+/* backdrop: two slow lights behind everything */
+.tr-aurora { position: absolute; width: 1200px; height: 1200px; border-radius: 50%; filter: blur(110px); opacity: 0; pointer-events: none; }
+.tr-aurora.a { left: -380px; top: -620px; background: radial-gradient(circle, rgba(16, 136, 246, 0.34), transparent 62%); }
+.tr-aurora.b { right: -420px; bottom: -760px; background: radial-gradient(circle, rgba(116, 205, 35, 0.2), transparent 62%); }
+
+/* the tab bar */
+.tr-tabs { position: absolute; left: 140px; top: 150px; width: 1640px; height: 76px; display: grid; z-index: 4; }
+.tr-tab { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: block; height: 76px; padding-top: 22px; opacity: 0; }
+.tr-rule { position: absolute; left: 0; right: 16px; top: 0; height: 3px; background: var(--at-line); }
+.tr-rule em { position: absolute; inset: 0; background: var(--cp-blue); transform-origin: 0 50%; transform: scaleX(0); }
+.tr-tabin { display: flex; align-items: baseline; gap: 12px; opacity: 0.45; }
+.tr-tabin i { font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; color: var(--at-sky); font-style: normal; }
+.tr-tabin b { font: 700 24px/1.1 var(--cp-sans), sans-serif; color: var(--tr-white); white-space: nowrap; }
+.tr-tab:hover .tr-tabin { filter: brightness(1.35); }
+.tr-tab:focus-visible, .tr-gchip:focus-visible, .tr-rolebtn:focus-visible { outline: 3px solid #9fd0ff; outline-offset: 3px; }
+
+/* panels: hidden until the timeline shows them. The big layers are click-through, or the group layer would sit on top of the chips and swallow their clicks. */
+.tr-panel { position: absolute; inset: 0; visibility: hidden; opacity: 0; pointer-events: none; }
+.tr-lead { position: absolute; left: 140px; top: 252px; width: 860px; margin: 0; font: 600 29px/1.32 var(--cp-sans), sans-serif; color: var(--cp-on-ink); opacity: 0; }
+.tr-rows { position: absolute; left: 140px; width: 840px; margin: 0; padding: 0; list-style: none; }
+
+/* 1 summary */
+.tr-s1 { position: absolute; left: 140px; top: 262px; width: 780px; margin: 0; font: 300 104px/1.02 var(--cp-display), Georgia, serif; letter-spacing: -0.035em; }
+.tr-s2 { position: absolute; left: 140px; top: 735px; width: 780px; margin: 0; font: 600 31px/1.36 var(--cp-sans), sans-serif; color: var(--cp-on-ink); opacity: 0; }
+.tr-s3 { position: absolute; left: 140px; top: 884px; width: 780px; margin: 0; font: 700 26px/1.34 var(--cp-sans), sans-serif; color: var(--at-sky); opacity: 0; }
+.tr-count { position: absolute; left: 1010px; top: 246px; display: flex; align-items: flex-end; gap: 24px; opacity: 0; }
+.tr-count-n { font: 800 300px/0.9 var(--cp-display), Georgia, serif; letter-spacing: -0.06em; color: var(--at-sky); }
+.tr-count span { padding-bottom: 38px; font: 700 28px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cp-on-ink-soft); }
+.tr-groups { position: absolute; left: 1010px; top: 600px; width: 770px; margin: 0; padding: 0; list-style: none; }
+.tr-grow { height: 74px; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid var(--at-line); opacity: 0; }
+.tr-gname { font: 700 28px/1.1 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-gdots { display: flex; gap: 10px; }
+.tr-gdots i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--cp-green); }
+
+/* 2 problem */
+.tr-illus { position: absolute; left: 140px; top: 256px; padding: 9px 20px; border: 2px solid var(--at-line); border-radius: 999px; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--at-sky); opacity: 0; }
+.tr-pls { position: absolute; left: 140px; top: 326px; width: 940px; display: flex; flex-direction: column; gap: 26px; }
+.tr-pl { margin: 0; overflow: hidden; padding-bottom: 0.14em; font: 300 44px/1.14 var(--cp-display), Georgia, serif; letter-spacing: -0.02em; }
+.tr-pl-in { display: block; }
+  .tr-turn { position: absolute; left: 140px; top: 850px; width: 1040px; margin: 0; font: 800 40px/1.12 var(--cp-display), Georgia, serif; letter-spacing: -0.02em; color: var(--at-sky); opacity: 0; }
+.tr-reg { position: absolute; display: flex; align-items: center; justify-content: center; border: 2px solid var(--at-line); border-radius: 10px; background: rgba(255, 255, 255, 0.05); font: 700 28px/1 var(--cp-sans), sans-serif; color: var(--tr-white); opacity: 0; }
+.tr-record { position: absolute; border-radius: 20px; padding: 0 38px; display: flex; flex-direction: column; justify-content: center; gap: 12px; background: linear-gradient(135deg, #1088f6, #0a4a8c); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.4); opacity: 0; }
+.tr-record b { font: 600 48px/1 var(--cp-display), Georgia, serif; letter-spacing: -0.02em; }
+.tr-record span { font: 700 24px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); }
+
+/* 3 intelligence: the questions, and the six modules that ask them of the school's records */
+.tr-irows { top: 384px; }
+.tr-irow { height: 96px; padding-top: 8px; border-top: 2px solid var(--at-line); opacity: 0; }
+.tr-irow b { display: block; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--at-sky); }
+.tr-irow span { display: block; margin-top: 6px; font: 600 24px/1.18 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-ringsvg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.tr-ilink { stroke: var(--cp-blue); stroke-width: 3; }
+.tr-hubc { position: absolute; width: 190px; height: 96px; display: flex; align-items: center; justify-content: center; text-align: center; border-radius: 20px; background: linear-gradient(135deg, #1088f6, #0a4a8c); font: 700 22px/1.2 var(--cp-sans), sans-serif; padding: 0 14px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4); opacity: 0; }
+.tr-inode { position: absolute; width: 200px; height: 56px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--at-sky); border-radius: 999px; background: var(--cp-ink2, #0a2540); font: 700 22px/1 var(--cp-sans), sans-serif; color: var(--tr-white); opacity: 0; }
+.tr-close { position: absolute; left: 1010px; top: 912px; width: 770px; margin: 0; text-align: center; font: 500 30px/1.25 var(--cp-display), Georgia, serif; color: var(--cp-on-ink-soft); opacity: 0; }
+
+/* 4 AI capability: what it drafts, and the preview a person decides on */
+.tr-airows { top: 380px; }
+.tr-arow { height: 128px; padding-top: 12px; border-top: 2px solid var(--at-line); opacity: 0; }
+.tr-arow b { display: block; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--at-sky); }
+.tr-arow span { display: block; margin-top: 10px; font: 600 28px/1.24 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-card { position: absolute; left: 1040px; top: 262px; width: 740px; height: 470px; padding: 30px 36px; border: 2px solid var(--at-line); border-radius: 22px; background: rgba(255, 255, 255, 0.06); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.38); opacity: 0; }
+.tr-card-h { display: flex; justify-content: space-between; align-items: baseline; }
+.tr-card-h span { font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--at-sky); }
+.tr-card-h em { font: 700 20px/1 var(--cp-sans), sans-serif; font-style: normal; color: var(--cp-on-ink-soft); }
+.tr-typed { margin: 28px 0 0; min-height: 240px; font: 500 31px/1.42 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-card-f { position: absolute; left: 36px; bottom: 28px; display: flex; gap: 16px; }
+.tr-btn { padding: 14px 30px; border: 2px solid var(--at-line); border-radius: 10px; font: 800 22px/1 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-btn.apply { background: var(--cp-blue); border-color: var(--cp-blue); }
+.tr-cursor { position: absolute; left: 118px; top: 420px; width: 30px; height: 36px; background: var(--tr-white); clip-path: polygon(0 0, 0 100%, 28% 76%, 52% 100%, 66% 90%, 44% 68%, 100% 62%); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); opacity: 0; }
+.tr-guard { position: absolute; left: 1040px; top: 788px; width: 740px; margin: 0; font: 500 34px/1.2 var(--cp-display), Georgia, serif; color: var(--at-sky); opacity: 0; }
+.tr-control { position: absolute; left: 1040px; top: 884px; width: 740px; margin: 0; font: 600 26px/1.3 var(--cp-sans), sans-serif; color: var(--cp-on-ink-soft); opacity: 0; }
+
+/* 5 research */
+.tr-research { position: absolute; left: 140px; top: 340px; width: 1640px; margin: 0; padding: 0; list-style: none; }
+.tr-ritem { margin-bottom: 36px; padding-top: 18px; border-top: 2px solid var(--at-line); opacity: 0; }
+.tr-ritem span { display: block; font: 400 40px/1.2 var(--cp-display), Georgia, serif; letter-spacing: -0.015em; }
+.tr-ritem em { display: block; margin-top: 12px; font: 700 20px/1 var(--cp-sans), sans-serif; font-style: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--at-sky); }
+
+/* 6 features and modules: a group of five per beat, five equal columns */
+.tr-gchips { position: absolute; left: 140px; top: 252px; width: 1640px; display: grid; grid-template-columns: repeat(5, 296px); column-gap: 40px; }   /* the same columns as .tr-cols below, so a chip and its modules share a left edge */
+.tr-gchip { all: unset; display: block; box-sizing: border-box; cursor: pointer; height: 98px; padding: 12px 16px 0 0; border-top: 2px solid var(--at-line); font: 700 21px/1.2 var(--cp-sans), sans-serif; color: var(--tr-white); opacity: 0; }
+.tr-gin { display: block; opacity: 0.4; }
+.tr-gchip i { display: block; margin-bottom: 6px; font: 800 20px/1 var(--cp-sans), sans-serif; font-style: normal; letter-spacing: 0.16em; color: var(--at-sky); }
+.tr-group { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; visibility: hidden; opacity: 0; }
+.tr-gtitle { position: absolute; left: 140px; top: 372px; width: 1640px; margin: 0; font: 300 76px/1.04 var(--cp-display), Georgia, serif; letter-spacing: -0.03em; }
+.tr-cols { position: absolute; left: 140px; top: 502px; width: 1640px; display: grid; grid-template-columns: repeat(5, 296px); column-gap: 40px; }
+.tr-col { opacity: 0; }
+.tr-shot { width: 296px; height: 268px; overflow: hidden; border-radius: 12px; background: #0c2a4a; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.42), 0 0 0 1.5px rgba(159, 208, 255, 0.28); }
+.tr-shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+.tr-col b { display: block; margin-top: 20px; font: 800 26px/1.15 var(--cp-sans), sans-serif; color: var(--tr-white); }
+.tr-col span { display: block; margin-top: 8px; font: 500 22px/1.32 var(--cp-sans), sans-serif; color: var(--cp-on-ink-soft); }
+
+/* The buttons inside the click-through panels. Placed after their `all: unset` rules, which would reset it. */
+.tr .tr-gchip, .tr .tr-rolebtn { pointer-events: auto; }
+
+/* 7 role-wise benefits: the roles on the left, the chosen one on the right */
+.tr-rolelist { position: absolute; left: 140px; top: 272px; width: 440px; margin: 0; padding: 0; list-style: none; }
+.tr-rolebtn { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 440px; height: 96px; padding-top: 16px; border-top: 2px solid var(--at-line); font: 600 30px/1.15 var(--cp-display), Georgia, serif; opacity: 0; }
+.tr-rbin { display: block; opacity: 0.45; color: var(--tr-white); }
+.tr-rbin i { display: block; margin-bottom: 8px; font: 800 20px/1 var(--cp-sans), sans-serif; font-style: normal; letter-spacing: 0.16em; color: var(--at-sky); }
+.tr-role { position: absolute; left: 660px; top: 0; width: 1120px; height: 1080px; visibility: hidden; opacity: 0; }
+.tr-who { position: absolute; left: 0; top: 262px; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: var(--at-sky); opacity: 0; }
+.tr-rname { position: absolute; left: 0; top: 300px; width: 1120px; margin: 0; font: 300 90px/1.04 var(--cp-display), Georgia, serif; letter-spacing: -0.03em; }
+.tr-ben { position: absolute; left: 0; top: 452px; width: 1000px; margin: 0; padding: 0; list-style: none; }
+.tr-ben li { position: relative; margin-bottom: 22px; padding-left: 56px; font: 600 32px/1.28 var(--cp-sans), sans-serif; color: var(--tr-white); opacity: 0; }
+.tr-ben li::before { content: ''; position: absolute; left: 0; top: 0.42em; width: 22px; height: 12px; border-left: 4px solid var(--cp-green); border-bottom: 4px solid var(--cp-green); transform: rotate(-48deg) scale(0.9); transform-origin: 30% 60%; }
+.tr-use { position: absolute; left: 0; top: 790px; width: 1050px; opacity: 0; }
+.tr-use em { display: block; font: 800 20px/1 var(--cp-sans), sans-serif; font-style: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--at-sky); }
+.tr-use p { margin: 12px 0 0; font: italic 400 34px/1.25 var(--cp-display), Georgia, serif; color: var(--tr-white); }
+.tr-mods { position: absolute; left: 0; top: 936px; width: 1120px; display: flex; flex-wrap: wrap; gap: 12px; }
+.tr-mods span { padding: 9px 18px; border: 2px solid var(--at-line); border-radius: 999px; font: 700 20px/1 var(--cp-sans), sans-serif; color: var(--at-sky); opacity: 0; }

@@ -3,7 +3,9 @@
 // Reads  docs/client-presentation/content/atlas/part-*.json (sheets written from source, one file per family or group of sub-modules)
 //        docs/client-presentation/content/atlas/k12-menu-2026-11-25.json (the live menu: real module, sub-module and screen names)
 //        public/client-presentation/atlas/*.webp (edited screenshots, named <module>--<sub-module>--<screen>.webp)
+//        docs/client-presentation/content/atlas/tour-<family>.json (the seven-tab product tour of a family, when it has one)
 // Writes lib/client-presentation/generated/atlas.json (what the browser renders: no evidence paths, no owner notes)
+//        lib/client-presentation/generated/atlas-presenter.json (the presenter script per tour tab: imported ONLY by the signed-in presenter window)
 //        docs/client-presentation/atlas-notes.json (evidence paths and owner-to-confirm notes, for presenter notes and review)
 // Exit 1 on any failure: a missing field, a word limit, a banned pattern (percentages, money, predict, at-risk, NEP, status words), an outside AI
 // company or model name, an evidence path that does not exist, or a screenshot that is named but missing.
@@ -58,10 +60,78 @@ function checkSheet(where, x, limits) {
   if (x.research) { checkText(`${where}.research.text`, x.research.text, 24); checkEvidence(`${where}.research.evidence`, x.research.evidence, 1) }
 }
 
+// ---- the product tour: seven tabs for a family that has a tour-<family>.json (see lib/client-presentation/tour.ts) ----
+function buildTour(F, subs) {
+  const file = join(dir, `tour-${F.key}.json`)
+  if (!existsSync(file)) return null
+  const t = JSON.parse(readFileSync(file, 'utf8'))
+  const w = `${F.key}.tour`
+  const byId = new Map(subs.map((x) => [x.id, x]))
+  const need = (where, id) => { if (!byId.has(id)) { fail(`${where}: unknown sub-module id "${id}"`); return null } return byId.get(id) }
+  const list = (where, a, min, max) => { if (!Array.isArray(a) || a.length < min || a.length > max) { fail(`${where}: needs ${min} to ${max} items`); return [] } return a }
+
+  const sum = list(`${w}.summary.lines`, t.summary?.lines, 3, 3); sum.forEach((l, i) => checkText(`${w}.summary.lines[${i}]`, l, 24)); checkEvidence(`${w}.summary.evidence`, t.summary?.evidence, 1)
+
+  checkText(`${w}.problem.label`, t.problem?.label, 8)
+  if (t.problem?.illustrative !== true) fail(`${w}.problem: must be marked "illustrative": true (a situation is always tagged as an illustration)`)
+  const beats = list(`${w}.problem.beats`, t.problem?.beats, 3, 5); beats.forEach((l, i) => checkText(`${w}.problem.beats[${i}]`, l, 24))
+  checkText(`${w}.problem.turn`, t.problem?.turn, 16); checkEvidence(`${w}.problem.evidence`, t.problem?.evidence, 1)
+  const scattered = list(`${w}.problem.scattered`, t.problem?.scattered, 3, 3); scattered.forEach((l, i) => checkText(`${w}.problem.scattered[${i}]`, l, 3)); checkText(`${w}.problem.record`, t.problem?.record, 3)
+
+  checkText(`${w}.intelligence.lead`, t.intelligence?.lead, 24); checkText(`${w}.intelligence.close`, t.intelligence?.close, 16)
+  const insights = list(`${w}.intelligence.modules`, t.intelligence?.modules, 1, 8).map((m, i) => {
+    const sub = need(`${w}.intelligence.modules[${i}]`, m.id); checkText(`${w}.intelligence.modules[${i}].asks`, m.asks, 16)
+    // an insight may only be claimed for a module whose own sheet says it has rule-based insights
+    if (sub && !sub.technology.some((x) => /rule-based insights/i.test(x))) fail(`${w}.intelligence.modules[${i}]: ${m.id} has no "rule-based insights" in its sheet`)
+    return sub && { id: m.id, name: sub.name, asks: m.asks }
+  }).filter(Boolean)
+  checkEvidence(`${w}.intelligence.evidence`, t.intelligence?.evidence, insights.length || 1)
+
+  checkText(`${w}.ai.lead`, t.ai?.lead, 24); checkText(`${w}.ai.guard`, t.ai?.guard, 16); checkText(`${w}.ai.control`, t.ai?.control, 12)
+  const uses = list(`${w}.ai.uses`, t.ai?.uses, 1, 6); uses.forEach((u, i) => { checkText(`${w}.ai.uses[${i}].name`, u.name, 4); checkText(`${w}.ai.uses[${i}].line`, u.line, 14) })
+  checkEvidence(`${w}.ai.evidence`, t.ai?.evidence, 2)
+  checkText(`${w}.ai.sample.label`, t.ai?.sample?.label, 6); checkText(`${w}.ai.sample.text`, t.ai?.sample?.text, 32)
+  if (!/illustrative/i.test(t.ai?.sample?.label ?? '')) fail(`${w}.ai.sample.label: a sample draft must say it is illustrative`)
+
+  // research is optional: the tab stays hidden until there is at least one item, and every item needs a source and an evidence path
+  const items = (t.research?.items ?? []).map((r, i) => { checkText(`${w}.research.items[${i}].text`, r.text, 24); checkText(`${w}.research.items[${i}].source`, r.source, 12); checkEvidence(`${w}.research.items[${i}].evidence`, r.evidence, 1); return { text: r.text, source: r.source } })
+
+  const groups = list(`${w}.features.groups`, t.features?.groups, 1, 6)
+  const placed = []
+  const outGroups = groups.map((g, gi) => {
+    checkText(`${w}.features.groups[${gi}].title`, g.title, 5)
+    const gs = list(`${w}.features.groups[${gi}].subs`, g.subs, 3, 7).map((x, xi) => {
+      const sub = need(`${w}.features.groups[${gi}].subs[${xi}]`, x.id); placed.push(x.id)
+      checkText(`${w}.features.groups[${gi}].subs[${xi}].tagline`, x.tagline, 10)
+      return sub && { id: x.id, name: sub.name, tagline: x.tagline, shot: sub.shots[0] ?? null }
+    }).filter(Boolean)
+    return { title: g.title, subs: gs }
+  })
+  for (const x of subs) if (!placed.includes(x.id)) fail(`${w}.features: sub-module ${x.id} is in no group`)
+  if (new Set(placed).size !== placed.length) fail(`${w}.features: a sub-module is in two groups`)
+  checkEvidence(`${w}.features.evidence`, t.features?.evidence, 1)
+
+  const roles = list(`${w}.roles`, t.roles, 3, 6).map((r, i) => {
+    checkText(`${w}.roles[${i}].role`, r.role, 5); checkText(`${w}.roles[${i}].who`, r.who, 8); checkText(`${w}.roles[${i}].use`, r.use, 24)
+    list(`${w}.roles[${i}].benefits`, r.benefits, 3, 3).forEach((b, j) => checkText(`${w}.roles[${i}].benefits[${j}]`, b, 18))
+    const modules = list(`${w}.roles[${i}].modules`, r.modules, 1, 6).map((id) => { const sub = need(`${w}.roles[${i}].modules`, id); return sub && { id, name: sub.name } }).filter(Boolean)
+    return { role: r.role, who: r.who, benefits: r.benefits, use: r.use, modules }
+  })
+  const TABS = ['summary', 'problem', 'intelligence', 'ai', 'research', 'features', 'roles']
+  for (const tab of TABS) if (typeof t.notes?.[tab] !== 'string' || !t.notes[tab].trim()) fail(`${w}.notes.${tab}: the presenter script for this tab is missing`)
+  const notes = { evidence: Object.fromEntries(TABS.map((k) => [k, t[k]?.evidence ?? null])), owner_to_confirm: t.owner_to_confirm ?? [] }
+  return {
+    tour: { summary: { lines: sum }, problem: { label: t.problem.label, beats, turn: t.problem.turn, scattered, record: t.problem.record }, intelligence: { lead: t.intelligence.lead, modules: insights, close: t.intelligence.close }, ai: { lead: t.ai.lead, uses, guard: t.ai.guard, control: t.ai.control, sample: { label: t.ai.sample.label, text: t.ai.sample.text } }, research: { items }, features: { groups: outGroups }, roles },
+    notes,
+    presenter: t.notes,
+  }
+}
+
 const shotDir = join(root, 'public/client-presentation/atlas')
 const shots = existsSync(shotDir) ? readdirSync(shotDir).filter((f) => f.endsWith('.webp')) : []
 const out = { captured: menu.captured, products: [] }
 const notes = { products: [] }
+const presenter = {}
 for (const F of FAMILIES) {
   const live = menu.modules.find((m) => m.name === F.k12)
   if (!live) { fail(`${F.key}: module ${F.k12} not in the live menu file`); continue }
@@ -101,8 +171,10 @@ for (const F of FAMILIES) {
   for (const s of live.subs) if (!subs.some((x) => norm(x.name) === norm(s.name) || norm(s.name).startsWith(norm(x.name)))) warns.push(`${F.key}: live sub-module "${s.name}" has no sheet`)
   if (family) { checkSheet(`${F.key}.family`, family, { summary: 28, problem: 28, benefit: 28 }); checkEvidence(`${F.key}.family.evidence`, family.evidence, 1); (family.ai || []).forEach((t, i) => checkText(`${F.key}.family.ai[${i}]`, t, 14)) }
   else warns.push(`${F.key}: no family sheet`)
-  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs })
-  notes.products.push({ key: F.key, family_evidence: family?.evidence ?? [], subs: subNotes })
+  const built = buildTour(F, subs)
+  if (built) presenter[F.key] = built.presenter
+  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs, ...(built ? { tour: built.tour } : {}) })
+  notes.products.push({ key: F.key, family_evidence: family?.evidence ?? [], subs: subNotes, ...(built ? { tour: built.notes } : {}) })
 }
 // cross-cutting technology and design basis (tech.json)
 const techPath = join(dir, 'tech.json')
@@ -119,18 +191,27 @@ const n = out.products.reduce((a, p) => a + p.subs.length, 0)
 console.log(`ok   ${out.products.length} families, ${n} sub-module sheets, ${out.products.reduce((a, p) => a + p.subs.filter((s) => s.shots.length).length, 0)} with screenshots`)
 // the plan of atlas slides (the same rules as buildAtlasPlan in lib/client-presentation/atlas.ts; atlas.test.ts checks that the two agree)
 function chunk(items, max = 5) { if (!items.length) return []; const parts = Math.ceil(items.length / max); const size = Math.ceil(items.length / parts); const o = []; for (let i = 0; i < items.length; i += size) o.push(items.slice(i, i + size)); return o }
+// the beat count of a tour and the slide slugs follow the same rules as lib/client-presentation/tour.ts and atlas.ts (atlas.test.ts checks that the plan files agree)
+const tourBeats = (t) => Math.max(0, 1 + 1 + 1 + 1 + (t.research.items.length ? 1 : 0) + t.features.groups.length + t.roles.length - 1)
+function slugs(plan) {
+  const id = (s) => (s.kind === 'hub' ? 'hub' : `${s.family}-${s.kind}`); const count = new Map(); const seen = new Map()
+  for (const s of plan) count.set(id(s), (count.get(id(s)) ?? 0) + 1)
+  return plan.map((s) => { const b = id(s); const i = (seen.get(b) ?? 0) + 1; seen.set(b, i); return (count.get(b) ?? 1) > 1 ? `${b}-${i}` : b })
+}
 function buildPlan() {
   const filled = out.products.filter((p) => p.subs.length); if (!filled.length) return []
   const plan = [{ kind: 'hub', theme: 'ink', title: 'Choose a product', kicker: 'Products', ghost: '', beats: 0 }]
   for (const p of filled) {
     plan.push({ kind: 'opener', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
+    if (p.tour) { plan.push({ kind: 'tour', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: tourBeats(p.tour) }); continue }
     const groups = chunk(p.subs, 5)
     groups.forEach((g, i) => plan.push({ kind: 'subs', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: `${i + 1}/${groups.length}`, family: p.key, subs: g.map((x) => x.id), beats: g.length - 1 }))
     plan.push({ kind: 'glance', theme: 'paper', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
     const gal = chunk(p.subs.filter((x) => x.shots.length), 9)
     gal.forEach((g, i) => plan.push({ kind: 'gallery', theme: 'paper', title: p.product, kicker: p.k12_module, ghost: gal.length > 1 ? `${i + 1}/${gal.length}` : '', family: p.key, subs: g.map((x) => x.id), beats: 0 }))
   }
-  return plan.map((x, i) => ({ ...x, key: `a${i + 1}`, n: 200 + i + 1 }))
+  const names = slugs(plan)
+  return plan.map((x, i) => ({ ...x, key: `a${i + 1}`, n: 200 + i + 1, slug: names[i] }))
 }
 if (!checkOnly) {
   const o = join(root, 'lib/client-presentation/generated/atlas.json'); mkdirSync(dirname(o), { recursive: true })
@@ -139,4 +220,6 @@ if (!checkOnly) {
   console.log('wrote', o)
   writeFileSync(join(dirname(o), 'atlas-plan.json'), JSON.stringify(buildPlan(), null, 1) + '\n', 'utf8')
   console.log('wrote atlas-plan.json')
+  writeFileSync(join(dirname(o), 'atlas-presenter.json'), JSON.stringify(presenter, null, 1) + '\n', 'utf8')
+  console.log('wrote atlas-presenter.json')
 }

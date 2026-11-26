@@ -5,6 +5,8 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { DECKS } from './deck'
+import { ATLAS } from './atlas'
+import tourNotesJson from './generated/atlas-presenter.json'
 import fullJson from './generated/scholarclone.deck.json'
 import publicJson from './generated/scholarclone.public.json'
 
@@ -37,6 +39,14 @@ test('the public deck carries none of them, anywhere in its text', () => {
   }
   assert.equal('appendix' in publicJson, false)
   assert.equal('source_sha256' in publicJson, false)
+})
+
+test('the speaker script of a product tour is in the presenter file only, never in the public deck or the public atlas data', () => {
+  const scripts = Object.values(tourNotesJson as Record<string, Record<string, string>>).flatMap((tabs) => Object.values(tabs))
+  assert.ok(scripts.length >= 7 && scripts.every((t) => t.length > 20), 'the control: the presenter file really holds the tab scripts')
+  const publicText = JSON.stringify(publicJson) + JSON.stringify(ATLAS) + JSON.stringify(DECKS.scholarclone)
+  for (const t of scripts) assert.equal(publicText.includes(t), false, `public data contains a tour script: ${t.slice(0, 50)}`)
+  assert.equal('notes' in (ATLAS.products.find((p) => p.key === 'core')?.tour ?? {}), false)
 })
 
 test('what a viewer sees is identical in both: every on-slide line, scenario, short version and image', () => {
@@ -88,7 +98,7 @@ test('nothing under the public page can reach the full deck JSON, the presenter 
   for (const e of entries) for (const f of reachable(e)) seen.add(f.replace(/\\/g, '/'))
   assert.ok([...seen].some((f) => f.endsWith('lib/client-presentation/generated/scholarclone.public.json')), 'the walk did not reach the public deck: the check is blind')
   assert.ok([...seen].some((f) => f.endsWith('components/domain/lms/client-presentation/client-presentation.tsx')), 'the walk did not reach the player: the check is blind')
-  for (const banned of ['generated/scholarclone.deck.json', 'lib/client-presentation/presenter-deck.ts', 'presenter-view.tsx']) {
+  for (const banned of ['generated/scholarclone.deck.json', 'generated/atlas-presenter.json', 'lib/client-presentation/presenter-deck.ts', 'presenter-view.tsx']) {
     assert.deepEqual([...seen].filter((f) => f.endsWith(banned)), [], `the public page reaches ${banned}`)
   }
 })
@@ -99,13 +109,13 @@ test('control: the signed-in page DOES reach the presenter deck (the walk can se
   assert.ok(seen.some((f) => f.endsWith('generated/scholarclone.deck.json')))
 })
 
-test('only presenter-deck.ts imports the full deck JSON among the app files', () => {
+test('only presenter-deck.ts imports the full deck JSON or the tour scripts among the app files', () => {
   const offenders: string[] = []
   const scan = (dir: string) => {
     for (const name of readdirSync(dir)) {
       const p = join(dir, name)
       if (statSync(p).isDirectory()) scan(p)
-      else if (/\.(tsx?|mjs)$/.test(name) && !/\.test\./.test(name) && /generated\/scholarclone\.deck\.json/.test(readFileSync(p, 'utf8').replace(/^\s*(\/\/|\*|\/\*).*$/gm, ''))) offenders.push(p.replace(/\\/g, '/'))
+      else if (/\.(tsx?|mjs)$/.test(name) && !/\.test\./.test(name) && /generated\/(scholarclone\.deck|atlas-presenter)\.json/.test(readFileSync(p, 'utf8').replace(/^\s*(\/\/|\*|\/\*).*$/gm, ''))) offenders.push(p.replace(/\\/g, '/'))
     }
   }
   for (const d of ['app', 'components/domain/lms/client-presentation', 'lib/client-presentation']) scan(join(root, d))

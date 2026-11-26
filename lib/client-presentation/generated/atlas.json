@@ -964,7 +964,435 @@
       "/client-presentation/atlas/institute-erp--alumni-management--alumni-list.webp"
      ]
     }
-   ]
+   ],
+   "tour": {
+    "summary": {
+     "lines": [
+      "Your whole school office, in one place.",
+      "From first enquiry to confirmed admission, then fees, attendance, exams, transport, library and every message home.",
+      "One set of records for every desk, so staff could stop re-entering the same details."
+     ]
+    },
+    "problem": {
+     "label": "A typical morning. Illustrative.",
+     "beats": [
+      "Picture 9 a.m. at your front desk. A parent asks about last month's fee receipt.",
+      "The answer sits in one register. The student's file is in another, the bus list in a spreadsheet.",
+      "Three books, three versions of the truth, and the parent is still waiting.",
+      "By evening the same details have been typed again, in three places."
+     ],
+     "turn": "Scholar Core gives every desk one record to open.",
+     "scattered": [
+      "Fee register",
+      "Student file",
+      "Bus list"
+     ],
+     "record": "One record"
+    },
+    "intelligence": {
+     "lead": "Scholar Core reads your own school records and asks the questions your office would ask, then shows the records behind each answer.",
+     "modules": [
+      {
+       "id": "core-fees",
+       "name": "Fees",
+       "asks": "Is collection keeping pace, and where is money overdue across past cycles?"
+      },
+      {
+       "id": "core-petty-cash",
+       "name": "Petty Cash",
+       "asks": "Is any claim far above the school's own average, or missing a bill?"
+      },
+      {
+       "id": "core-inventory",
+       "name": "Inventory",
+       "asks": "Did the stock-take record what it found, and which items were not found?"
+      },
+      {
+       "id": "core-transport",
+       "name": "Transport",
+       "asks": "Which vehicles are over their seats, which run under half full, which stop is busiest?"
+      },
+      {
+       "id": "core-library",
+       "name": "Library",
+       "asks": "Which titles are in high demand, what is overdue, what has never been borrowed?"
+      },
+      {
+       "id": "core-inward-outward",
+       "name": "Inward Outward",
+       "asks": "Which letters have no recorded reply, or sit in a file location not on record?"
+      }
+     ],
+     "close": "When the records are too thin, it raises nothing rather than guessing."
+    },
+    "ai": {
+     "lead": "AI drafts the wording. A person reads the preview and decides whether to use it.",
+     "uses": [
+      {
+       "name": "Admission",
+       "line": "Draft enquiry remarks for the admission team."
+      },
+      {
+       "name": "Student",
+       "line": "Draft health and vaccination notes for each student."
+      },
+      {
+       "name": "Communication",
+       "line": "Draft message wording, then review it before sending."
+      },
+      {
+       "name": "Ask your records",
+       "line": "Ask questions of school records in plain words."
+      }
+     ],
+     "guard": "Nothing is written to a field until a person presses Apply.",
+     "control": "School administrators set what AI may do.",
+     "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Parent visited on Saturday and is interested in admission for next year. Asked about the bus route and the fee schedule. Follow up by phone on Monday."
+     }
+    },
+    "research": {
+     "items": []
+    },
+    "features": {
+     "groups": [
+      {
+       "title": "Students and academics",
+       "subs": [
+        {
+         "id": "core-admission",
+         "name": "Admission",
+         "tagline": "From first enquiry to confirmed admission.",
+         "shot": "/client-presentation/atlas/institute-erp--admission--admission-inquiry.webp"
+        },
+        {
+         "id": "core-student",
+         "name": "Student",
+         "tagline": "Every student's record, documents and certificates in order.",
+         "shot": "/client-presentation/atlas/institute-erp--student--search-edit-student.webp"
+        },
+        {
+         "id": "core-attendance",
+         "name": "Attendance",
+         "tagline": "Daily class registers, marked and saved.",
+         "shot": "/client-presentation/atlas/institute-erp--attendance--student-attendance.webp"
+        },
+        {
+         "id": "core-timetable",
+         "name": "Timetable",
+         "tagline": "Weekly grids, class teachers and substitute cover.",
+         "shot": "/client-presentation/atlas/institute-erp--timetable--assign-class-teacher.webp"
+        },
+        {
+         "id": "core-exam",
+         "name": "Exam",
+         "tagline": "Marks, grades and results, checked as they are entered.",
+         "shot": "/client-presentation/atlas/institute-erp--exam--mark-entry.webp"
+        }
+       ]
+      },
+      {
+       "title": "Money and stores",
+       "subs": [
+        {
+         "id": "core-fees",
+         "name": "Fees",
+         "tagline": "Counter or online collection, receipts and refunds.",
+         "shot": "/client-presentation/atlas/institute-erp--fees--fees-collect.webp"
+        },
+        {
+         "id": "core-petty-cash",
+         "name": "Petty Cash",
+         "tagline": "Small expenses with their heads and bill images.",
+         "shot": "/client-presentation/atlas/institute-erp--petty-cash--petty-cash.webp"
+        },
+        {
+         "id": "core-inventory",
+         "name": "Inventory",
+         "tagline": "The store, from requisition to purchase order to receipt.",
+         "shot": "/client-presentation/atlas/institute-erp--inventory--requisition-form.webp"
+        },
+        {
+         "id": "core-transport",
+         "name": "Transport",
+         "tagline": "Vehicles, routes, stops and every student's seat.",
+         "shot": "/client-presentation/atlas/institute-erp--transport--student-transport-mapping.webp"
+        },
+        {
+         "id": "core-hostel",
+         "name": "Hostel",
+         "tagline": "Rooms, beds and lockers allocated to residents.",
+         "shot": "/client-presentation/atlas/institute-erp--hostel--hostel-room-allocation.webp"
+        }
+       ]
+      },
+      {
+       "title": "Front office and records",
+       "subs": [
+        {
+         "id": "core-front-desk",
+         "name": "Front Desk",
+         "tagline": "A searchable log of every visit.",
+         "shot": "/client-presentation/atlas/institute-erp--front-desk--front-desk.webp"
+        },
+        {
+         "id": "core-visitor-management",
+         "name": "Visitor Management",
+         "tagline": "A gate register with ID card and photo.",
+         "shot": "/client-presentation/atlas/institute-erp--visitor-management--add-visitor.webp"
+        },
+        {
+         "id": "core-inward-outward",
+         "name": "Inward Outward",
+         "tagline": "Every letter in and out, with its file location.",
+         "shot": "/client-presentation/atlas/institute-erp--inward-outward--add-inward.webp"
+        },
+        {
+         "id": "core-document-templates",
+         "name": "Document Templates",
+         "tagline": "One approved layout for every certificate and ID card.",
+         "shot": "/client-presentation/atlas/institute-erp--document-templates--all-templates.webp"
+        },
+        {
+         "id": "core-library",
+         "name": "Library",
+         "tagline": "Catalogue, barcodes, returns and shelf checks.",
+         "shot": "/client-presentation/atlas/institute-erp--library--book-resources.webp"
+        }
+       ]
+      },
+      {
+       "title": "Communication and trust",
+       "subs": [
+        {
+         "id": "core-communication",
+         "name": "Communication",
+         "tagline": "SMS, e-mail, app and WhatsApp from one screen.",
+         "shot": "/client-presentation/atlas/institute-erp--communication--send-sms-parents.webp"
+        },
+        {
+         "id": "core-circular",
+         "name": "Circular",
+         "tagline": "One notice to chosen classes, searchable later.",
+         "shot": "/client-presentation/atlas/institute-erp--circular--circular.webp"
+        },
+        {
+         "id": "core-parent-communication",
+         "name": "Parent Communication",
+         "tagline": "Parent messages and staff replies in one list.",
+         "shot": "/client-presentation/atlas/institute-erp--parent-communication--parent-communication.webp"
+        },
+        {
+         "id": "core-consent",
+         "name": "Consent",
+         "tagline": "Raise a consent for a whole class together.",
+         "shot": "/client-presentation/atlas/institute-erp--consent--consent-master.webp"
+        },
+        {
+         "id": "core-ptm",
+         "name": "PTM",
+         "tagline": "Meeting slots, parent bookings and who attended.",
+         "shot": "/client-presentation/atlas/institute-erp--ptm--ptm-attended-status.webp"
+        }
+       ]
+      },
+      {
+       "title": "Community and administration",
+       "subs": [
+        {
+         "id": "core-complaint",
+         "name": "Complaint",
+         "tagline": "Every complaint and its outcome in one register.",
+         "shot": "/client-presentation/atlas/institute-erp--complaint--complaint-management.webp"
+        },
+        {
+         "id": "core-alumni-management",
+         "name": "Alumni Management",
+         "tagline": "Former students, events, mentoring and surveys together.",
+         "shot": "/client-presentation/atlas/institute-erp--alumni-management--alumni-list.webp"
+        },
+        {
+         "id": "core-mobile-apps",
+         "name": "Mobile Apps",
+         "tagline": "Calendar, albums and schedules families see in the app.",
+         "shot": "/client-presentation/atlas/institute-erp--mobile-apps--calendar.webp"
+        },
+        {
+         "id": "core-users",
+         "name": "Users",
+         "tagline": "Staff accounts with an access profile for each.",
+         "shot": "/client-presentation/atlas/institute-erp--users--user-master.webp"
+        },
+        {
+         "id": "core-utility",
+         "name": "Utility",
+         "tagline": "Year-end rollover, promotions and your own forms.",
+         "shot": "/client-presentation/atlas/institute-erp--utility--rollover.webp"
+        }
+       ]
+      }
+     ]
+    },
+    "roles": [
+     {
+      "role": "Principal and trustees",
+      "who": "Leadership",
+      "benefits": [
+       "Answer parents and leaders faster from one set of records.",
+       "See fee, transport, stock and library insights drawn from the school's own records.",
+       "Start a new academic year with less repeated entry."
+      ],
+      "use": "Before a review meeting, open the fee insights, the transport seat check and the library overdue list.",
+      "modules": [
+       {
+        "id": "core-fees",
+        "name": "Fees"
+       },
+       {
+        "id": "core-transport",
+        "name": "Transport"
+       },
+       {
+        "id": "core-library",
+        "name": "Library"
+       },
+       {
+        "id": "core-utility",
+        "name": "Utility"
+       }
+      ]
+     },
+     {
+      "role": "Admission and front office",
+      "who": "The first desk a family meets",
+      "benefits": [
+       "Follow up enquiries and move families through registration and confirmation.",
+       "Keep a searchable record of visits, and find the ones meant for you.",
+       "Trace any letter by number, subject or place."
+      ],
+      "use": "Log an enquiry, follow it up, then confirm the admission and add the student record.",
+      "modules": [
+       {
+        "id": "core-admission",
+        "name": "Admission"
+       },
+       {
+        "id": "core-front-desk",
+        "name": "Front Desk"
+       },
+       {
+        "id": "core-visitor-management",
+        "name": "Visitor Management"
+       },
+       {
+        "id": "core-inward-outward",
+        "name": "Inward Outward"
+       }
+      ]
+     },
+     {
+      "role": "Accounts",
+      "who": "Fees, expenses and purchases",
+      "benefits": [
+       "See dues, receipts and refunds in one place.",
+       "Find any small expense, its bill and its head quickly.",
+       "Follow each purchase request from approval to delivery."
+      ],
+      "use": "Collect a fee at the counter and print the receipt, then cancel or refund it later with remarks.",
+      "modules": [
+       {
+        "id": "core-fees",
+        "name": "Fees"
+       },
+       {
+        "id": "core-petty-cash",
+        "name": "Petty Cash"
+       },
+       {
+        "id": "core-inventory",
+        "name": "Inventory"
+       }
+      ]
+     },
+     {
+      "role": "Teachers and coordinators",
+      "who": "The classroom and the timetable",
+      "benefits": [
+       "Take attendance and keep families informed.",
+       "Enter marks and see results prepared from checked entries.",
+       "Plan periods and arrange substitute cover."
+      ],
+      "use": "Mark today's attendance, enter marks, and see the substitute cover for an absent colleague.",
+      "modules": [
+       {
+        "id": "core-attendance",
+        "name": "Attendance"
+       },
+       {
+        "id": "core-exam",
+        "name": "Exam"
+       },
+       {
+        "id": "core-timetable",
+        "name": "Timetable"
+       }
+      ]
+     },
+     {
+      "role": "Operations",
+      "who": "Transport, library, hostel and stores",
+      "benefits": [
+       "See how full each vehicle is and who rides which route and stop.",
+       "Find any library copy and finish a stock check faster.",
+       "See who is placed where in the hostel and which rooms have space."
+      ],
+      "use": "Map students to a vehicle and stop with a seat check, then scan the library shelf.",
+      "modules": [
+       {
+        "id": "core-transport",
+        "name": "Transport"
+       },
+       {
+        "id": "core-library",
+        "name": "Library"
+       },
+       {
+        "id": "core-hostel",
+        "name": "Hostel"
+       },
+       {
+        "id": "core-inventory",
+        "name": "Inventory"
+       }
+      ]
+     },
+     {
+      "role": "Students",
+      "who": "In the school app",
+      "benefits": [
+       "Find school dates, photo albums and exam schedules in the school app.",
+       "Send a leave request from the app and see its reply and status.",
+       "Receive certificates and I-cards printed from the school's approved layouts."
+      ],
+      "use": "Open the school app to see tomorrow's calendar and the exam schedule, then send a leave request.",
+      "modules": [
+       {
+        "id": "core-mobile-apps",
+        "name": "Mobile Apps"
+       },
+       {
+        "id": "core-student",
+        "name": "Student"
+       },
+       {
+        "id": "core-document-templates",
+        "name": "Document Templates"
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "key": "learn",
