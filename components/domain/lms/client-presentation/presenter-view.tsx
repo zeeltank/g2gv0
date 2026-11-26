@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { DECKS, slideByN } from '@/lib/client-presentation/deck'
+import { slideByN } from '@/lib/client-presentation/deck'
 import { orderOf, type Mode } from '@/lib/client-presentation/navigation'
+import { PRESENTER_DECKS } from '@/lib/client-presentation/presenter-deck'
 
 import './styles/base.css'
 import { SCENES } from './scenes'
@@ -15,7 +16,7 @@ const CHANNEL = 'g2g-client-presentation'
  * audience window. It only talks to the audience window over a BroadcastChannel; nothing leaves the browser.
  */
 export function PresenterView({ productKey }: { productKey: string }) {
-  const deck = DECKS[productKey]
+  const deck = PRESENTER_DECKS[productKey]
   const [st, setSt] = useState<{ key: string; beat: number; mode: Mode } | null>(null)
   const ch = useRef<BroadcastChannel | null>(null)
 
