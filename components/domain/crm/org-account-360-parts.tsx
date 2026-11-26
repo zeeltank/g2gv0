@@ -194,13 +194,13 @@ export function LinkedRecordsCard({ org, links, matches, matchesError, canEdit, 
 
 // ── Signals ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The latest signals found about this organisation, each with its status in words, its date and the page it was found on. Decisions are made in Company Opportunities. */
+/** The latest signals found about this organisation, each with its status in words, its date and the page it was found on. Decisions are made in Market Signals. */
 export function SignalsSection({ org, links }: { org: Org360; links: OrgLinks }) {
   const { total, needing_decision, decided, latest } = org.signals
   return (
     <Collapsible title="Signals" count={total}>
       <p className="mb-3 text-sm text-muted-foreground">
-        {total} in total · {needing_decision} need a decision · {decided} decided. Decisions are made in Company Opportunities.
+        {total} in total · {needing_decision} need a decision · {decided} decided. Decisions are made in Market Signals.
       </p>
       {latest.length === 0 ? <Empty>No signals have been found about this organisation yet.</Empty> : (
         <ul className="divide-y divide-border rounded-lg border border-border">

@@ -11,7 +11,9 @@ export function loadAtlas(root) {
   const atlas = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/atlas.json'), 'utf8'))
   const notesPath = join(root, 'docs/client-presentation/atlas-notes.json')
   const notes = existsSync(notesPath) ? JSON.parse(readFileSync(notesPath, 'utf8')) : { products: [] }
-  return { atlas, notes }
+  const presenterPath = join(root, 'lib/client-presentation/generated/atlas-presenter.json')
+  const presenter = existsSync(presenterPath) ? JSON.parse(readFileSync(presenterPath, 'utf8')) : {}
+  return { atlas, notes, presenter }
 }
 
 export const HUB_N = 500
@@ -23,19 +25,30 @@ export const HUB_N = 500
  */
 export function atlasOrder(atlas, plan) {
   const filled = atlas.products.filter((p) => p.subs.length)
-  const list = []; const firstOf = {}
-  let sub = 0; let gal = 0
+  const list = []; const firstOf = {}; const tourFirst = {}
+  let sub = 0; let gal = 0; let tourN = 800
   plan.forEach((a, k) => {
     if (a.kind === 'hub') { list.push({ n: HUB_N, kind: 'hub' }); return }
     const pi = filled.findIndex((p) => p.key === a.family)
-    const video = { n: 400 + k, kind: 'video', key: a.key, title: a.title, family: a.family }
+    const video = { n: 400 + k, kind: 'video', key: a.key, slug: a.slug, title: a.title, family: a.family }
     list.push(video)
     if (a.kind === 'opener') { firstOf[a.family] = video.n; list.push({ n: 510 + pi, kind: 'opener', family: a.family }) }
     if (a.kind === 'subs') for (const id of a.subs) list.push({ n: 600 + sub++, kind: 'sub', family: a.family, sub: id })
     if (a.kind === 'glance') list.push({ n: 520 + pi, kind: 'glance', family: a.family })
     if (a.kind === 'gallery') list.push({ n: 700 + gal++, kind: 'gallery', family: a.family, subs: a.subs })
+    if (a.kind === 'tour') {
+      // a tour is one video slide, then one editable slide per step of its tabs (a features group, a role); tourFirst says where each tab starts
+      const t = atlas.products.find((p) => p.key === a.family).tour
+      const tf = { tabs: {}, groups: [], roles: [] }
+      const push = (tab, step) => { const n = tourN++; list.push({ n, kind: 'tour', family: a.family, tab, step }); return n }
+      for (const tab of ['summary', 'problem', 'intelligence', 'ai']) tf.tabs[tab] = push(tab, 0)
+      if (t.research.items.length) tf.tabs.research = push('research', 0)
+      t.features.groups.forEach((g, i) => { const n = push('features', i); tf.groups.push(n); if (i === 0) tf.tabs.features = n })
+      t.roles.forEach((r, i) => { const n = push('roles', i); tf.roles.push(n); if (i === 0) tf.tabs.roles = n })
+      tourFirst[a.family] = tf
+    }
   })
-  return { list, firstOf }
+  return { list, firstOf, tourFirst }
 }
 
 const short = (p) => p.product.replace(/^Scholar /, '')
@@ -43,7 +56,7 @@ const short = (p) => p.product.replace(/^Scholar /, '')
 /** nav = { at, firstOf, endN }: at(n) is the position of slide n in this file, firstOf[family] the slide a product starts on, endN the slide after the last product. */
 export function atlasBuilders(c, atlas, notes, imgOf, videoDir, nav) {
   const { add, text, head, rect, line, C, HEAD, pptx, PT } = c
-  const { at, firstOf, endN } = nav
+  const { at, firstOf, endN, tourFirst, presenter } = nav
   const filled = atlas.products.filter((p) => p.subs.length)
   const prod = (k) => atlas.products.find((p) => p.key === k)
   const noteOf = (pk, id) => notes.products.find((p) => p.key === pk)?.subs.find((s) => s.id === id)
@@ -65,14 +78,91 @@ export function atlasBuilders(c, atlas, notes, imgOf, videoDir, nav) {
   }
 
   const B = {}
-  B.video = (n, key, title, family) => () => {
-    const mp4 = join(videoDir, `atlas-${key}.mp4`); const poster = join(videoDir, `atlas-${key}-poster.jpg`)
+  B.video = (n, slug, title, family) => () => {
+    // videos are named by the slide's stable slug (atlas-core-tour.mp4), not by its key, which shifts when slides are added or removed
+    const mp4 = join(videoDir, `atlas-${slug}.mp4`); const poster = join(videoDir, `atlas-${slug}-poster.jpg`)
     const sl = add(n, 'ink', (sl) => {
       if (existsSync(mp4) && existsSync(poster)) sl.addMedia({ type: 'video', path: mp4, cover: 'data:image/jpeg;base64,' + readFileSync(poster).toString('base64'), x: 0, y: 0, w: 13.3333, h: 7.5 })
       else { rect(sl, 0, 0, 1920, 1080, { fill: { color: C.navy }, line: { type: 'none' } }); head(sl, title, 140, 420, 1640, 200, 80) }
       chrome(sl, family)
     })
     sl.addNotes(`${title}. The slide plays by itself when it opens; click the picture to play it again. The links at the top jump to any product; the link at the bottom goes to the next product. The same content, as editable text, follows.`)
+  }
+
+  /* ---- the product tour: one editable slide per step of its tabs (a features group, a role), each with a clickable tab strip ---- */
+  const TAB_LABEL = { summary: 'Summary', problem: 'Problem', intelligence: 'Intelligence', ai: 'AI capability', research: 'Research', features: 'Features and modules', roles: 'Role-wise benefits' }
+  const RING = { x: 1400, y: 600, r: 235 }
+  const ringAt = (i, k) => { const a = ((-90 + (360 / k) * i) * Math.PI) / 180; return { x: RING.x + RING.r * Math.cos(a), y: RING.y + RING.r * Math.sin(a) } }
+  B.tour = (n, pk, tab, step) => () => {
+    const p = prod(pk); const t = p.tour; const tf = tourFirst[pk]; const script = presenter?.[pk]?.[tab] ?? ''
+    const sl = add(n, 'ink', (sl) => {
+      kicker(sl, `${p.product} · ${p.k12_module} · ${p.subs.length} modules`)
+      // the tab strip: every tab is a link to its first slide, the one you are on is bold and blue
+      const tabs = Object.keys(tf.tabs)
+      const runs = []
+      tabs.forEach((k, i) => { if (i) runs.push({ text: '      ', options: { fontSize: 12 } }); runs.push({ text: `${String(i + 1).padStart(2, '0')}  ${TAB_LABEL[k]}`, options: { hyperlink: { slide: at(tf.tabs[k]), tooltip: TAB_LABEL[k] }, bold: k === tab, fontSize: 14, color: k === tab ? C.blue : '9FD0FF', underline: false } }) })
+      sl.addText(runs, { x: 140 * IN, y: 150 * IN, w: 1640 * IN, h: 44 * IN, margin: 0, fontFace: 'Calibri', fontSize: 14, valign: 'middle', isTextBox: true })
+      line(sl, 140, 200, 1780, 200, { line: { color: '3A5878', width: 1 } })
+      const soft = 'DCE9F7'
+      if (tab === 'summary') {
+        head(sl, t.summary.lines[0], 140, 262, 800, 330, 88)
+        text(sl, t.summary.lines[1], 140, 640, 780, 150, { fontSize: PT(31), color: 'EAF2FB' })
+        text(sl, t.summary.lines[2], 140, 820, 780, 110, { fontSize: PT(26), color: '9FD0FF', bold: true })
+        head(sl, String(p.subs.length), 1010, 240, 560, 300, 230, { color: '9FD0FF', bold: true })
+        text(sl, 'MODULES', 1010, 520, 400, 36, { bold: true, color: soft, fontSize: 14, charSpacing: 4 })
+        t.features.groups.forEach((g, i) => { const y = 610 + i * 74; line(sl, 1010, y, 1780, y, { line: { color: '3A5878', width: 1 } }); text(sl, g.title, 1010, y + 18, 600, 40, { bold: true, color: 'FFFFFF', fontSize: PT(28) }); text(sl, '\u25CF \u25CF \u25CF \u25CF \u25CF', 1560, y + 18, 220, 40, { color: C.green, align: 'right', fontSize: 14 }) })
+      } else if (tab === 'problem') {
+        text(sl, t.problem.label.toUpperCase(), 140, 262, 700, 30, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 })
+        t.problem.beats.forEach((b, i) => text(sl, b, 140, 326 + i * 128, 940, 120, { fontFace: HEAD, fontSize: PT(44), color: 'FFFFFF' }))
+        text(sl, t.problem.turn, 140, 850, 1040, 110, { fontFace: HEAD, fontSize: PT(40), bold: true, color: '9FD0FF' })
+        const regs = [{ x: 1140, y: 350 }, { x: 1420, y: 440 }, { x: 1200, y: 780 }]
+        t.problem.scattered.forEach((nm, i) => { rect(sl, regs[i].x, regs[i].y, 330, 92, { fill: { color: '123456' }, line: { color: '3A5878', width: 1 } }); text(sl, nm, regs[i].x, regs[i].y, 330, 92, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: PT(28) }) })
+        rect(sl, 1275, 540, 430, 240, { fill: { color: C.blue }, line: { type: 'none' } })
+        text(sl, p.product, 1313, 590, 380, 70, { fontFace: HEAD, fontSize: PT(48), color: 'FFFFFF' }); text(sl, t.problem.record.toUpperCase(), 1313, 690, 380, 40, { bold: true, color: 'EAF2FB', fontSize: 14, charSpacing: 3 })
+      } else if (tab === 'intelligence') {
+        text(sl, t.intelligence.lead, 140, 252, 860, 130, { fontSize: PT(29), bold: true, color: 'EAF2FB' })
+        t.intelligence.modules.forEach((m, i) => { const y = 384 + i * 96; line(sl, 140, y, 980, y, { line: { color: '3A5878', width: 1 } }); text(sl, m.name.toUpperCase(), 140, y + 8, 840, 26, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 }); text(sl, m.asks, 140, y + 36, 840, 56, { fontSize: PT(24), color: 'FFFFFF', bold: true }) })
+        const k = t.intelligence.modules.length
+        t.intelligence.modules.forEach((m, i) => { const q = ringAt(i, k); line(sl, RING.x, RING.y, q.x, q.y, { line: { color: C.blue, width: 2 } }) })
+        rect(sl, RING.x - 95, RING.y - 48, 190, 96, { fill: { color: C.blue }, line: { type: 'none' } }); text(sl, 'Your school\u2019s records', RING.x - 95, RING.y - 48, 190, 96, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: PT(22) })
+        t.intelligence.modules.forEach((m, i) => { const q = ringAt(i, k); rect(sl, q.x - 100, q.y - 28, 200, 56, { fill: { color: '0B2540' }, line: { color: '9FD0FF', width: 1 } }); text(sl, m.name, q.x - 100, q.y - 28, 200, 56, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: PT(22) }) })
+        text(sl, t.intelligence.close, 1010, 912, 770, 80, { fontFace: HEAD, fontSize: PT(30), color: 'B7C7DA', align: 'center' })
+      } else if (tab === 'ai') {
+        text(sl, t.ai.lead, 140, 252, 860, 130, { fontSize: PT(29), bold: true, color: 'EAF2FB' })
+        t.ai.uses.forEach((u, i) => { const y = 380 + i * 128; line(sl, 140, y, 980, y, { line: { color: '3A5878', width: 1 } }); text(sl, u.name.toUpperCase(), 140, y + 12, 840, 26, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 }); text(sl, u.line, 140, y + 44, 840, 70, { fontSize: PT(28), bold: true, color: 'FFFFFF' }) })
+        rect(sl, 1040, 262, 740, 470, { fill: { color: '123456' }, line: { color: '3A5878', width: 1 } })
+        text(sl, 'DRAFT PREVIEW', 1076, 292, 360, 26, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 }); text(sl, t.ai.sample.label, 1440, 292, 304, 26, { color: 'B7C7DA', align: 'right', fontSize: 12 })
+        text(sl, t.ai.sample.text, 1076, 350, 668, 260, { fontSize: PT(31), color: 'FFFFFF' })
+        rect(sl, 1076, 646, 126, 56, { fill: { color: C.green }, line: { type: 'none' } }); text(sl, 'Apply', 1076, 646, 126, 56, { align: 'center', valign: 'middle', bold: true, color: C.ink, fontSize: PT(22) })
+        rect(sl, 1220, 646, 146, 56, { fill: { color: '123456' }, line: { color: '3A5878', width: 1 } }); text(sl, 'Discard', 1220, 646, 146, 56, { align: 'center', valign: 'middle', bold: true, color: 'FFFFFF', fontSize: PT(22) })
+        text(sl, t.ai.guard, 1040, 788, 740, 90, { fontFace: HEAD, fontSize: PT(34), color: '9FD0FF' }); text(sl, t.ai.control, 1040, 884, 740, 60, { fontSize: PT(26), color: 'B7C7DA' })
+      } else if (tab === 'research') {
+        text(sl, 'DESIGNED FROM', 140, 262, 700, 30, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 })
+        // a table of two fixed columns, as in the web deck: the sentence, then its source; six rows must fit above y = 960
+        t.research.items.forEach((r, i) => { const y = 330 + i * 102; line(sl, 140, y, 1780, y, { line: { color: '3A5878', width: 1 } }); text(sl, r.text, 140, y + 16, 1080, 80, { fontFace: HEAD, fontSize: PT(28), color: 'FFFFFF' }); text(sl, r.source.toUpperCase(), 1260, y + 20, 520, 70, { bold: true, color: '9FD0FF', fontSize: 11, charSpacing: 2 }) })
+      } else if (tab === 'features') {
+        const g = t.features.groups[step]
+        const gr = []
+        t.features.groups.forEach((x, i) => { if (i) gr.push({ text: '      ', options: { fontSize: 12 } }); gr.push({ text: `${String(i + 1).padStart(2, '0')}  ${x.title}`, options: { hyperlink: { slide: at(tf.groups[i]), tooltip: x.title }, bold: i === step, fontSize: 13, color: i === step ? 'FFFFFF' : '9FD0FF', underline: false } }) })
+        sl.addText(gr, { x: 140 * IN, y: 226 * IN, w: 1640 * IN, h: 44 * IN, margin: 0, fontFace: 'Calibri', fontSize: 13, valign: 'middle', isTextBox: true })
+        head(sl, g.title, 140, 322, 1640, 120, 76)
+        g.subs.forEach((s, k) => { const x = 140 + k * 336; const sub = p.subs.find((q) => q.id === s.id); const im = sub && imgOf(sub)
+          if (im) sl.addImage({ path: im.path, x: x * IN, y: 470 * IN, w: 296 * IN, h: 268 * IN, sizing: { type: 'cover', w: 296 * IN, h: 268 * IN }, altText: `${s.name}: screen` })
+          text(sl, s.name, x, 760, 296, 40, { bold: true, color: 'FFFFFF', fontSize: PT(26) }); text(sl, s.tagline, x, 806, 296, 130, { color: 'B7C7DA', fontSize: PT(22) }) })
+      } else if (tab === 'roles') {
+        const r = t.roles[step]
+        t.roles.forEach((x, i) => { const y = 262 + i * 96; line(sl, 140, y, 580, y, { line: { color: '3A5878', width: 1 } })
+          sl.addText(x.role, { x: 140 * IN, y: (y + 22) * IN, w: 440 * IN, h: 60 * IN, margin: 0, fontFace: HEAD, fontSize: PT(30), color: i === step ? 'FFFFFF' : '7A93AE', bold: i === step, valign: 'top', hyperlink: { slide: at(tf.roles[i]), tooltip: x.role }, isTextBox: true }) })
+        text(sl, r.who.toUpperCase(), 660, 262, 1000, 28, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 })
+        head(sl, r.role, 660, 296, 1120, 120, 88)
+        sl.addText(r.benefits.map((b) => ({ text: b, options: { bullet: { code: '2713' }, breakLine: true } })), { x: 660 * IN, y: 452 * IN, w: 1000 * IN, h: 300 * IN, margin: 0, fontFace: 'Calibri', fontSize: PT(32), color: 'FFFFFF', bold: true, valign: 'top', paraSpaceAfter: 14, isTextBox: true })
+        text(sl, `A DAY WITH ${p.product.toUpperCase()}. ILLUSTRATIVE.`, 660, 790, 1050, 26, { bold: true, color: '9FD0FF', fontSize: 12, charSpacing: 3 })
+        text(sl, r.use, 660, 826, 1050, 90, { fontFace: HEAD, fontSize: PT(34), italic: true, color: 'FFFFFF' })
+        text(sl, r.modules.map((m) => m.name).join('  \u00B7  '), 660, 940, 1120, 40, { bold: true, color: '9FD0FF', fontSize: PT(20) })
+      }
+      chrome(sl, pk)
+    })
+    sl.addNotes([`${TAB_LABEL[tab]}${tab === 'features' ? ` (${t.features.groups[step].title})` : tab === 'roles' ? ` (${t.roles[step].role})` : ''}`, script ? `SAY: ${script}` : '', 'The links on the tab strip jump to any tab; the links at the top jump to any product. The situations and day-in-the-life lines are illustrations, not a customer\u2019s school.'].filter(Boolean).join('\n\n'))
   }
 
   B.hub = () => { const sl = add(HUB_N, 'ink', (sl) => {

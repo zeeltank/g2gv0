@@ -1,7 +1,7 @@
 import { sourceLinkProblem } from '@/lib/source-link'
 
 /**
- * Adding an opportunity by hand on the Company Opportunities screen: the form's rules, the request it sends, and which day the screen then shows.
+ * Adding an opportunity by hand on the Market Signals screen: the form's rules, the request it sends, and which day the screen then shows.
  * Pure (no React, no network), so each rule can be tested on its own.
  *
  * Two dates are never mixed up here: the day the record is SAVED (decided by the server, and what the record is listed under) and the date of the

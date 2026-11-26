@@ -1,0 +1,48 @@
+{
+  "about": "The Research tab of the Scholar Core tour. The owner supplied the list on 26 Nov 2026 ('scholar core research source and data'). Each source below was looked up on the date checked and described only as far as the page says. No figure is taken from any of them (the checker bans percentages).",
+  "supplied_by_owner": [
+    "ERP",
+    "UNESCO — EMIS framework",
+    "UNESCO — EMIS-PATT",
+    "Ed-Fi Alliance — Education Data Standard",
+    "School Operations and Process Excellence",
+    "Interoperability and Information Architecture",
+    "AI-Native School Administration"
+  ],
+  "sources": [
+    {
+      "id": "unesco-emis",
+      "name": "UNESCO, Education Management Information Systems (EMIS) framework",
+      "urls": [
+        "https://emis.uis.unesco.org",
+        "https://learningportal.iiep.unesco.org/en/glossary/educational-management-information-system-emis"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "An EMIS is a system for the collection, integration, processing, maintenance and dissemination of education data and information, used to support decisions, policy, planning and management. The UNESCO Institute for Statistics site carries the guidelines and the buyer's guide for choosing and using one.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Core conforms to it or is endorsed by it."
+    },
+    {
+      "id": "unesco-emis-patt",
+      "name": "UNESCO, Education Management Information System Progress Assessment Tool for Transformation (EMIS-PATT)",
+      "urls": ["https://www.unesco.org/en/education-management/emis-patt"],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "A UNESCO tool that helps a country diagnose its EMIS, find strengths and areas for improvement, and map a path to transformation. It is aimed at national education administrations, not at running a single school.",
+      "how_the_slide_uses_it": "States only what the tool is for. It does not say Scholar Core has been assessed with it."
+    },
+    {
+      "id": "ed-fi-data-standard",
+      "name": "Ed-Fi Alliance, Ed-Fi Data Standard",
+      "urls": ["https://docs.ed-fi.org/reference/data-exchange/data-standards"],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "A community-developed, open K-12 education data standard published by the Ed-Fi Alliance, so that systems can exchange education data with the same meaning. The owner's list calls it the 'Education Data Standard'; the published name is the Ed-Fi Data Standard.",
+      "how_the_slide_uses_it": "States only what the standard is for. It does not say Scholar Core implements or exchanges data through it."
+    }
+  ],
+  "areas": [
+    "School Operations and Process Excellence",
+    "Interoperability and Information Architecture",
+    "AI-Native School Administration"
+  ],
+  "areas_note": "The owner's paste gave the three area names without a source or a description for each. The slide shows each area with a one-line gloss taken from words already checked in the Scholar Core tour (summary and AI tabs), not from a document. The paste also lost which source belongs to which area, and what 'ERP' heads: the slide therefore lists the three sources and the three areas side by side and does not pair them.",
+  "no_code_cites_these": "A search of the app, lib, components, docs, config, routes, services and packages folders of g2gv0, lms_k12, next_lms_erp and hp_erp (26 Nov 2026, whole-word match) found no reference to EMIS, EMIS-PATT or Ed-Fi in the product code or docs. 'Designed from' on the slide therefore rests on the owner's list. Confirm before a client reads it as a claim of conformance."
+}

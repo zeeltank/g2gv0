@@ -20,7 +20,7 @@ const PRICE_BOOKS = () => leaf(470, 'Price Books', '/module/crm/sales/price-book
 /** Market Signals as the live menu has it; `withPortfolio` is the Product Portfolio tab row (492), which a person may or may not hold. */
 const signals = (withPortfolio: boolean): NavNode => ({
   id: '489', label: 'Market Signals', accessLink: '/module/crm/signals',
-  children: [leaf(490, 'Company Opportunities', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion'), ...(withPortfolio ? [leaf(492, 'Product Portfolio', '/portfolio')] : []), leaf(493, 'Partner Network', '/partners')],
+  children: [leaf(490, 'Market Signals', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion'), ...(withPortfolio ? [leaf(492, 'Product Portfolio', '/portfolio')] : [])],
 })
 const crm = (children: NavNode[]): NavModule => ({ id: '199', label: 'Sales & Marketing', short: 'S&M', accessLink: null, children })
 
@@ -69,7 +69,7 @@ describe('the Products, Services and Price Books rows are not drawn in the sideb
 
   it("highlights Market Signals for every address of the Portfolio, old and new, and for the tab's own route", () => {
     const out = collapseSignalsNav(menu({ products: true, services: true, portfolio: true }))
-    for (const path of ['/signals', '/ingestion', '/partners', '/portfolio', '/signals/portfolio', '/module/crm/sales/products', '/module/crm/sales/services', '/module/crm/sales/price-books']) assert.deepEqual(out.owners[path], SIGNALS_ENTRY, path)
+    for (const path of ['/signals', '/ingestion', '/portfolio', '/signals/portfolio', '/module/crm/sales/products', '/module/crm/sales/services', '/module/crm/sales/price-books']) assert.deepEqual(out.owners[path], SIGNALS_ENTRY, path)
   })
 
   it('does not touch a Products row that has children, so nothing else can change with it, while the Services leaf is dropped', () => {

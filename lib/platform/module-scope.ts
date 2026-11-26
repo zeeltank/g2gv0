@@ -35,10 +35,10 @@ export function platformKeyForMenuLink(accessLink: string | null | undefined): D
 /**
  * Screens of Sales & Marketing that do not live under `/module/crm`: the GTM screens, Market Signals and
  * its family (`lib/signals-nav.ts`). Used before the menu tree has loaded, so the bar is scoped from the
- * first paint instead of flashing "Platform services". (The retired Signal Review addresses redirect to
- * `/signals`, which is listed, so they need no entry of their own.)
+ * first paint instead of flashing "Platform services". (The retired Signal Review addresses and the address of the fourth tab,
+ * removed 26 Nov 2026, redirect to `/signals`, which is listed, so they need no entry of their own.)
  */
-export const CRM_PATH_PREFIXES = ['/module/crm', '/gtm', '/signals', '/ingestion', '/portfolio', '/partners'] as const
+export const CRM_PATH_PREFIXES = ['/module/crm', '/gtm', '/signals', '/ingestion', '/portfolio'] as const
 
 /** True for the prefix itself and for anything below it (`/gtm` and `/gtm/outreach`, never `/gtmx`). */
 export function isCrmPath(pathname: string | null | undefined): boolean {

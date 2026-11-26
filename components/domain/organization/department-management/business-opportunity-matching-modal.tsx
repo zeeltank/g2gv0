@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  AlertCircle,
   BookmarkPlus,
   CheckCircle2,
   ChevronRight,
@@ -11,10 +10,7 @@ import {
   HelpCircle,
   Loader2,
   Package,
-  ShieldAlert,
-  ShieldCheck,
   Sparkles,
-  Users,
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +31,6 @@ import { getLaravelContext, type LaravelContext } from '@/lib/laravel-context'
 import { portfolioService } from '@/services/portfolio/portfolio-service'
 import type {
   OfferMatchResult,
-  PartnerEvaluation,
   SignalMatchingResponse,
 } from '@/services/portfolio/types'
 
@@ -92,7 +87,7 @@ export function BusinessOpportunityMatchingModal({
       setData(res.data)
       setSelectedOfferIndex(0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to match offers and partners')
+      setError(err instanceof Error ? err.message : 'Failed to match offers')
     } finally {
       setLoading(false)
     }
@@ -114,7 +109,6 @@ export function BusinessOpportunityMatchingModal({
         signal_type: signalType,
         signal_id: signalId,
         offer_id: activeMatch.offer.offer_id,
-        partner_id: activeMatch.partner_evaluations[0]?.partner.partner_id ?? null,
         action,
         review_notes: followUpNotes || undefined,
       })
@@ -157,7 +151,7 @@ export function BusinessOpportunityMatchingModal({
             {signalTitle}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Signal evidence → Identified Need → Matching Offers → Eligible Partners → Review & Follow-up
+            Signal evidence → Identified Need → Matching Offers → Review & Follow-up
           </DialogDescription>
         </DialogHeader>
 
@@ -252,7 +246,7 @@ export function BusinessOpportunityMatchingModal({
                   <Package className="size-3.5 text-primary" /> Step 2: Matching Portfolio Offers ({data.offer_matches.length})
                 </h4>
                 <span className="text-xs text-muted-foreground">
-                  Select an offer to inspect eligible partner network
+                  Select an offer to see why it fits
                 </span>
               </div>
 
@@ -293,23 +287,20 @@ export function BusinessOpportunityMatchingModal({
                       <div className="mt-1">
                         <ReadinessBadge offer={{ is_deliverable: Boolean(m.offer.readiness_confirmed), readiness_status: m.offer.readiness_status }} />
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px]">
-                        <span className="text-xs font-medium text-primary flex items-center gap-0.5">
-                          {m.partner_evaluations.filter((p) => p.eligibility_status === 'eligible').length} eligible partners
-                        </span>
-                        {m.match_status && m.match_status !== 'Matched' && (
+                      {m.match_status && m.match_status !== 'Matched' && (
+                        <div className="mt-2 text-[11px]">
                           <Badge variant={m.match_status === 'Reviewed' ? 'success' : m.match_status === 'Follow-up' ? 'warning' : 'outline'} className="text-[10px]">
                             {m.match_status}
                           </Badge>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </button>
                   )
                 })}
               </div>
             </section>
 
-            {/* 3. Detailed Selected Offer & Partner Eligibility */}
+            {/* 3. The selected offer in detail, and the review decision on it */}
             {currentMatch && (
               <section className="rounded-xl border border-border bg-card p-5 space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
@@ -361,106 +352,12 @@ export function BusinessOpportunityMatchingModal({
                   </ul>
                 </div>
 
-                {/* Step 3: Partner Network Eligibility */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Users className="size-3.5 text-primary" /> Step 3: Partner Eligibility Evaluation ({currentMatch.partner_evaluations.length})
-                    </h4>
-                    <span className="text-xs text-muted-foreground">
-                      Evaluated against 7 strict workbook eligibility rules
-                    </span>
-                  </div>
-
-                  {currentMatch.partner_evaluations.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-muted-foreground rounded-lg border border-dashed border-border">
-                      No partners currently onboarded in the Partner Network. Add active partners via the Partner Network view.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {currentMatch.partner_evaluations.map((pe) => {
-                        const statusBadge =
-                          pe.eligibility_status === 'eligible' ? (
-                            <Badge variant="success" className="gap-1">
-                              <ShieldCheck className="size-3" /> Eligible Partner
-                            </Badge>
-                          ) : pe.eligibility_status === 'needs_review' ? (
-                            <Badge variant="warning" className="gap-1">
-                              <AlertCircle className="size-3" /> Needs Review
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="gap-1">
-                              <ShieldAlert className="size-3" /> Ineligible
-                            </Badge>
-                          )
-
-                        return (
-                          <div
-                            key={pe.partner.partner_id}
-                            className="p-4 rounded-xl border border-border bg-card/60 space-y-3"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <span className="font-mono text-[10px] text-muted-foreground mr-1.5">
-                                  {pe.partner.partner_id}
-                                </span>
-                                <span className="font-semibold text-sm text-foreground">
-                                  {pe.partner.partner_name}
-                                </span>
-                                <span className="text-xs text-muted-foreground ml-2">
-                                  ({pe.partner.partner_type})
-                                </span>
-                              </div>
-                              {statusBadge}
-                            </div>
-
-                            {/* 7 Rule Breakdown Badges / Indicators */}
-                            <div className="grid gap-1.5 text-xs sm:grid-cols-2 md:grid-cols-3 pt-1">
-                              {Object.entries(pe.rule_evaluations).map(([k, r]) => (
-                                <div
-                                  key={k}
-                                  className={`flex items-start gap-1.5 p-2 rounded-md border text-[11px] ${
-                                    r.passed
-                                      ? 'border-emerald-500/20 bg-emerald-500/5 text-foreground'
-                                      : 'border-destructive/20 bg-destructive/5 text-muted-foreground'
-                                  }`}
-                                >
-                                  {r.passed ? (
-                                    <CheckCircle2 className="size-3 text-emerald-600 shrink-0 mt-0.5" />
-                                  ) : (
-                                    <XCircle className="size-3 text-destructive shrink-0 mt-0.5" />
-                                  )}
-                                  <div>
-                                    <div className="font-semibold capitalize">
-                                      {k.replace('_', ' ')}
-                                    </div>
-                                    <div className="text-[10px] opacity-80">{r.detail}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-1 border-t border-border/40">
-                              <span>
-                                Available capacity: <strong>{pe.partner.capacity_available ?? 0} slots</strong> · Active deals: {pe.partner.active_deals_now ?? 0}
-                              </span>
-                              {pe.partner.contact_email && (
-                                <span>Contact: {pe.partner.sales_contact_name} ({pe.partner.contact_email})</span>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Step 4: Human Review & Follow-up Actions */}
+                {/* Step 3: Human Review & Follow-up Actions */}
                 <div className="border-t border-border/80 pt-4 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Step 4: Human Review &amp; Follow-up Decision
+                        Step 3: Human Review &amp; Follow-up Decision
                       </h4>
                       {currentMatch.match_status && currentMatch.match_status !== 'Matched' && (
                         <p className="text-xs text-muted-foreground mt-0.5">

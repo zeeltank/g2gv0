@@ -32,22 +32,24 @@ describe('Signals sidebar', () => {
   it('keeps every folded route resolvable to the Signals entry (breadcrumb and highlight) and does not mutate its input', () => {
     const input = tree()
     const r = collapseSignalsNav(input)
-    for (const p of ['/ingestion', '/portfolio', '/partners']) assert.deepEqual(r.owners[p], { moduleId: '1', menuId: '489', submenuId: '489' }, p)
-    assert.equal(input[0].children[1].children.length, 3)
+    for (const p of ['/ingestion', '/portfolio']) assert.deepEqual(r.owners[p], { moduleId: '1', menuId: '489', submenuId: '489' }, p)
+    assert.equal(input[0].children[1].children.length, 2)
   })
 
-  it('shows all four app sections whether or not the server menu includes their rows', () => {
-    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
+  it('shows all three app sections whether or not the server menu includes their rows', () => {
+    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
+    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
     const none = [{ id: '1', label: 'Reports', short: 'R', accessLink: '/reports', children: [] }] as NavModule[]
     assert.equal(collapseSignalsNav(none).tabs, null)
   })
 
-  it('the four tabs go to the existing routes (nothing is a placeholder)', () => {
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    // REWRITTEN ON PURPOSE (slice 15, P3-A, 14 Nov 2026): the Product Portfolio is a product page with its own sidebar entry, not a Signals page (owner, 13 Nov: "no Company
-    // Opportunities, Ingestion Engine, Partner Network button"), so its page is drawn OUTSIDE the Signals frame. The other two tabs keep the frame, as strictly as before.
-    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion'], ['app/partners/page.tsx', 'partners']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
+  it('the three tabs go to the existing routes (nothing is a placeholder), and the first one is called Market Signals', () => {
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.label), ['Market Signals', 'Ingestion Engine', 'Product Portfolio'])
+    assert.equal(SIGNALS_TABS[0].key, 'opportunities', 'the key behind the renamed tab did not change')
+    // REWRITTEN ON PURPOSE (slice 15, P3-A, 14 Nov 2026): the Product Portfolio is a product page with its own sidebar entry, not a Signals page (owner, 13 Nov: no Signals tab buttons
+    // on it), so its page is drawn OUTSIDE the Signals frame. The Ingestion Engine tab keeps the frame, as strictly as before.
+    for (const [page, key] of [['app/ingestion/page.tsx', 'ingestion']]) assert.match(read(page), new RegExp(`<SignalsFrame active="${key}">`))
     const portfolioPage = read('app/portfolio/page.tsx')
     assert.doesNotMatch(portfolioPage, /import[^\n]*SignalsFrame|<SignalsFrame/, 'the Product Portfolio page neither imports nor draws the Signals frame (and so draws no Signals buttons)')
     // CHANGED ON PURPOSE (24 Nov 2026, owner: no Product Portfolio entry in the sidebar, the list is the Market Signals tab): the old list address only redirects to the tab.
@@ -56,10 +58,10 @@ describe('Signals sidebar', () => {
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
 
-  it('keeps the four tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
-    // Owner, 23 Nov 2026: "in Market Signals when I click the Product Portfolio tab the other tabs vanish: I want the 4 tabs there for fast switching, but not in the Product Portfolio module."
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio', '/partners'], 'the tab goes to a route inside Signals')
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'], 'while the menu row it stands for is still /portfolio')
+  it('keeps the three tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
+    // Owner, 23 Nov 2026: "in Market Signals when I click the Product Portfolio tab the other tabs vanish: I want the tabs there for fast switching, but not in the Product Portfolio module."
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio'], 'the tab goes to a route inside Signals')
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'], 'while the menu row it stands for is still /portfolio')
     assert.match(read('components/domain/signals/signals-header.tsx'), /href=\{t\.route\}/, 'the header links each tab to its route')
     const tabPage = read('app/signals/portfolio/page.tsx')
     assert.match(tabPage, /<SignalsFrame active="portfolio">/, 'the tab page draws the Signals frame with the Product Portfolio tab active')

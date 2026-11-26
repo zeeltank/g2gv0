@@ -207,13 +207,18 @@ describe('Company Opportunities: what stays as it was for one product', () => {
     assert.equal(router.lastSearch(), 'product=g2g&status=reviewed')
   })
 
-  it('the source tabs (All, Generated, Manually Added) still narrow the list, and go back to page one', async () => {
+  it('the source tabs (All, Web search, Connectors, Manually Added) still narrow the list, and go back to page one', async () => {
     const { k, listCalls, router } = await setup({ search: 'product=all&page=2' })
     assert.equal(listCalls.at(-1)?.source, 'all')
+    const tabNames = k.all('[role="tab"]').map((t) => t.textContent)
+    assert.deepEqual(tabNames, ['All', 'Web search', 'Connectors', 'Manually Added'], 'the second source tab reads Web search, not Generated')
+    await k.click(k.all('[role="tab"]').find((t) => t.textContent === 'Web search')!)
+    await k.tick(20)
+    assert.equal(listCalls.at(-1)?.source, 'generated', 'the value behind Web search is still generated')
+    assert.equal(router.lastSearch(), 'product=all', 'the page went back to one')
     await k.click(k.all('[role="tab"]').find((t) => t.textContent === 'Manually Added')!)
     await k.tick(20)
     assert.equal(listCalls.at(-1)?.source, 'manual')
-    assert.equal(router.lastSearch(), 'product=all', 'the page went back to one')
   })
 })
 

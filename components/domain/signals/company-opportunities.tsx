@@ -39,7 +39,7 @@ const RUN_COST_NOTE = 'A run uses search and AI quota, so start one only when yo
 const NEEDS_ONE_ICP_TYPE = 'Choose one ICP type to generate signals.'
 
 /**
- * Company Opportunities: pick a product, press Generate Signals (its progress shows right below), then read what that product's research saved
+ * The Market Signals tab (this component was called Company Opportunities until 26 Nov 2026): pick a product, press Generate Signals (its progress shows right below), then read what that product's research saved
  * for a day: today and the two days before it by default, any older day from the calendar. Choosing a product or a day only reads stored rows;
  * research starts only from the Generate Signals button. Product details and the ICP are edited in Product Portfolio.
  *

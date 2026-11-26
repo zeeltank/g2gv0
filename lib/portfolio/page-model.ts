@@ -217,7 +217,7 @@ export function whenWord(at: string | null): string {
 // ---------------------------------------------------------------------------------------------------------------------------- links
 
 /**
- * Company Opportunities for one Product, or for one of its Sub-products: the Signals screen's own `?product=` address, so the page that counts the signals can
+ * Market Signals for one Product, or for one of its Sub-products: the Signals screen's own `?product=` address, so the page that counts the signals can
  * also show them. A Sub-product is "key::ID" (`choiceOf`); a record with no Product key has no address (null). Moved here from the old product-line model when
  * the old Products screens were removed (slice 15, WPD); its one caller is the Signals & ICP tab.
  */

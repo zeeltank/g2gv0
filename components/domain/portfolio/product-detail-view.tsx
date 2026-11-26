@@ -230,7 +230,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
             {canAdd && <Button size="sm" onClick={() => setDrawer('create-sub-product')}><Plus className="mr-1.5 size-4" aria-hidden="true" />Add sub-product</Button>}
             {product && (
               <Button asChild size="sm" variant={product.ready ? 'default' : 'outline'}>
-                <Link href={`/signals?product=${forProduct}`}><Sparkles className="mr-1.5 size-4" aria-hidden="true" /> {product.ready ? 'Review opportunities' : 'Go to Company Opportunities'}</Link>
+                <Link href={`/signals?product=${forProduct}`}><Sparkles className="mr-1.5 size-4" aria-hidden="true" /> {product.ready ? 'Review opportunities' : 'Go to Market Signals'}</Link>
               </Button>
             )}
             <DropdownMenu>

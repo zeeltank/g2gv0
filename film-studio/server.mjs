@@ -19,6 +19,7 @@ const MOUNTS = [
   ['/photos/', join(repo, 'public/client-presentation/scholarclone')],
   ['/fonts/', join(repo, 'components/domain/lms/client-presentation/fonts')],
   ['/data/', join(repo, 'lib/client-presentation/generated')],
+  ['/screens/', join(repo, 'public/client-presentation/atlas')],   // the masked K12 screens (the Scholar Core film)
   ['/', here],
 ]
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.hdr': 'application/octet-stream', '.woff2': 'font/woff2', '.css': 'text/css' }

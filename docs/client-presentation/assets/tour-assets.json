@@ -1,0 +1,123 @@
+[
+  {
+    "id": "metal_office_desk",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/metal_office_desk"
+  },
+  {
+    "id": "classic_laptop",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/classic_laptop"
+  },
+  {
+    "id": "clipboard",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/clipboard"
+  },
+  {
+    "id": "office_notepads",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/office_notepads"
+  },
+  {
+    "id": "desk_lamp_arm_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/desk_lamp_arm_01"
+  },
+  {
+    "id": "projector_screen",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/projector_screen"
+  },
+  {
+    "id": "CashRegister_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/CashRegister_01"
+  },
+  {
+    "id": "SchoolDesk_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/SchoolDesk_01"
+  },
+  {
+    "id": "SchoolChair_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/SchoolChair_01"
+  },
+  {
+    "id": "standing_chalkboard_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/standing_chalkboard_01"
+  },
+  {
+    "id": "hand_truck",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/hand_truck"
+  },
+  {
+    "id": "cardboard_box_01",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/cardboard_box_01"
+  },
+  {
+    "id": "stationery_supplies",
+    "kind": "model",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/stationery_supplies"
+  },
+  {
+    "id": "monochrome_studio_03",
+    "kind": "hdri",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/monochrome_studio_03"
+  },
+  {
+    "id": "brown_photostudio_05",
+    "kind": "hdri",
+    "source": "Poly Haven",
+    "licence": "CC0",
+    "url": "https://polyhaven.com/a/brown_photostudio_05"
+  },
+  {
+    "id": "30473509",
+    "kind": "photo",
+    "source": "Pexels",
+    "licence": "Pexels licence (free for commercial use, no credit required)",
+    "url": "https://www.pexels.com/photo/30473509/",
+    "use": "opening plate: a yellow school bus in Chandigarh, no faces"
+  },
+  {
+    "id": "30703604",
+    "kind": "photo",
+    "source": "Pexels",
+    "licence": "Pexels licence (free for commercial use, no credit required)",
+    "url": "https://www.pexels.com/photo/30703604/",
+    "use": "second plate: an empty classroom in an Indian school, natural light"
+  }
+]

@@ -521,7 +521,7 @@ export function IngestionEngineView() {
                 </h3>
               </div>
               <span className="text-xs text-muted-foreground">
-                Findings stay here; qualified company signals go to Company Opportunities
+                Findings stay here; qualified company signals go to Market Signals
               </span>
             </div>
 
@@ -587,7 +587,7 @@ export function IngestionEngineView() {
                         className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
                       >
                         <Briefcase className="size-3.5" />
-                        Match Offers & Partners
+                        Match Offers
                       </Button>
                     </div>
                   </div>

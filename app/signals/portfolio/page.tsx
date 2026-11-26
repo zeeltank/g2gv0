@@ -13,8 +13,8 @@ import { SignalsFrame } from '@/components/domain/signals/signals-frame'
 const SIGNALS_PORTFOLIO_ROUTE = '/signals/portfolio'
 
 /**
- * The Product Portfolio tab of Market Signals (owner, 23 Nov 2026): the same list as the Product Portfolio sidebar entry (`/portfolio`), drawn under the four Signals tabs
- * so a person working in Market Signals can switch between Company Opportunities, Ingestion Engine, Product Portfolio and Partner Network without leaving the module.
+ * The Product Portfolio tab of Market Signals (owner, 23 Nov 2026): the same list as the Product Portfolio sidebar entry (`/portfolio`), drawn under the three Signals tabs
+ * so a person working in Market Signals can switch between Market Signals, Ingestion Engine and Product Portfolio without leaving the module.
  * The Product Portfolio MODULE (`/portfolio` and the pages under it) shows no Signals tabs; this route is only the tab's.
  */
 export default function SignalsPortfolioPage() {

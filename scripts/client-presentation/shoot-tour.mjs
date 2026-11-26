@@ -1,5 +1,5 @@
 // Dev harness for a product tour slide: scrubs its timeline to chosen times and saves a still of each, exactly the way the video renderer steps it.
-//   node scripts/client-presentation/shoot-tour.mjs --out <dir> --key a3 [--base http://127.0.0.1:3412] [--at labels|0.5,1.2,...] [--purity]
+//   node scripts/client-presentation/shoot-tour.mjs --out <dir> --key a4 [--base http://localhost:3412] [--at labels|0.5,1.2,...] [--purity]
 //   --at labels    one still at every beat label b0..bN (the finished state of each step; the default)
 //   --at 0.5,1.2   stills at those times in seconds (mid-animation states)
 //   --purity       also proves the timeline is a pure function of time: for 8 chosen times it hashes the page reached by a straight seek, and
@@ -11,7 +11,7 @@ import { createRequire } from 'node:module'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : (process.argv[i + 1]?.startsWith('--') || process.argv[i + 1] === undefined ? true : process.argv[i + 1]) }
-const out = arg('out', 'tour-shots'); const base = arg('base', 'http://127.0.0.1:3412'); const key = arg('key', 'a3')
+const out = arg('out', 'tour-shots'); const base = arg('base', 'http://localhost:3412'); const key = arg('key', 'a4')
 const at = String(arg('at', 'labels')); const purity = process.argv.includes('--purity')
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')

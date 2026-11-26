@@ -77,7 +77,7 @@ describe('the Automation Rules row is not drawn in the sidebar', () => {
   it('leaves the Market Signals group as it was (a flat link to /signals, with its owners) when the row is dropped beside it', () => {
     const signals: NavNode = {
       id: '489', label: 'Market Signals', accessLink: '/module/crm/signals',
-      children: [leaf(490, 'Company Opportunities', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion'), leaf(493, 'Partner Network', '/partners')],
+      children: [leaf(490, 'Market Signals', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion')],
     }
     const out = collapseSignalsNav([crm([LEADS(), signals, RULES()])])
     assert.deepEqual(labels(out.modules), ['Leads', 'Market Signals'])
