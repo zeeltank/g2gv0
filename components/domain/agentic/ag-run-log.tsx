@@ -51,7 +51,7 @@ const STATUS_OPTIONS = [
  * in a loop, to render a tab most users never opened. Here a trace loads only
  * when its run is expanded.
  */
-export function AgRunLog() {
+export function AgRunLog({ embedded = false }: { embedded?: boolean } = {}) {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState(ALL)
@@ -127,13 +127,16 @@ export function AgRunLog() {
   }
 
   return (
-    <div className="g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Run Logs &amp; Traces</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every agent execution, with the step-by-step trace behind it.
-        </p>
-      </div>
+    <div className={embedded ? 'flex flex-col gap-6 p-6' : 'g2g-scrollbar flex h-full flex-col gap-6 overflow-y-auto p-6'}>
+      {/* Inside the Run Log page (components/domain/agentic/ag-run-log-page.tsx) that page names the screen and scrolls; alone, this component does both. */}
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Run Logs &amp; Traces</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every agent execution, with the step-by-step trace behind it.
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-4 rounded-2xl border border-primary/10 bg-card/50 p-4 shadow-sm backdrop-blur-xl">

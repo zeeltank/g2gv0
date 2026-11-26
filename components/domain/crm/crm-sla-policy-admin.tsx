@@ -2,7 +2,7 @@
 
 /**
  * Sales & Marketing gap-closure, Wave 4 - the admin screen behind support
- * SLA timers. Fifth tab on the Master Fields console, same precedent every
+ * SLA timers. Fifth tab of the Field settings console (the retired Master Fields screen), same precedent every
  * prior admin-config screen in this effort set.
  *
  * One row per real ticket priority (fetched from the same picklist Tickets

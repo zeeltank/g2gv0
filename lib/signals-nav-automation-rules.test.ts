@@ -15,16 +15,16 @@ const ADDRESS = '/module/crm/marketing/automation-rules'
 
 const leaf = (id: number, label: string, accessLink: string | null): NavNode => ({ id: String(id), label, accessLink, children: [] })
 const RULES = () => leaf(497, 'Automation Rules', ADDRESS)
-const AGENT_RUNS = () => leaf(498, 'Agent Run History', '/module/crm/marketing/agent-runs')
+const CAMPAIGNS = () => leaf(499, 'Campaigns', '/module/crm/marketing/campaigns')
 const LEADS = () => leaf(201, 'Leads', '/module/crm/marketing/leads')
 const crm = (children: NavNode[]): NavModule => ({ id: '199', label: 'Sales & Marketing', short: 'S&M', accessLink: null, children })
 
 const labels = (m: NavModule[]) => m[0].children.map((c) => c.label)
 
 describe('the Automation Rules row is not drawn in the sidebar', () => {
-  it('drops the row and keeps its neighbours, Agent Run History included, in their order', () => {
-    const out = collapseSignalsNav([crm([LEADS(), RULES(), AGENT_RUNS()])])
-    assert.deepEqual(labels(out.modules), ['Leads', 'Agent Run History'])
+  it('drops the row and keeps its neighbours, Campaigns included, in their order', () => {
+    const out = collapseSignalsNav([crm([LEADS(), RULES(), CAMPAIGNS()])])
+    assert.deepEqual(labels(out.modules), ['Leads', 'Campaigns'])
   })
 
   it('keeps the old address resolvable, to itself, for a person whose menu held the row, and claims no owner to highlight', () => {
@@ -54,14 +54,14 @@ describe('the Automation Rules row is not drawn in the sidebar', () => {
     assert.deepEqual(out.retired, [], 'and it is not claimed as a retired address')
   })
 
-  it('does not drop Agent Run History or any other row of the same area', () => {
-    const out = collapseSignalsNav([crm([AGENT_RUNS(), leaf(499, 'Campaigns', '/module/crm/marketing/campaigns')])])
-    assert.deepEqual(labels(out.modules), ['Agent Run History', 'Campaigns'])
+  it('does not drop Campaigns or any other row of the same area', () => {
+    const out = collapseSignalsNav([crm([CAMPAIGNS(), leaf(500, 'Quotes', '/module/crm/marketing/quotes')])])
+    assert.deepEqual(labels(out.modules), ['Campaigns', 'Quotes'])
     assert.deepEqual(out.retired, [])
   })
 
   it('changes nothing in place, and returns the same objects when the person does not hold the row', () => {
-    const without = [crm([LEADS(), AGENT_RUNS()])]
+    const without = [crm([LEADS(), CAMPAIGNS()])]
     const before = JSON.stringify(without)
     const out = collapseSignalsNav(without)
     assert.equal(JSON.stringify(without), before)
@@ -106,7 +106,7 @@ async function throughTheHook(holdsRow: boolean) {
   const { QueryClient, QueryClientProvider } = require('@tanstack/react-query') as typeof import('@tanstack/react-query')
   /* eslint-enable @typescript-eslint/no-require-imports */
   const { useSidebarNavigation } = await import('../hooks/use-sidebar-navigation')
-  const data = [crm([LEADS(), ...(holdsRow ? [RULES()] : []), AGENT_RUNS()])].map((mod, i) => raw(mod, null, i + 1))
+  const data = [crm([LEADS(), ...(holdsRow ? [RULES()] : []), CAMPAIGNS()])].map((mod, i) => raw(mod, null, i + 1))
   k.w.localStorage.setItem('userData', JSON.stringify({ token: 'test-token', sub_institute_id: TENANT, user_id: 2, user_profile_id: PROFILE }))
   k.w.sessionStorage.setItem(`gtg-sidebar-cache-v3:${TENANT}:${PROFILE}`, JSON.stringify({ status_code: 200, message: 'ok', data }))
   const original = globalThis.fetch
@@ -119,7 +119,7 @@ async function throughTheHook(holdsRow: boolean) {
       sidebar: nav.sidebarModules.map((m) => m.children.map((c) => c.label)),
       tree: nav.modules.map((m) => m.children.map((c) => c.label)),
       resolved: nav.resolveAccessLink(ADDRESS),
-      resolvedNeighbour: nav.resolveAccessLink('/module/crm/marketing/agent-runs'),
+      resolvedNeighbour: nav.resolveAccessLink('/module/crm/marketing/campaigns'),
     }
     return k.h('pre', { 'data-report': '' }, JSON.stringify(report))
   }
@@ -136,21 +136,21 @@ async function throughTheHook(holdsRow: boolean) {
 describe('through the real sidebar hook', () => {
   afterEach(disposeAll)
 
-  it('draws no Automation Rules entry, in the sidebar or in the tree routes are resolved from, and keeps Agent Run History', async () => {
+  it('draws no Automation Rules entry, in the sidebar or in the tree routes are resolved from, and keeps Campaigns', async () => {
     const report = await throughTheHook(true)
-    assert.deepEqual(report.sidebar, [['Leads', 'Agent Run History']])
-    assert.deepEqual(report.tree, [['Leads', 'Agent Run History']])
+    assert.deepEqual(report.sidebar, [['Leads', 'Campaigns']])
+    assert.deepEqual(report.tree, [['Leads', 'Campaigns']])
   })
 
   it('still resolves the old address, to itself, for a person whose menu held the row (its page redirects), and the neighbour as before', async () => {
     const report = await throughTheHook(true)
     assert.equal(report.resolved, ADDRESS)
-    assert.equal(report.resolvedNeighbour, '/module/crm/marketing/agent-runs')
+    assert.equal(report.resolvedNeighbour, '/module/crm/marketing/campaigns')
   })
 
   it('does not resolve the old address for a person whose menu never held it (the dashboard, as before)', async () => {
     const report = await throughTheHook(false)
     assert.equal(report.resolved, '/dashboard')
-    assert.equal(report.resolvedNeighbour, '/module/crm/marketing/agent-runs')
+    assert.equal(report.resolvedNeighbour, '/module/crm/marketing/campaigns')
   })
 })

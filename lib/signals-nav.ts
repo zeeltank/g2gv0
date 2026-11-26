@@ -201,6 +201,34 @@ function foldAutomationRulesNav(modules: NavModule[]): ProductsFold {
   return { modules: mapNodes(modules, (node) => (isAutomationRulesNode(node) ? null : node)), owners: {}, retired: [AUTOMATION_RULES_PATH] }
 }
 
+/*
+ * MASTER FIELDS AND AGENT RUN HISTORY WERE MERGED INTO OTHER SCREENS (26 Nov 2026; owner decision): Master Fields into Field settings (/platform-services/fields-configuration?module=crm,
+ * its picklist, tax rate, lead scoring, web-to-lead and SLA policy consoles are tabs there) and Agent Run History into the Run Log of Agentic AI (the "Sales & Marketing agents" section of
+ * /module/agentic-ai/run-log). Neither is drawn in the sidebar, here, in code; both addresses are redirect pages that keep resolving to themselves.
+ *   - The Master Fields row is deleted in the database by hp_erp's `crm:retire-master-fields-menu`; this fold covers a host that still holds it.
+ *   - The Agent Run History row STAYS in the database with status 1: the agent API checks a right on it (AgentAccess::RUN_HISTORY), so deleting it would lock the runs list, the waiting
+ *     queue and the autonomy settings, and a status-0 row loses its rights on the next Role and Permissions save. It is only not drawn.
+ * Each row is found by its access_link, a leaf only (a row with children is never touched).
+ */
+const MASTER_FIELDS_PATH = '/module/crm/master-fields'
+const AGENT_RUNS_PATH = '/module/crm/marketing/agent-runs'
+
+const isMasterFieldsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === MASTER_FIELDS_PATH
+const isAgentRunsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === AGENT_RUNS_PATH
+
+/** See the comment above `MASTER_FIELDS_PATH`. Pure: the tree is not changed in place, and a branch that holds neither row comes back as the same objects. */
+function foldMergedAdminScreens(modules: NavModule[]): ProductsFold {
+  const hasMasterFields = locate(modules, isMasterFieldsNode)
+  const hasAgentRuns = locate(modules, isAgentRunsNode)
+  if (!hasMasterFields && !hasAgentRuns) return { modules, owners: {}, retired: [] }
+
+  return {
+    modules: mapNodes(modules, (node) => (isMasterFieldsNode(node) || isAgentRunsNode(node) ? null : node)),
+    owners: {},
+    retired: [...(hasMasterFields ? [MASTER_FIELDS_PATH] : []), ...(hasAgentRuns ? [AGENT_RUNS_PATH] : [])],
+  }
+}
+
 const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
@@ -338,11 +366,13 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const people = foldPeopleNav(products.modules)
   // Automation Rules are not drawn either (26 Nov 2026): the Workflows page, in Platform Services, holds what they were for.
   const automationRules = foldAutomationRulesNav(people.modules)
+  // Master Fields and Agent Run History are not drawn either (26 Nov 2026): Field settings and the Run Log hold what they were for.
+  const merged = foldMergedAdminScreens(automationRules.modules)
   return {
-    modules: automationRules.modules,
+    modules: merged.modules,
     tabs: uniqueFound.length === 0 ? null : uniqueFound,
-    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners },
-    retired: [...products.retired, ...people.retired, ...automationRules.retired],
+    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners },
+    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired],
   }
 }
 

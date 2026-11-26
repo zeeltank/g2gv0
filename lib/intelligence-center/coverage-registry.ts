@@ -175,7 +175,7 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
   partial('crm', 'S13', 'Invoices', `${CRM}/sales/invoices`, INVOICE),
   row('crm', 'S14', 'Support (tickets, SLA, assets, contracts, FAQ, templates, SMS)', `${CRM}/support/tickets`),
   row('crm', 'S15', 'CRM reports', `${CRM}/reports`),
-  row('crm', 'S16', 'Saved views, recycle bin, picklists and tax rates', `${CRM}/master-fields`),
+  row('crm', 'S16', 'Saved views, recycle bin, picklists and tax rates', '/platform-services/fields-configuration'),
   // S17: Automation Rules moved into Workflows (Automations tab), which is where this functionality lives now.
   row('crm', 'S17', 'CRM agents and automation', '/platform-services/workflow'),
   row('crm', 'S18', 'Account 360 and knowledge graph', `${CRM}/signals`),
@@ -210,7 +210,7 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
 
   // 3.9 Agentic AI (2)
   partial('agentic-ai', 'A1', 'Core screens (dashboard, library, create, run log, analytics, multi-agent, reflection, workspace)', '/module/agentic-ai/agent-dashboard', 'agentic.run_health'),
-  row('agentic-ai', 'A2', 'Agent gateway (runs, proposals, autonomy, Ask)', `${CRM}/marketing/agent-runs`),
+  row('agentic-ai', 'A2', 'Agent gateway (runs, proposals, autonomy, Ask)', '/module/agentic-ai/run-log'),
 ]
 
 /**
