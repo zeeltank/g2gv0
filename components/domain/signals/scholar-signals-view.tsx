@@ -17,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { SignalContactPanel } from '@/components/domain/signals/signal-contact-panel'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -601,10 +602,14 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
         </div>
 
         {/* 7. What to do */}
-        <div className="rounded-xl bg-primary/5 p-3">
-          <p className="text-xs font-medium text-muted-foreground">What to do</p>
-          <p className="mt-1 text-sm">{c?.what_to_do ?? o.soft_marketing_angle}</p>
-          {o.likely_stakeholder && <p className="mt-1 text-xs text-muted-foreground">Approach: {o.likely_stakeholder}</p>}
+        <div className="space-y-3 rounded-xl bg-primary/5 p-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">What to do</p>
+            <p className="mt-1 text-sm">{c?.what_to_do ?? o.soft_marketing_angle}</p>
+            {o.likely_stakeholder && <p className="mt-1 text-xs text-muted-foreground">Approach: {o.likely_stakeholder}</p>}
+          </div>
+          {/* Contact details sit with the action, always visible: "Not Available" where missing, never a reason to hide the signal */}
+          <SignalContactPanel signal={o} service={service} onChanged={onChanged} />
         </div>
       </div>
 

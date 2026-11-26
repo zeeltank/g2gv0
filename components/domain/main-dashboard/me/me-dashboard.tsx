@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { KPICard } from '@/components/shared/business'
+import { ContextualInsights } from '@/components/domain/intelligence'
 import { chartStatusColors } from '@/lib/chart-colors'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/gtg-auth'
@@ -474,6 +475,9 @@ export function MeDashboard() {
           </Button>
         </div>
       </header>
+
+      {/* Intelligence for this person only (self scope is decided by the server from the token). Fetches on its own; shows nothing if not available. */}
+      <ContextualInsights surface="me_dashboard" className="mb-0" />
 
       {/* ── TILES ──────────────────────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">

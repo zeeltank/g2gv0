@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  BadgeCheck,
   BarChart3,
   BriefcaseBusiness,
   Building2,
@@ -38,6 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { KPICard } from '@/components/shared/business'
+import { ContextualInsights } from '@/components/domain/intelligence'
 import { chartStatusColors } from '@/lib/chart-colors'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -440,26 +440,10 @@ export function HrDashboard() {
           </div>
         </Widget>
 
-        <Widget title="AI Insights" action={<Badge variant="navy">New</Badge>}>
-          <div className="space-y-2">
-            {/* No insight generator exists anywhere in this product - the five
-                sentences here were literals. The card keeps its place rather
-                than being deleted, and says plainly that nothing feeds it. */}
-            <div className="flex gap-3 rounded-md border border-border p-3">
-              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground">
-                Automated insights are not available yet — no insight source is connected to this
-                organisation. The numbers above are live; this panel will fill once an insight
-                source exists.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {/* No insight generator exists anywhere, so there is nothing to generate
-                and nothing to open. Disabled beats a button that does nothing. */}
-            <Button size="sm" disabled title="No insight source is connected yet.">Generate Report</Button>
-            <Button size="sm" variant="outline" disabled title="No insight source is connected yet.">Open Analytics</Button>
-          </div>
+        <Widget title="Intelligence" action={<Badge variant="navy">New</Badge>}>
+          {/* Fed by the Intelligence API (rule-based detectors, evidence and coverage on every item). It fetches on its own, so a slow or refused
+              answer cannot blank the dashboard, and it says plainly when there is nothing to show or not enough data to assess. */}
+          <ContextualInsights surface="hr_dashboard" variant="widget" whenDenied="note" />
         </Widget>
       </section>
 

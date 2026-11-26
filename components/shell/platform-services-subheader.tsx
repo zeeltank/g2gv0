@@ -69,6 +69,10 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Lightbulb } from 'lucide-react'
+import { INTELLIGENCE_LINK, isGlobalIntelligencePath, isModuleIntelligencePath } from '@/lib/intelligence-center/nav'
+import { moduleIntelligenceHref, moduleIntelligenceByKey, moduleIntelligenceByMenuSlug } from '@/lib/intelligence-center/modules'
+import { decodeSegment } from '@/lib/intelligence-center/domains'
 import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { MODULE_LABEL } from '@/lib/platform/access-links'
 import { useCurrentPlatformModule } from '@/hooks/use-current-platform-module'
@@ -110,8 +114,18 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
    * centralised `/platform-services/*` routes — and the link below then falls back to the
    * behaviour that was already there.
    */
-  const { moduleId, platformKey } = useActiveModule()
+  const { moduleId, platformKey, navModule } = useActiveModule()
   const moduleKey = scopedByQuery ?? platformKey
+  const activeMenuSlug = /^\/module\/([^/?#]+)/.exec(navModule?.accessLink ?? '')?.[1]
+  const moduleRouteKey = /^\/intelligence\/module\/([^/?#]+)/.exec(pathname ?? '')?.[1]
+  // Under /platform-services with no other module scope, the one Intelligence link is Platform Services Intelligence (never Global).
+  const onPlatformServices = pathname === '/platform-services' || pathname?.startsWith('/platform-services/') === true
+  const intelligenceModuleKey =
+    (onPlatformServices ? 'platform-services' : null) ??
+    moduleKey ??
+    moduleIntelligenceByMenuSlug(activeMenuSlug)?.key ??
+    moduleIntelligenceByKey(moduleRouteKey ? decodeSegment(moduleRouteKey) : '')?.key ??
+    null
 
   const items = moduleKey
     ? DECENTRALIZABLE_SERVICES.filter((service) => service.decentralizedModules?.includes(moduleKey))
@@ -168,6 +182,43 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
             </Link>
           )
         })}
+
+        {/*
+          Exactly ONE Intelligence item, never two. Global Intelligence is shown only where this bar has no
+          module scope (Main Dashboard / centralised Platform Services). Inside a parent module the Global
+          link is hidden completely and only that module's own Intelligence link is offered; a module with
+          no Intelligence definition shows none rather than falling back to Global.
+        */}
+        {!moduleKey && !intelligenceModuleKey && (
+          <Link
+            href={INTELLIGENCE_LINK}
+            aria-current={isGlobalIntelligencePath(pathname) ? 'page' : undefined}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150',
+              isGlobalIntelligencePath(pathname)
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
+            <Lightbulb className="size-4" aria-hidden="true" />
+            Intelligence
+          </Link>
+        )}
+        {intelligenceModuleKey && moduleIntelligenceByKey(intelligenceModuleKey) && (
+          <Link
+            href={moduleIntelligenceHref(intelligenceModuleKey)}
+            aria-current={isModuleIntelligencePath(pathname, intelligenceModuleKey) ? 'page' : undefined}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150',
+              isModuleIntelligencePath(pathname, intelligenceModuleKey)
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
+            <Lightbulb className="size-4" aria-hidden="true" />
+            {moduleIntelligenceByKey(intelligenceModuleKey)?.title} Intelligence
+          </Link>
+        )}
       </div>
 
       <div className="ml-auto h-5 w-px shrink-0 bg-border" aria-hidden="true" />
