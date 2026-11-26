@@ -17,7 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ContactSection } from '@/components/domain/signals/signal-contact-section'
+import { SignalContactPanel } from '@/components/domain/signals/signal-contact-panel'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -609,7 +609,7 @@ export function SignalCard({ o, runDateLabel, reasons = [], products, service = 
             {o.likely_stakeholder && <p className="mt-1 text-xs text-muted-foreground">Approach: {o.likely_stakeholder}</p>}
           </div>
           {/* Contact details sit with the action, always visible: "Not Available" where missing, never a reason to hide the signal */}
-          <ContactSection c={o.contact} />
+          <SignalContactPanel signal={o} service={service} onChanged={onChanged} />
         </div>
       </div>
 

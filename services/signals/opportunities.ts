@@ -166,7 +166,7 @@ export interface SignalAssessment {
 
 export interface ContactSource {
   /** crm_record = typed into the CRM by a person; stated_in_source = printed in the signal's own source. Neither is independently verified. */
-  status: 'crm_record' | 'stated_in_source'
+  status: 'crm_record' | 'stated_in_source' | 'found_public'
   label: string
   url: string | null
 }
@@ -183,8 +183,24 @@ export interface SignalContact {
   location: { city?: string; state?: string; country?: string; text?: string } | []
   email_source: ContactSource | null
   phone_source: ContactSource | null
+  /** Everyone found on the public web for this organisation (a decision-maker, or the organisation's own published line). All unverified. */
+  contacts?: ContactPerson[]
+  /** Where the public contact search stands: found, none_found, not_searched, or not_set_up (no search provider configured). */
+  research?: { state: 'found' | 'none_found' | 'not_searched' | 'not_set_up'; searched_at: string | null; can_search: boolean } | null
   verified: boolean
   message: string
+}
+
+export interface ContactPerson {
+  name: string | null
+  designation: string | null
+  email: string | null
+  phone: string | null
+  linkedin: string | null
+  source_url: string | null
+  email_source_url: string | null
+  phone_source_url: string | null
+  verification: 'unverified'
 }
 
 export interface Opportunity {

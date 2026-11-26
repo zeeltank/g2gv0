@@ -51,4 +51,36 @@ describe('signal contact section', () => {
   it('cleans a number for dialling', () => {
     assert.equal(telHref('+91 98765-43210'), 'tel:+919876543210')
   })
+  it('lists every contact found on the public web with tel/mailto links, source links and an Unverified label', () => {
+    const html = renderToStaticMarkup(<ContactSection c={{
+      ...base, status: 'complete', phone: '+919822011223', email: 'asha@sunriseschool.in',
+      contacts: [
+        { name: 'Asha Rao', designation: 'Principal', email: 'asha@sunriseschool.in', phone: '+919822011223', linkedin: 'https://www.linkedin.com/in/asha', source_url: 'https://s/1', email_source_url: 'https://s/e', phone_source_url: 'https://s/p', verification: 'unverified' },
+        { name: 'Vikram Shah', designation: 'Director', email: null, phone: null, linkedin: null, source_url: 'https://s/2', email_source_url: null, phone_source_url: null, verification: 'unverified' },
+        { name: null, designation: 'Organisation contact (published)', email: 'office@sunriseschool.in', phone: null, linkedin: null, source_url: 'https://s/3', email_source_url: 'https://s/3', phone_source_url: null, verification: 'unverified' },
+      ],
+      research: { state: 'found', searched_at: null, can_search: true },
+    }} />)
+    assert.equal((html.match(/data-testid="found-contact"/g) ?? []).length, 3)
+    assert.match(html, /Found on the public web \(3\)/)
+    assert.match(html, /href="mailto:office@sunriseschool\.in"/)
+    assert.match(html, /href="https:\/\/s\/e"/)
+    assert.match(html, /href="https:\/\/www\.linkedin\.com\/in\/asha"/)
+    assert.match(html, /Organisation contact/)
+    assert.equal((html.match(/Unverified/g) ?? []).length >= 3, true)
+    assert.match(html, /Vikram Shah/)
+    assert.match(html, /Not Available/)   // the second person has neither phone nor email
+  })
+
+  it('offers the search when it can run, and hides it when no provider is set up', () => {
+    const on = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_searched', searched_at: null, can_search: true } }} onSearch={() => {}} onRefresh={() => {}} />)
+    assert.match(on, /data-testid="find-contacts"/)
+    assert.match(on, /No public search has been run/)
+    const off = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_set_up', searched_at: null, can_search: false } }} onSearch={() => {}} />)
+    assert.doesNotMatch(off, /data-testid="find-contacts"/)
+    assert.match(off, /not set up/)
+    const none = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'none_found', searched_at: null, can_search: true } }} />)
+    assert.match(none, /found no contact details/)
+    assert.match(none, /Not Available/)   // still shown, never hidden
+  })
 })

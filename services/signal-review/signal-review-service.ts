@@ -14,7 +14,9 @@ export interface SignalReviewApi {
   get(id: number): Promise<SignalDetailResponse>
   decide(id: number, body: DecisionRequest): Promise<SignalDecisionResponse>
   history(id: number): Promise<SignalHistoryResponse>
-  promote(id: number): Promise<SignalPromoteResponse>
+  promote(id: number, body?: { contactId?: number }): Promise<SignalPromoteResponse>
+  /** Queues a public-contact search for the signal's organisation. Information only: the signal itself is never changed. */
+  researchContacts(id: number): Promise<{ status: number; message: string }>
   productOptions(): Promise<PmEnvelope<PmOption[]>>
 }
 
@@ -67,12 +69,18 @@ export const signalReviewService: SignalReviewApi = {
     throw new ApiError(refusal.message || `API Error: ${response.status} ${response.statusText}`, response.status, refusal.errors, refusal.detail)
   },
 
+  /** Queues a public-contact search for the signal's organisation (a person can then reload the signal to see what was found). */
+  researchContacts(id) {
+    return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/contacts/research`, {})
+  },
+
   /**
    * Makes a CRM lead from the signal. A signal that already has one answers 200 with `created: false` and the same `lead_id`, so pressing twice is safe.
-   * A refusal arrives as an ApiError (403 not allowed to edit signals, 404 not found in this organisation).
+   * A refusal arrives as an ApiError (403 not allowed to edit signals, 404 not found in this organisation or a person who is not at this company's account, 422 a person who
+   * cannot be contacted). S20: an optional `contactId` (a Prospecting person at this company) makes the lead name that person; without it the lead is named after the company.
    */
-  promote(id) {
-    return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/promote-to-crm`, {})
+  promote(id, body) {
+    return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/promote-to-crm`, body?.contactId ? { contactId: body.contactId } : {})
   },
 
   /** The same product list the Product Master uses; a signal's `product_master_id` is one of these ids. */
