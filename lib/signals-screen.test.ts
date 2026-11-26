@@ -79,7 +79,7 @@ describe('Signals sidebar', () => {
             { id: '501', label: 'Signal Inbox', accessLink: '/module/crm/marketing/signal-inbox', children: [] },
           ],
         },
-        { id: '443', label: 'Prospecting', accessLink: '/module/crm/prospecting', children: [] },
+        { id: '443', label: 'Playbooks', accessLink: '/module/crm/playbooks', children: [] },
       ],
     }]
 

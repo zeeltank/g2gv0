@@ -2,13 +2,12 @@ import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { disposeAll } from '../scaffolds/dom-test-kit'
 import { screenKit, type Call } from '../leads/screen-kit'
-import type { GtmContact } from '../../services/gtm/gtm'
 import type { SignalConvertBody, SignalFunnelApi } from '../../services/signal-review/signal-funnel-service'
 import type { Opportunity } from '../../services/signals/opportunities'
 
 /**
- * The funnel on a signal card (S20) as a person meets it: "In Prospecting" with its link, or "Add to Prospecting"; "Convert to opportunity" and its pop-up, built from the
- * same three cards as Convert Lead; and the question "which person" before a lead. The real components, a fake network and a fake funnel service that records what it was asked.
+ * The funnel on a signal card (S20) as a person meets it: "Convert to opportunity" and its pop-up, built from the same three cards as Convert Lead. The real components,
+ * a fake network and a fake funnel service that records what it was asked.
  */
 
 const pick = (value: string, label = value, isDefault = false) => ({ value, label, sortOrder: 1, isDefault })
@@ -20,23 +19,16 @@ const PICKLISTS = {
 
 const SIGNAL = { id: 7, title: 'Opens a new campus', company_name: 'Greenfield School', industry: 'Education', review_status: 'New', likely_stakeholder: 'The principal' } as unknown as Opportunity
 
-const contact = (id: number, over: Partial<GtmContact> = {}): GtmContact => ({
-  id, account_id: 41, full_name: `Person ${id}`, title: null, email: null, phone: null, linkedin_url: null, role_in_deal: null, status: 'active', ...over,
-})
-
 interface Fake extends SignalFunnelApi {
-  sent: number[]
   converted: Array<{ id: number; body: SignalConvertBody }>
 }
 
-function fakeFunnel(answer: { created?: boolean; accountId?: number } = {}): Fake {
+function fakeFunnel(): Fake {
   const fake: Fake = {
-    sent: [],
     converted: [],
-    async sendToProspecting(id) { fake.sent.push(id); return { status: 1, data: { account_id: answer.accountId ?? 41, created: answer.created ?? true } } },
     async convertToOpportunity(id, body) {
       fake.converted.push({ id, body })
-      return { status: 1, data: { opportunity_id: 9, opportunity_name: body.opportunity?.name ?? null, organization_id: 3, account_id: 41, created: true } }
+      return { status: 1, data: { opportunity_id: 9, opportunity_name: body.opportunity?.name ?? null, organization_id: 3, created: true } }
     },
   }
   return fake
@@ -72,40 +64,15 @@ async function open(initial: Opportunity, funnel: Fake) {
   return { ...screen, write, link }
 }
 
-describe('the Prospecting status of a signal', () => {
-  afterEach(async () => { await disposeAll() })
-
-  it('says "In Prospecting" with a link that opens the account, and offers no Add to Prospecting', async () => {
-    const s = await open({ ...SIGNAL, prospecting: { account_id: 41, stage: 'target', contacts_count: 0 } } as Opportunity, fakeFunnel())
-    assert.ok(s.k.bodyText().includes('In Prospecting'))
-    assert.equal(s.link('Open in Prospecting')?.getAttribute('href'), '/gtm/prospecting?account=41')
-    assert.equal(s.k.withText('Add to Prospecting'), null)
-  })
-
-  it('offers Add to Prospecting when the company is not there; pressing it asks the server once, then says so and links to the account', async () => {
-    const funnel = fakeFunnel()
-    const s = await open(SIGNAL, funnel)
-    assert.equal(s.link('Open in Prospecting'), null)
-
-    await s.k.click(s.k.withText('Add to Prospecting')!)
-    await s.k.tick(40)
-
-    assert.deepEqual(funnel.sent, [7], 'the signal\'s own id, once')
-    assert.ok(s.k.bodyText().includes('Added to Prospecting'))
-    assert.equal(s.link('Open in Prospecting')?.getAttribute('href'), '/gtm/prospecting?account=41')
-    assert.equal(s.k.withText('Add to Prospecting'), null, 'the button goes once the company is in')
-  })
-
-  it('says "Already in Prospecting" for a company whose account was already there', async () => {
-    const s = await open(SIGNAL, fakeFunnel({ created: false }))
-    await s.k.click(s.k.withText('Add to Prospecting')!)
-    await s.k.tick(40)
-    assert.ok(s.k.bodyText().includes('Already in Prospecting'))
-  })
-})
-
 describe('Convert to opportunity', () => {
   afterEach(async () => { await disposeAll() })
+
+  it('is the only funnel action on a card: no status, button or link about Prospecting, even when the server still sends an account', async () => {
+    const s = await open({ ...SIGNAL, prospecting: { account_id: 41, stage: 'target', contacts_count: 2 } } as unknown as Opportunity, fakeFunnel())
+    assert.ok(s.k.withText('Convert to opportunity'))
+    assert.ok(!s.k.bodyText().includes('Prospecting'), 'nothing says Prospecting')
+    assert.equal(s.k.all('a').length, 0, 'and there is no link to open an account')
+  })
 
   it('opens the pop-up built from the shared cards: the organization from the signal\'s company, the person optional, the opportunity named after both', async () => {
     const s = await open(SIGNAL, fakeFunnel())
@@ -123,9 +90,9 @@ describe('Convert to opportunity', () => {
     assert.equal(s.k.one('[data-new-person]'), null, 'no person fields until a person is added')
   })
 
-  it('sends the organization and the opportunity alone when no person is added, then shows the opportunity, its links and "Opportunity created"', async () => {
+  it('sends the organization and the opportunity alone when no person is added, then shows the opportunity, its link and "Opportunity created"', async () => {
     const funnel = fakeFunnel()
-    const s = await open({ ...SIGNAL, prospecting: { account_id: 41, stage: 'target', contacts_count: 0 } } as Opportunity, funnel)
+    const s = await open(SIGNAL, funnel)
     await s.k.click(s.k.withText('Convert to opportunity')!)
     await s.k.tick(80)
 
@@ -139,7 +106,6 @@ describe('Convert to opportunity', () => {
     })
     assert.ok(s.k.bodyText().includes('Opportunity created'))
     assert.equal(s.link('Open opportunity')?.getAttribute('href'), '/module/crm/sales/opportunities/9')
-    assert.equal(s.link('Open in Prospecting')?.getAttribute('href'), '/gtm/prospecting?account=41')
     assert.equal(s.link('Greenfield School - Opens a new campus')?.getAttribute('href'), '/module/crm/sales/opportunities/9', 'the card now shows "Opportunity: <name>" as a link')
     assert.equal(s.k.withText('Convert to opportunity'), null, 'a second opportunity cannot be made from here')
   })
@@ -177,51 +143,5 @@ describe('Convert to opportunity', () => {
 
     assert.equal(s.k.one('[role="dialog"] [role="alert"]')?.textContent, 'Choose a company from the list.')
     assert.ok(s.k.one('[role="dialog"]'), 'the pop-up stays open so it can be corrected')
-  })
-})
-
-describe('Convert to lead: which person', () => {
-  afterEach(async () => { await disposeAll() })
-
-  async function ask() {
-    const screen = await screenKit({ pathname: '/signals' })
-    const { LeadPersonDialog } = await import('../../components/domain/signals/signal-lead')
-    const chosen: Array<number | null> = []
-    let cancelled = 0
-    const people = [contact(3, { full_name: 'Dee Enn', status: 'do_not_contact' }), contact(4, { full_name: 'Rahul Verma', title: 'Principal' })]
-    await screen.mount(screen.k.h(LeadPersonDialog, { people, onChoose: (id: number | null) => { chosen.push(id) }, onCancel: () => { cancelled += 1 } }), 60)
-    const radios = () => screen.k.all('[role="dialog"] input[type="radio"]') as HTMLInputElement[]
-    const labelOf = (r: HTMLInputElement) => screen.k.w.document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim() ?? ''
-    return { ...screen, chosen, cancelled: () => cancelled, radios, labelOf }
-  }
-
-  it('lists the people, the one who asked not to be contacted disabled with the reason, and "No person yet" as the last choice', async () => {
-    const s = await ask()
-    const rows = s.radios().map((r) => ({ label: s.labelOf(r), disabled: r.disabled }))
-    assert.deepEqual(rows, [
-      { label: 'Rahul Verma · Principal', disabled: false },
-      { label: 'Dee Enn — asked not to be contacted', disabled: true },
-      { label: 'No person yet', disabled: false },
-    ])
-    assert.equal((s.k.withText('Convert') as HTMLButtonElement).disabled, true, 'a choice is needed first, even if it is "No person yet"')
-  })
-
-  it('converts for the chosen person, or with no person at all', async () => {
-    const s = await ask()
-    await s.k.click(s.radios()[0])
-    await s.k.tick(20)
-    await s.k.click(s.k.withText('Convert')!)
-    assert.deepEqual(s.chosen, [4])
-
-    await s.k.click(s.radios()[2])
-    await s.k.tick(20)
-    await s.k.click(s.k.withText('Convert')!)
-    assert.deepEqual(s.chosen, [4, null])
-  })
-
-  it('cancelling asks nothing', async () => {
-    const s = await ask()
-    await s.k.click(s.k.withText('Cancel')!)
-    assert.deepEqual([s.chosen, s.cancelled()], [[], 1])
   })
 })

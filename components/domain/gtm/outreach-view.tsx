@@ -257,7 +257,7 @@ function NewMessageDialog({ open, onClose, onCreated }: { open: boolean; onClose
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <select className={SELECT} value={f.contact_id} disabled={!f.account_id} onChange={(e) => setF({ ...f, contact_id: e.target.value })}>
-              <option value="">{f.account_id && contacts.length === 0 ? 'No contacts - add one first' : 'Contact *'}</option>
+              <option value="">{f.account_id && contacts.length === 0 ? 'No contacts at this account' : 'Contact *'}</option>
               {contacts.map((c) => <option key={c.id} value={c.id} disabled={c.status !== 'active'}>{c.full_name}{c.status !== 'active' ? ` (${label(c.status)})` : ''}</option>)}
             </select>
           </div>

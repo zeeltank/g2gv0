@@ -6,7 +6,7 @@ import { SearchableSelect, type SelectOption } from './searchable-select'
 
 /**
  * The State / Province field as a searchable list of the chosen country's states (from the same location data as the rest of the Region form).
- * Used where a list belongs to one place (Prospecting). Until the list has arrived it shows the plain `fallback` text box, and it keeps showing it for
+ * Used where a list belongs to one place. Until the list has arrived it shows the plain `fallback` text box, and it keeps showing it for
  * a country that has no state list, so a person is never stuck. Nothing is asked for when there is no country yet.
  */
 export function StateDropdown({ loader, countryCode, value, onPick, disabled = false, fallback }: {

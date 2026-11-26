@@ -81,7 +81,7 @@ function otherSide(org: Org360, suggestion: OrgSuggestion) {
 
 /**
  * The CRM organisation, the GTM account and the Signals company this organisation is, each with the reason it is tied to the others in words, and the
- * possible matches a person confirms or turns down. A source with no record says so. GTM has no page for one account, so its row opens the GTM list.
+ * possible matches a person confirms or turns down. A source with no record says so. The GTM account has no screen of its own to open, so its row is text.
  */
 export function LinkedRecordsCard({ org, links, matches, matchesError, canEdit, canConfirm, busy, failure, onEdit, onDecide, onRetryMatches }: {
   org: Org360
@@ -100,7 +100,7 @@ export function LinkedRecordsCard({ org, links, matches, matchesError, canEdit, 
 }) {
   const headingId = useId()
   const rows = linkedRecords(org)
-  const hrefFor = { crm: null, gtm: links.gtm, signals: links.signals } as const
+  const hrefFor = { crm: null, gtm: null, signals: links.signals } as const
   const owner = org.identity.owner_name ? `Owner: ${org.identity.owner_name}` : 'No owner'
   return (
     <section aria-labelledby={headingId} className="rounded-lg border border-border bg-card">

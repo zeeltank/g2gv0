@@ -46,7 +46,7 @@ export function RegionSelector({
   disabled?: boolean
   /** The signed-in organisation, for the location lists. */
   context?: LaravelContext
-  /** One place at a time (a list that belongs to one region, such as Prospecting). Adding a place replaces the one before it. */
+  /** One place at a time (a list that belongs to one region). Adding a place replaces the one before it. */
   single?: boolean
 }) {
   const [problems, setProblems] = useState<string[]>([])

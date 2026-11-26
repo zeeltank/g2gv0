@@ -71,20 +71,13 @@ export interface MatchedOffer {
   match_status?: string | null
 }
 
-/** One signal: a row of the list and, with a few more fields, the detail. A decision's answer carries the same shape. */
-/** Where a signal's company is in Prospecting. `contacts_count` is how many people the account has. */
-export interface SignalProspecting {
-  account_id: number
-  stage: string
-  contacts_count: number
-}
-
 /** The CRM opportunity a signal was converted into. */
 export interface SignalOpportunityLink {
   id: number
   name: string
 }
 
+/** One signal: a row of the list and, with a few more fields, the detail. A decision's answer carries the same shape. */
 export interface SignalRow {
   id: number
   title: string
@@ -119,8 +112,7 @@ export interface SignalRow {
   promoted_lead_id?: string | null
   promoted_lead_no?: string | null
   promoted_lead_status?: string | null
-  /** S20: the company's Prospecting account (made when the signal was saved), and the CRM opportunity this signal was converted into. */
-  prospecting?: SignalProspecting | null
+  /** S20: the CRM opportunity this signal was converted into. */
   converted_opportunity?: SignalOpportunityLink | null
   source_url?: string | null
   source_title?: string | null
@@ -201,16 +193,10 @@ export interface SignalDecisionResponse {
   review: ReviewHistoryEntry
 }
 
-/** POST /opportunities/{id}/send-to-prospecting. 201 when the account was made now; 200 with `created: false` when the company already had one. */
-export interface SignalSendToProspectingResponse {
-  status: number
-  data: { account_id: number; created: boolean }
-}
-
 /** POST /opportunities/{id}/convert-to-opportunity. 201 when the opportunity was made now; 200 with `created: false` when the signal already had one. */
 export interface SignalConvertResponse {
   status: number
-  data: { opportunity_id: number; opportunity_name?: string | null; organization_id: number | null; organization_created?: boolean; contact_id?: number | null; account_id?: number | null; created: boolean }
+  data: { opportunity_id: number; opportunity_name?: string | null; organization_id: number | null; organization_created?: boolean; contact_id?: number | null; created: boolean }
 }
 
 /** POST /opportunities/{id}/promote-to-crm. 201 when a lead was made now; 200 with `created: false` when the signal already had one. */
