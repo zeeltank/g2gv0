@@ -39,9 +39,11 @@ interface Props {
   initialBeat?: number
   mode?: Mode
   embedded?: boolean
+  /** The presenter window (P key and the button). Off on the public share page, where there are no presenter notes to show. */
+  presenter?: boolean
 }
 
-export function ClientPresentation({ productKey, initialSlide, initialBeat, mode = 'full', embedded = false }: Props) {
+export function ClientPresentation({ productKey, initialSlide, initialBeat, mode = 'full', embedded = false, presenter = true }: Props) {
   const deck: Deck = DECKS[productKey]
   const reducedPref = useReducedMotion()
   const reduced = Boolean(reducedPref)
@@ -121,7 +123,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
       else if (k === 'End') dispatch({ t: 'goto', key: 's15', end: true })
       else if (k === 'Escape') { if (credits) setCredits(false); else if (state.back) dispatch({ t: 'return' }) }
       else if (/^[1-9]$/.test(k) && PRODUCT_NAV[Number(k) - 1]) dispatch({ t: 'goto', key: PRODUCT_NAV[Number(k) - 1].opener })   // 1 to 5: open a product of the Product Atlas
-      else if (k === 'p' || k === 'P') openPresenter()
+      else if ((k === 'p' || k === 'P') && presenter) openPresenter()
       else if (k === 'f' || k === 'F') toggleFullscreen()
       else if (k === 'c' || k === 'C') setCredits((v) => !v)
       else if (k === 'm' || k === 'M') dispatch({ t: 'mode', mode: state.mode === 'full' ? 'short' : 'full' })
@@ -129,7 +131,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [credits, openPresenter, showUi, state.back, state.mode, toggleFullscreen])
+  }, [credits, openPresenter, presenter, showUi, state.back, state.mode, toggleFullscreen])
 
   // Presenter window: broadcast the state, accept commands.
   useEffect(() => {
@@ -188,7 +190,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
           <span className="cp-sep" />
           {state.back && <button type="button" onClick={() => dispatch({ t: 'return' })}>↩ Return to journey</button>}
           <button type="button" onClick={() => dispatch({ t: 'mode', mode: state.mode === 'full' ? 'short' : 'full' })} title="M">{state.mode === 'full' ? 'Five-slide version' : 'Full deck'}</button>
-          <button type="button" onClick={openPresenter} title="P">Presenter notes</button>
+          {presenter && <button type="button" onClick={openPresenter} title="P">Presenter notes</button>}
           <button type="button" onClick={() => setCredits(true)} title="C">Credits</button>
           <button type="button" onClick={toggleFullscreen} title="F">Full screen</button>
         </div>

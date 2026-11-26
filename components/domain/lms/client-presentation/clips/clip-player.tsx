@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import deckJson from '@/lib/client-presentation/generated/scholarclone.deck.json'
+import deckJson from '@/lib/client-presentation/generated/scholarclone.public.json'
 import { CLIP_SET, STAGE, clipById, clipText, type Ratio, type UiName } from '@/lib/client-presentation/clips'
 
 import { gsap, useGSAP } from '../motion/gsap'
