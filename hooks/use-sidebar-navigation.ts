@@ -216,7 +216,7 @@ export function useSidebarNavigation(): SidebarNavigationResult {
    * so this removes the link, not the page.
    */
   const collapsed = useMemo(() => {
-    // Signals, Ingestion Engine, Product Portfolio and Partner Network used to be injected here as
+    // Signals, Ingestion Engine and Product Portfolio (and a fourth tab, removed 26 Nov 2026) used to be injected here as
     // standalone sidebar links. They are intentionally no longer added; their routes and pages
     // are untouched (see parseRoutePath below), and Intelligence Loop comes from the server menu.
     //
@@ -269,14 +269,14 @@ export function useSidebarNavigation(): SidebarNavigationResult {
   }
 
   /*
-   * Signals/Ingestion/Portfolio/Partners used to have no real menu row at
+   * Signals/Ingestion/Portfolio used to have no real menu row at
    * all, so this returned fake string ids ('signals', 'portfolio', ...) just
    * to give the sidebar *something* stable to highlight. Sales & Marketing's
    * Signals branch (tblmenumaster_g2g id 489 and its real children) gives
    * them genuine rows now, already walked into `keyByPath` below like every
    * other screen - the fake branches only shadowed that correct, rights-
    * aware, connection-safe resolution with a value that could never match a
-   * real node, which is why these 4 routes' breadcrumbs stayed stuck on
+   * real node, which is why those routes' breadcrumbs stayed stuck on
    * "Home" even after the menu tree had fully loaded.
    */
   const parseRoutePath = (pathname: string): ActiveNav | null => {
@@ -300,7 +300,6 @@ export function useSidebarNavigation(): SidebarNavigationResult {
     if (accessLink === '/signals' || accessLink === '/module/crm/signals') return '/signals'
     if (accessLink === '/ingestion') return '/ingestion'
     if (accessLink === '/portfolio') return '/portfolio'
-    if (accessLink === '/partners') return '/partners'
     // An old address a person could see before the Products and Services entries became the Product Portfolio (lib/signals-nav.ts) still resolves, to itself:
     // its page redirects (keeping the query), so a link built as resolveAccessLink(old address) + '/' + id still opens the right record.
     if (collapsed.retired.includes(accessLink)) return accessLink

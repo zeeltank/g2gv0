@@ -68,7 +68,7 @@ export function OverviewTab({ record, taxonomy, soldTogether, productHref, canEd
           <Fact label="ID" value={<span className="font-mono text-xs">{offer.offerId}</span>} />
           <Fact label="Readiness" value={<ReadinessChip readiness={offer.readiness} />} />
           <Fact label="Status" value={record.status === 'active' ? 'Active' : 'Archived'} />
-          <Fact label="Partner network" value={partnerWord} />
+          <Fact label="Partner sales" value={partnerWord} />
         </dl>
       </SectionCard>
 

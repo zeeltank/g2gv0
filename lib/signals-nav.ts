@@ -1,16 +1,17 @@
 import type { ActiveNav, NavModule, NavNode } from '@/lib/gtg-navigation'
 
 /**
- * The four screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
+ * The three screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
  * Each one keeps its own route (deep links and bookmarks still work); only the sidebar's child rows are folded away, in code, never in the database.
+ * The first tab is called Market Signals too (owner, 26 Nov 2026: it was "Company Opportunities"); its key stays `opportunities`. A fourth tab, the partner registry, was removed the same day;
+ * its old address /partners is a redirect page to /signals (app/partners/page.tsx).
  */
 export const SIGNALS_TABS = [
-  { key: 'opportunities', label: 'Company Opportunities', href: '/signals', route: '/signals', hint: 'Generate and review signals' },
+  { key: 'opportunities', label: 'Market Signals', href: '/signals', route: '/signals', hint: 'Generate and review signals' },
   { key: 'ingestion', label: 'Ingestion Engine', href: '/ingestion', route: '/ingestion', hint: 'Analyse a page or document' },
   // `href` is the menu row's access link (what the sidebar fold and the rights know it by); `route` is where the tab goes. The Product Portfolio tab opens the list INSIDE
-  // Market Signals, under the four tabs, so a person can switch between them quickly (owner, 23 Nov 2026). The Product Portfolio sidebar entry opens /portfolio, which has no tabs.
+  // Market Signals, under the three tabs, so a person can switch between them quickly (owner, 23 Nov 2026). The Product Portfolio sidebar entry opens /portfolio, which has no tabs.
   { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', route: '/signals/portfolio', hint: 'Products, sub-products and ICPs' },
-  { key: 'partners', label: 'Partner Network', href: '/partners', route: '/partners', hint: 'Delivery and sales partners' },
 ] as const
 
 export type SignalsTabKey = (typeof SIGNALS_TABS)[number]['key']

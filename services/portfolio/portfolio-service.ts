@@ -3,7 +3,6 @@ import { withLaravelParams, type LaravelContext } from '@/lib/laravel-context'
 import type {
   ReadinessLogEntry,
   ProductOffer,
-  Partner,
   TaxonomyData,
   SignalMatchingResponse,
   ProductsResponse,
@@ -117,76 +116,6 @@ export const portfolioService = {
     })
   },
 
-  // Partners
-  async getPartnerStats(context: LaravelContext): Promise<{
-    status: number
-    data: {
-      total_partners: number
-      active_partners: number
-      pipeline_partners: number
-      total_capacity: number
-    }
-  }> {
-    return apiClient.get('/portfolio/partners/stats', withLaravelParams(context))
-  },
-
-  async getPartners(
-    context: LaravelContext,
-    filters?: {
-      search?: string
-      partner_type?: string
-      status?: string
-      state?: string
-      segment?: string
-      offer?: string
-      has_capacity?: boolean
-      page?: number
-      per_page?: number
-    }
-  ): Promise<{
-    status: number
-    data: {
-      data: Partner[]
-      current_page: number
-      last_page: number
-      total: number
-      per_page: number
-    }
-  }> {
-    const params: Record<string, string> = {}
-    if (filters?.search) params.search = filters.search
-    if (filters?.partner_type) params.partner_type = filters.partner_type
-    if (filters?.status) params.status = filters.status
-    if (filters?.state) params.state = filters.state
-    if (filters?.segment) params.segment = filters.segment
-    if (filters?.offer) params.offer = filters.offer
-    if (filters?.has_capacity !== undefined) params.has_capacity = String(filters.has_capacity)
-    if (filters?.page) params.page = String(filters.page)
-    if (filters?.per_page) params.per_page = String(filters.per_page)
-
-    return apiClient.get('/portfolio/partners', withLaravelParams(context, params))
-  },
-
-  async getPartner(context: LaravelContext, id: string | number): Promise<{ status: number; data: Partner }> {
-    return apiClient.get(`/portfolio/partners/${id}`, withLaravelParams(context))
-  },
-
-  async createPartner(context: LaravelContext, partner: Partial<Partner>): Promise<{ status: number; message: string; data: Partner }> {
-    return apiClient.post('/portfolio/partners', partner, {
-      params: withLaravelParams(context),
-    })
-  },
-
-  async updatePartner(context: LaravelContext, id: string | number, partner: Partial<Partner>): Promise<{ status: number; message: string; data: Partner }> {
-    return apiClient.put(`/portfolio/partners/${id}`, partner, {
-      params: withLaravelParams(context),
-    })
-  },
-
-  async deletePartner(context: LaravelContext, id: string | number): Promise<{ status: number; message: string }> {
-    return apiClient.delete(`/portfolio/partners/${id}`, withLaravelParams(context))
-  },
-
   // Signal & Opportunity Matches
   async getSignalMatches(context: LaravelContext, signalId: number): Promise<{ status: number; data: SignalMatchingResponse }> {
     return apiClient.get(`/signals/${signalId}/opportunity-matches`, withLaravelParams(context))
@@ -206,7 +135,6 @@ export const portfolioService = {
       signal_type: 'signal' | 'company_opportunity' | 'opportunity' | 'ingestion_finding' | 'ingestion_signal'
       signal_id: number
       offer_id: string
-      partner_id?: string | null
       action: 'review' | 'follow-up' | 'dismiss' | 'matched'
       review_notes?: string
     }

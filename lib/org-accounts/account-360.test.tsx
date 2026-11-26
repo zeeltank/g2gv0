@@ -144,7 +144,7 @@ describe('Account 360 tab: the linked records', () => {
 describe('Account 360 tab: the signals', () => {
   afterEach(disposeAll)
 
-  it('shows each signal with its status in words, its date, and a link to Company Opportunities on its title', async () => {
+  it('shows each signal with its status in words, its date, and a link to Market Signals on its title', async () => {
     const { k, section } = await setup()
     const signals = section('Signals')!
     assert.ok(signals.textContent!.includes('3 in total · 2 need a decision · 1 decided'), "signals.textContent!.includes('3 in total · 2 need a decision · 1 decided')")
@@ -152,7 +152,7 @@ describe('Account 360 tab: the signals', () => {
     assert.equal(first.querySelector('[data-status]')!.textContent, 'Needs decision')
     assert.equal(first.querySelector('[data-date-kind]')!.textContent, 'Event 12 Oct 2026')
     assert.equal(first.querySelector('a')!.getAttribute('href'), '/signals?status=all&q=District%20invites%20bids%20for%20school%20software')
-    assert.ok(signals.textContent!.includes('Decisions are made in Company Opportunities.'), 'the sentence names the screen the title link opens')
+    assert.ok(signals.textContent!.includes('Decisions are made in Market Signals.'), 'the sentence names the screen the title link opens')
     const second = k.one('[data-signal="302"]')!
     assert.equal(second.querySelector('[data-status]')!.textContent, 'Reviewed')
     assert.equal(second.querySelector('[data-date-kind]')!.textContent, 'Date unknown')

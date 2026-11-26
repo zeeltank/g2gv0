@@ -188,11 +188,11 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
   row('crm', 'S24', 'GTM campaigns, segments and outreach', '/gtm/campaigns'),
   row('crm', 'S25', 'GTM playbooks, agents and workflows', '/gtm/playbooks'),
   row('crm', 'S26', 'GTM reports and monitoring', '/gtm/reports'),
-  partial('crm', 'S27', 'Signals: company opportunities', '/signals', SIGEV),
+  partial('crm', 'S27', 'Signals: market signals', '/signals', SIGEV),
   partial('crm', 'S28', 'Signals: research runs', '/signals', SIGYIELD),
   partial('crm', 'S29', 'Signals: review', '/signal-review', SIGEV),
   row('crm', 'S30', 'Signals: ingestion and connectors', '/ingestion'),
-  row('crm', 'S31', 'Signals: portfolio, partners, ICP and matching', '/portfolio'),
+  row('crm', 'S31', 'Signals: portfolio, ICP and matching', '/portfolio'),
   row('crm', 'S32', 'Legacy signal inbox', `${CRM}/marketing/signal-inbox`),
 
   // 3.8 Platform Services (11). P3, P4, P6, P9, P10, P11 are covered by the new platform detectors (named by contract with the backend).

@@ -5,19 +5,19 @@ import type { NavModule, NavNode } from './gtg-navigation'
 import { collapseSignalsNav, SIGNALS_TABS, visibleSignalsTabs } from './signals-nav'
 
 /**
- * The Signal Review row (menu 506) is retired as a screen (merged into Company Opportunities, 13 Nov 2026) but stays in the database with status 1, because a
+ * The Signal Review row (menu 506) is retired as a screen (merged into Market Signals, 13 Nov 2026) but stays in the database with status 1, because a
  * Role & Permissions save deletes the rights of every row that is not status 1. So the sidebar must never draw it, whatever a person's rights, and a visit to its
- * old address must highlight Market Signals. Written beside lib/signals-screen.test.ts, which pins the four tabs and stays as it is.
+ * old address must highlight Market Signals. Written beside lib/signals-screen.test.ts, which pins the three tabs and stays as it is.
  */
 
 const leaf = (id: number, label: string, accessLink: string | null): NavNode => ({ id: String(id), label, accessLink, children: [] })
 
-/** Market Signals as the live menu has it: the four tabs and Signal Inbox under it. */
+/** Market Signals as the menu has it once the rename command has run: the three tabs and Signal Inbox under it. */
 const signalsBranch = (): NavNode => ({
   id: '489', label: 'Market Signals', accessLink: '/module/crm/signals',
   children: [
-    leaf(490, 'Company Opportunities', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion'), leaf(492, 'Product Portfolio', '/portfolio'),
-    leaf(493, 'Partner Network', '/partners'), leaf(501, 'Signal Inbox', '/module/crm/marketing/signal-inbox'),
+    leaf(490, 'Market Signals', '/signals'), leaf(491, 'Ingestion Engine', '/ingestion'), leaf(492, 'Product Portfolio', '/portfolio'),
+    leaf(501, 'Signal Inbox', '/module/crm/marketing/signal-inbox'),
   ],
 })
 
@@ -47,14 +47,14 @@ describe('the sidebar never shows Signal Review', () => {
     assert.deepEqual(withRow.owners, without.owners)
   })
 
-  it('leaves Market Signals a flat link to /signals with no children, and the four tabs as they are', () => {
+  it('leaves Market Signals a flat link to /signals with no children, and the three tabs as they are', () => {
     const result = collapseSignalsNav([crm([signalsBranch(), REVIEW()])])
     const marketSignals = result.modules[0].children.find((c) => c.id === '489')!
     assert.equal(marketSignals.accessLink, '/signals')
     assert.deepEqual(marketSignals.children, [])
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    assert.deepEqual(visibleSignalsTabs(result.tabs).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/partners'])
-    for (const href of ['/signals', '/ingestion', '/portfolio', '/partners', '/signals/portfolio']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
+    assert.deepEqual(visibleSignalsTabs(result.tabs).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
+    for (const href of ['/signals', '/ingestion', '/portfolio', '/signals/portfolio']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
   })
 
   it('drops it wherever it is nested, under either address or by its name, and keeps its neighbours', () => {
@@ -123,8 +123,8 @@ const SERVER_MENU = [
   raw(199, 'Sales & Marketing Intelligence', '/module/crm', null, 1, [
     raw(442, 'Command Center', '/module/crm/command-center', 199, 1),
     raw(489, 'Market Signals', '/module/crm/signals', 199, 2, [
-      raw(490, 'Company Opportunities', '/signals', 489, 1), raw(491, 'Ingestion Engine', '/ingestion', 489, 2), raw(492, 'Product Portfolio', '/portfolio', 489, 3),
-      raw(493, 'Partner Network', '/partners', 489, 4), raw(501, 'Signal Inbox', '/module/crm/marketing/signal-inbox', 489, 5),
+      raw(490, 'Market Signals', '/signals', 489, 1), raw(491, 'Ingestion Engine', '/ingestion', 489, 2), raw(492, 'Product Portfolio', '/portfolio', 489, 3),
+      raw(501, 'Signal Inbox', '/module/crm/marketing/signal-inbox', 489, 5),
     ]),
     raw(506, 'Signal Review', '/signal-review', 199, 9),
   ]),

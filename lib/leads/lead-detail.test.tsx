@@ -194,12 +194,12 @@ describe('a lead\'s page: the Evidence tab', () => {
     s.restore()
   })
 
-  it('links to Company Opportunities for that signal, narrowed by its title, whether or not the person\'s menu still holds the retired Signal Review row', async () => {
+  it('links to Market Signals for that signal, narrowed by its title, whether or not the person\'s menu still holds the retired Signal Review row', async () => {
     const withRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) })
     await withRow.openTab('Evidence')
     const link = withRow.k.one('[data-signal-link]')!
     assert.equal(link.getAttribute('href'), '/signals?status=all&q=A%20%26%20B%20plan')
-    assert.equal(link.textContent!.trim(), 'Open this signal in Company Opportunities')
+    assert.equal(link.textContent!.trim(), 'Open this signal in Market Signals')
     withRow.restore()
     await disposeAll()
     const withoutRow = await open({ sourceSignalId: 77, sourceSignal: signal({ title: 'A & B plan' }) }, { signalReview: false })
