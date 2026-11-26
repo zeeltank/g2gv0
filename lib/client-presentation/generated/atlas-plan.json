@@ -1,0 +1,467 @@
+[
+ {
+  "kind": "hub",
+  "theme": "ink",
+  "title": "Choose a product",
+  "kicker": "Products",
+  "ghost": "",
+  "beats": 0,
+  "key": "a1",
+  "n": 201
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "",
+  "family": "core",
+  "beats": 0,
+  "key": "a2",
+  "n": 202
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "1/5",
+  "family": "core",
+  "subs": [
+   "core-student",
+   "core-admission",
+   "core-attendance",
+   "core-users",
+   "core-front-desk"
+  ],
+  "beats": 4,
+  "key": "a3",
+  "n": 203
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "2/5",
+  "family": "core",
+  "subs": [
+   "core-visitor-management",
+   "core-timetable",
+   "core-exam",
+   "core-fees",
+   "core-petty-cash"
+  ],
+  "beats": 4,
+  "key": "a4",
+  "n": 204
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "3/5",
+  "family": "core",
+  "subs": [
+   "core-inventory",
+   "core-transport",
+   "core-hostel",
+   "core-library",
+   "core-inward-outward"
+  ],
+  "beats": 4,
+  "key": "a5",
+  "n": 205
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "4/5",
+  "family": "core",
+  "subs": [
+   "core-utility",
+   "core-document-templates",
+   "core-communication",
+   "core-circular",
+   "core-parent-communication"
+  ],
+  "beats": 4,
+  "key": "a6",
+  "n": 206
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "5/5",
+  "family": "core",
+  "subs": [
+   "core-consent",
+   "core-ptm",
+   "core-complaint",
+   "core-mobile-apps",
+   "core-alumni-management"
+  ],
+  "beats": 4,
+  "key": "a7",
+  "n": 207
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "",
+  "family": "core",
+  "beats": 0,
+  "key": "a8",
+  "n": 208
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "1/3",
+  "family": "core",
+  "subs": [
+   "core-student",
+   "core-admission",
+   "core-attendance",
+   "core-users",
+   "core-front-desk",
+   "core-visitor-management",
+   "core-timetable",
+   "core-exam",
+   "core-fees"
+  ],
+  "beats": 0,
+  "key": "a9",
+  "n": 209
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "2/3",
+  "family": "core",
+  "subs": [
+   "core-petty-cash",
+   "core-inventory",
+   "core-transport",
+   "core-hostel",
+   "core-library",
+   "core-inward-outward",
+   "core-utility",
+   "core-document-templates",
+   "core-communication"
+  ],
+  "beats": 0,
+  "key": "a10",
+  "n": 210
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "3/3",
+  "family": "core",
+  "subs": [
+   "core-circular",
+   "core-parent-communication",
+   "core-consent",
+   "core-ptm",
+   "core-complaint",
+   "core-mobile-apps",
+   "core-alumni-management"
+  ],
+  "beats": 0,
+  "key": "a11",
+  "n": 211
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "beats": 0,
+  "key": "a12",
+  "n": 212
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "1/2",
+  "family": "learn",
+  "subs": [
+   "learn-teach-learn",
+   "learn-exam-assessment",
+   "learn-engagement",
+   "learn-curriculum-planning"
+  ],
+  "beats": 3,
+  "key": "a13",
+  "n": 213
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "2/2",
+  "family": "learn",
+  "subs": [
+   "learn-pal-content-model",
+   "learn-pal-knowledge-graph",
+   "learn-pal-engines"
+  ],
+  "beats": 2,
+  "key": "a14",
+  "n": 214
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "beats": 0,
+  "key": "a15",
+  "n": 215
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Learn",
+  "kicker": "LMS + PAL",
+  "ghost": "",
+  "family": "learn",
+  "subs": [
+   "learn-teach-learn",
+   "learn-exam-assessment",
+   "learn-engagement",
+   "learn-curriculum-planning",
+   "learn-pal-content-model",
+   "learn-pal-knowledge-graph",
+   "learn-pal-engines"
+  ],
+  "beats": 0,
+  "key": "a16",
+  "n": 216
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "beats": 0,
+  "key": "a17",
+  "n": 217
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "1/2",
+  "family": "ccb",
+  "subs": [
+   "ccb-organization-management",
+   "ccb-task-management",
+   "ccb-talent-management"
+  ],
+  "beats": 2,
+  "key": "a18",
+  "n": 218
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "2/2",
+  "family": "ccb",
+  "subs": [
+   "ccb-hrit-management",
+   "ccb-capability-intelligence",
+   "ccb-lms"
+  ],
+  "beats": 2,
+  "key": "a19",
+  "n": 219
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "beats": 0,
+  "key": "a20",
+  "n": 220
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar CCB",
+  "kicker": "People & Competency",
+  "ghost": "",
+  "family": "ccb",
+  "subs": [
+   "ccb-organization-management",
+   "ccb-task-management",
+   "ccb-talent-management",
+   "ccb-hrit-management",
+   "ccb-capability-intelligence",
+   "ccb-lms"
+  ],
+  "beats": 0,
+  "key": "a21",
+  "n": 221
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "beats": 0,
+  "key": "a22",
+  "n": 222
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "1/2",
+  "family": "insight",
+  "subs": [
+   "insight-overview",
+   "insight-foundation",
+   "insight-intelligence-loop",
+   "insight-analytics"
+  ],
+  "beats": 3,
+  "key": "a23",
+  "n": 223
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "2/2",
+  "family": "insight",
+  "subs": [
+   "insight-knowledge",
+   "insight-automation",
+   "insight-settings"
+  ],
+  "beats": 2,
+  "key": "a24",
+  "n": 224
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "beats": 0,
+  "key": "a25",
+  "n": 225
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Insight",
+  "kicker": "Enterprise Brain",
+  "ghost": "",
+  "family": "insight",
+  "subs": [
+   "insight-overview",
+   "insight-foundation",
+   "insight-intelligence-loop",
+   "insight-analytics",
+   "insight-knowledge",
+   "insight-automation",
+   "insight-settings"
+  ],
+  "beats": 0,
+  "key": "a26",
+  "n": 226
+ },
+ {
+  "kind": "opener",
+  "theme": "ink",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
+  "beats": 0,
+  "key": "a27",
+  "n": 227
+ },
+ {
+  "kind": "subs",
+  "theme": "ink",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "1/1",
+  "family": "compass",
+  "subs": [
+   "compass-career-awareness",
+   "compass-career-counseling",
+   "compass-career-explorer",
+   "compass-career-intelligence"
+  ],
+  "beats": 3,
+  "key": "a28",
+  "n": 228
+ },
+ {
+  "kind": "glance",
+  "theme": "paper",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
+  "beats": 0,
+  "key": "a29",
+  "n": 229
+ },
+ {
+  "kind": "gallery",
+  "theme": "paper",
+  "title": "Scholar Compass",
+  "kicker": "Career Counseling",
+  "ghost": "",
+  "family": "compass",
+  "subs": [
+   "compass-career-awareness",
+   "compass-career-counseling",
+   "compass-career-explorer",
+   "compass-career-intelligence"
+  ],
+  "beats": 0,
+  "key": "a30",
+  "n": 230
+ }
+]

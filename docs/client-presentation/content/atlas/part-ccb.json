@@ -1,0 +1,383 @@
+{
+  "family": "ccb",
+  "family_sheet": {
+    "summary": "Scholar CCB helps schools manage staff capability: roles and competencies, tasks, talent records, HR operations and learning.",
+    "problem": "Staff roles, skills, tasks, reviews and training sit in separate tools, so schools struggle to see who is ready for what.",
+    "benefit": "Role needs, capability ratings, tasks, reviews and learning could become easier to connect, so development conversations could start from clearer information.",
+    "technology": [
+      "Role-to-competency map",
+      "Role-based access",
+      "Reports and exports",
+      "Knowledge graph"
+    ],
+    "research": {
+      "text": "Capability Explorer designed from O*NET and SkillsFuture Singapore occupational reference data, per its source notes.",
+      "evidence": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php"
+      ]
+    },
+    "workflow": [
+      "Define roles",
+      "Map competencies",
+      "Rate capability",
+      "Plan development",
+      "Assign work",
+      "Deliver learning"
+    ],
+    "ai": [
+      "Draft department SOPs from a short brief, then edit",
+      "Write quiz questions from a course's own lessons"
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/k12-menu-2026-11-25.json",
+      "lms_k12/app/components/utils/api_url.tsx",
+      "lms_k12/docs/menu-data-source-audit.md",
+      "next_lms_erp/routes/organization_management.php",
+      "next_lms_erp/routes/task_management.php",
+      "next_lms_erp/routes/talent_management.php",
+      "next_lms_erp/routes/competency_management.php",
+      "next_lms_erp/routes/g2g_lms.php",
+      "next_lms_erp/app/Http/Controllers/api/AiSopGenerationController.php",
+      "next_lms_erp/app/Http/Controllers/G2gLms/CourseBuilderController.php"
+    ]
+  },
+  "items": [
+    {
+      "id": "ccb-organization-management",
+      "name": "Organization Management",
+      "k12_menu": "People & Competency > Organization Management",
+      "screens": [
+        "Organization Profile",
+        "Department",
+        "Employee Directory",
+        "Compliance Library",
+        "Diciplinary Library",
+        "Role & Permissions"
+      ],
+      "summary": "One place for the school's organization profile, departments, staff directory, compliance duties, disciplinary records and role-wise screen access.",
+      "problem": "Staff details, compliance deadlines and discipline records are often kept apart, so ownership is hard to see.",
+      "features": [
+        "Department pages with employees, job roles and SOPs",
+        "Staff directory with filters, status switch and CSV export",
+        "Compliance register with calendar, overdue list and templates",
+        "Disciplinary records by department and employee",
+        "Role and permissions matrix for screen access"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access",
+        "Rules and automation",
+        "Reports and exports"
+      ],
+      "benefit": "Staff, compliance and discipline records could become easier to find, and responsibilities easier to follow, in one place.",
+      "workflow": [
+        "Set up departments",
+        "Keep staff records",
+        "Track compliance",
+        "Record incidents",
+        "Set role access"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/organization_managment/Department/page.tsx",
+        "lms_k12/app/organization-management/employee-directory/components/employee-directory.tsx",
+        "lms_k12/app/organization-management/compliance-library/components/compliance-library-management.tsx",
+        "lms_k12/app/organization-management/role-and-permissions/components/role-permissions-matrix.tsx",
+        "next_lms_erp/routes/organization_management.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (routes/organization_management.php and routes/api.php), not hp_erp; screens are ports of G2G screens.",
+        "Menu lists three report screens (Employee Directory, Compliance, Disciplinary) with no page in the front end; not shown.",
+        "Add New People sheet uses sample options and Import is disabled; not shown.",
+        "Department Policies and Rules tabs hold sample lists; not shown.",
+        "Saving a competency rating from the staff profile has a known failing call; not shown.",
+        "SOP drafting with AI needs an AI provider set up for the school; confirm before demo.",
+        "Menu spells 'Diciplinary' and route 'oragnization'; fix before showing.",
+        "Organization Profile fields read like a company form (registration, tax numbers, sister companies)."
+      ]
+    },
+    {
+      "id": "ccb-task-management",
+      "name": "Task Management",
+      "k12_menu": "People & Competency > Task Management",
+      "screens": [
+        "Task Management Dashboard",
+        "My Tasks",
+        "Projects & Workstreams",
+        "Dependencies & Workstreams",
+        "Task Calendar",
+        "Reports & Analysis",
+        "Status Management",
+        "Permissions Matrix",
+        "Audit Logs"
+      ],
+      "summary": "Staff tasks, projects, dependencies and deadlines in one workspace, with reports on delays and productivity and a full audit trail.",
+      "problem": "When tasks live in chats and spreadsheets, owners, deadlines and delays are hard to follow.",
+      "features": [
+        "My Tasks in list or board view",
+        "Link each task to the capability it builds",
+        "Dependency map, timeline and milestone views",
+        "Deadline extension requests with approve or reject",
+        "Productivity and delay reports with audit log export"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access",
+        "Reports and exports"
+      ],
+      "benefit": "Task ownership, deadlines and blockers could become easier to see, and staff work could connect more clearly to capability.",
+      "workflow": [
+        "Create task",
+        "Assign owner",
+        "Track progress",
+        "Request extension",
+        "Review reports"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/task-management/my-tasks/components/create-task-modal.tsx",
+        "lms_k12/app/task-management/dependencies-workstreams/components/dependencies-center.tsx",
+        "lms_k12/app/task-management/reports-analysis/components/tm-reports.tsx",
+        "lms_k12/app/task-management/_lib/my-tasks-api.ts",
+        "next_lms_erp/routes/task_management.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (routes/task_management.php); a port of the G2G task module, not hp_erp.",
+        "Reports tab 'Learning Recommendations' calls a route missing in next_lms_erp; not shown.",
+        "Create Task 'generate with AI' sparkle calls a route not found in next_lms_erp; not shown.",
+        "Integration screen (outside message providers) carries a sample badge; not shown.",
+        "Capability link applies only to job-role catalogue tasks, not custom tasks.",
+        "Permissions Matrix is read-only; it and the reports need an elevated staff role."
+      ]
+    },
+    {
+      "id": "ccb-talent-management",
+      "name": "Talent Management",
+      "k12_menu": "People & Competency > Talent Management",
+      "screens": [
+        "Talent Dashboard",
+        "Recruitment",
+        "Onbording",
+        "Performance Reviews & Appraisals",
+        "Mobility & Succession",
+        "Offboarding",
+        "Employee Profiles",
+        "Certification",
+        "Development & Career Paths"
+      ],
+      "summary": "Hiring, onboarding, reviews, internal moves, exits, certifications and capability ratings for school staff, connected in one lifecycle view.",
+      "problem": "Hiring, reviews, certifications and staff skills are tracked separately, so leaders lack a joined-up view of their people.",
+      "features": [
+        "Hiring flow from job opening to offer",
+        "Onboarding journey with probation and confirmation",
+        "Goals, reviews and appraisals in review cycles",
+        "Rate staff on capability items from one to five",
+        "Development plans show gaps against role needs"
+      ],
+      "research": null,
+      "technology": [
+        "Role-to-competency map",
+        "Role-based access"
+      ],
+      "benefit": "Staff journeys from hiring to development could become easier to follow, with capability ratings and role needs visible side by side.",
+      "workflow": [
+        "Post job opening",
+        "Onboard staff",
+        "Run review cycle",
+        "Rate capabilities",
+        "Track certifications",
+        "Plan development"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/talent-management/recruitment/components/recruitment-center.tsx",
+        "lms_k12/app/talent-management/onboarding/components/onboarding-center.tsx",
+        "lms_k12/app/talent-management/employee-profiles/components/employee-profiles-center.tsx",
+        "lms_k12/app/talent-management/development-and-career-paths/components/development-career-center.tsx",
+        "next_lms_erp/routes/talent_management.php",
+        "next_lms_erp/routes/competency_management.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (routes/talent_management.php, routes/competency_management.php); ports of the G2G talent module, not hp_erp.",
+        "Administration screen: only the Workflows tab works, other tabs say under construction; not shown.",
+        "Development & Career Paths: the Learning Assignments tab and its 'Assign Learning' buttons call missing routes; not shown, hide before demo.",
+        "Mobility & Succession mixes live data with fixed filter lists and fixed trend text; do not quote its figures.",
+        "Capability ratings need library items; a 8 Sep decision note found the rating table empty; check live data first.",
+        "Recruitment: saving a new job opening calls an outside webhook (ported as-is); job-text analysis result is not shown to users.",
+        "Performance Reviews has Compensation and Bonus tabs (money data); not shown.",
+        "Menu spells 'Onbording'; fix before showing."
+      ]
+    },
+    {
+      "id": "ccb-hrit-management",
+      "name": "HRIT Management",
+      "k12_menu": "People & Competency > HRIT Management",
+      "screens": [
+        "Attendance Tracking",
+        "Attendance Reports",
+        "Leave Dashboard",
+        "Leave Requests",
+        "Leave Reports",
+        "Leave Configuration",
+        "Payroll Type",
+        "Salary Structure",
+        "Payroll Deduction",
+        "Form 16",
+        "Salary Certificate",
+        "Monthly Payroll Report"
+      ],
+      "summary": "Attendance, leave and payroll records for school staff, with approvals, configuration and reports in one HR operations area.",
+      "problem": "Attendance registers, leave requests and payroll papers are handled separately, which can slow approvals and month-end checks.",
+      "features": [
+        "Punch in and out with attendance KPIs",
+        "Leave requests with single and bulk approval",
+        "Leave types, holidays and approval workflow settings",
+        "Payroll types, salary structures and deductions",
+        "Form 16, salary certificates and monthly payroll report"
+      ],
+      "research": null,
+      "technology": [
+        "Rules and automation",
+        "Role-based access",
+        "Reports and exports"
+      ],
+      "benefit": "Attendance, leave and payroll steps could become easier to complete and review, with records ready when approvals or reports are needed.",
+      "workflow": [
+        "Record attendance",
+        "Request leave",
+        "Approve requests",
+        "Set up payroll",
+        "Issue certificates"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/hrit/_lib/leave-api.ts",
+        "lms_k12/app/hrit/_lib/attendance-api.ts",
+        "lms_k12/app/hrit/_lib/payroll-api.ts",
+        "next_lms_erp/routes/api.php",
+        "next_lms_erp/routes/hrms.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (leave and attendance blocks in routes/api.php, payroll in routes/hrms.php); leave and attendance logic ported from hp_erp.",
+        "This is HR operations, not capability: confirm it belongs on the CCB card.",
+        "Leave Reports catalogue and saved-report lists are fixed lists in the screen, not live.",
+        "Payroll screens use older web routes; confirm payroll data is real and keep amounts off slides.",
+        "Attendance policy, regularization and request pages exist but are not in the menu; not shown."
+      ]
+    },
+    {
+      "id": "ccb-capability-intelligence",
+      "name": "Capability Intelligence",
+      "k12_menu": "People & Competency > Capability Intelligence",
+      "screens": [
+        "Dashboard",
+        "Capability Library",
+        "Competency Library",
+        "Competency Framework",
+        "Capability Explorer",
+        "Mentor Skill Mapping"
+      ],
+      "summary": "Capability and competency libraries, role-to-competency framework, command dashboard, skills graph explorer and mentor skill matching.",
+      "problem": "Without one shared skill language, roles, skills and required levels are described differently across teams, so gaps are hard to compare.",
+      "features": [
+        "Library of job roles, tasks, knowledge, ability and behaviour",
+        "Competency library with clone, archive and CSV export",
+        "Map competencies to job roles with required levels",
+        "Dashboard filtered by department, job role and location",
+        "Explore skills and job roles as a graph"
+      ],
+      "research": {
+        "text": "Explorer designed from a reference occupational ontology sourced from O*NET and SkillsFuture Singapore, per its source notes.",
+        "evidence": [
+          "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx",
+          "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php"
+        ]
+      },
+      "technology": [
+        "Role-to-competency map",
+        "Knowledge graph",
+        "Reports and exports"
+      ],
+      "benefit": "Roles, skills and required levels could become easier to describe in one shared language, so capability gaps could be easier to compare.",
+      "workflow": [
+        "Build libraries",
+        "Define competencies",
+        "Map to roles",
+        "Set required levels",
+        "Review dashboard"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/capability-intelligence/dashboard/components/command-center.tsx",
+        "lms_k12/app/capability-intelligence/capability-library/components/capability-library-taxonomy.tsx",
+        "lms_k12/app/capability-intelligence/competency-framework/components/framework-mapping.tsx",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx",
+        "next_lms_erp/routes/competency_management.php",
+        "next_lms_erp/app/Services/Competency/CommandCenterService.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (routes/competency_management.php, Services/Competency); ported from G2G, data is the school's own, not G2G's.",
+        "Dashboard assessment tiles are fixed at zero in code; hide them. Do not quote dashboard numbers.",
+        "Capability Explorer needs the Enterprise Brain graph; confirm it is reachable on the live site.",
+        "Mentor Skill Mapping says 'not set up yet' until the career crosswalk exists; suggestions are text similarity and HR confirms each match.",
+        "Ontology source (O*NET, SkillsFuture Singapore) comes from a code comment only; confirm credit wording.",
+        "Library content may be empty on live (8 Sep decision note); check before demo.",
+        "Cross-product reads of G2G data need a token that is not set up; not shown."
+      ]
+    },
+    {
+      "id": "ccb-lms",
+      "name": "LMS",
+      "k12_menu": "People & Competency > LMS",
+      "screens": [
+        "Learning Dashboard",
+        "Learning Catalog",
+        "My Learning",
+        "Assignments",
+        "Sessions & Calendar",
+        "Certifications & Records",
+        "Course Builder",
+        "Administration & Governance"
+      ],
+      "summary": "Staff learning hub: course catalog, my learning player, course builder, session calendar, certificates and administration for training teams.",
+      "problem": "Training courses, sessions and certificates are scattered, so it is hard to see who learned what and who is due.",
+      "features": [
+        "Course catalog; assign courses to people, departments or roles",
+        "Course builder with modules, lessons and quizzes",
+        "Map each course to the capabilities it builds",
+        "My Learning player with notes, discussions and certificates",
+        "Training sessions calendar with registration"
+      ],
+      "research": null,
+      "technology": [
+        "Role-based access"
+      ],
+      "benefit": "Training, sessions and certificates could become easier to organise, and staff learning could link more clearly to the capabilities schools need.",
+      "workflow": [
+        "Build course",
+        "Choose audience",
+        "Staff learn",
+        "Run sessions",
+        "Issue certificates"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/people-competency/lms/course-builder/page.tsx",
+        "lms_k12/components/domain/lms/course-builder/create-course-page.tsx",
+        "lms_k12/components/domain/lms/catalog/learning-catalog.tsx",
+        "next_lms_erp/routes/g2g_lms.php",
+        "next_lms_erp/app/Http/Controllers/G2gLms/CourseBuilderController.php"
+      ],
+      "owner_to_confirm": [
+        "Served by next_lms_erp (routes/g2g_lms.php); a port of the G2G LMS, separate from the K-12 student LMS.",
+        "Assessments screen calls route names the back end does not define (cycles, tests, mine); not shown.",
+        "'Write 5 with AI' needs an AI provider set up; screen note says questions tie to capabilities but the back end drops that link, so do not claim it.",
+        "Course outline and slide-deck AI routes exist with no screen; not shown.",
+        "Assignments dialog is labelled 'Assign Learning' in code; avoid that name on slides.",
+        "Learning Dashboard change-enrolment and cancel-enrolment calls use paths the back end lacks; only enrol works; test before demo.",
+        "Achievements widget returns nothing until its table exists; not shown."
+      ]
+    }
+  ]
+}

@@ -9,7 +9,6 @@ const ConsentListView = createLazyComponent(() => import('@/domain/crm/consent-l
 
 const LeadListView = createLazyComponent(() => import('@/domain/crm/lead-list-view').then((m) => ({ default: m.LeadListView })))
 const OrganizationListView = createLazyComponent(() => import('@/domain/crm/organization-list-view').then((m) => ({ default: m.OrganizationListView })))
-const ContactListView = createLazyComponent(() => import('@/domain/crm/contact-list-view').then((m) => ({ default: m.ContactListView })))
 const CampaignListView = createLazyComponent(() => import('@/domain/crm/campaign-list-view').then((m) => ({ default: m.CampaignListView })))
 
 // Sales phase. Each of these is a real, working list view screen.
@@ -81,8 +80,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 5. Account 360 / Organizations
   { accessLink: '/module/crm/marketing/organizations', component: OrganizationListView },
 
-  // 6. Stakeholders & Contacts
-  { accessLink: '/module/crm/marketing/contacts', component: ContactListView },
+  // 6. Contacts were merged into Organizations (S18, 25 Nov 2026): a person is a tab of a company (People) and a scope of the Organizations list (All people). The two old
+  // Contacts addresses, with their detail pages, are redirect pages under app/module/crm/{marketing,support}/contacts, so nothing is mapped here.
 
   // 7. Multi-Channel Campaigns (Unified CRM + GTM)
   { accessLink: '/gtm/campaigns', component: CampaignsView },
@@ -166,6 +165,5 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/support/service-contracts', component: ServiceContractListView },
   { accessLink: '/module/crm/support/email-templates', component: EmailTemplateListView },
   { accessLink: '/module/crm/support/organizations', component: OrganizationListView },
-  { accessLink: '/module/crm/support/contacts', component: ContactListView },
   { accessLink: '/module/crm/support/sms-notifier', component: SmsLogListView },
 ]

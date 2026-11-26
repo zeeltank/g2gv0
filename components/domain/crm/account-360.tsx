@@ -274,7 +274,7 @@ export function Account360View({ organizationId, service, loadOld, links, owners
           {/* The facts an agent or a source suggested about this organization, with their evidence (components/domain/crm/fact-evidence-section.tsx). `Account360` below renders it. */}
           {Evidence && <Evidence organizationId={organizationId} onWroteRecord={onRecordWritten ? () => { onRecordWritten(); void loadIdentity(true) } : undefined} />}
           <SignalsSection org={org} links={links} />
-          <ContactsSection org={org} />
+          <ContactsSection org={org} links={links} />
           <DealsSection org={org} links={links} onOpenTab={onOpenTab} />
         </>
       )}

@@ -86,7 +86,7 @@ describe('Suggestions: opening', () => {
 
   it('links each record through the person\'s own menu', async () => {
     const s = await setup()
-    assert.equal(s.card(1)!.querySelector('[data-record] a')!.getAttribute('href'), '/module/crm/marketing/contacts/31')
+    assert.equal(s.card(1)!.querySelector('[data-record] a')!.getAttribute('href'), '/module/crm/marketing/organizations?scope=people&person=31') // S18: a person opens under Organizations (All people); CHANGED ON PURPOSE
     assert.equal(s.card(3)!.querySelector('[data-record] a')!.getAttribute('href'), '/module/crm/marketing/organizations/135')
     s.restore()
   })

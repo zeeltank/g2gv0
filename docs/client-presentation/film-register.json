@@ -1,5 +1,5 @@
 {
-  "rendered": "2026-11-24",
+  "rendered": "2026-11-25",
   "tool": "film-studio/render.mjs",
   "file": "film/scholarclone-59s.mp4",
   "poster": "film/scholarclone-59s-poster.jpg",
@@ -8,8 +8,8 @@
   "seconds": 59,
   "codec": "h264",
   "pixel_format": "yuv420p",
-  "bytes": 9515598,
-  "sha256": "aada5207244c1c96837ab5f4b239aaa5ef36e4926733c24fa9818de542418d46",
+  "bytes": 9527399,
+  "sha256": "5e72f9fae74d35b9b1917c9474209b3e333b8490015bdbebf9a83e44f8bff487",
   "audio": "none, by decision (silent, captions on screen)",
   "source": "Motion graphics (version 2, 3D) rendered frame by frame from film-studio/: three.js WebGL scenes with real CC0 models, HDRI lights and PBR textures (credits in film-studio/CREDITS.json), one paused GSAP master timeline, captions set in HTML on the same clock, shader transitions; captured through Chrome DevTools on the NVIDIA GPU and encoded with ffmpeg H.264. It is motion graphics with made-up school data, not a screen recording.",
   "beats": [

@@ -301,12 +301,35 @@ export interface LeadListQuery {
 
 export type LeadConsentFilter = 'allowed' | 'blocked'
 
+/** Where the lead's comments, e-mails, documents and events move to when it is converted (S19). */
+export type ConvertTransferTarget = 'organization' | 'contact' | 'opportunity'
+
+/** The deal the pop-up asks for; every field is optional, and the server fills what is left out (today's name, the organisation's default currency). */
+export interface ConvertOpportunityDetails {
+  name?: string
+  amount?: number
+  currency?: string
+  closeDate?: string
+  stage?: string
+}
+
 export interface ConvertLeadPayload {
   createOrganization: boolean
   createContact: boolean
+  /** The new organization's name and industry (S19); the lead's own company and industry when left out. */
   organizationName?: string
+  industry?: string
+  /** An organization that already exists, used instead of making one: `createOrganization` is then false. */
+  existingOrganizationId?: string
   existingContactId?: string
+  /** The person becomes the company's primary contact, and the role they hold there (S18); ignored when there is no company. */
+  makePrimary?: boolean
+  contactRole?: string
   createOpportunity?: boolean
+  /** Honoured only with `createOpportunity`. */
+  opportunity?: ConvertOpportunityDetails
+  /** Left out, nothing moves. */
+  transferRelatedTo?: ConvertTransferTarget
   assignedTo: string
 }
 
@@ -320,6 +343,10 @@ export interface ConvertLeadResponse {
     /** Present when no contact was made because the lead names no person (slice 6); `notice` says why, in words. */
     contactSkipped?: boolean
     notice?: string
+    /** Present when the pop-up asked for the person to be the primary contact: whether it was (a person of another company is left alone). */
+    primarySet?: boolean
+    /** Present when the pop-up asked for the related records to move: how many of each moved. */
+    transferred?: { comments: number; emails: number; documents: number; events: number }
   }
 }
 
@@ -438,13 +465,26 @@ export interface Contact {
   otherPoBox: string | null
   description: string | null
   assignedTo: string | null
+  /** The owner's name, sent by the server so the screen does not look the user up again. */
+  assignedToName?: string | null
   createdBy: string | null
   createdAt: string | null
   updatedAt: string | null
+  // S18 (25 Nov 2026): a person is one company's Primary or not, and holds a Role there. Every field below is optional so an older server still works.
+  /** The company's primary person. At most one per company. */
+  isPrimary?: boolean
+  /** A value of the `contact_role` picklist (Decision maker, Influencer, Billing, Technical, User, Other). */
+  contactRole?: string | null
+  reportsToName?: string | null
+  linkedinUrl?: string | null
+  /** The contract's name for the mailing postal code; the older answer calls it `mailingCode`. A reader takes either. */
+  mailingPostalCode?: string | null
+  otherPostalCode?: string | null
 }
 
+/** What the server is asked to store: the person's own fields (never what the server derives, and never Primary, which has its own call). */
 export type ContactPayload = Partial<
-  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<Contact, 'id' | 'contactNo' | 'organizationName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'isPrimary' | 'reportsToName'>
 >
 
 export interface ContactListResponse {
@@ -466,6 +506,54 @@ export interface ContactListQuery {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   organizationId?: string
+  /** Only the primary person of each company. */
+  primary?: boolean
+  /** Only the people assigned to this user id. */
+  owner?: string
+  /** Only people whose consent has this status (opted_in, opted_out, unknown). */
+  consent?: string
+  doNotCall?: boolean
+  /** Only people with no company. */
+  noCompany?: boolean
+}
+
+/** A row of the company-wide lists (`include=people`): which person it belongs to; `personName` is null for a row of the company itself, absent when the list was not asked for people. */
+export interface PersonTag {
+  personId?: string | null
+  personName?: string | null
+}
+
+/** Which rows a company's Emails, Schedule, Documents, Comments, History and Quotes show: its own (`company`) or its own and its people's (`people`, the default). */
+export type CompanyActivityScope = 'people' | 'company'
+
+/** One deal-like row of `GET /crm/contacts/{id}/deals`. Which fields a table has varies (a ticket has no amount), so every one but `id` is optional. */
+export interface ContactDealRow {
+  id: string | number
+  /** The record's number (QT-0042, INV-0031). */
+  number?: string | null
+  name?: string | null
+  subject?: string | null
+  title?: string | null
+  status?: string | null
+  stage?: string | null
+  amount?: number | string | null
+  total?: number | string | null
+  currency?: string | null
+  date?: string | null
+}
+
+export interface ContactDeals {
+  opportunities: ContactDealRow[]
+  quotes: ContactDealRow[]
+  salesOrders: ContactDealRow[]
+  invoices: ContactDealRow[]
+  tickets: ContactDealRow[]
+}
+
+export interface ContactDealsResponse {
+  status: number
+  message: string
+  data: ContactDeals
 }
 
 export interface Campaign {
@@ -1131,7 +1219,7 @@ export interface CrmOpportunityProductsResponse {
 
 // ── Quotes ─────────────────────────────────────────────────────────────────
 
-export interface CrmQuote {
+export interface CrmQuote extends PersonTag {
   id: string
   quoteNo: string | null
   subject: string
@@ -2088,7 +2176,7 @@ export interface CrmBulkSendSmsResponse {
 // Ticket keeps its own CrmTicketComment above - these 4 entities share one
 // identical row shape instead of 4 near-duplicate types.
 
-export interface CrmComment {
+export interface CrmComment extends PersonTag {
   id: string
   comment: string
   createdBy: string | null
@@ -2110,7 +2198,7 @@ export interface CrmAddCommentResponse {
 
 // ── Linked Documents (Lead/Contact/Organization/Opportunity/Ticket) ────────
 
-export interface CrmLinkedDocument {
+export interface CrmLinkedDocument extends PersonTag {
   id: string
   title: string | null
   originalFileName: string | null
@@ -2188,7 +2276,7 @@ export interface CrmEmailListQuery {
 }
 
 /** What `HasCrmEmailLinks::getEmails()` returns for one record's own Emails tab - same fields as CrmEmail plus the sender's display name. */
-export interface CrmEmailLinkEntry {
+export interface CrmEmailLinkEntry extends PersonTag {
   id: string
   subject: string
   body: string
@@ -2254,7 +2342,7 @@ export interface CrmEmailTemplateListQuery {
 
 // ── Audit Trail (generic, cross-entity) ─────────────────────────────────
 
-export interface CrmAuditEntry {
+export interface CrmAuditEntry extends PersonTag {
   id: string
   type: string
   changes: { field: string; oldValue: unknown; newValue: unknown }[]

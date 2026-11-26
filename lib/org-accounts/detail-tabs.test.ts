@@ -3,8 +3,9 @@ import { describe, it } from 'node:test'
 import { ORG_DETAIL_TABS, tabFromSearch } from './detail-tabs'
 
 describe('the tabs of the Organization detail page', () => {
-  it('keeps the tabs it had, in order, and Account 360 sits where it was', () => {
-    assert.deepEqual(ORG_DETAIL_TABS.map((t) => t.label), ['Details', 'Hierarchy', 'Opportunities', 'Quotes', 'Account 360', 'Schedule', 'Comments', 'Documents', 'Emails', 'History', 'Projects'])
+  // S18 (25 Nov 2026), ON PURPOSE: the People tab sits right after Details.
+  it('keeps the tabs it had, in order, with People right after Details, and Account 360 where it was', () => {
+    assert.deepEqual(ORG_DETAIL_TABS.map((t) => t.label), ['Details', 'People', 'Hierarchy', 'Opportunities', 'Quotes', 'Account 360', 'Schedule', 'Comments', 'Documents', 'Emails', 'History', 'Projects'])
   })
 
   it('has no GTM & Signals tab any more: its content is the linked records of the Account 360 tab', () => {
@@ -15,6 +16,7 @@ describe('the tabs of the Organization detail page', () => {
   it('opens the tab a link asks for, and Details for anything else', () => {
     assert.equal(tabFromSearch(''), 'details')
     assert.equal(tabFromSearch('?tab=account_360'), 'account_360')
+    assert.equal(tabFromSearch('?tab=people&person=31'), 'people')
     assert.equal(tabFromSearch('tab=opportunities&x=1'), 'opportunities')
     assert.equal(tabFromSearch('?tab=nonsense'), 'details')
   })

@@ -19,8 +19,14 @@ import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
-import type { CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmPicklistValue, CrmQuote, Organization } from '@/types/crm'
+import { companyActivityService, contactsService } from '@/services/crm/contacts'
+import type { CompanyActivityScope, Contact, CrmAuditEntry, CrmComment, CrmEmailLinkEntry, CrmLinkedDocument, CrmOpportunity, CrmPicklistValue, CrmQuote, Organization } from '@/types/crm'
 import { CreateOrganizationModal } from './create-organization-modal'
+import { CompanyActivitySwitch } from './people/company-activity-switch'
+import { PeopleTab } from './people/people-tab'
+import { usePeopleRights } from './people/people-rights'
+import { personName } from './people/person-model'
+import { WhoChip } from './people/who-chip'
 import { OrganizationHierarchy } from './organization-hierarchy'
 import { SendSmsDialog } from './send-sms-dialog'
 import { useAssignableEmployees } from './lead-employees'
@@ -52,6 +58,16 @@ const BASE_TABS = ORG_DETAIL_TABS
 function tabFromAddress(): Tab {
   return typeof window === 'undefined' ? 'details' : tabFromSearch(window.location.search)
 }
+
+/** The person a link asks for (`?tab=people&person=31`): the People tab opens on them. Read once, like the tab. */
+function personFromAddress(): string | null {
+  if (typeof window === 'undefined') return null
+  const wanted = new URLSearchParams(window.location.search).get('person')
+  return wanted && /^\d+$/.test(wanted) ? wanted : null
+}
+
+/** The tabs whose rows can be the company's own or its people's too: they get the Company only | Everyone switch. */
+const SCOPED_TABS: readonly Tab[] = ['quotes', 'schedule', 'comments', 'documents', 'emails', 'history']
 
 function IconValue({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
   return (
@@ -100,7 +116,7 @@ function TransferOwnershipDialog({ isOpen, onClose, onTransferred, organizationI
             <SearchableSelect value={assignedTo} onChange={setAssignedTo} options={employees.map((e) => ({ value: e.id, label: e.name }))} placeholder="Choose an employee…" />
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label htmlFor="cascade-contacts" className="cursor-pointer">Also transfer this organization’s contacts</Label>
+            <Label htmlFor="cascade-contacts" className="cursor-pointer">Also transfer this company’s people</Label>
             <Switch id="cascade-contacts" checked={cascade} onChange={(e) => setCascade(e.target.checked)} />
           </div>
           {error && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
@@ -118,7 +134,15 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
-  const [tab, setTab] = useState<Tab>(tabFromAddress)
+  const [requestedTab, setTab] = useState<Tab>(tabFromAddress)
+  const [personToOpen, setPersonToOpen] = useState<string | null>(personFromAddress)
+  const rights = usePeopleRights()
+  // The People tab exists only for a person who holds the contacts view right: a link to it opens Details for anyone else.
+  const tab: Tab = requestedTab === 'people' && !rights.view ? 'details' : requestedTab
+  // Everyone (the company's own rows and its people's) is what the tabs open on; a person who may not see people is only ever asked for the company's own.
+  const [scope, setScope] = useState<CompanyActivityScope>('people')
+  const includeScope: CompanyActivityScope = rights.view ? scope : 'company'
+  const [peopleSummary, setPeopleSummary] = useState<{ total: number; primary: Contact | null } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [sendSmsOpen, setSendSmsOpen] = useState(false)
@@ -146,7 +170,10 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const [savingCustom, setSavingCustom] = useState(false)
   const [customNotice, setCustomNotice] = useState<string | null>(null)
 
-  const tabs = hasCustomFields ? [...BASE_TABS, { id: 'custom' as const, label: 'Custom Fields' }] : BASE_TABS
+  const visibleBaseTabs = rights.view ? BASE_TABS : BASE_TABS.filter((t) => t.id !== 'people')
+  const tabs = hasCustomFields ? [...visibleBaseTabs, { id: 'custom' as const, label: 'Custom Fields' }] : visibleBaseTabs
+  const primaryPerson = peopleSummary?.primary ?? null
+  const openPerson = (personId: string) => { setPersonToOpen(personId); setTab('people') }
 
   const loadOpportunities = useCallback(async () => {
     setOpportunitiesLoading(true)
@@ -163,62 +190,62 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
   const loadQuotes = useCallback(async () => {
     setQuotesLoading(true)
     try {
-      const response = await crmService.getQuotes(context, { organizationId: organization.id, perPage: 50 })
+      const response = await companyActivityService.quotes(context, organization.id, includeScope)
       setQuotes(response.data.items)
     } catch {
       /* the tab still renders, just empty */
     } finally {
       setQuotesLoading(false)
     }
-  }, [context, organization.id])
+  }, [context, organization.id, includeScope])
 
   const loadComments = useCallback(async () => {
     setCommentsLoading(true)
     try {
-      const response = await crmService.getOrganizationComments(context, organization.id)
+      const response = await companyActivityService.comments(context, organization.id, includeScope)
       setComments(response.data)
     } catch {
       /* the tab still renders, just empty */
     } finally {
       setCommentsLoading(false)
     }
-  }, [context, organization.id])
+  }, [context, organization.id, includeScope])
 
   const loadDocuments = useCallback(async () => {
     setDocumentsLoading(true)
     try {
-      const response = await crmService.getOrganizationDocuments(context, organization.id)
+      const response = await companyActivityService.documents(context, organization.id, includeScope)
       setDocuments(response.data)
     } catch {
       /* the tab still renders, just empty */
     } finally {
       setDocumentsLoading(false)
     }
-  }, [context, organization.id])
+  }, [context, organization.id, includeScope])
 
   const loadEmails = useCallback(async () => {
     setEmailsLoading(true)
     try {
-      const response = await crmService.getOrganizationEmails(context, organization.id)
+      const response = await companyActivityService.emails(context, organization.id, includeScope)
       setEmails(response.data)
     } catch {
       /* the tab still renders, just empty */
     } finally {
       setEmailsLoading(false)
     }
-  }, [context, organization.id])
+  }, [context, organization.id, includeScope])
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
-      const response = await crmService.getOrganizationHistory(context, organization.id)
+      const response = await companyActivityService.history(context, organization.id, includeScope)
       setHistory(response.data)
     } catch {
       /* the tab still renders, just empty */
     } finally {
       setHistoryLoading(false)
     }
-  }, [context, organization.id])
+  }, [context, organization.id, includeScope])
 
   const loadLinkedProjects = useCallback(async () => {
     setLinkedProjectsLoading(true)
@@ -232,12 +259,27 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
     }
   }, [context, organization.id])
 
+  /** The company's people: how many (the tab's number) and who is primary (the header and Details). One call, the primary first. */
+  const loadPeopleSummary = useCallback(async () => {
+    if (!rights.view) { setPeopleSummary(null); return }
+    try {
+      const response = await contactsService.list(context, { organizationId: organization.id, perPage: 50, sortBy: 'is_primary', sortDir: 'desc' })
+      setPeopleSummary({ total: response.data.pagination?.total ?? response.data.items.length, primary: response.data.items.find((p) => p.isPrimary) ?? null })
+    } catch {
+      setPeopleSummary(null)
+    }
+  }, [context, organization.id, rights.view])
+
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadOpportunities(); void loadQuotes(); void loadComments()
-      void loadDocuments(); void loadEmails(); void loadHistory(); void loadLinkedProjects()
-    })
-  }, [loadOpportunities, loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory, loadLinkedProjects])
+    queueMicrotask(() => { void loadOpportunities(); void loadLinkedProjects() })
+  }, [loadOpportunities, loadLinkedProjects])
+
+  // The lists that carry the people's rows too are read again when the switch changes.
+  useEffect(() => {
+    queueMicrotask(() => { void loadQuotes(); void loadComments(); void loadDocuments(); void loadEmails(); void loadHistory() })
+  }, [loadQuotes, loadComments, loadDocuments, loadEmails, loadHistory])
+
+  useEffect(() => { queueMicrotask(() => { void loadPeopleSummary() }) }, [loadPeopleSummary])
 
   const saveCustomFields = async () => {
     setSavingCustom(true)
@@ -264,7 +306,10 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
           </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground">{organization.name}</h1>
-            <p className="text-sm text-muted-foreground">{organization.accountType || 'Organization'} · {organization.accountNo}</p>
+            <p className="text-sm text-muted-foreground">
+              {organization.accountType || 'Organization'} · {organization.accountNo}
+              {primaryPerson && <> · Primary contact: <strong data-primary-contact className="font-semibold text-foreground">{personName(primaryPerson)}</strong></>}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -287,18 +332,35 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
 
       {notice && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm text-success">{notice}</div>}
 
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${tab === t.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex gap-1 overflow-x-auto border-b border-border">
+        {tabs.map((t) => {
+          const count = t.id === 'people' && peopleSummary ? peopleSummary.total : null
+          return (
+            <button
+              key={t.id}
+              type="button"
+              data-tab={t.id}
+              aria-label={count !== null ? `${t.label} ${count}` : undefined}
+              onClick={() => { setPersonToOpen(null); setTab(t.id) }}
+              className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${tab === t.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            >
+              {t.label}
+              {count !== null && <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{count}</span>}
+            </button>
+          )
+        })}
       </div>
+
+      {SCOPED_TABS.includes(tab) && rights.view && (
+        <div className="flex flex-wrap items-center gap-3">
+          <CompanyActivitySwitch value={scope} onChange={setScope} />
+          <span className="text-xs text-muted-foreground">{scope === 'people' ? 'The company’s own rows and its people’s.' : 'Only the company’s own rows.'}</span>
+        </div>
+      )}
+
+      {tab === 'people' && rights.view && (
+        <PeopleTab key={personToOpen ?? 'list'} organization={organization} initialPersonId={personToOpen} onChanged={() => void loadPeopleSummary()} />
+      )}
 
       {tab === 'details' && (
         <div className="space-y-4">
@@ -316,6 +378,16 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
               <ReadField label="Secondary Email" value={organization.secondaryEmail && <IconValue icon={Mail}>{organization.secondaryEmail}</IconValue>} />
               <ReadField label="Website" value={organization.website && <IconValue icon={Globe}>{organization.website}</IconValue>} />
               <ReadField label="Fax" value={organization.fax} />
+              {rights.view && (
+                <ReadField
+                  label="Primary contact"
+                  value={primaryPerson && (
+                    <button type="button" data-primary-contact-link className="text-primary hover:underline" onClick={() => openPerson(primaryPerson.id)}>
+                      {personName(primaryPerson)}{primaryPerson.title ? ` · ${primaryPerson.title}` : ''}
+                    </button>
+                  )}
+                />
+              )}
             </dl>
           </SectionCard>
 
@@ -406,6 +478,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
                     <p className="truncate text-sm font-medium text-foreground">{row.subject}</p>
                     <p className="truncate text-xs text-muted-foreground">{row.quoteStage || 'Draft'} · {row.quoteNo}</p>
                   </div>
+                  <WhoChip row={row} />
                   <p className="shrink-0 text-sm font-semibold text-foreground">
                     {row.currency ?? ''} {row.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
@@ -417,7 +490,7 @@ export function OrganizationDetailPage({ organization, onSaved, onBack, picklist
       )}
 
       {tab === 'schedule' && (
-        <CrmScheduleTab linkedType="ORGANIZATION" linkedId={organization.id} recordLabel={organization.name} />
+        <CrmScheduleTab linkedType="ORGANIZATION" linkedId={organization.id} recordLabel={organization.name} include={includeScope} />
       )}
 
       {tab === 'comments' && (

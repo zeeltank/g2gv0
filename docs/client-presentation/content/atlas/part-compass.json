@@ -1,0 +1,277 @@
+{
+  "family": "compass",
+  "family_sheet": {
+    "summary": "Helps students name a career goal, learn their interests, explore occupations, and compare their profile with a covered career's needs.",
+    "problem": "Students can choose subjects without knowing what their chosen career needs, and counsellors have little recorded evidence to start the conversation.",
+    "benefit": "Students and counsellors could find it easier to explore careers and, where covered, see how subject choices fit a career goal.",
+    "technology": [
+      "Knowledge graph of careers and skills",
+      "Rules-based alignment check",
+      "AI-assisted narration of results",
+      "Intelligence from linked records"
+    ],
+    "research": {
+      "text": "Designed from O*NET occupation data and its Interest Profiler. Each covered career's entry requirements carry a named source.",
+      "evidence": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php",
+        "next_lms_erp/database/neo4j/cai/occupations/architect.cypher"
+      ]
+    },
+    "workflow": [
+      "Learn the ideas",
+      "Name a goal",
+      "Find interests",
+      "Explore careers",
+      "Compare with needs",
+      "Review evidence"
+    ],
+    "ai": [
+      "AI explains an alignment result using only the facts returned",
+      "The alignment result itself comes from rules, not from AI",
+      "When no AI is set up, the screen says so",
+      "AI counsellor note rests on records, or says evidence is thin"
+    ],
+    "evidence": [
+      "lms_k12/app/career-awareness/_components/CareerAwarenessSectionHub.tsx",
+      "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx",
+      "lms_k12/app/career-explorer/CareerExplorerHub.tsx",
+      "lms_k12/app/career-intelligence/CareerIntelligenceHub.tsx",
+      "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+      "next_lms_erp/app/CareerIntelligence/CareerAlignmentNarrator.php",
+      "next_lms_erp/app/CareerIntelligence/CareerCounsellingNarrator.php",
+      "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+      "next_lms_erp/routes/lms.php"
+    ]
+  },
+  "items": [
+    {
+      "id": "compass-career-awareness",
+      "name": "Career Awareness",
+      "k12_menu": "Career Counseling > Career Awareness",
+      "screens": [
+        "Career Certainty",
+        "Career Ambition",
+        "Career Alignment",
+        "Career Originality"
+      ],
+      "summary": "Four short pages explain career certainty, ambition, alignment and originality, and let the student record the job they expect at age 30.",
+      "problem": "Students can reach subject choices without having named a job they want, or checked what education that job asks for.",
+      "features": [
+        "Plain-language pages on four career ideas",
+        "Student names the job expected at age 30",
+        "Student marks how sure they are",
+        "Optional entry for the job the family expects",
+        "Pick from the occupation list or type your own"
+      ],
+      "research": null,
+      "technology": [
+        "Occupation list or typed-in choice",
+        "Saved student answers"
+      ],
+      "benefit": "Students could find it easier to put a career goal into words, so subject and stream talks start from something concrete.",
+      "workflow": [
+        "Read the idea",
+        "Name a job",
+        "Say how sure",
+        "Save answer"
+      ],
+      "data": "mixed",
+      "evidence": [
+        "lms_k12/app/career-awareness/_components/CareerAwarenessSectionHub.tsx",
+        "lms_k12/app/career-awareness/_components/panels/Certainty.tsx",
+        "lms_k12/app/career-awareness/_components/panels/Alignment.tsx",
+        "lms_k12/app/career-intelligence/CareerIntelligenceHub.tsx",
+        "lms_k12/docs/menu-data-source-audit.md",
+        "next_lms_erp/routes/lms.php",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php"
+      ],
+      "owner_to_confirm": [
+        "Only Career Certainty has a form. Ambition, Alignment and Originality are explanatory text; their back-end save routes exist but no screen calls them.",
+        "Career Alignment here only explains the idea. The real alignment check lives on the Career Intelligence page.",
+        "Screen text links certainty, ambition and alignment to later earnings and satisfaction. No source is cited in code. Do not quote it.",
+        "Career Certainty intro text speaks of guidance still being built. Keep it out of screenshots and clips.",
+        "The occupation pick-list reads the O*NET occupation table. Confirm it is loaded in production.",
+        "docs/menu-data-source-audit.md (22 Aug) lists only career-counselling of the four sub-modules. The data label here comes from reading the code."
+      ]
+    },
+    {
+      "id": "compass-career-counseling",
+      "name": "Career Counseling",
+      "k12_menu": "Career Counseling > Career Counseling",
+      "screens": [
+        "Interest Profile",
+        "Knowing Yourself"
+      ],
+      "summary": "Students take school counselling tests and the O*NET Interest Profiler, then see their six interest areas explained.",
+      "problem": "Students may pick careers without knowing which kinds of work interest them, so counselling starts without a shared picture.",
+      "features": [
+        "Counselling courses and personality tests set by the school",
+        "Shows past attempts with date and result",
+        "60-question Interest Profiler across six interest areas",
+        "Tap an area to read what it means",
+        "AI counsellor note from alignment and practice records"
+      ],
+      "research": {
+        "text": "Designed from the O*NET Interest Profiler and its six interest areas: Realistic, Investigative, Artistic, Social, Enterprising, Conventional.",
+        "evidence": [
+          "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+          "lms_k12/app/career-counselling/knowing-yourself/_components/riasecMeta.ts",
+          "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx"
+        ]
+      },
+      "technology": [
+        "AI-assisted narration of results",
+        "Knowledge graph of careers and skills"
+      ],
+      "benefit": "Students could find it easier to learn what interests them, and counsellors could start from the school's own tests and records.",
+      "workflow": [
+        "Choose a test",
+        "Answer questions",
+        "See interest areas",
+        "Read counsellor note"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/career-counselling/interest-profile/_components/CounsellingCourses.tsx",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/riasecMeta.ts",
+        "lms_k12/app/career-counselling/_lib/api.ts",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+        "next_lms_erp/app/CareerIntelligence/CareerCounsellingNarrator.php"
+      ],
+      "owner_to_confirm": [
+        "Interest Profiler questions and results are fetched live from the O*NET web service with the platform's account. Confirm the account and terms in production. Nothing is saved; answers sit in the page address.",
+        "The product ledger says O*NET is not named in the controller. It is: intrestQuestions and intrestResults in lmsCounsellingController call it.",
+        "Interest results do not feed career evidence or the alignment check; no adapter writes that source. Do not say interests feed guidance.",
+        "The AI counsellor note is built from alignment and practice records, not the interest scores, yet sits under them. It shows only when records exist and an AI setup is in place; otherwise a plain message.",
+        "Course cards are set by each school. Take the test opens older ERP pages in a new tab; check they open from a K12 login.",
+        "The MBTI card appears only if the school names a course MBTI. Confirm test licensing before naming it.",
+        "The Interest Profile banner heading makes a price-related claim. Do not quote it.",
+        "The sub-module row has no link of its own; only its two screens open."
+      ]
+    },
+    {
+      "id": "compass-career-explorer",
+      "name": "Career Explorer",
+      "k12_menu": "Career Counseling > Career Explorer",
+      "screens": [
+        "Find Occupation",
+        "College Profile",
+        "Course Profile",
+        "Employer Profile"
+      ],
+      "summary": "Students browse career clusters, search occupations and open detailed profiles, then look up colleges, courses and employers.",
+      "problem": "Students often know few careers beyond familiar ones, and college, course and employer details are scattered.",
+      "features": [
+        "Browse career clusters and their pathways",
+        "Search occupations by keyword, career name or major",
+        "Filter by abilities, interests, skills and work styles",
+        "Open a detailed profile for each occupation",
+        "Look up colleges, courses and employers"
+      ],
+      "research": {
+        "text": "Designed from O*NET occupation data, including abilities, interests, skills and knowledge for each occupation.",
+        "evidence": [
+          "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+          "next_lms_erp/routes/lms.php"
+        ]
+      },
+      "technology": [
+        "Occupation database with filters and search"
+      ],
+      "benefit": "Students could find it easier to discover careers they had not considered and see what each one asks of them.",
+      "workflow": [
+        "Browse or search",
+        "Apply filters",
+        "Open occupation",
+        "Look up colleges"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/career-explorer/CareerExplorerHub.tsx",
+        "lms_k12/app/career-explorer/_components/ClusterGrid.tsx",
+        "lms_k12/app/career-explorer/_components/ResultsList.tsx",
+        "lms_k12/app/career-explorer/college/CollegeProfileHub.tsx",
+        "lms_k12/app/career-explorer/courses/CourseProfileHub.tsx",
+        "lms_k12/app/career-explorer/employers/EmployerProfileHub.tsx",
+        "lms_k12/app/career-explorer/_lib/api.ts",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+        "next_lms_erp/routes/lms.php"
+      ],
+      "owner_to_confirm": [
+        "College Profile loads a random sample of up to 200 institutes per visit and Course Profile 20 random courses. Never say the lists are complete.",
+        "Every college card carries a fixed Featured badge, whatever the college. Do not present it as a ranking.",
+        "Course and Employer cards show fees and stipends. Keep amounts out of slides.",
+        "Institute, course and employer rows cite no source in code. Confirm where the data came from before quoting.",
+        "Occupation data comes from locally stored O*NET tables. Confirm they are loaded in production and note the data version.",
+        "Advise from experts and Explore sector buttons on cluster cards open pages that read admin-loaded tables; expert cards offer phone links. Check content and consent before showing. Left out of features.",
+        "The technology line is plain wording because none of the standard technology phrases fits a lookup in occupation tables.",
+        "The sub-module row has no link of its own. docs/menu-data-source-audit.md does not list career-explorer; the data label comes from reading the code."
+      ]
+    },
+    {
+      "id": "compass-career-intelligence",
+      "name": "Career Intelligence",
+      "k12_menu": "Career Counseling > Career Intelligence",
+      "screens": [
+        "Career Intelligence"
+      ],
+      "summary": "A student records a career goal, sees how current subjects compare with it, and reviews the evidence recorded so far.",
+      "problem": "Students can choose subjects without knowing what their chosen career needs, and counsellors have little recorded evidence to start from.",
+      "features": [
+        "Compares a student's profile with a covered career's needs",
+        "Says insufficient data rather than guessing",
+        "Subject evidence from online exams and adaptive practice",
+        "Ranks occupations by match with recorded knowledge",
+        "Adds a plain-language AI explanation of the result"
+      ],
+      "research": {
+        "text": "Designed from O*NET occupation data. Each covered career's entry requirements cite named sources, for example the Council of Architecture.",
+        "evidence": [
+          "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php",
+          "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+          "next_lms_erp/database/neo4j/cai/occupations/architect.cypher"
+        ]
+      },
+      "technology": [
+        "Rules-based alignment check",
+        "Knowledge graph of careers and skills",
+        "AI-assisted narration of results"
+      ],
+      "benefit": "Students and counsellors could find it easier to see where subjects and a career goal fit, and what evidence is missing.",
+      "workflow": [
+        "Record career goal",
+        "Read subjects",
+        "Compare with career",
+        "Show evidence",
+        "Explain result"
+      ],
+      "data": "live",
+      "evidence": [
+        "lms_k12/app/career-intelligence/CareerIntelligenceHub.tsx",
+        "lms_k12/app/career-intelligence/_components/CareerIntelligence.tsx",
+        "lms_k12/app/career-intelligence/_lib/api.ts",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+        "next_lms_erp/app/CareerIntelligence/CareerAlignmentNarrator.php",
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php",
+        "next_lms_erp/app/CareerIntelligence/AlternativeOccupationRecommender.php",
+        "next_lms_erp/app/CareerIntelligence/CareerEvidenceService.php",
+        "next_lms_erp/app/Providers/EventServiceProvider.php",
+        "next_lms_erp/database/neo4j/cai/occupations/architect.cypher",
+        "next_lms_erp/routes/lms.php"
+      ],
+      "owner_to_confirm": [
+        "Career alignment depends on a graph database that is only a verified scout in production. Confirm it is reachable there; without it the alignment result reads insufficient data.",
+        "The graph covers a small curated set of careers (11 O*NET-coded, CBSE only). Any other aspiration returns insufficient data. Never say every career.",
+        "The stream-change deadline and days-left come from a placeholder date the data file marks as unsourced and to be replaced before real use. Keep the deadline off slides.",
+        "Counsellor Actions and Log Intervention work on screen only; entries sit in the browser and are not saved. The Explore Adjacent Careers row is inert. Do not demo them as features.",
+        "Exam and practice evidence arrives through queued listeners (ExamSubmitted, ConceptOutcomeRecorded). Confirm a queue worker runs in production. The ledger says practice reaches Compass only by manual command; code shows event wiring.",
+        "The AI explanation shows only when the school has an AI model set up; otherwise a not-available note. The tab text says no AI-generated recommendations while the card shows an AI explanation. Reword before quoting.",
+        "Matching profile shows fit scores as numbers with three match bands; the screen's middle-band cutoff is 45 and the back-end config is 50. Never quote a score as a result. The list needs an occupation code chosen from the list and answers matching authored knowledge labels exactly, so it can read empty.",
+        "Suggested mentors needs an HR crosswalk table (s_users_skills_onet_map) filled by HR; empty until then. Left out of features.",
+        "The menu lists no screens under Career Intelligence; the page has three tabs (Career plan, Matching profile, Career intelligence). If the graph call fails, the screen shows insufficient data with a reason about the aspiration, which may mislead. The Brain screen /career-intelligence/intelligence belongs to Insight."
+      ]
+    }
+  ]
+}

@@ -23,9 +23,19 @@ export const CONTEXT_WORD: Record<AskContextType, string> = {
   opportunity: 'opportunity',
 }
 
-/** The record on screen, or null when the page is not one record's page. The id must be a plain positive whole number. */
-export function recordContextFromPath(pathname: string | null | undefined): AskContext | null {
+/**
+ * A person open on a company's page or in All people (S18, 25 Nov 2026: Contacts were merged into Organizations): the organisation pages carry `?person=<id>`, and a person on
+ * screen is the record to ask about. The old /contacts/{id} address above still reads as a person, for the moment a visit to it is being redirected.
+ */
+const PERSON_PAGES = /^\/module\/crm\/(?:marketing|support)\/organizations(?:\/[^/]+)?\/?$/
+
+/** The record on screen, or null when the page is not one record's page. The id must be a plain positive whole number. `search` is the address's query, when the caller has it. */
+export function recordContextFromPath(pathname: string | null | undefined, search?: string | null): AskContext | null {
   if (typeof pathname !== 'string') return null
+  if (typeof search === 'string' && PERSON_PAGES.test(pathname)) {
+    const person = new URLSearchParams(search).get('person')
+    if (person !== null && /^[1-9]\d{0,14}$/.test(person)) return { type: 'contact', id: Number(person) }
+  }
   for (const { type, pattern } of ROUTES) {
     const match = pattern.exec(pathname)
     if (!match) continue

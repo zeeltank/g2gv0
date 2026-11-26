@@ -5,6 +5,7 @@
  * on-slide text, status badges, presenter notes, scenarios and image slots. Claims, their sources and the visual direction stay
  * in docs/client-presentation and are never shipped.
  */
+import { atlasSlides } from './atlas'
 import deckJson from './generated/scholarclone.deck.json'
 
 export interface Line {
@@ -65,7 +66,12 @@ export interface Deck {
   assets: Record<string, Asset>
 }
 
-export const DECKS: Record<string, Deck> = { scholarclone: parseDeck(deckJson) }
+/** The Product Atlas slides are appended after the story slides (numbers from 201), so notes and slide lookups work the same way. */
+function withAtlas(d: Deck): Deck {
+  return { ...d, slides: [...d.slides, ...atlasSlides()] }
+}
+
+export const DECKS: Record<string, Deck> = { scholarclone: withAtlas(parseDeck(deckJson)) }
 
 export const DECK_KEYS = Object.keys(DECKS)
 

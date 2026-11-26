@@ -537,57 +537,57 @@ describe('Company Opportunities: turning a signal into a lead', () => {
 
   it('asks first, and makes the lead only once the person confirms', async () => {
     const { k, promoteCalls, cardOf, inCard } = await setup({ search: 'product=all' })
-    await k.click(inCard(cardOf('District office'), 'Turn into a lead'))
+    await k.click(inCard(cardOf('District office'), 'Convert to lead'))
     await k.tick(10)
     assert.deepEqual(promoteCalls, [], 'the question is open; nothing was sent')
-    const dialog = k.all('[role="alertdialog"], [role="dialog"]').find((d) => d.textContent?.includes('Turn this signal into a lead?'))
+    const dialog = k.all('[role="alertdialog"], [role="dialog"]').find((d) => d.textContent?.includes('Convert this signal to a lead?'))
     assert.ok(dialog, 'the confirmation is shown')
 
-    await k.click(k.withText('Create lead')!)
+    await k.click(k.withText('Convert')!)
     await k.tick(20)
     assert.deepEqual(promoteCalls, [1])
     const text = cardOf('District office').textContent!
     assert.ok(text.includes('Lead created'))
     assert.equal(k.all('a').find((a) => a.getAttribute('href') === '/module/crm/marketing/leads/501')?.textContent, 'Open lead')
-    assert.equal(inCard(cardOf('District office'), 'Turn into a lead'), undefined, 'the button is gone: a second lead cannot be made from here')
+    assert.equal(inCard(cardOf('District office'), 'Convert to lead'), undefined, 'the button is gone: a second lead cannot be made from here')
     assert.ok(text.includes('Lead created in CRM.'))
   })
 
   it('a cancelled question makes nothing', async () => {
     const { k, promoteCalls, cardOf, inCard } = await setup({ search: 'product=all' })
-    await k.click(inCard(cardOf('District office'), 'Turn into a lead'))
+    await k.click(inCard(cardOf('District office'), 'Convert to lead'))
     await k.tick(10)
     await k.click(k.withText('Cancel')!)
     await k.tick(20)
     assert.deepEqual(promoteCalls, [])
-    assert.ok(inCard(cardOf('District office'), 'Turn into a lead'), 'the button is still offered')
+    assert.ok(inCard(cardOf('District office'), 'Convert to lead'), 'the button is still offered')
   })
 
   it('a double click makes one question and one request', async () => {
     const { k, promoteCalls, cardOf, inCard } = await setup({ search: 'product=all' })
-    const button = inCard(cardOf('District office'), 'Turn into a lead')
+    const button = inCard(cardOf('District office'), 'Convert to lead')
     await k.act(async () => {
       button.dispatchEvent(new k.w.MouseEvent('click', { bubbles: true, cancelable: true }))
       button.dispatchEvent(new k.w.MouseEvent('click', { bubbles: true, cancelable: true }))
     })
     await k.tick(10)
-    assert.equal(k.all('[role="alertdialog"], [role="dialog"]').filter((d) => d.textContent?.includes('Turn this signal into a lead?')).length, 1, 'one question')
-    await k.click(k.withText('Create lead')!)
+    assert.equal(k.all('[role="alertdialog"], [role="dialog"]').filter((d) => d.textContent?.includes('Convert this signal to a lead?')).length, 1, 'one question')
+    await k.click(k.withText('Convert')!)
     await k.tick(20)
     assert.deepEqual(promoteCalls, [1], 'one request')
   })
 
   it('says a signal that already has a lead is not given a second, and links to the lead it has', async () => {
     const { k, cardOf, inCard } = await setup({ search: 'product=all', list: async () => opportunityList([opportunity({ id: 1, promoted_lead_id: '77', promoted_lead_no: 'LD-00077', promoted_lead_status: 'New' })]) })
-    assert.equal(inCard(cardOf('District office'), 'Turn into a lead'), undefined)
+    assert.equal(inCard(cardOf('District office'), 'Convert to lead'), undefined)
     assert.equal(k.all('a').find((a) => a.getAttribute('href') === '/module/crm/marketing/leads/77')?.textContent, 'Open lead LD-00077')
   })
 
   it('tells a person who may not create leads (403) in the words of the Signal Review', async () => {
     const { k, cardOf, inCard } = await setup({ search: 'product=all', promote: async () => { const { ApiError } = await import('../../services/core'); throw new ApiError('Forbidden', 403) } })
-    await k.click(inCard(cardOf('District office'), 'Turn into a lead'))
+    await k.click(inCard(cardOf('District office'), 'Convert to lead'))
     await k.tick(10)
-    await k.click(k.withText('Create lead')!)
+    await k.click(k.withText('Convert')!)
     await k.tick(20)
     assert.ok(k.bodyText().includes('You are not allowed to create leads from signals.'))
   })
@@ -606,7 +606,7 @@ const statusTexts = (k: K) => k.all('[role="status"]').map((el) => el.textConten
 const alertTexts = (k: K) => k.all('[role="alert"]').map((el) => el.textContent ?? '')
 const decisionButtons = (card: HTMLElement) => Array.from(card.querySelectorAll('[role="group"][aria-label="Decide on this signal"] button')) as HTMLButtonElement[]
 const leadLink = (k: K) => k.all('a').find((a) => a.getAttribute('href') === LEAD_HREF)
-const askedForLead = (k: K) => k.all('[role="alertdialog"], [role="dialog"]').filter((d) => d.textContent?.includes('Turn this signal into a lead?')).length
+const askedForLead = (k: K) => k.all('[role="alertdialog"], [role="dialog"]').filter((d) => d.textContent?.includes('Convert this signal to a lead?')).length
 
 /** Presses a button of a card. A missing button fails on the spot: clicking nothing inside act() would hang the test instead. */
 async function pressIn(s: Screen, title: string, label: string) {
@@ -632,10 +632,10 @@ async function openCardDetails(k: K, card: HTMLElement) {
   await k.tick(20)
 }
 
-/** "Turn into a lead" on a card, then "Create lead" in the question. */
+/** "Convert to lead" on a card, then "Convert" in the question. */
 async function turnIntoLead(s: Screen, title = 'District office') {
-  await pressIn(s, title, 'Turn into a lead')
-  await pressText(s.k, 'Create lead')
+  await pressIn(s, title, 'Convert to lead')
+  await pressText(s.k, 'Convert')
 }
 
 describe('Company Opportunities: turning a signal into a lead, in every way it can end', () => {
@@ -649,7 +649,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     assert.deepEqual(alertTexts(s.k), [], 'a lead that was made is not an alert')
     const card = s.cardOf('District office')
     assert.equal(leadLink(s.k)?.textContent, 'Open lead', 'the card links to the lead')
-    assert.equal(s.inCard(card, 'Turn into a lead'), undefined, 'and the button that made it is gone')
+    assert.equal(s.inCard(card, 'Convert to lead'), undefined, 'and the button that made it is gone')
     assert.ok(card.textContent!.includes('Needs decision'), 'turning a signal into a lead does not decide on it')
     assert.deepEqual(decisionButtons(card).map((b) => b.textContent), ['Contacted', 'Reviewed', 'Not relevant…'], 'every decision is still offered')
   })
@@ -675,7 +675,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     let finish!: (value: SignalPromoteResponse) => void
     const s = await setup({ search: 'product=all', promote: () => new Promise((resolve) => { finish = resolve }) })
     await turnIntoLead(s)
-    const working = s.inCard(s.cardOf('District office'), 'Creating lead…') as HTMLButtonElement | undefined
+    const working = s.inCard(s.cardOf('District office'), 'Converting…') as HTMLButtonElement | undefined
     assert.ok(working, 'the button says it is working')
     assert.equal(working.disabled, true, 'and it is off')
     assert.ok(decisionButtons(s.cardOf('District office')).every((b) => b.disabled), 'the decisions wait too')
@@ -687,7 +687,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
 
     await s.k.act(async () => { finish(leadAnswer()) })
     await s.k.tick(20)
-    assert.equal(s.inCard(s.cardOf('District office'), 'Turn into a lead'), undefined, 'the lead is made and the button is gone')
+    assert.equal(s.inCard(s.cardOf('District office'), 'Convert to lead'), undefined, 'the lead is made and the button is gone')
     assert.ok(decisionButtons(s.cardOf('District office')).every((b) => !b.disabled), 'the decisions are free again')
     assert.deepEqual(s.promoteCalls, [1], 'still one request')
   })
@@ -711,7 +711,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     assert.equal(LEAD_FORBIDDEN_TEXT, 'You are not allowed to create leads from signals.')
     assert.ok(!s.k.bodyText().includes(FORBIDDEN_TEXT), 'the words about decisions are not used for leads')
     const card = s.cardOf('District office')
-    const button = s.inCard(card, 'Turn into a lead') as HTMLButtonElement | undefined
+    const button = s.inCard(card, 'Convert to lead') as HTMLButtonElement | undefined
     assert.ok(button, 'the button is still drawn')
     assert.equal(button.disabled, true, 'but it is off')
     assert.ok(decisionButtons(card).every((b) => !b.disabled), 'the 403 was about leads, so the decisions are untouched')
@@ -726,7 +726,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     const s = await setup({ search: 'product=all', promote: async () => { attempts += 1; if (attempts === 1) throw new TypeError('Failed to fetch'); return leadAnswer() } })
     await turnIntoLead(s)
     assert.deepEqual(alertTexts(s.k), [NETWORK_TEXT])
-    const again = s.inCard(s.cardOf('District office'), 'Turn into a lead') as HTMLButtonElement | undefined
+    const again = s.inCard(s.cardOf('District office'), 'Convert to lead') as HTMLButtonElement | undefined
     assert.ok(again, 'the button stays')
     assert.equal(again.disabled, false, 'so a retry is possible')
     assert.equal(leadLink(s.k), undefined, 'no lead was made')
@@ -743,7 +743,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     await turnIntoLead(s)
     assert.deepEqual(alertTexts(s.k), [NOT_FOUND_TEXT])
     assert.equal(leadLink(s.k), undefined, 'no lead')
-    assert.ok(s.inCard(s.cardOf('District office'), 'Turn into a lead'), 'the button is still there')
+    assert.ok(s.inCard(s.cardOf('District office'), 'Convert to lead'), 'the button is still there')
   })
 
   it('an answer that names no lead does not pretend one was made', async () => {
@@ -752,7 +752,7 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     await turnIntoLead(s)
     assert.deepEqual(alertTexts(s.k), [NO_LEAD_ID_TEXT])
     assert.equal(leadLink(s.k), undefined, 'no link to a lead that may not exist')
-    assert.ok(s.inCard(s.cardOf('District office'), 'Turn into a lead'), 'the button is still there')
+    assert.ok(s.inCard(s.cardOf('District office'), 'Convert to lead'), 'the button is still there')
     assert.deepEqual(s.historyCalls, [1], 'and the history was not read again')
   })
 
@@ -772,8 +772,8 @@ describe('Company Opportunities: turning a signal into a lead, in every way it c
     assert.equal(linkIn(second)?.textContent, 'Open lead', 'no number from the server: no number invented')
     assert.equal(linkIn(second)?.getAttribute('href'), '/module/crm/marketing/leads/502')
     assert.ok(!second.textContent!.includes('status:'), 'and no status')
-    assert.equal(s.inCard(first, 'Turn into a lead'), undefined)
-    assert.equal(s.inCard(second, 'Turn into a lead'), undefined)
+    assert.equal(s.inCard(first, 'Convert to lead'), undefined)
+    assert.equal(s.inCard(second, 'Convert to lead'), undefined)
   })
 })
 
@@ -937,9 +937,9 @@ describe('Company Opportunities: accessibility (axe on the fake page: names, rol
     assert.deepEqual(await axeViolations(dialog), [])
     await k.click(k.withText('Cancel')!)
     await k.tick(20)
-    await k.click(inCard(cardOf('District office'), 'Turn into a lead'))
+    await k.click(inCard(cardOf('District office'), 'Convert to lead'))
     await k.tick(10)
-    const question = k.all('[role="alertdialog"], [role="dialog"]').find((d) => d.textContent?.includes('Turn this signal into a lead?'))!
+    const question = k.all('[role="alertdialog"], [role="dialog"]').find((d) => d.textContent?.includes('Convert this signal to a lead?'))!
     assert.deepEqual(await axeViolations(question), [])
   })
 })

@@ -22,8 +22,8 @@ import { confirmCopy, decidedNotice, linkRequest, removeSuggestion } from './sug
 const read = (search: string) => readListQuery(new URLSearchParams(search), DISCOVERED_QUERY)
 
 describe('the scope switch', () => {
-  it('has three scopes and opens on the CRM list, with a clean address', () => {
-    assert.deepEqual([...SCOPE_IDS], ['crm', 'discovered', 'duplicates'])
+  it('has five scopes (S18 added All people and Suggestions) and opens on the CRM list, with a clean address', () => {
+    assert.deepEqual([...SCOPE_IDS], ['crm', 'discovered', 'duplicates', 'people', 'suggestions'])
     assert.equal(SCOPE_IDS[0], 'crm', 'the first scope is the default: today\'s list')
   })
 
@@ -42,9 +42,17 @@ describe('the scope switch', () => {
 
   it('names the tabs: the CRM scope carries no count of its own', () => {
     assert.deepEqual(scopeTabs({ discovered: 5, duplicates: 3 }), [
-      { id: 'crm', label: 'Organizations' }, { id: 'discovered', label: 'Discovered', count: 5 }, { id: 'duplicates', label: 'Possible duplicates', count: 3 },
+      { id: 'crm', label: 'Companies' }, { id: 'discovered', label: 'Discovered', count: 5 }, { id: 'duplicates', label: 'Possible duplicates', count: 3 },
     ])
     assert.equal(scopeTabs({ discovered: null, duplicates: null })[1].count, null)
+  })
+
+  it('offers All people and Suggestions only when the counts name them (a person without the contacts view right has neither), after the other three', () => {
+    assert.deepEqual(scopeTabs({ discovered: 1, duplicates: 2, people: 109, suggestions: 4 }).map((t) => [t.id, t.label, t.count]), [
+      ['crm', 'Companies', undefined], ['discovered', 'Discovered', 1], ['duplicates', 'Possible duplicates', 2], ['people', 'All people', 109], ['suggestions', 'Suggestions', 4],
+    ])
+    assert.equal(scopeTabs({ discovered: 1, duplicates: 2 }).length, 3, 'no people, no suggestions')
+    assert.equal(scopeTabs({ discovered: 1, duplicates: 2, people: null, suggestions: null })[3].count, null, 'offered, count not known yet')
   })
 })
 
@@ -229,7 +237,6 @@ describe('where the links go', () => {
     assert.equal(links.gtm, '/gtm/prospecting')
     assert.equal(links.signals, null)
     assert.equal(links.opportunities, null)
-    assert.equal(links.contacts, null)
   })
 
   it('looks for no Signal Review menu row at all: that screen was merged into Company Opportunities on 13 Nov 2026', () => {
@@ -237,7 +244,7 @@ describe('where the links go', () => {
     const links = buildLinks((accessLink) => { asked.push(accessLink); return accessLink })
     assert.deepEqual(asked.filter((accessLink) => accessLink.includes('review')), [], 'the retired row is not asked for, under either spelling')
     assert.ok(asked.includes(ACCESS_LINKS.signals), 'the Signals screen is asked for')
-    assert.deepEqual(Object.keys(links).sort(), ['contacts', 'crmOrganisations', 'gtm', 'opportunities', 'signals'], 'there is no separate Signal Review link left to draw or to hide')
+    assert.deepEqual(Object.keys(links).sort(), ['crmOrganisations', 'gtm', 'opportunities', 'signals'], 'there is no separate Signal Review link left to draw or to hide')
     assert.deepEqual(Object.keys(DEFAULT_LINKS).sort(), Object.keys(links).sort())
   })
 

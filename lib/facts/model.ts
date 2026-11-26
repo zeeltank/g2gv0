@@ -1,4 +1,5 @@
 import { formatWhen, safeInternalPath } from '@/lib/agent/model'
+import { personHref } from '@/lib/org-accounts/links'
 import type { ChipTone } from '@/lib/org-accounts/tones'
 import { safeHttpUrl } from '@/lib/signals/signal-display'
 import type { FactsQueueParams } from '@/services/facts/api-types'
@@ -37,17 +38,21 @@ export function entityLabel(type: string, plural = false): string {
   return words === '' ? 'Record' : words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** The menu row each kind of record is opened from, for a link to it. */
-const ENTITY_ROWS: Record<FactEntityType, string> = {
-  contact: '/module/crm/marketing/contacts',
+/** The menu row each kind of record is opened from, for a link to it. A person has none of its own any more: it is opened with `personHref` (S18, 25 Nov 2026). */
+const ENTITY_ROWS: Record<Exclude<FactEntityType, 'contact'>, string> = {
   organization: '/module/crm/marketing/organizations',
   lead: '/module/crm/marketing/leads',
 }
 
-/** The page of the record a fact is about, through the person's own menu (`resolve` is the sidebar's resolveAccessLink); null for a kind with no page. */
+/**
+ * The page of the record a fact is about, through the person's own menu (`resolve` is the sidebar's resolveAccessLink); null for a kind with no page. A person (the fact's
+ * kind `contact`) opens under Organizations: the company's People tab is not known from a fact, so it opens in All people, in the drawer.
+ */
 export function entityPath(type: string, id: number, resolve: (accessLink: string) => string): string | null {
-  const row = ENTITY_ROWS[type as FactEntityType]
-  if (!row || !Number.isInteger(id) || id <= 0) return null
+  if (!Number.isInteger(id) || id <= 0) return null
+  if (type === 'contact') return personHref({ id }, 'marketing', resolve)
+  const row = ENTITY_ROWS[type as Exclude<FactEntityType, 'contact'>]
+  if (!row) return null
   return `${resolve(row)}/${id}`
 }
 

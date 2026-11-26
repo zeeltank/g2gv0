@@ -15,6 +15,17 @@ describe('the record on screen, read from the address', () => {
     assert.deepEqual(recordContextFromPath('/module/crm/sales/opportunities/256'), { type: 'opportunity', id: 256 })
   })
 
+  it('finds a person open on a company page or in All people by `?person=` (S18: Contacts were merged into Organizations), and only there', () => {
+    assert.deepEqual(recordContextFromPath('/module/crm/marketing/organizations/135', 'tab=people&person=31'), { type: 'contact', id: 31 })
+    assert.deepEqual(recordContextFromPath('/module/crm/support/organizations', 'scope=people&person=31'), { type: 'contact', id: 31 })
+    assert.deepEqual(recordContextFromPath('/module/crm/marketing/organizations/135', 'tab=people'), { type: 'organization', id: 135 }, 'no person open: the company is the record')
+    assert.deepEqual(recordContextFromPath('/module/crm/marketing/organizations/135', 'person=abc'), { type: 'organization', id: 135 })
+    assert.equal(recordContextFromPath('/module/crm/marketing/organizations', 'scope=people'), null, 'the list itself is no record')
+    assert.equal(recordContextFromPath('/module/crm/marketing/leads/201', 'person=31')?.type, 'lead', 'a person is read only on the Organizations screen')
+    assert.equal(recordContextFromPath('/module/crm/marketing/organizations/135', 'person=0')?.type, 'organization')
+    assert.equal(recordContextFromPath('/module/crm/marketing/organizations/135/edit', 'person=31'), null)
+  })
+
   it('accepts a trailing slash and nothing else after the id', () => {
     assert.deepEqual(recordContextFromPath('/module/crm/marketing/leads/201/'), { type: 'lead', id: 201 })
     assert.equal(recordContextFromPath('/module/crm/marketing/leads/201/edit'), null)

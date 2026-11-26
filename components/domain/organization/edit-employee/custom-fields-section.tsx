@@ -48,6 +48,7 @@ export function CustomFieldsSection({
   values,
   onChange,
   onFieldsLoaded,
+  allowNew = false,
 }: {
   recordTable: string
   recordId: number
@@ -55,12 +56,14 @@ export function CustomFieldsSection({
   onChange: (next: Record<number, string | null>) => void
   /** Tells the parent whether there is anything here, so it can show the tab. */
   onFieldsLoaded?: (fields: CustomFieldEntry[]) => void
+  /** An Add form: record 0 means a record that is not saved yet, and the definitions are loaded (no values). Off by default so a missing id still loads nothing. */
+  allowNew?: boolean
 }) {
   const [fields, setFields] = useState<CustomFieldEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!recordId) return
+    if (!recordId && !allowNew) return
 
     let cancelled = false
 

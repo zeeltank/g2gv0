@@ -1,0 +1,414 @@
+# Product Atlas: what the owner or a module owner must confirm before the slides are shown
+
+Generated from `atlas-notes.json` (written by `scripts/client-presentation/build-atlas.mjs`). Each line is something the sheet's author could not prove from source, or that looks hidden, unfinished or risky to say. None of it is on a slide: it sits in the speaker notes only. Sheets rest on source files, not on a run of the product, and no module owner has signed them off yet.
+**306 open points** across 49 sub-modules.
+
+## Scholar Core
+### Student
+- Screen list comes from next_lms_erp/docs/V1_Menu_Reference.docx (a snapshot). The live sidebar is built from database rows, so confirm the demo school shows these 14 screens.
+- On Search/Edit Student, the Export and Transfer buttons (shown after ticking rows) have no action wired, and the profile drawer's certificate and I-card buttons only write to the browser console. None of these are claimed.
+- docs/menu-data-source-audit.md (22 Aug) calls the student area mixed with five sample-data screens. The code now loads Student Documents and the other student pages (discipline, health overview, house, ID card preview) from the server. The last four are not in the menu snapshot, so they are not presented.
+- Subject Elective is a generic read-only table, not a full setup screen. Student Request only submits requests; no approve or reject screen was found in the front end.
+- I-card layouts are four built-in templates (plus two for one specific school id). Certificate templates come from the school's own template list.
+- AI-assisted drafting is on the health remarks and vaccination note boxes only (docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md). It uses a local-model route in the front end; confirm model, key and data handling before promising it.
+- The Intelligence screen is attached to the menu by front-end matching (components/intelligence/module/registry.ts), not by the menu snapshot. The registry itself says its action loop is not wired. Confirm it appears for this module on the demo school.
+
+### Admission
+- Screen list comes from the Word menu snapshot; confirm the live sidebar shows Inquiry, Registration and Confirmation.
+- docs/menu-data-source-audit.md (22 Aug) calls two admission pages static sample data (admission_form, admission_followUp). The code now loads both from the server, but neither is in the menu snapshot, so they are not presented.
+- The registration table shows a registration fee status column; the exact rule that decides Pending or Paid was not traced. The Add Student button is enabled by an eligibility check in the confirmation page that was not read in full.
+- The enquiry remarks box uses a local-model route in the front end (docs/AI_FIELD_ASSISTANT.md). Confirm model, key and data handling before promising it.
+- Admission reports (enquiry, registration, confirmation, follow-up) sit under the Reports module, not here.
+- The Intelligence screen is attached by front-end matching; the registry says its action loop is not wired. Confirm it appears on the demo school.
+
+### Attendance
+- Only two codes exist in the data model: present and absent. There is no late or leave status, so do not show one.
+- App notifications go to devices registered with the family's mobile number, and only when a student's mark is first saved on the same day (not on later edits). Confirm the wording and that the demo school has registered devices.
+- A separate attendance dashboard (trend charts, daily register) at /attendance/attendance_dashboard is reachable from the teacher dashboard, and face attendance screens exist in app/face_attendance. Neither is in the menu snapshot, so neither is presented. docs/menu-data-source-audit.md calls the dashboard static; the code now loads it from the server.
+- Day-wise, month-wise and yearly attendance reports sit under the Reports module, not here.
+- The Intelligence screen uses attendance bands described only as 'the board's' lines, with no named source, so research is left empty. Its action loop is not wired per the registry.
+- Screen list comes from the Word menu snapshot; confirm the live sidebar.
+
+### Users
+- Only one screen (Users) sits under this heading in the menu snapshot. User profile setup is under Institute (Master), and the user report is under Reports.
+- Each button (add, edit, deactivate, competency) appears only if the signed-in person has that right; a non-administrator sees only their own record. Demo with an administrator login.
+- A staff competency side panel opens from the list. It needs an HR or administrator role and competency data; not claimed as a feature.
+- Circular and Parent Communication appear directly under Institute ERP in the snapshot, next to Users. They are not covered here.
+- The Intelligence screen is the staff (HR) one, matched by route in the front-end registry; its action loop is not wired per the registry. Confirm it appears on the demo school.
+
+### Front Desk
+- The menu snapshot puts one screen under Front Desk. Circular and Parent Communication (app/front_desk) sit directly under Institute ERP instead; decide whether to present them with Front Desk.
+- Visitor type has only two choices on this screen: Parents and Other. Every entry must name a student.
+- Out time is added by editing the entry; there is no separate check-out button here (that is on Visitor Management).
+- The front desk report sits under the Reports module. No Intelligence screen is registered for Front Desk.
+- Screen list comes from the Word menu snapshot; confirm the live sidebar.
+
+### Visitor Management
+- Text messages (welcome to host and visitor, exit to visitor, sent once) go out only if the school has set up its SMS gateway and switched each message on. Confirm the demo school has this, or show it as a setting.
+- The form lists a 'Pick-up student' appointment type, but the one-time-code check for pick-ups exists only in the back end and is not in this screen. Not claimed.
+- The visitor-type list is built from past visits (code comment in _lib/visitor.ts), so a brand-new school may see an empty list until types exist.
+- The Intelligence registry notes that entry and exit times are unreliable, so no visit duration is shown. Do not promise dwell time. This module's action loop is marked wired in the registry; confirm on the demo school.
+- Hostel visitor details is a different module. The visitor report sits under Reports.
+- Screen list comes from the Word menu snapshot; confirm the live sidebar.
+
+### Timetable
+- The double-booking block is the default; a school setting (timetable_teacher = Yes) switches it off. Confirm the demo school keeps it on.
+- Substitute suggestions come from the saved timetable rows (teachers with no lecture in that period and weekday). Teachers with no timetable rows may also appear. Check with real data before showing.
+- The remaining-lectures figure appears only for teachers whose total lectures were set on the Users screen; otherwise it shows nothing.
+- Class-wise and faculty-wise timetable views sit under the Reports module. The timetable screens live in the front_desk folder of the code but belong to this menu group.
+- No Intelligence screen is registered for Timetable.
+- Screen list comes from the Word menu snapshot; confirm the live sidebar.
+
+### Exam
+- Mark Entry accepts the codes AB, N.A. and EX as well as numbers; the meaning of each code was not found in the code, so it is not explained on screen. Grade ranges come from the school's own grade setup.
+- The back end can lock an exam so marks can no longer change, and has a marks approval step, but the Mark Entry screen has no approve button. Only co-scholastic grades have an approve step on screen.
+- The Exam menu snapshot has five screens. Exam creation, grade and exam masters, report cards and result reports sit in other menu groups (Exam (Master) and Reports).
+- HPC Entry v1 is a version name from the menu; confirm whether to show it or only HPC Activity Entry.
+- Exam Intelligence is not built, and Result Intelligence is only part built (registry), so no Intelligence is claimed here.
+- Exam creation has AI-assisted drafting for the description box, but that screen is not in this menu group, so it is not claimed.
+- Screen list comes from the Word menu snapshot; confirm the live sidebar.
+
+### Fees
+- The parent pay-by-link page (lms_k12/app/pay/[code]) has no sidebar entry; confirm it is switched on for the demo school. Its own doc lists a known gap: bulk discounts are not applied on that page.
+- Online Fees Collect needs a payment connection set up per school under API Settings (Master); the code lists several bank gateways, kept off the slides on purpose.
+- Sidebar also shows an item labelled 'AI insights' for Fees. The code behind it is rule-based over the school's own fee records, with no AI model; the menu text and a database menu named 'Fees Prediction' should not be repeated on slides.
+- Screens list spans three menu groups (Institute ERP > Fees, Fees (Master), Fees Report); the first ten are the daily-use screens, trim for the slide. Menu names carry typos (BreckOff) in the database.
+- Audit trail tab under Fees reports reads system_audit_logs; the API returns an empty list if that table is missing in an environment. Not listed as a feature for that reason.
+- Fees AI Stack page comment says its tabs are static placeholders; not described.
+
+### Petty Cash
+- Amounts are whole numbers only (the database column is an integer); fractions are rejected by the entry screen.
+- The data has no approval or payment-status column, so do not describe an approval step for petty cash.
+- Petty Cash Master sits under the Institute (Master) menu group and Petty Cash Report under Reports > Other Reports; the sidebar group 'Petty Cash' itself holds only the entry screen.
+- The 'AI insights' sidebar item for petty cash is rule-based (calls out claims far above the school's own average) and reports all-time figures, not by academic year; not claimed as a feature.
+- Petty Cash AI Stack page exists in code; not described.
+
+### Inventory
+- Stock balance is not fully reconciled: the Inventory AI Stack code comment says the item stock figure rises on purchase but is not reduced when stock is issued. The Overall Item Report builds opening, purchased, issued and closing from the records instead. Confirm before promising live stock levels.
+- The sidebar 'AI insights' item for Inventory is rule-based and reads stock-take scan records (the same scan table the Library Scan Book writes) plus requisitions awaiting a decision; confirm this scope is intended before showing it.
+- Screens list spans three menu groups (Institute ERP > Inventory, Inventory (Master), Inventory Report); first ten are the daily-use screens. Menu names carry typos ('Generat PO').
+- Direct purchases add to item stock in the API; not listed as a feature because the stock caveat above applies.
+- Inventory AI Stack page exists in code; not described.
+
+### Transport
+- Only Student Transport Mapping sits under the Institute ERP > Transport group; the eight setup screens are in a separate 'Transportation (Master)' group and the two van reports are under Reports > Student Report. Trim the screens list for the slide.
+- Not confirmed: whether the distance rate slabs fill the amount on a student's mapping automatically; the mapping API only accepts an optional amount.
+- A Transport dashboard (routes, vehicles, students mapped, capacity use) and a late-bus SMS route exist in code but are not in the menu snapshot; not claimed.
+- 'Add Vehicle' also appears under API Settings (Master) in the menu reference.
+- The sidebar 'AI insights' item for Transport is rule-based (for example vehicles carrying more riders than seats); no AI model.
+- Menu names carry typos ('Van Summery Report').
+
+### Hostel
+- Setup screens sit in a separate 'Hostel (Master)' group and the three reports under 'Hostel Report'; only two screens are directly under Institute ERP > Hostel. Trim the screens list for the slide.
+- The code registry marks Hostel's 'AI insights' as partial and says it reports insufficient data for non-boarding schools; deliberately not claimed here.
+- Visitor Details appears in both the Hostel group and the Hostel Report group (same page).
+- An unused HostelGapPage component in the front end lists 'backend gaps'; it is not routed, so nothing from it is claimed.
+- Confirm the demo school actually has boarding data before showing allocation screens.
+
+### Library
+- Issuing a book to a student is NOT built in the new Book Resources screen: its own code comment says the issue/return pop-up and per-book items view were left out because the backend returns page fragments, not data. Quick Return and the Issue/Overdue report depend on loans issued elsewhere. Confirm where staff issue books before saying 'issue and return'.
+- Screens are split across three menu groups (Books, Stock Verification, Library Report); trim for the slide.
+- The sidebar 'AI insights' item for Library is rule-based (high-demand titles, overdue volume, titles never borrowed); no AI model.
+- Library AI Stack page exists in code; not described.
+
+### Inward Outward
+- The entry form requires an image attachment on a new entry and accepts images only; confirm whether PDF scans are expected before saying 'scanned copy'.
+- Place and file-location lists are in a separate 'Inward Outward (Master)' group and the two reports in 'Inward Outward Report'; only two screens sit directly under Institute ERP > Inward Outward.
+- The sidebar 'AI insights' item for Inward Outward is rule-based (for example duplicate inward numbers, entries with no file location, inward entries with no attachment); no AI model.
+- Inward Outward AI Stack page exists in code; not described.
+
+### Utility
+- Update all Data includes heavy year-end actions (make all students inactive, delete fee breakoff months); show with care in a live school, ideally on a demo school.
+- Rollover refuses to run with fewer than four modules ticked and always includes academic year, fee year map and fee title tables.
+- Student Transfer moves students only between institutes of the same client; Transfer Student (promotion to next year) sits under the Institute (Master) menu group.
+- Not confirmed: whether forms saved in Form Builder are consumed by any other screen; the screen stores the form definition (JSON and XML).
+- Custom Module creates database tables from a screen and registers routes from them at start-up; confirm this is safe to show to client admins.
+- Utility has no 'AI insights' item in the code registry; none claimed.
+
+### Document Templates
+- Two template systems exist side by side: the new visual designer (All templates, Certificates, ID cards, Fee documents, Admission documents) and older HTML merge-tag editors (Template Management, Result Template). Confirm which one is shown in the demo.
+- PDF and image export runs in the browser (page capture), not on the server; check output quality on the demo machine.
+- The backend also holds an assistant-only template category; not described.
+- Issuing and printing a certificate for a student is on the Student menu (Student Certificate), outside this module.
+- The sidebar 'AI insights' item for Document Templates exists in the registry but only at the basic findings level; not claimed.
+- Document Templates AI Stack page exists in code; not described.
+
+### Communication
+- The live demo menu (25 Nov) shows only the five send screens under Communication. The five logs (E-mail, SMS, Notification, Register Parent, WhatsApp) sit under Reports > Communication Report, so they are listed here as related screens.
+- Gateway set-up pages for SMS, e-mail and WhatsApp exist for admins only. Confirm the demo school has working gateways before any live send, and keep provider names off the slides.
+- Code comments say only WhatsApp records a delivery outcome. Avoid delivery or open-rate claims for SMS, e-mail and app notifications, even though the Notification Report has a read-status column.
+- The AI drafting button only proposes text; staff must apply it and press Send. It calls the platform's central AI service, which needs a working AI key on the demo tenant.
+- The 'AI insights' sidebar item for Communication is added by front-end code and is not claimed as a feature. Its registry comments disagree on whether the follow-up loop is wired.
+- Nothing was sent while checking; this sheet describes what the screens can do, not what has been sent.
+
+### Circular
+- Circular Report sits under Reports > Institute Report in the menu reference; the live demo menu shows Circular as a single screen.
+- Code notes say nothing records who opened a circular. Do not claim readership, reach or read receipts.
+- The parent alert on publish uses the school mobile app and push set-up. The mobile app source is not in these two repos, so only the server side was verified.
+- Publishing writes one row per class, so one notice to several classes appears as several rows in the list.
+- A Circular AI Stack page exists in code; it is not described here.
+
+### Parent Communication
+- The new web screen is a read-only report. No reply box was found in the Next.js page; replies are saved by the older web screen and by the teacher app endpoint. Confirm what the demo should show.
+- Parents can write in only through the student or parent mobile app (a protected endpoint). The app itself is not in these two repos.
+- Which messages a teacher sees depends on a per-school setting (class teacher or subject teacher). Confirm the demo school's setting.
+- The older reply screen and the teacher endpoint can alert the parent in the app after a reply; this was read in source and not exercised.
+- Communication intelligence counts these messages but its code says subject and message text is never read. A Parent Communication AI Stack page exists; neither is claimed.
+
+### Consent
+- The live demo menu (25 Nov) shows 'Consent' with no screens under it for the demo login. Grant the Consent rights before demoing, or leave this slide out.
+- The 'Parent status' column shows what the record holds (it defaults to Pending). No code path was found where a parent approves or declines, so do not claim parent sign-off.
+- Consent records also carry an amount and a head in the database, but the new Consent Master form does not capture them; do not describe consent as collecting money.
+- Consent Report sits under Reports > Other Reports in the menu reference.
+- The 'AI insights' sidebar item for Consent is added by front-end code and not claimed as a feature.
+- The parent app can list a student's consents through an endpoint; the app itself is not in these two repos.
+
+### PTM
+- Only PTM Attended Status sits under Institute ERP > PTM in the live demo menu. Time Slot Master is listed under 'PTM (Master)' and PTM Report under Reports > Other Reports in the menu reference.
+- Parent booking is provided by app endpoints (teacher list, booking times, book). The mobile app is not in these two repos and no web booking screen exists, so the booking step was verified in source only.
+- Attendance values are Yes or No only. The intelligence code treats a '--Select Status--' placeholder as unmarked, not absent.
+- The 'AI insights' sidebar item for PTM is added by front-end code and not claimed as a feature.
+- A PTM AI Stack page exists in code; it is not described.
+
+### Complaint
+- Complaint Report sits under Reports > Other Reports in the menu reference; the live demo menu shows only Complaint Management under Complaint.
+- Complaints are entered by staff. No parent or student complaint-submission screen was found in this code, so do not imply parents can raise complaints.
+- The description is a single-line box and the attachment shows only a file name; no download link was verified in the list.
+- The list of solution statuses is shared across schools, not set per school.
+- A Complaint AI Stack page exists in code; it is not described.
+
+### Mobile Apps
+- The menu row is spelled 'Photo Video Gallary' (and the sidebar shows that spelling). The slide uses 'Gallery'; fix the menu row if the demo login shows the typo.
+- On the web, Leave Application is a read-only report with print. Approving or rejecting leave is done in the teacher app endpoint and an older web screen; confirm what the demo will show.
+- Students and parents see this content in the native mobile app, which is not in these two repos. Only the server endpoints (calendar, gallery, exam schedule, leave) were verified.
+- Video albums use pasted video links, not hosted video files.
+- A Mobile Apps AI Stack page exists in code; it is not described. Mobile app rights and the mobile page builder sit under other menus and are not included.
+
+### Alumni Management
+- The module is not in the older menu reference or in the data-source audit (written before it was built). 'Live' rests on the code: every screen calls the API and no sample-data arrays were found.
+- The 16 screens listed match the live demo menu of 25 Nov. A 'Convert Passed-Out Students' screen exists in code but is not in that menu, so it is not listed or claimed.
+- The alumni self-sign-in portal is documented as prepared but not released (needs a secret key, a migration and mail set-up). It is not claimed.
+- SMS, WhatsApp and push messages to alumni are recorded as skipped until a provider is configured; only in-app and e-mail (with a real mail set-up) are real. Show no delivered counts for the other channels.
+- Online donation payment is not built; donations are recorded by finance staff and a receipt number is issued only when a person verifies the gift. Donations and Audit Log are limited to finance and admin roles.
+- The plan says an 'Alumni Coordinator' profile did not exist in production; an admin must create it before that role can be shown.
+- The plan cites an external 50-section specification PDF that is not in either repo, so the research field is left empty.
+
+## Scholar Learn
+### Teach/Learn
+- The live menu lists only Course Catalog here. Curriculum, Chapters, Lesson plans, Question Bank and Coherence Map are tabs inside a course, not menu screens.
+- H5P Content and Content Library menu rows are switched off (module-intelligence doc, Sept 2026). Not claimed.
+- Simulations and virtual-lab items sit inside the chapter view. Simulation Learning is review-only, so none of it is claimed.
+- Question drafts are saved to the question bank for staff to Approve or Hold. Presentations are drafted through an outside text-generation service named in config; do not name it. Each draft is a paid call and needs the lms.content create right.
+- The chapter screen carries built-in demo content for demo courses that have no concept data. The 22 Aug audit says the course list is static; the code now loads it from /api/lms-courses.
+- Coherence Map tab: prerequisite links start as AI drafts and show dashed until staff Approve or Dismiss them. Always say suggested.
+- The term schedule and AI period lessons are produced on the Lesson plans tab. The schedule step is arithmetic; the AI lesson step is one call per period and an explicit staff action.
+- Estate data is thin (Sept 2026 doc): content is published against few courses and mostly at one school, and many chapter names do not resolve. Confirm the demo school has content before showing.
+
+### Exam & Assessment
+- The live menu spells it Exam & Assesment; written correctly here.
+- AI marking is NOT claimed. Homework and assignment submissions show an AI check status with AI-proposed marks, and Exam evaluation also proposes marks for written answers. The teacher's marks are the final ones (code comments say the AI proposes, the teacher disposes).
+- The Exams tab button reads AI generated exam, but the code picks questions from the question bank by a Bloom and DOK mix in the browser. Do not call it AI-written.
+- DOK in the paper picker comes from a legacy mapping that equates DOK with easy, medium and hard (vocabulary doc, collision 5). So this record says DOK tags, never Webb.
+- Blueprint presets: two Delhi Directorate designs (2025-26) and one CBSE Class X design. Code notes the CBSE competency weights should be checked against the official sample paper, and the Delhi presets store no source link.
+- Student exam view hides the PAL tab; students see Online Exam and Offline Exam.
+- On the PAL screen the chapter diagnostic is student-only (staff pick a student first). It is a fixed 15-question set scored into four levels by fixed cut points, so it is rule bands, not an AI diagnosis.
+- Usage outside the demo schools is thin (Sept 2026 doc: homework used by very few schools). Expect empty lists on other tenants.
+- The 22 Aug audit lists static student exam datasets; the code now loads them live, so the audit is out of date.
+- Assigning work and homework review are staff-only screens.
+
+### Engagement
+- Only Social & Collabrotive is described. It is live (REST routes exist), has no edit or delete by design, and shows posts as Everyone or Class only.
+- Portfolio and Virtual Classroom have no server route (no portfolio or virtual-classroom route in next_lms_erp/routes). The front end shows built-in demo records, and Add or Schedule only changes a list in the browser. Not claimed; do not demo as working.
+- Activity Stream mixes real Task Management tasks with built-in sample activities (sample teacher names and times). Not claimed.
+- Leader Board is read-only and nothing in the ERP writes its points ledger (route comment and code search). It is probably empty, so it is not claimed. Confirm whether a process fills it.
+- Menu spelling Social & Collabrotive kept as in the live menu.
+- Virtual Classroom only stores a meeting link; no video is hosted by the platform.
+
+### Curriculum Planning
+- On Curriculam Plan the Add topic, Filter and Edit topic dialogs are static forms that save nothing (dialogs.tsx says so). Not claimed.
+- Reports has an Export PDF button with no action behind it. Not claimed.
+- The term schedule and AI-drafted period lessons are generated on Teach/Learn > Course Catalog > Lesson plans. This sub-module shows and edits the resulting periods (objectives, notes, resources, homework).
+- Period lesson drafts are one AI call per period, started by staff. Periods show Materials ready or Needs review.
+- The NCF goals tree shows only where goals are recorded; otherwise the screen says none are recorded.
+- Framework lists keyword matches found in each concept's notes. It is a set of signals, not a checked alignment; keep the word signals.
+- Outcomes achievement uses exam evidence; PAL-verified mastery is rare. Missing evidence is shown as Data not available, never as zero.
+- Menu spelling Curriculam Plan kept as in the live menu. The 22 Aug audit calls Reports static; it now loads from the server, so the audit is out of date.
+
+### PAL: Content model
+- Content depth is the risk. The Aug 2026 master prompt says the PAL content tables were nearly empty, and the AI tagging run reached about half of the busiest questions, all as drafts. Confirm the demo school has authored content before showing.
+- AI tags and enrichment are drafts only; code forbids a batch from approving anything. A named human reviewer is needed.
+- The mistakes library is hand-written (a small starter set in Aug); more needs subject experts.
+- ADR-001 is headed Accepted and implemented, yet its decision section still reads Proposed, requires approval. Do not present its new evidence-floor or 30-day expiry rules as live until confirmed.
+- The Pedagogy Engine rule set contains learning-style rules and the config maps Gardner intelligences. Neither is claimed or cited.
+- Unified Learning Units (menu) is a read-only view built from the chapter's concept data. The approve page at /pal/ulu/manage is not linked from the menu.
+- The Pedagogy Engine is a read-only rule reference and is labelled Teaching methods in the PAL tab bar.
+- Nine languages are registered (English, Hindi, Gujarati, Tamil, Telugu, Marathi, Bengali, Kannada, Malayalam). Do not promise translated content for all of them.
+
+### PAL: Knowledge graph
+- Learning Journey and Context Inspector are in the live menu but switched off in the app: Context Inspector's page is a notice, and the menu links /new_pal.learning_journey and /new_pal.context_inspector are not real routes (routeMapper and DashboardShell say soft-disabled). They are left out of screens and features. A separate student Your Journey page works from Exam & Assessment > PAL.
+- Prerequisite links are suggestions. When last measured (24 Aug) every link was an AI-tagged draft, none reviewed, and the graph contains loops; the Coherence Map page says so itself. Staff can Approve or Dismiss links on Teach/Learn > Course Catalog > Coherence Map.
+- No graph node counts are quoted anywhere, as instructed.
+- Mastery shading comes from a probabilistic mastery signal that ADR-001 says is not shown to students as their mastery. The Sept 2026 coverage doc found few mastery rows and no concept link on questions, so expect little learner data on the map.
+- Teacher Insights class map makes one request per student and loads only when a teacher asks, so it can be slow on large classes.
+- The AI overlay on Knowledge Graph reads the graph database. Aug 2026 notes record hardening gaps there (weak password, plain HTTP, old version). Confirm security before any outside demo.
+- Knowledge Graph and Coherence Map are teacher and admin views; a student session does not use them.
+
+### PAL: Learning engines
+- Clicking ESO in the menu with no concept chosen shows a notice asking for a concept. The real entry is the student's chapter Adaptive Learning button, and staff cannot start a session (student-only route). Demo it with a student login.
+- No pilot results exist in any file opened. The Developer Brief sets a two-arm pilot and a success bar decided before results. Never claim time saved, mastery gains or retention.
+- ESO updates mastery with a simple step rule; a separate probabilistic signal feeds the map. ADR-001 says only the ESO verdict is shown to students.
+- ADR-001 is headed Accepted and implemented but its decision section still reads Proposed. Its evidence-floor and 30-day expiry rules may not be live.
+- The Brief takes its five principles from an outside program and names it. Not named on screen; the Brief says adapted for CBSE.
+- Gamification: Personal Best compares a student only with their own past. Challenge Mode is the only comparison: opt-in, Grade 4 and up, a teacher can switch it off per class, weekly top five by first name. Career Quest also creates a career report; word it carefully.
+- Administration is a settings control plane. Only admin, principal and director profiles can write, and changes affect how every learner is assessed. It is not a student feature.
+- AI Stack has nine tabs (Policies, Models, Prompts, Templates, Knowledge Base, Automations, Usage & Cost, Guardrails, Activity). Models and Usage may show provider names and costs; check before projecting.
+- Reports is staff-only and includes a short AI-written paragraph grounded only in the report's figures. Mastery evidence in the estate is thin (Sept 2026 doc), so it may show little.
+- Risk-style endpoints (failure, burnout, disengagement) exist in the PAL routes but are not on these screens and are not claimed. Learning-style rules exist in the pedagogy selector and are not claimed.
+
+## Scholar CCB
+### Organization Management
+- Served by next_lms_erp (routes/organization_management.php and routes/api.php), not hp_erp; screens are ports of G2G screens.
+- Menu lists three report screens (Employee Directory, Compliance, Disciplinary) with no page in the front end; not shown.
+- Add New People sheet uses sample options and Import is disabled; not shown.
+- Department Policies and Rules tabs hold sample lists; not shown.
+- Saving a competency rating from the staff profile has a known failing call; not shown.
+- SOP drafting with AI needs an AI provider set up for the school; confirm before demo.
+- Menu spells 'Diciplinary' and route 'oragnization'; fix before showing.
+- Organization Profile fields read like a company form (registration, tax numbers, sister companies).
+
+### Task Management
+- Served by next_lms_erp (routes/task_management.php); a port of the G2G task module, not hp_erp.
+- Reports tab 'Learning Recommendations' calls a route missing in next_lms_erp; not shown.
+- Create Task 'generate with AI' sparkle calls a route not found in next_lms_erp; not shown.
+- Integration screen (outside message providers) carries a sample badge; not shown.
+- Capability link applies only to job-role catalogue tasks, not custom tasks.
+- Permissions Matrix is read-only; it and the reports need an elevated staff role.
+
+### Talent Management
+- Served by next_lms_erp (routes/talent_management.php, routes/competency_management.php); ports of the G2G talent module, not hp_erp.
+- Administration screen: only the Workflows tab works, other tabs say under construction; not shown.
+- Development & Career Paths: the Learning Assignments tab and its 'Assign Learning' buttons call missing routes; not shown, hide before demo.
+- Mobility & Succession mixes live data with fixed filter lists and fixed trend text; do not quote its figures.
+- Capability ratings need library items; a 8 Sep decision note found the rating table empty; check live data first.
+- Recruitment: saving a new job opening calls an outside webhook (ported as-is); job-text analysis result is not shown to users.
+- Performance Reviews has Compensation and Bonus tabs (money data); not shown.
+- Menu spells 'Onbording'; fix before showing.
+
+### HRIT Management
+- Served by next_lms_erp (leave and attendance blocks in routes/api.php, payroll in routes/hrms.php); leave and attendance logic ported from hp_erp.
+- This is HR operations, not capability: confirm it belongs on the CCB card.
+- Leave Reports catalogue and saved-report lists are fixed lists in the screen, not live.
+- Payroll screens use older web routes; confirm payroll data is real and keep amounts off slides.
+- Attendance policy, regularization and request pages exist but are not in the menu; not shown.
+
+### Capability Intelligence
+- Served by next_lms_erp (routes/competency_management.php, Services/Competency); ported from G2G, data is the school's own, not G2G's.
+- Dashboard assessment tiles are fixed at zero in code; hide them. Do not quote dashboard numbers.
+- Capability Explorer needs the Enterprise Brain graph; confirm it is reachable on the live site.
+- Mentor Skill Mapping says 'not set up yet' until the career crosswalk exists; suggestions are text similarity and HR confirms each match.
+- Ontology source (O*NET, SkillsFuture Singapore) comes from a code comment only; confirm credit wording.
+- Library content may be empty on live (8 Sep decision note); check before demo.
+- Cross-product reads of G2G data need a token that is not set up; not shown.
+
+### LMS
+- Served by next_lms_erp (routes/g2g_lms.php); a port of the G2G LMS, separate from the K-12 student LMS.
+- Assessments screen calls route names the back end does not define (cycles, tests, mine); not shown.
+- 'Write 5 with AI' needs an AI provider set up; screen note says questions tie to capabilities but the back end drops that link, so do not claim it.
+- Course outline and slide-deck AI routes exist with no screen; not shown.
+- Assignments dialog is labelled 'Assign Learning' in code; avoid that name on slides.
+- Learning Dashboard change-enrolment and cancel-enrolment calls use paths the back end lacks; only enrol works; test before demo.
+- Achievements widget returns nothing until its table exists; not shown.
+
+## Scholar Insight
+### Overview
+- The menu lists Overview > Organization with no real link. Front-end code (lib/brain/menu-navigation.ts) swaps in /enterprise-brain. Confirm it opens from the live sidebar.
+- Several Overview panels and the health bands carry risk-worded titles (classes below the attendance baseline, students most often absent). That part rests on attendance only. Do not show those titles.
+- The overall score is a plain average of the areas that could be scored; thin areas are left out. Never quote a score as a result.
+- The attendance-versus-results card appears only when at least six classes match by label, and states association, never cause.
+- Findings refresh only when someone runs the loop (button or command). No scheduler entry found in app/Console/Kernel.php.
+- The UI says Enterprise Brain and the Brain throughout; the name Scholar Insight never appears in it.
+- docs/menu-data-source-audit.md (22 Aug) does not list Enterprise Brain at all. The data label here comes from reading the code.
+
+### Foundation
+- The Departments page renders nothing if its separate intelligence call fails (page returns null). Check it on the demo school.
+- Two empty dialog files exist (AddDepartmentDialog, AddNewPeopleDialog) and nothing imports them. No Add button is claimed.
+- Ingestion brings in organization, departments, people and capabilities only; students are read directly. Capabilities come from skill and competency records, so a school may show few.
+- The Students screen lists names, mobile numbers and dates of birth. Check privacy before showing real records on a slide.
+- Ingestion's own page text says rows are written to a Brain store; keep slide wording to bringing records in.
+
+### Intelligence Loop
+- The live menu names the first screen Signals. The ledger says never show Signals as Insight (the G2G sales engine uses that name). Decide whether to show the name or describe it only as findings.
+- The evidence-and-reasoning detail opens on the section landing page (/enterprise-brain/intelligence-loop), not on the Signals menu screen, which is a plain table. Confirm clicking the section name opens it on the live site.
+- Reasoner.php records a hypothesis and a root-cause family for each case, chosen from a table a person approved (RuleCatalogue). Do not repeat that wording or say findings are traced to a cause.
+- Rules with no approved cause give a case with no explanation, shown as cause not yet confirmed. That is honest, but many rules are in that state.
+- Execution Center also holds sample records written by a demo seeder, labelled Sample data. Outcome confidence there is a fixed value set from the reported result, not a measurement.
+- Findings refresh only when someone presses Run intelligence or runs the command; no scheduler entry found in Kernel.php.
+
+### Analytics
+- Decision Intelligence (risk register, reasoning patterns, learnings) and the Executive Dashboard recorded metrics read tables that no application code fills; only the demo seeder writes them. On a real school they may be empty. Decision Intelligence is not described as a feature.
+- The four menu screens are plain counts and tables. The charts belong to the Analytics landing page, which should open when the section name is clicked. Confirm on the live site.
+- Organizational Knowledge lists one model per cause family with a reinforcement count that rises when the family recurs. It is a counter, not learning.
+- Registry labels use the words Signals and Root cause family. Keep them off slides.
+
+### Knowledge
+- Ai Assistant is a live Knowledge screen but is left out here: its tables show model names, prompt templates and AI run history, which the ledger says not to present.
+- Memory (conversation sessions, stored events) reads tables that only the demo seeder fills. It is listed as a screen but not described as a feature.
+- Graph Explorer edges come from real record links (staff to department, class to student, class to teacher). Its skills and job-role entry points read an outside occupational taxonomy in the graph store and need that service reachable. Do not quote graph counts.
+- KASBA Explorer covers staff and organization capabilities, not students. Do not link it to student learning. Its page header reads Skills explorer; the menu says KASBA Explorer.
+- ESO is spelled out two ways in code (executable strategic objectives in the registry, executable standard operation in the catalogue). The menu says Eso Library. Confirm the plain name.
+- Knowledge Library entries are written once per cause family by the loop run, so the library is empty until findings have been run.
+
+### Automation
+- Agent Management is a live Automation screen but is left out: it shows model and provider columns and an agent-creation form with instructions, which the ledger says not to present.
+- The live menu spells the last screen Policiy Mangement. Listed as in the menu. Fix the menu row or confirm the deck shows the corrected spelling.
+- Approve and reject buttons sit on the Automation landing page (/enterprise-brain/automation), reached from the section name or Overview tiles, and ask for the reason in a plain browser prompt box. Defer exists in the backend with no button. Check how it looks before filming.
+- The decide route needs the update permission (teacher and clerk profiles hold it), not decision.approve. Settle who may approve before saying so.
+- The policy pins every standard operation at the suggest trust level with human-only executors. Its rule text shows on the landing page, not in the Policy Management table.
+- Task Orchestrator's capability tasks come from skill records brought in by Ingestion, so the list is empty until Ingestion is run.
+
+### Account and Settings
+- The page also lists API keys and a raw key-and-value settings editor. Neither is described as a feature; both are technical.
+- The page header reads Account / Settings; written here as Account and Settings.
+- Roles are mapped by profile name: principal and admin profiles get full rights, trustee and vice principal get manager, teacher and clerk get analyst, unlisted profiles read only. Confirm this matches what the school expects before presenting.
+- The technology line Role-based access sits outside the six-term vocabulary. Swap to Rules and automation if the list is strict.
+
+## Scholar Compass
+### Career Awareness
+- Only Career Certainty has a form. Ambition, Alignment and Originality are explanatory text; their back-end save routes exist but no screen calls them.
+- Career Alignment here only explains the idea. The real alignment check lives on the Career Intelligence page.
+- Screen text links certainty, ambition and alignment to later earnings and satisfaction. No source is cited in code. Do not quote it.
+- Career Certainty intro text speaks of guidance still being built. Keep it out of screenshots and clips.
+- The occupation pick-list reads the O*NET occupation table. Confirm it is loaded in production.
+- docs/menu-data-source-audit.md (22 Aug) lists only career-counselling of the four sub-modules. The data label here comes from reading the code.
+
+### Career Counseling
+- Interest Profiler questions and results are fetched live from the O*NET web service with the platform's account. Confirm the account and terms in production. Nothing is saved; answers sit in the page address.
+- The product ledger says O*NET is not named in the controller. It is: intrestQuestions and intrestResults in lmsCounsellingController call it.
+- Interest results do not feed career evidence or the alignment check; no adapter writes that source. Do not say interests feed guidance.
+- The AI counsellor note is built from alignment and practice records, not the interest scores, yet sits under them. It shows only when records exist and an AI setup is in place; otherwise a plain message.
+- Course cards are set by each school. Take the test opens older ERP pages in a new tab; check they open from a K12 login.
+- The MBTI card appears only if the school names a course MBTI. Confirm test licensing before naming it.
+- The Interest Profile banner heading makes a price-related claim. Do not quote it.
+- The sub-module row has no link of its own; only its two screens open.
+
+### Career Explorer
+- College Profile loads a random sample of up to 200 institutes per visit and Course Profile 20 random courses. Never say the lists are complete.
+- Every college card carries a fixed Featured badge, whatever the college. Do not present it as a ranking.
+- Course and Employer cards show fees and stipends. Keep amounts out of slides.
+- Institute, course and employer rows cite no source in code. Confirm where the data came from before quoting.
+- Occupation data comes from locally stored O*NET tables. Confirm they are loaded in production and note the data version.
+- Advise from experts and Explore sector buttons on cluster cards open pages that read admin-loaded tables; expert cards offer phone links. Check content and consent before showing. Left out of features.
+- The technology line is plain wording because none of the standard technology phrases fits a lookup in occupation tables.
+- The sub-module row has no link of its own. docs/menu-data-source-audit.md does not list career-explorer; the data label comes from reading the code.
+
+### Career Intelligence
+- Career alignment depends on a graph database that is only a verified scout in production. Confirm it is reachable there; without it the alignment result reads insufficient data.
+- The graph covers a small curated set of careers (11 O*NET-coded, CBSE only). Any other aspiration returns insufficient data. Never say every career.
+- The stream-change deadline and days-left come from a placeholder date the data file marks as unsourced and to be replaced before real use. Keep the deadline off slides.
+- Counsellor Actions and Log Intervention work on screen only; entries sit in the browser and are not saved. The Explore Adjacent Careers row is inert. Do not demo them as features.
+- Exam and practice evidence arrives through queued listeners (ExamSubmitted, ConceptOutcomeRecorded). Confirm a queue worker runs in production. The ledger says practice reaches Compass only by manual command; code shows event wiring.
+- The AI explanation shows only when the school has an AI model set up; otherwise a not-available note. The tab text says no AI-generated recommendations while the card shows an AI explanation. Reword before quoting.
+- Matching profile shows fit scores as numbers with three match bands; the screen's middle-band cutoff is 45 and the back-end config is 50. Never quote a score as a result. The list needs an occupation code chosen from the list and answers matching authored knowledge labels exactly, so it can read empty.
+- Suggested mentors needs an HR crosswalk table (s_users_skills_onet_map) filled by HR; empty until then. Left out of features.
+- The menu lists no screens under Career Intelligence; the page has three tabs (Career plan, Matching profile, Career intelligence). If the graph call fails, the screen shows insufficient data with a reason about the aspiration, which may mislead. The Brain screen /career-intelligence/intelligence belongs to Insight.
+

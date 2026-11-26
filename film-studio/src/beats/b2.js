@@ -117,7 +117,7 @@ export async function make({ renderer, envs, beat }) {
   const t3 = text(L('l3'), { x: 120, y: 304, size: 104, weight: 800, color: COL.sky, track: -0.04 })
   const tag = text(L('tag').toUpperCase(), { x: 124, y: 452, size: 22, weight: 800, font: 'sans', color: '#cfe3f8', track: 0.14, words: false })
   const cr = document.createElement('div')
-  cr.className = 'hud'; cr.textContent = 'Photo: Katerina Holmes / Pexels. Illustrative stock imagery.'
+  cr.className = 'hud'; cr.textContent = 'Illustrative stock imagery.'
   Object.assign(cr.style, { right: '56px', bottom: '36px', fontSize: '17px', letterSpacing: '0.04em', textTransform: 'none', fontWeight: '600', color: '#cfe3f8' })
   document.getElementById('dom').appendChild(cr)
 

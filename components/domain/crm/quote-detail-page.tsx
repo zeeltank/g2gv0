@@ -15,6 +15,7 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { useQuotePdfDownload } from '@/hooks/use-quote-pdf-download'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { currencyMismatchSentence } from '@/lib/crm/currency-mismatch'
+import { personHref } from '@/lib/org-accounts/links'
 import { describePlatformError } from '@/lib/platform/client'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
@@ -209,7 +210,7 @@ export function QuoteDetailPage({ quote, onSaved, onBack, quoteStages }: Props) 
           <SectionCard title="Quote Details">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <LinkedField label="Organization" name={quote.organizationName} href={quote.organizationId ? resolveAccessLink('/module/crm/marketing/organizations') + `/${quote.organizationId}` : null} />
-              <LinkedField label="Contact" name={quote.contactName} href={quote.contactId ? resolveAccessLink('/module/crm/marketing/contacts') + `/${quote.contactId}` : null} />
+              <LinkedField label="Contact" name={quote.contactName} href={quote.contactId ? personHref({ id: quote.contactId }, 'marketing', resolveAccessLink) : null} />
               <LinkedField label="Opportunity" name={quote.opportunityName} href={quote.opportunityId ? resolveAccessLink('/module/crm/sales/opportunities') + `/${quote.opportunityId}` : null} />
               <ReadField label="Valid Till" value={quote.validTill && <span className="inline-flex items-center gap-1.5"><Calendar className="size-3.5 text-muted-foreground" aria-hidden="true" />{quote.validTill}</span>} />
               <ReadField label="Assigned To" value={assignedToName && <span className="inline-flex items-center gap-1.5"><User className="size-3.5 text-muted-foreground" aria-hidden="true" />{assignedToName}</span>} />

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import type { DeadlineExtension, MyTask } from '@/types/task-management'
-import { formatDay, localDay, parseDay, relativeTime } from './date-utils'
+import { formatDay, relativeTime } from './date-utils'
+import { ExtensionRequestForm } from './extension-request-form'
 
 /**
  * Asking for more time, and deciding on a request, from the task itself.
@@ -30,25 +31,9 @@ export function ExtensionTab({ task, extensions, busy, onRequest, onDecide, onWi
   onWithdraw: (id: string) => Promise<boolean>
 }) {
   const can = task.can
-  const [date, setDate] = useState('')
-  const [reason, setReason] = useState('')
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [remarks, setRemarks] = useState('')
   const [attempted, setAttempted] = useState(false)
-
-  // The new date has to be later than the one it replaces, and later than today.
-  const current = parseDay(task.due_date)
-  const earliest = (() => {
-    const today = parseDay(localDay(0))!
-    const base = current && current > today ? current : today
-    const next = new Date(base); next.setDate(next.getDate() + 1)
-    return localDay(Math.round((next.getTime() - today.getTime()) / 86_400_000))
-  })()
-
-  async function submitRequest() {
-    if (!date || !reason.trim()) return
-    if (await onRequest(date, reason)) { setDate(''); setReason('') }
-  }
 
   async function confirmReject(id: string) {
     setAttempted(true)
@@ -127,29 +112,7 @@ export function ExtensionTab({ task, extensions, busy, onRequest, onDecide, onWi
       {can?.request_extension && (
         <section className="space-y-2 rounded-xl border p-3" aria-label="Request an extension">
           <h3 className="flex items-center gap-2 text-sm font-semibold"><CalendarClock className="size-4" aria-hidden="true" />Ask for more time</h3>
-          <p className="text-xs text-muted-foreground">Currently due {formatDay(task.due_date, 'on no set date')}.</p>
-          <div className="grid gap-2 @lg/panel:grid-cols-[11rem_1fr]">
-            <input
-              type="date"
-              value={date}
-              min={earliest}
-              onChange={(event) => setDate(event.target.value)}
-              aria-label="New due date"
-              className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <input
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Why is more time needed?"
-              aria-label="Reason"
-              className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button size="sm" disabled={busy || !date || !reason.trim()} onClick={() => void submitRequest()}>
-              {busy ? 'Sending…' : 'Send request'}
-            </Button>
-          </div>
+          <ExtensionRequestForm due={task.due_date} busy={busy} onSubmit={onRequest} />
         </section>
       )}
     </div>

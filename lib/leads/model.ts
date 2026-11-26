@@ -393,11 +393,67 @@ export function leadPatch(fact: Pick<Fact, 'entity_type' | 'field' | 'value' | '
   return property ? { [property]: fact.value } : null
 }
 
+/** What the server answers to a conversion, as far as the page reads it. */
+export interface ConversionAnswer {
+  message: string
+  data?: {
+    notice?: string | null
+    organizationId?: string | null
+    contactId?: string | null
+    opportunityId?: string | null
+    primarySet?: boolean
+    transferred?: { comments?: number; emails?: number; documents?: number; events?: number } | null
+  } | null
+}
+
+/** What the person chose in the pop-up, which the answer does not repeat: whether the organization was one that already existed, and where the records were asked to move. */
+export interface ConversionChoice {
+  organizationExisting?: boolean
+  transferTo?: 'organization' | 'contact' | 'opportunity' | null
+}
+
+const MOVED_TO = { organization: 'the organization', contact: 'the person', opportunity: 'the opportunity' } as const
+
+function andList(words: string[]): string {
+  return words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`
+}
+
+/** "2 comments, 1 email and 1 document", or '' when nothing moved. */
+function movedCounts(moved: NonNullable<NonNullable<ConversionAnswer['data']>['transferred']>): string {
+  const part = (n: number | undefined, one: string) => (n && n > 0 ? `${n} ${one}${n === 1 ? '' : 's'}` : null)
+  return andList([part(moved.comments, 'comment'), part(moved.emails, 'email'), part(moved.documents, 'document'), part(moved.events, 'event')].filter((p): p is string => p !== null))
+}
+
 /**
  * What the page says after a lead is converted. The server answers "Lead converted." and, when the lead named no person (its last name is only the company
  * name), adds `notice` saying that no contact was made and why: that sentence is the one a person must read, so it wins over the plain message.
+ *
+ * S19: given what the person chose (`choice`), the sentence also says what was made, whether the person became the company's primary contact, and what moved
+ * from the lead to where. A server that answers none of it (an older one) gives the plain message, as before; so does a call that passes no `choice`.
  */
-export function conversionMessage(response: { message: string; data?: { notice?: string | null } | null }): string {
-  const notice = response.data?.notice
-  return typeof notice === 'string' && notice.trim() !== '' ? notice : response.message
+export function conversionMessage(response: ConversionAnswer, choice?: ConversionChoice): string {
+  const raw = response.data?.notice
+  const notice = typeof raw === 'string' && raw.trim() !== '' ? raw : null
+  const hasNotice = notice !== null
+  const base = notice ?? response.message
+  const data = response.data
+  if (!choice || !data) return base
+
+  const sentences: string[] = [base]
+  if (!hasNotice) {
+    const made: string[] = []
+    if (data.organizationId && !choice.organizationExisting) made.push('organization')
+    if (data.contactId) made.push('person')
+    if (data.opportunityId) made.push('opportunity')
+    if (made.length > 0) sentences.push(`Created ${andList(made)}.`)
+    if (data.organizationId && choice.organizationExisting) sentences.push('Added to the existing organization.')
+  }
+  if (data.primarySet === true) sentences.push('Set as the primary contact of the company.')
+  if (data.transferred) {
+    const counts = movedCounts(data.transferred)
+    const where = choice.transferTo ? ` to ${MOVED_TO[choice.transferTo]}` : ''
+    sentences.push(counts === '' ? 'There was nothing to move.' : `Moved ${counts}${where}.`)
+  }
+
+  return sentences.join(' ')
 }

@@ -1,0 +1,485 @@
+{
+ "note": "Screens from the K12 product, edited for this presentation. Personal details are removed: names, photos, initials, e-mail addresses, phone numbers and long id numbers are blurred or replaced before the picture is taken.",
+ "screens": [
+  {
+   "id": "career-counseling--career-awareness--career-certainty",
+   "file": "client-presentation/atlas/career-counseling--career-awareness--career-certainty.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "career-counseling--career-counseling--interest-profile",
+   "file": "client-presentation/atlas/career-counseling--career-counseling--interest-profile.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "career-counseling--career-explorer--find-occupation",
+   "file": "client-presentation/atlas/career-counseling--career-explorer--find-occupation.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "career-counseling--career-intelligence--career-intelligence",
+   "file": "client-presentation/atlas/career-counseling--career-intelligence--career-intelligence.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--account-settings--settings",
+   "file": "client-presentation/atlas/enterprise-brain--account-settings--settings.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--analytics--executive-dashboard",
+   "file": "client-presentation/atlas/enterprise-brain--analytics--executive-dashboard.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--automation--task-orchestrator",
+   "file": "client-presentation/atlas/enterprise-brain--automation--task-orchestrator.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--foundation--departments",
+   "file": "client-presentation/atlas/enterprise-brain--foundation--departments.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--intelligence-loop--signals",
+   "file": "client-presentation/atlas/enterprise-brain--intelligence-loop--signals.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--knowledge--graph-explorer",
+   "file": "client-presentation/atlas/enterprise-brain--knowledge--graph-explorer.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "enterprise-brain--overview--organization",
+   "file": "client-presentation/atlas/enterprise-brain--overview--organization.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--admission--admission-inquiry",
+   "file": "client-presentation/atlas/institute-erp--admission--admission-inquiry.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--alumni-management--alumni-list",
+   "file": "client-presentation/atlas/institute-erp--alumni-management--alumni-list.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--attendance--student-attendance",
+   "file": "client-presentation/atlas/institute-erp--attendance--student-attendance.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--circular--circular",
+   "file": "client-presentation/atlas/institute-erp--circular--circular.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--communication--send-sms-parents",
+   "file": "client-presentation/atlas/institute-erp--communication--send-sms-parents.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--complaint--complaint-management",
+   "file": "client-presentation/atlas/institute-erp--complaint--complaint-management.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--consent--consent-master",
+   "file": "client-presentation/atlas/institute-erp--consent--consent-master.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--document-templates--all-templates",
+   "file": "client-presentation/atlas/institute-erp--document-templates--all-templates.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--exam--mark-entry",
+   "file": "client-presentation/atlas/institute-erp--exam--mark-entry.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--fees--fees-collect",
+   "file": "client-presentation/atlas/institute-erp--fees--fees-collect.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--front-desk--front-desk",
+   "file": "client-presentation/atlas/institute-erp--front-desk--front-desk.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--hostel--hostel-room-allocation",
+   "file": "client-presentation/atlas/institute-erp--hostel--hostel-room-allocation.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--inventory--requisition-form",
+   "file": "client-presentation/atlas/institute-erp--inventory--requisition-form.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--inward-outward--add-inward",
+   "file": "client-presentation/atlas/institute-erp--inward-outward--add-inward.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--library--book-resources",
+   "file": "client-presentation/atlas/institute-erp--library--book-resources.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--mobile-apps--calendar",
+   "file": "client-presentation/atlas/institute-erp--mobile-apps--calendar.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--parent-communication--parent-communication",
+   "file": "client-presentation/atlas/institute-erp--parent-communication--parent-communication.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--petty-cash--petty-cash",
+   "file": "client-presentation/atlas/institute-erp--petty-cash--petty-cash.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--ptm--ptm-attended-status",
+   "file": "client-presentation/atlas/institute-erp--ptm--ptm-attended-status.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--sqaa--sqaa",
+   "file": "client-presentation/atlas/institute-erp--sqaa--sqaa.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--student--search-edit-student",
+   "file": "client-presentation/atlas/institute-erp--student--search-edit-student.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--timetable--assign-class-teacher",
+   "file": "client-presentation/atlas/institute-erp--timetable--assign-class-teacher.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--transport--student-transport-mapping",
+   "file": "client-presentation/atlas/institute-erp--transport--student-transport-mapping.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--users--user-master",
+   "file": "client-presentation/atlas/institute-erp--users--user-master.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--utility--rollover",
+   "file": "client-presentation/atlas/institute-erp--utility--rollover.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "institute-erp--visitor-management--add-visitor",
+   "file": "client-presentation/atlas/institute-erp--visitor-management--add-visitor.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "lms-pal--curriculum-planning--curriculam-plan",
+   "file": "client-presentation/atlas/lms-pal--curriculum-planning--curriculam-plan.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "lms-pal--engagement--leader-board",
+   "file": "client-presentation/atlas/lms-pal--engagement--leader-board.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "lms-pal--exam-and-assesment--student-homework",
+   "file": "client-presentation/atlas/lms-pal--exam-and-assesment--student-homework.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "lms-pal--pal--content-model",
+   "file": "client-presentation/atlas/lms-pal--pal--content-model.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "lms-pal--teach-learn--course-catalog",
+   "file": "client-presentation/atlas/lms-pal--teach-learn--course-catalog.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--capability-intelligence--capability-library",
+   "file": "client-presentation/atlas/people-and-competency--capability-intelligence--capability-library.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--hrit-management--attendance-tracking",
+   "file": "client-presentation/atlas/people-and-competency--hrit-management--attendance-tracking.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--lms--learning-dashboard",
+   "file": "client-presentation/atlas/people-and-competency--lms--learning-dashboard.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--organization-management--organization-profile",
+   "file": "client-presentation/atlas/people-and-competency--organization-management--organization-profile.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--talent-management--talent-dashboard",
+   "file": "client-presentation/atlas/people-and-competency--talent-management--talent-dashboard.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  },
+  {
+   "id": "people-and-competency--task-management--task-management-dashboard",
+   "file": "client-presentation/atlas/people-and-competency--task-management--task-management-dashboard.webp",
+   "source": "K12 product (live school, demo login)",
+   "captured_on": "2026-11-25",
+   "crop": null,
+   "personal_data_masked": true,
+   "masked_by": "scripts/client-presentation/capture-k12.mjs (default-deny masker) and a review of the still-readable text",
+   "authorised_by": "Owner, in chat on 2026-11-25: capture screens from the live K12 site with the demo login"
+  }
+ ]
+}

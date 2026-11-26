@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import NextLink from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, Loader2, Pencil, Plus, Search, Sparkles, Target, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +21,11 @@ import {
   type AccountDetail, type ContactPatch, type GtmAccount, type GtmCandidate, type GtmContact, type GtmDirectory,
 } from '@/services/gtm/gtm'
 import type { CrossLinkedCrmOrganization } from '@/components/domain/crm/crm-cross-links-tab'
+import { NEEDS_A_PERSON, qualifyNotice } from '@/lib/gtm/qualify-model'
+import { accountFromSearch } from '@/lib/gtm/prospecting-link'
+import { leadHref } from '@/lib/signals/lead-action'
 import { EstimateTag, GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { QualifyLeadDialog } from './qualify-lead-dialog'
 import { ImportContactsDialog } from './import-contacts-dialog'
 import {
   ProspectScopeBar, accountRegionLabel, customerTypeLabel, productLabel, regionKey, scopeIsComplete, scopeSentence, useStoredScope,
@@ -51,6 +56,12 @@ export function ProspectingView() {
   const [importing, setImporting] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const bump = () => setRefresh((n) => n + 1)
+
+  // A link from a signal ("Open in Prospecting") arrives as /gtm/prospecting?account=<id>: that account opens.
+  useEffect(() => {
+    const id = accountFromSearch(window.location.search)
+    if (id !== null) queueMicrotask(() => setOpenId(id))
+  }, [])
 
   return (
     <div className="p-6">
@@ -273,6 +284,9 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
   const [busy, setBusy] = useState(false)
   const [directory, setDirectory] = useState<GtmDirectory | null>(null)
   const [editingAccount, setEditingAccount] = useState(false)
+  // S20: "Qualify as lead" asks which person; what it made is said under the header with a link to the lead.
+  const [qualifying, setQualifying] = useState(false)
+  const [made, setMade] = useState<{ text: string; leadId: string } | null>(null)
   // Sales & Marketing unification, Phase 7: only the CRM-organization half of
   // the cross-link - the Signals half is already shown in depth by the
   // "Buying signals" section below, duplicating it here would be noise.
@@ -426,8 +440,18 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
             </section>
 
             <section>
-              <h3 className="mb-2 text-sm font-semibold">Contacts ({detail.contacts.length})</h3>
-              {detail.contacts.length === 0 && <p className="mb-2 text-sm text-muted-foreground">No contacts yet. G2G does not invent people — add the ones you have found.</p>}
+              <div className="mb-2 flex items-center gap-2">
+                <h3 className="text-sm font-semibold">Contacts ({detail.contacts.length})</h3>
+                <Button size="sm" variant="outline" className="ml-auto" disabled={busy || detail.contacts.length === 0} title={detail.contacts.length === 0 ? NEEDS_A_PERSON : undefined} onClick={() => { setMade(null); setQualifying(true) }}>
+                  <Target className="mr-1 size-3.5" aria-hidden="true" />Qualify as lead
+                </Button>
+              </div>
+              {made && (
+                <p role="status" className="mb-2 rounded-md border border-border bg-muted/50 p-2 text-sm">
+                  {made.text} <NextLink href={leadHref(made.leadId)} className="font-medium underline underline-offset-2 hover:no-underline">Open lead</NextLink>
+                </p>
+              )}
+              {detail.contacts.length === 0 && <p className="mb-2 text-sm text-muted-foreground">No contacts yet. G2G does not invent people — add the ones you have found. {NEEDS_A_PERSON}</p>}
               <ul className="mb-3 space-y-1">
                 {detail.contacts.map((c) => (
                   <ContactRow key={c.id} contact={c} busy={busy}
@@ -453,6 +477,21 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
               </div>
             </section>
 
+            {(detail.leads ?? []).length > 0 && (
+              <section>
+                <h3 className="mb-2 text-sm font-semibold">Leads from this account ({(detail.leads ?? []).length})</h3>
+                <ul className="space-y-1 text-sm">
+                  {(detail.leads ?? []).map((l) => (
+                    <li key={l.id} className="flex flex-wrap items-center gap-2 border-b border-border py-1.5">
+                      <NextLink href={leadHref(l.id)} className="font-medium underline underline-offset-2 hover:no-underline">{l.name}</NextLink>
+                      {l.leadNo && <span className="text-xs text-muted-foreground">{l.leadNo}</span>}
+                      {l.status && <Badge variant="outline">{l.status}</Badge>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <section>
               <h3 className="mb-2 text-sm font-semibold">Activity</h3>
               <div className="mb-3 flex gap-2">
@@ -474,6 +513,21 @@ function AccountDialog({ id, onClose, onChanged }: { id: number | null; onClose:
               )}
             </section>
           </div>
+        )}
+        {detail && (
+          <QualifyLeadDialog
+            open={qualifying}
+            onClose={() => setQualifying(false)}
+            accountId={detail.account.id}
+            accountName={detail.account.name}
+            contacts={detail.contacts}
+            service={gtmService}
+            onQualified={(result, personName) => {
+              setMade({ text: qualifyNotice(result.created, personName), leadId: result.lead_id })
+              void load()
+              onChanged()
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>

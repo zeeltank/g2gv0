@@ -3,11 +3,13 @@
  * records (the CRM organization, the GTM account and the Signals company) are shown, with the reason each is linked.
  */
 
-export type OrgDetailTab = 'details' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'account_360' | 'custom'
+export type OrgDetailTab = 'details' | 'people' | 'hierarchy' | 'opportunities' | 'quotes' | 'schedule' | 'comments' | 'documents' | 'emails' | 'history' | 'projects' | 'account_360' | 'custom'
 
-/** The tabs every organization has, in order. (A "Custom Fields" tab is added after them when the organization has custom fields.) */
+/** The tabs an organization has, in order (People is for those who may see people). (A "Custom Fields" tab is added after them when the organization has custom fields.) */
 export const ORG_DETAIL_TABS: ReadonlyArray<{ id: OrgDetailTab; label: string }> = [
   { id: 'details', label: 'Details' },
+  // S18: the company's people. The page shows this tab only to a person who holds the contacts view right (it drops it from the list for anyone else).
+  { id: 'people', label: 'People' },
   { id: 'hierarchy', label: 'Hierarchy' },
   { id: 'opportunities', label: 'Opportunities' },
   { id: 'quotes', label: 'Quotes' },

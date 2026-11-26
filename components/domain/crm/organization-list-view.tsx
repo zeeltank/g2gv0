@@ -9,10 +9,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils'
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { useUrlTab } from '@/components/shared/scaffolds/use-url-tab'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { buildLinks } from '@/lib/org-accounts/links'
+import { SCOPE_IDS, SCOPE_PARAM } from '@/lib/org-accounts/scope-model'
+import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
+import { companyDeleteQuestion, INITIAL_PEOPLE_STATE, matchedPersonName, type CompanyRow, type PeopleListState } from '@/lib/crm/people'
 import { crmService } from '@/services/crm'
-import type { CrmPicklistValue, Organization } from '@/types/crm'
+import { contactsService } from '@/services/crm/contacts'
+import type { CrmPicklistValue } from '@/types/crm'
 import { BulkSendMessageDialog, type MessageChannel } from './bulk-send-message-dialog'
 import { BulkSendSmsDialog } from './bulk-send-sms-dialog'
 import { CreateOrganizationModal } from './create-organization-modal'
@@ -25,6 +30,8 @@ import { CrmRecycleBinLink } from './crm-recycle-bin-link'
 import { CrmSavedViews } from './crm-saved-views'
 import { useAssignableEmployees } from './lead-employees'
 import { OrgScopes } from './org-scopes'
+import { usePeopleRights } from './people/people-rights'
+import { PeopleTable } from './people-table'
 
 type SortKey = 'name' | 'account_type' | 'industry' | 'rating' | 'billing_city' | 'created_at'
 
@@ -64,8 +71,16 @@ export function OrganizationListView() {
   const router = useRouter()
   const { resolveAccessLink } = useSidebarNavigation()
   const context = useMemo(() => getLaravelContext(), [])
+  const people = usePeopleRights()
+  const [openScope] = useUrlTab(SCOPE_IDS, SCOPE_PARAM)
+  // A person without the contacts view right who opens ?scope=people lands on Companies (see OrgScopes), so the header follows the scope that is really open.
+  const scope = !people.view && (openScope === 'people' || openScope === 'suggestions') ? 'crm' : openScope
+  const [actionsHost, setActionsHost] = useState<HTMLElement | null>(null)
+  const [peopleTotal, setPeopleTotal] = useState<number | null>(null)
+  // The People table's search, chip, sort and page live here, so they survive a visit to another scope (the table is built only while its scope is open).
+  const peopleListState = useState<PeopleListState>(INITIAL_PEOPLE_STATE)
 
-  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [organizations, setOrganizations] = useState<CompanyRow[]>([])
   const { selectedIds, toggle, toggleAll, clear: clearSelection, allSelected } = useBulkSelection(organizations)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -90,7 +105,7 @@ export function OrganizationListView() {
         page, perPage: PAGE_SIZE, search: search || undefined,
         sortBy: sortKey, sortDir: sortAsc ? 'asc' : 'desc',
       })
-      setOrganizations(response.data.items)
+      setOrganizations(response.data.items as CompanyRow[])
       setTotal(response.data.pagination.total)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load organizations.')
@@ -113,6 +128,14 @@ export function OrganizationListView() {
       .catch(() => { /* the form still works with empty dropdowns */ })
   }, [context])
 
+  // The count on the All people tab, read once without waiting for the scope to be opened; the table reports it again when it has loaded.
+  useEffect(() => {
+    if (!people.view || !isLaravelContextReady(context)) return
+    contactsService.list(context, { page: 1, perPage: 1 })
+      .then((response) => setPeopleTotal(response.data.pagination.total))
+      .catch(() => { /* the tab shows no count */ })
+  }, [people.view, context])
+
   const onSort = (key: SortKey) => {
     if (key === sortKey) { setSortAsc((a) => !a) } else { setSortKey(key); setSortAsc(true) }
   }
@@ -132,7 +155,8 @@ export function OrganizationListView() {
   const employees = useAssignableEmployees(context, selectedIds.size > 0)
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Delete ${selectedIds.size} organization${selectedIds.size === 1 ? '' : 's'}? This moves them to the Recycle Bin.`)) return
+    // Says how many people the companies have and what happens to them: they stay in All people, marked "Company in Recycle Bin" (S18).
+    if (!window.confirm(companyDeleteQuestion(organizations.filter((o) => selectedIds.has(o.id))))) return
     setBulkBusy(true)
     try {
       const response = await crmService.bulkDeleteOrganizations(context, Array.from(selectedIds))
@@ -165,28 +189,36 @@ export function OrganizationListView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Organizations</h1>
-          <p className="text-sm text-muted-foreground">Companies your leads and contacts belong to.</p>
+          <p className="text-sm text-muted-foreground">Companies and the people who work there.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <CrmRecycleBinLink />
-          <CrmExportButton href={crmService.organizationsExportUrl(context, search || undefined)} />
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <FileUp className="mr-1.5 size-4" aria-hidden="true" />
-            Import
-          </Button>
-          <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
-            <Copy className="mr-1.5 size-4" aria-hidden="true" />
-            Find Duplicates
-          </Button>
-          <Button onClick={() => setModalOpen(true)}>
-            <Plus className="mr-1.5 size-4" aria-hidden="true" />
-            Add Organization
-          </Button>
-        </div>
+        {/* All people draws its own buttons here (the ones the old Contacts list had, with Add person); every other scope keeps the companies' buttons. */}
+        {scope === 'people' ? <div ref={setActionsHost} className="flex flex-wrap items-center gap-2" /> : (
+          <div className="flex items-center gap-2">
+            <CrmRecycleBinLink />
+            <CrmExportButton href={crmService.organizationsExportUrl(context, search || undefined)} />
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <FileUp className="mr-1.5 size-4" aria-hidden="true" />
+              Import
+            </Button>
+            <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+              <Copy className="mr-1.5 size-4" aria-hidden="true" />
+              Find Duplicates
+            </Button>
+            <Button onClick={() => setModalOpen(true)}>
+              <Plus className="mr-1.5 size-4" aria-hidden="true" />
+              Add Organization
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* The scope switch: Organizations (the list below, unchanged) | Discovered (found in Signals or GTM, not in the CRM yet) | Possible duplicates. */}
-      <OrgScopes context={context} links={buildLinks(resolveAccessLink)}>
+      {/* The scope switch: Companies (the list below) | Discovered (found in Signals or GTM, not in the CRM yet) | Possible duplicates | All people | Suggestions (the last two for a person who holds the contacts view right). */}
+      <OrgScopes
+        context={context}
+        links={buildLinks(resolveAccessLink)}
+        peopleCount={peopleTotal}
+        people={people.view ? <PeopleTable actionsHost={actionsHost} onTotalChange={setPeopleTotal} listState={peopleListState} /> : undefined}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative max-w-sm flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -215,16 +247,18 @@ export function OrganizationListView() {
                 <SortHead label="Industry" sortKey="industry" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
                 <SortHead label="City" sortKey="billing_city" activeKey={sortKey} asc={sortAsc} onSort={onSort} className="hidden @md/orgs:table-cell" />
                 <TableHead>Phone</TableHead>
+                <TableHead>People</TableHead>
+                <TableHead className="hidden @md/orgs:table-cell">Primary contact</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto mb-2 size-5 animate-spin" aria-hidden="true" />Loading organizations…
                 </TableCell></TableRow>
               )}
               {!isLoading && organizations.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                   No organizations yet. Click “Add Organization” to create one.
                 </TableCell></TableRow>
               )}
@@ -238,11 +272,18 @@ export function OrganizationListView() {
                       onChange={() => toggle(org.id)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium text-foreground">{org.name}</TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {org.name}
+                    {matchedPersonName(org) && (
+                      <span data-matched-person className={cn(CHIP_BASE, CHIP_TONE.info, 'ml-2 align-middle')}>Matched person: {matchedPersonName(org)}</span>
+                    )}
+                  </TableCell>
                   <TableCell>{org.accountType || '—'}</TableCell>
                   <TableCell className="hidden @md/orgs:table-cell">{org.industry || '—'}</TableCell>
                   <TableCell className="hidden @md/orgs:table-cell">{org.billingCity || '—'}</TableCell>
                   <TableCell>{org.phone || '—'}</TableCell>
+                  <TableCell>{typeof org.peopleCount === 'number' ? <span data-people-count className={cn(CHIP_BASE, CHIP_TONE.neutral)}>{org.peopleCount}</span> : '—'}</TableCell>
+                  <TableCell className="hidden @md/orgs:table-cell">{org.primaryContactName || '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -296,7 +337,7 @@ export function OrganizationListView() {
         onReassign={(assigneeId, cascade) => void handleBulkReassign(assigneeId, cascade)}
         onDelete={() => void handleBulkDelete()}
         onClear={clearSelection}
-        cascadeLabel="Also transfer contacts"
+        cascadeLabel="Also transfer people"
         onSendMessage={(channel) => {
           setBulkMessageChannel(channel)
           setBulkSmsOpen(true)
