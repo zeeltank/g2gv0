@@ -2350,40 +2350,6 @@ export interface AgentRunResponse {
   data: AgentRun
 }
 
-export interface AutomationRule {
-  id: string
-  name: string
-  description: string | null
-  triggerModule: 'lead' | 'contact' | 'opportunity' | 'signal' | 'campaign'
-  triggerEvent: string
-  triggerConditions: Array<{ field: string; operator: string; value: string }> | null
-  actions: Array<{ actionType: string; params: Record<string, unknown> }>
-  isActive: boolean
-  runCount: number
-  lastRunAt: string | null
-}
-
-export interface AutomationRuleListResponse {
-  status: number
-  message: string
-  data: AutomationRule[]
-}
-
-export interface AutomationRuleResponse {
-  status: number
-  message: string
-  data: AutomationRule
-}
-
-export interface AutomationRulePayload {
-  name: string
-  description?: string
-  triggerModule: string
-  triggerEvent: string
-  triggerConditions?: Array<{ field: string; operator: string; value: string }>
-  actions: Array<{ actionType: string; params: Record<string, unknown> }>
-}
-
 export interface ProspectingResult {
   runId: number
   icpFitScore: number

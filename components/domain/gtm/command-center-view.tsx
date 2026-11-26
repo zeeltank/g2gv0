@@ -6,13 +6,14 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
 import { gtmService, type GtmOverview } from '@/services/gtm/gtm'
+import { AUTOMATIONS_HREF } from '@/lib/platform/workflow-tabs'
 import { money } from './deals-view'
 import { ContextualInsights } from '@/components/domain/intelligence'
 import { EstimateTag, GtmPageHeader, MeasuredTag, StatTile, errMsg, useGtmReady } from './gtm-shared'
 
 const MORE_PAGES: [string, string][] = [
   ['/gtm/campaigns', 'Campaigns'], ['/gtm/customers', 'Customers'],
-  ['/gtm/workflows', 'Workflows'], ['/gtm/reports', 'Reports'], ['/gtm/monitoring', 'Monitoring'],
+  [AUTOMATIONS_HREF, 'Workflows'], ['/gtm/reports', 'Reports'], ['/gtm/monitoring', 'Monitoring'],
 ]
 
 const STAGE_LABEL: Record<string, string> = {

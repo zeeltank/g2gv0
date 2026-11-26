@@ -1,0 +1,1 @@
+export { ApprovalsTab } from './ApprovalsTab'

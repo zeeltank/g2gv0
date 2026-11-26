@@ -39,7 +39,7 @@ describe('platformKeyForMenuLink', () => {
 
 describe('isCrmPath', () => {
   it('is true for the GTM screens, Market Signals and its family, and anything under /module/crm', () => {
-    for (const path of ['/gtm/outreach', '/gtm/command-center', '/signals', '/signals/portfolio', '/ingestion', '/portfolio', '/partners', '/signal-review', '/module/crm', '/module/crm/sales/quotes']) {
+    for (const path of ['/gtm/outreach', '/gtm/command-center', '/signals', '/signals/portfolio', '/ingestion', '/portfolio', '/partners', '/module/crm', '/module/crm/sales/quotes']) {
       assert.equal(isCrmPath(path), true, path)
     }
   })

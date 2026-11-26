@@ -1514,32 +1514,6 @@ export const crmService = {
   cancelAgentRun: (context: LaravelContext, id: string) =>
     apiClient.post<{ status: number; message: string }>(`/crm/crm-agents/runs/${id}/cancel`, baseParams(context)),
 
-  getAutomationRules: (context: LaravelContext) =>
-    apiClient.get<import('@/types/crm').AutomationRuleListResponse>('/crm/automation-rules', baseParams(context)),
-
-  createAutomationRule: (context: LaravelContext, payload: import('@/types/crm').AutomationRulePayload) =>
-    apiClient.post<import('@/types/crm').AutomationRuleResponse>('/crm/automation-rules', {
-      ...payload,
-      trigger_module: payload.triggerModule,
-      trigger_event: payload.triggerEvent,
-      trigger_conditions: payload.triggerConditions,
-      ...baseParams(context),
-    }),
-
-  updateAutomationRule: (context: LaravelContext, id: string, payload: Partial<import('@/types/crm').AutomationRulePayload>) =>
-    apiClient.put<import('@/types/crm').AutomationRuleResponse>(`/crm/automation-rules/${id}`, {
-      ...payload,
-      ...(payload.triggerModule ? { trigger_module: payload.triggerModule } : {}),
-      ...(payload.triggerEvent ? { trigger_event: payload.triggerEvent } : {}),
-      ...baseParams(context),
-    }),
-
-  toggleAutomationRule: (context: LaravelContext, id: string) =>
-    apiClient.post<{ status: number; message: string; data: { is_active: boolean } }>(
-      `/crm/automation-rules/${id}/toggle`,
-      baseParams(context),
-    ),
-
   aiChat: (context: LaravelContext, payload: { message: string; entityType?: string; entityId?: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) =>
     apiClient.post<{ status: number; data: { reply: string; sources: string[] } }>('/crm/ai-chat', {
       message: payload.message,
