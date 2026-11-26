@@ -83,4 +83,12 @@ describe('signal contact section', () => {
     assert.match(none, /found no contact details/)
     assert.match(none, /Not Available/)   // still shown, never hidden
   })
+  it('says why the card is empty: a failed search is a provider problem, an empty one is "nothing published"', () => {
+    const failed = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_searched', searched_at: null, can_search: true, attempt: { at: 'x', outcome: 'failed', searches: 2, failed: 2, found: 0 } } }} onSearch={() => {}} />)
+    assert.match(failed, /could not run: 2 of 2 requests/)
+    assert.match(failed, /provider or key problem/)
+    const none = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'none_found', searched_at: null, can_search: true, attempt: { at: 'x', outcome: 'none', searches: 5, failed: 0, found: 0 } } }} />)
+    assert.match(none, /made 5 requests and found no published contact details/)
+    assert.match(none, /Not Available/)
+  })
 })
