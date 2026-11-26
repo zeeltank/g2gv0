@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * The approval ladder editor.
+ * The step editor of an approval flow.
  *
  * ── THE TWO RULES THIS UI HAS TO MAKE VISIBLE ───────────────────────────────
  *
- * 1. `role` and `user` are named by the person configuring the chain; the derived types
+ * 1. `role` and `user` are named by the person configuring the flow; the derived types
  *    are resolved from the record at approval time. So the approver input APPEARS only
  *    for the types that need it. Showing a disabled box for the others would invite
  *    somebody to type into it and wonder why it is ignored — and the server blanks the
@@ -18,39 +18,35 @@
  * Order is array position, not a field. The server recomputes `order` from the order
  * the steps arrive in, so the up/down controls are the only thing that sets it — two
  * sources of ordering is one too many.
+ *
+ * Every control is a labelled `Field`; what is wrong with one is said under it (`errors`, from `validateFlowForm`).
  */
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 
-import type { RegistryOption } from '@/lib/platform/workflow'
-import type { EscalationAction, WorkflowStep } from '@/lib/platform/workflow'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Field, NativeSelect } from '@/components/shared/scaffolds'
+import type { EscalationAction, RegistryOption } from '@/lib/platform/workflow'
+import { emptyStep, MAX_SLA_HOURS, MAX_STEPS, type DraftStep, type StepErrors } from '@/lib/platform/workflow-approvals'
 
-export type DraftStep = Omit<WorkflowStep, 'id' | 'order'> & { id?: string }
-
-export function emptyStep(): DraftStep {
-  return {
-    name: '',
-    approver_type: 'reporting_manager',
-    approver: '',
-    sla_hours: 24,
-    on_breach: 'remind',
-    allow_delegate: true,
-    require_comment: false,
-  }
-}
-
-const inputClass =
-  'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const SELECT = 'bg-background text-foreground'
 
 export function StepEditor({
   steps,
   approverTypes,
   escalationActions,
+  errors = [],
+  disabled = false,
   onChange,
 }: {
   steps: DraftStep[]
   approverTypes: RegistryOption[]
   escalationActions: RegistryOption[]
+  /** What is wrong with each step, by position. */
+  errors?: readonly StepErrors[]
+  disabled?: boolean
   onChange: (next: DraftStep[]) => void
 }) {
   const patch = (index: number, values: Partial<DraftStep>) => {
@@ -68,45 +64,67 @@ export function StepEditor({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {steps.length === 0 && (
-        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-          No steps yet. A chain with no steps can be saved as a draft, but it cannot be made
-          active — there would be nobody to approve anything.
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+          No steps yet. A flow with no steps can be saved as a draft, but it cannot be turned on, because nobody would be there to approve anything.
         </p>
       )}
 
       {steps.map((step, index) => {
         const type = approverTypes.find((option) => option.key === step.approver_type)
         const needsApprover = Boolean(type?.needs_value)
-        const breachNeedsSla = step.on_breach !== 'none' && Number(step.sla_hours) === 0
+        const problems = errors[index] ?? {}
+        const decidesAlone = step.on_breach === 'auto_approve' || step.on_breach === 'auto_reject'
 
         return (
-          <div key={index} className="rounded-lg border border-border bg-background p-3">
-            <div className="flex items-start gap-2">
-              <span className="mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground tabular-nums">
-                {index + 1}
-              </span>
+          <div key={index} data-step={index + 1} className="rounded-lg border border-border bg-background p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-foreground">Step {index + 1}</p>
+              <div className="flex flex-wrap gap-1">
+                <Button type="button" variant="outline" size="icon-sm" aria-label={`Move step ${index + 1} up`} title="Move up" disabled={disabled || index === 0} onClick={() => move(index, -1)}>
+                  <ArrowUp aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Move step ${index + 1} down`}
+                  title="Move down"
+                  disabled={disabled || index === steps.length - 1}
+                  onClick={() => move(index, 1)}
+                >
+                  <ArrowDown aria-hidden="true" />
+                </Button>
+                <Button type="button" variant="outline" size="icon-sm" aria-label={`Remove step ${index + 1}`} title="Remove step" disabled={disabled} onClick={() => onChange(steps.filter((_, i) => i !== index))}>
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
 
-              <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                    Step name
-                  </span>
-                  <input
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Step name" required error={problems.name}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    name={`step-${index + 1}-name`}
                     value={step.name}
+                    autoComplete="off"
+                    disabled={disabled}
+                    placeholder="For example, Reporting manager…"
                     onChange={(event) => patch(index, { name: event.target.value })}
-                    placeholder="Reporting manager"
-                    className={inputClass}
                   />
-                </label>
+                )}
+              </Field>
 
-                <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                    Who approves
-                  </span>
-                  <select
+              <Field label="Who approves">
+                {(control) => (
+                  <NativeSelect
+                    {...control}
+                    name={`step-${index + 1}-approver-type`}
+                    className={SELECT}
                     value={step.approver_type}
+                    disabled={disabled}
                     onChange={(event) =>
                       patch(index, {
                         approver_type: event.target.value as DraftStep['approver_type'],
@@ -115,154 +133,103 @@ export function StepEditor({
                         approver: '',
                       })
                     }
-                    className={inputClass}
                   >
                     {approverTypes.map((option) => (
                       <option key={option.key} value={option.key}>
                         {option.label}
                       </option>
                     ))}
-                  </select>
-                </label>
-
-                {/* Only for the types that carry a value. See the file note. */}
-                {needsApprover && (
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                      {step.approver_type === 'role' ? 'Role key' : 'User id'}
-                    </span>
-                    <input
-                      value={step.approver}
-                      onChange={(event) => patch(index, { approver: event.target.value })}
-                      placeholder={step.approver_type === 'role' ? 'hr_manager' : '1604'}
-                      className={inputClass}
-                    />
-                  </label>
+                  </NativeSelect>
                 )}
+              </Field>
 
-                <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                    Respond within (hours, 0 = no limit)
-                  </span>
-                  <input
+              {/* Only for the types that carry a value. See the file note. */}
+              {needsApprover && (
+                <Field label={step.approver_type === 'role' ? 'Role name' : 'Person’s user id'} required error={problems.approver} wide>
+                  {(control) => (
+                    <Input
+                      {...control}
+                      name={`step-${index + 1}-approver`}
+                      value={step.approver}
+                      autoComplete="off"
+                      spellCheck={false}
+                      inputMode={step.approver_type === 'role' ? 'text' : 'numeric'}
+                      disabled={disabled}
+                      placeholder={step.approver_type === 'role' ? 'hr_manager…' : '1604…'}
+                      onChange={(event) => patch(index, { approver: event.target.value })}
+                    />
+                  )}
+                </Field>
+              )}
+
+              <Field label="Respond within (hours)" error={problems.sla} hint="0 means there is no time limit.">
+                {(control) => (
+                  <Input
+                    {...control}
                     type="number"
+                    name={`step-${index + 1}-hours`}
                     min={0}
-                    max={2160}
+                    max={MAX_SLA_HOURS}
+                    step={1}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    disabled={disabled}
                     value={step.sla_hours}
                     onChange={(event) => patch(index, { sla_hours: Number(event.target.value) })}
-                    className={inputClass}
                   />
-                </label>
+                )}
+              </Field>
 
-                <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                    If that passes
-                  </span>
-                  <select
+              <Field
+                label="If the time runs out"
+                error={problems.breach}
+                hint={
+                  /* The one option that can approve something nobody read. */
+                  decidesAlone ? (
+                    <span className="block rounded-md border border-amber-500 bg-card px-2 py-1 text-foreground">This decides the request without anybody reading it.</span>
+                  ) : undefined
+                }
+              >
+                {(control) => (
+                  <NativeSelect
+                    {...control}
+                    name={`step-${index + 1}-on-breach`}
+                    className={SELECT}
                     value={step.on_breach}
-                    onChange={(event) =>
-                      patch(index, { on_breach: event.target.value as EscalationAction })
-                    }
-                    className={inputClass}
+                    disabled={disabled}
+                    onChange={(event) => patch(index, { on_breach: event.target.value as EscalationAction })}
                   >
                     {escalationActions.map((option) => (
                       <option key={option.key} value={option.key}>
                         {option.label}
                       </option>
                     ))}
-                  </select>
-                  {/* Said at the point of the mistake, not on save. */}
-                  {breachNeedsSla && (
-                    <span className="mt-1 block text-[11px] text-destructive">
-                      Set a time above, or there is nothing for this to happen after.
-                    </span>
-                  )}
-                  {/* The one option that can approve something nobody read. */}
-                  {(step.on_breach === 'auto_approve' || step.on_breach === 'auto_reject') && (
-                    <span className="mt-1 block text-[11px] text-amber-600 dark:text-amber-400">
-                      This decides the request without anybody reading it.
-                    </span>
-                  )}
+                  </NativeSelect>
+                )}
+              </Field>
+
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 sm:col-span-2">
+                <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm text-foreground">
+                  <Checkbox size="sm" checked={step.allow_delegate} disabled={disabled} onCheckedChange={(checked) => patch(index, { allow_delegate: checked })} />
+                  Can pass it on to someone else
                 </label>
-
-                <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={step.allow_delegate}
-                      onChange={(event) => patch(index, { allow_delegate: event.target.checked })}
-                      className="size-3.5"
-                    />
-                    Can delegate
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={step.require_comment}
-                      onChange={(event) => patch(index, { require_comment: event.target.checked })}
-                      className="size-3.5"
-                    />
-                    Must leave a comment
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 flex-col gap-1">
-                <IconButton label="Move up" onClick={() => move(index, -1)} disabled={index === 0}>
-                  <ArrowUp className="size-3.5" />
-                </IconButton>
-                <IconButton
-                  label="Move down"
-                  onClick={() => move(index, 1)}
-                  disabled={index === steps.length - 1}
-                >
-                  <ArrowDown className="size-3.5" />
-                </IconButton>
-                <IconButton
-                  label="Remove step"
-                  onClick={() => onChange(steps.filter((_, i) => i !== index))}
-                >
-                  <Trash2 className="size-3.5 text-destructive" />
-                </IconButton>
+                <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm text-foreground">
+                  <Checkbox size="sm" checked={step.require_comment} disabled={disabled} onCheckedChange={(checked) => patch(index, { require_comment: checked })} />
+                  Must leave a comment
+                </label>
               </div>
             </div>
           </div>
         )
       })}
 
-      <button
-        type="button"
-        onClick={() => onChange([...steps, emptyStep()])}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-      >
-        <Plus className="size-3.5" />
-        Add a step
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" disabled={disabled || steps.length >= MAX_STEPS} onClick={() => onChange([...steps, emptyStep()])}>
+          <Plus aria-hidden="true" />
+          Add a step
+        </Button>
+        {steps.length >= MAX_STEPS && <p className="text-xs text-muted-foreground">An approval flow can have at most {MAX_STEPS} steps.</p>}
+      </div>
     </div>
-  )
-}
-
-function IconButton({
-  label,
-  onClick,
-  disabled,
-  children,
-}: {
-  label: string
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className="rounded border border-border p-1 transition-colors hover:bg-muted disabled:opacity-30"
-    >
-      {children}
-    </button>
   )
 }

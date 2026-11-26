@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+import { atlasByN, tourOf } from '@/lib/client-presentation/atlas'
 import { slideByN } from '@/lib/client-presentation/deck'
 import { orderOf, type Mode } from '@/lib/client-presentation/navigation'
-import { PRESENTER_DECKS } from '@/lib/client-presentation/presenter-deck'
+import { PRESENTER_DECKS, PRESENTER_TOUR_NOTES } from '@/lib/client-presentation/presenter-deck'
+import { TOUR_TAB_LABELS, tabOfBeat } from '@/lib/client-presentation/tour'
 
 import './styles/base.css'
 import { SCENES } from './scenes'
@@ -46,15 +48,19 @@ export function PresenterView({ productKey }: { productKey: string }) {
   const order = orderOf(st.mode)
   const nextKey = order[order.indexOf(st.key) + 1]
   const nextSlide = nextKey ? slideByN(deck, SCENES[nextKey].slides[0]) : null
+  // A product tour is one slide with seven tabs: say what belongs to the tab that is showing.
+  const tour = tourOf(st.key)
+  const tab = tour ? tabOfBeat(tour, st.beat) : null
+  const say = (tab && PRESENTER_TOUR_NOTES[atlasByN(slide.n)?.family ?? '']?.[tab]) || slide.say
 
   return (
     <div className="cp-presenter">
       <h1>Presenter notes · {st.mode === 'short' ? 'five-slide version' : 'full deck'}</h1>
       <h2>{slide.n}. {slide.lines.find((l) => l.role === 'headline')?.text ?? slide.id}</h2>
       <div className="cp-p-row">
-        <span>Step {st.beat} of {scene.beats}</span>
+        <span>Step {st.beat} of {scene.beats}{tab ? ` · tab: ${TOUR_TAB_LABELS[tab]}` : ''}</span>
       </div>
-      <div className="cp-p-block"><b>Say</b><p>{slide.say}</p></div>
+      <div className="cp-p-block"><b>Say</b><p>{say}</p></div>
       <div className="cp-p-block"><b>Ask</b><p>{slide.ask}</p></div>
       {slide.transition && <div className="cp-p-block"><b>Then</b><p>{slide.transition}</p></div>}
       {slide.limits.length > 0 && (

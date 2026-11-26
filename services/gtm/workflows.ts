@@ -20,14 +20,39 @@ export interface CatalogField {
 
 export interface CatalogTrigger {
   label: string
+  /** The words that sit after "When" ("a lead is created"). Absent on a server that does not send them yet. */
+  phrase?: string
   entity: string | null
   provides: string[]
   fields: Record<string, CatalogField>
 }
 
+/** How a typed action parameter is filled in. A `number` is a whole number. A `text` with `format: 'json'` is a structured value (an object). */
+export type CatalogParamType = 'string' | 'text' | 'number' | 'bool' | 'enum' | 'user'
+
+/** One typed action parameter, as the server's catalog describes it (so the screen never guesses a type from words). */
+export interface CatalogParam {
+  key: string
+  label: string
+  type: CatalogParamType
+  required: boolean
+  /** For `enum`: plain values, or value and label pairs. */
+  options?: Array<string | { value: string; label?: string }>
+  /** `json` for a text that holds a structured value (the input of an agent). */
+  format?: string
+  /** Optional extras a server may send; the screen uses them when present. */
+  help?: string
+  min?: number
+  max?: number
+  placeholders?: boolean
+}
+
 export interface CatalogAction {
   label: string
+  /** Each parameter described in words (name to sentence): what the old form read. The screen reads it only when `param_fields` is absent. */
   params: Record<string, string>
+  /** The parameters, typed. Absent on a server that does not send them yet (lib/workflows/catalog.ts, paramsOf). */
+  param_fields?: CatalogParam[]
   needs: string[]
   consequential: boolean
   description: string
@@ -67,8 +92,52 @@ export interface GtmWorkflow {
   updated_at: string
   /** list rows: run counts in the last 7 days by status (PHP sends [] when there are none) */
   runs_7d?: Record<string, number> | []
-  /** detail only */
+  /** True when any action is consequential or the workflow asks for approval: its runs wait for a person. List rows and detail. */
   needs_approval?: boolean
+  /** The whole automation as one plain sentence. List rows, once the server sends it. */
+  sentence?: string
+  /** The latest outcome, from one aggregate over the workflow's runs. List rows, once the server sends it. */
+  last_run?: WorkflowLastRun | null
+}
+
+/** What happened last, and how the last 7 days went. */
+export interface WorkflowLastRun {
+  status: string | null
+  at: string | null
+  done_7d: number
+  failed_7d: number
+  waiting: number
+}
+
+/** A ready-made automation the server can add as a draft. */
+export interface WorkflowRecipe {
+  key: string
+  title: string
+  sentence: string
+  trigger: string
+  trigger_label: string
+  actions: Array<{ type: string; label: string }>
+  consequential: boolean
+  requires_approval: boolean
+  /** The id of the workflow already made from this recipe in this organisation, or null. */
+  installed_workflow_id: number | null
+}
+
+/** The answer to adding a recipe: 201 with `created: true` for a new draft, 200 with `created: false` when it was already there. */
+export interface RecipeInstallResult {
+  created: boolean
+  id?: number
+  workflow_id?: number
+  workflow?: Partial<GtmWorkflow> & { id: number }
+}
+
+/** Whether the scheduler that starts automations is running. */
+export interface WorkflowHealth {
+  state: 'running' | 'stale' | 'unknown'
+  last_tick_at: string | null
+  last_events_at: string | null
+  expected_every_minutes: number
+  message: string
 }
 
 export interface WorkflowInput {
@@ -144,6 +213,12 @@ export interface RunDecisionResult {
 export const workflowsService = {
   catalog: () => apiClient.get<Env<WorkflowCatalog>>('/gtm/workflows/catalog'),
   list: () => apiClient.get<Env<{ items: GtmWorkflow[] }>>('/gtm/workflows'),
+  /** The ready-made automations, with the id of the one already added where there is one. */
+  recipes: () => apiClient.get<Env<{ items: WorkflowRecipe[] }>>('/gtm/workflows/recipes'),
+  /** Adds a recipe as a DRAFT. Safe to repeat: a recipe already added answers with the same workflow and `created: false`. */
+  installRecipe: (key: string) => apiClient.post<Env<RecipeInstallResult>>(`/gtm/workflows/recipes/${encodeURIComponent(key)}/install`, {}),
+  /** Whether the clock that starts automations is running. */
+  health: () => apiClient.get<Env<WorkflowHealth>>('/gtm/workflows/health'),
   get: (id: number) =>
     apiClient.get<Env<{ workflow: GtmWorkflow; transitions: WorkflowStatus[]; runs: WorkflowRunRow[] }>>(`/gtm/workflows/${id}`),
   create: (input: WorkflowInput) => apiClient.post<Env<{ workflow: GtmWorkflow }>>('/gtm/workflows', input),

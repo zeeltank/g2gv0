@@ -77,14 +77,16 @@ export interface WorkflowPoint {
    *
    * ── THE FIELD THAT STOPS THIS SCREEN LYING ────────────────────────────────
    *
-   * Exactly one point is enforced today: `hrms.leave.approval`, read by
-   * `LeaveApprovalWorkflow`. The other seven are declared and consumed by
-   * nothing, so a chain saved against one is a plan rather than a gate.
+   * A point is enforced when something in the product reads a chain saved
+   * there (`enforced_by` in config/platform_services.php; all eight declared
+   * points are today). A point nothing reads is declared and consumed by
+   * nothing, so a chain saved against it is a plan rather than a gate.
    *
-   * Without this the console showed the same green "Governed" pill for all
-   * eight and told the reader that an ungoverned point "goes through without a
+   * Without this the console showed the same green "Governed" pill for every
+   * point and told the reader that an ungoverned point "goes through without a
    * sign-off" — both of which were false in the same way, because an active
-   * chain at an unenforced point also goes through without a sign-off.
+   * chain at an unenforced point also goes through without a sign-off. The
+   * Approvals tab says "Not in use yet" for such an approval.
    */
   enforced: boolean
   /** What enforcement means here, shown beside the point. */

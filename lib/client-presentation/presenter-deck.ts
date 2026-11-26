@@ -6,5 +6,9 @@
  */
 import { parseDeck, withAtlas, type Deck } from './deck'
 import fullJson from './generated/scholarclone.deck.json'
+import tourNotesJson from './generated/atlas-presenter.json'
 
 export const PRESENTER_DECKS: Record<string, Deck> = { scholarclone: withAtlas(parseDeck(fullJson)) }
+
+/** What to say on each tab of a product tour, by product key then tab (docs/client-presentation/content/atlas/tour-<product>.json, "notes"). */
+export const PRESENTER_TOUR_NOTES = tourNotesJson as Record<string, Record<string, string>>

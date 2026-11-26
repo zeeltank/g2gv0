@@ -10,7 +10,7 @@ import type { LaravelContext } from '@/lib/laravel-context'
 import { withLaravelParams } from '@/lib/laravel-context'
 
 export interface PlatformServicesAccess {
-  modules: Record<'organization' | 'hrms' | 'talent' | 'lms' | 'competency' | 'task', boolean>
+  modules: Record<'organization' | 'hrms' | 'talent' | 'lms' | 'competency' | 'task' | 'crm', boolean>
   event_bus: boolean
   audit: boolean
   platform_administration: boolean

@@ -126,7 +126,6 @@ export const USAGE_COUNTS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'quotes', label: 'Quotes' },
   { key: 'salesOrders', label: 'Sales orders' },
   { key: 'invoices', label: 'Invoices' },
-  { key: 'purchaseOrders', label: 'Purchase orders' },
   { key: 'opportunities', label: 'Opportunities' },
   { key: 'bundleParts', label: 'Parts in its bundle' },
   { key: 'usedInBundles', label: 'Bundles it is a part of' },

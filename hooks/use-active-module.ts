@@ -46,6 +46,7 @@ import { ADDITIONAL_AI_STACKS, CENTRAL_AI_STACKS } from '@/lib/ai-stack/central'
 import { genericAiStack } from '@/lib/ai-stack/generic'
 import { registerDynamicModule } from '@/lib/agents/registry'
 import { resolveModule } from '@/lib/intelligence/ai-module-registry'
+import { platformKeyForMenuLink } from '@/lib/platform/module-scope'
 import { useAuth } from '@/hooks/use-auth'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { ROLE_GROUPS } from '@/types/role'
@@ -166,7 +167,8 @@ export function useActiveModule(explicitModuleId?: string | null): ActiveModuleR
       navModule,
       moduleId: navModule.id,
       label: navModule.label,
-      platformKey: resolved ? resolved.key : null,
+      // The AI Stack table only knows modules that have a stack; Sales & Marketing has none, so the menu link answers for it.
+      platformKey: (resolved ? resolved.key : null) ?? platformKeyForMenuLink(navModule.accessLink),
       stack: resolved ? resolved.stack : null,
     }
   }, [explicitModuleId, loading, modules, parseRoutePath, pathname])

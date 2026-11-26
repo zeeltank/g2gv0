@@ -200,7 +200,7 @@ const REVENUE_AREAS: readonly AreaDef[] = [
     monitors: 'GTM deals with no next step, no recent activity or a stale stage, and pipeline records missing an amount or close date.',
     feeds: [{ detector: 'commercial.deal_health' }, { detector: 'commercial.pipeline_attention' }],
     surfaces: ['gtm_deals', 'gtm_forecast', 'gtm_command_center'],
-    modules: [L('GTM Command Center', '/gtm/command-center'), L('GTM Forecast', '/gtm/forecast')],
+    modules: [L('GTM Command Center', '/gtm/command-center'), L('GTM Deals', '/gtm/deals')],
   },
   {
     id: 'customers-renewals',

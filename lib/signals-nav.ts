@@ -181,6 +181,25 @@ function foldPeopleNav(modules: NavModule[]): ProductsFold {
   return { modules: mapNodes(modules, (node) => (isPeopleNode(node) ? null : node)), owners, retired }
 }
 
+/*
+ * AUTOMATION RULES WERE MERGED INTO WORKFLOWS (26 Nov 2026; owner decision: "merge the CRM sub-module Automation Rules into the Platform Services Workflows page"). The rules a
+ * person saved there were never run by anything; the Workflows engine (the Automations and Runs tabs of /platform-services/workflow) is the one that does. The menu ROW stays
+ * in the database with status 1, for the same reason as the rows above: a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds
+ * the row keeps holding it. The sidebar does not DRAW it, here, in code. Its address is a redirect page (it keeps resolving to itself for a person whose menu held the row, so a
+ * link built from it still lands on the page that redirects), and it has no owner to highlight: the Workflows page is a Platform Services screen, not a sidebar entry.
+ * The row is found by its access_link, a leaf only (a row with children is never touched).
+ */
+const AUTOMATION_RULES_PATH = '/module/crm/marketing/automation-rules'
+
+const isAutomationRulesNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === AUTOMATION_RULES_PATH
+
+/** See the comment above `AUTOMATION_RULES_PATH`. Pure: the tree is not changed in place, and a branch that does not hold the row comes back as the same objects. */
+function foldAutomationRulesNav(modules: NavModule[]): ProductsFold {
+  if (!locate(modules, isAutomationRulesNode)) return { modules, owners: {}, retired: [] }
+
+  return { modules: mapNodes(modules, (node) => (isAutomationRulesNode(node) ? null : node)), owners: {}, retired: [AUTOMATION_RULES_PATH] }
+}
+
 const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
@@ -316,11 +335,13 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const products = foldProductsNav(shown, owners)
   // The two Contacts rows are not drawn either (S18, 25 Nov 2026): a person is a tab of a company and a scope of Organizations.
   const people = foldPeopleNav(products.modules)
+  // Automation Rules are not drawn either (26 Nov 2026): the Workflows page, in Platform Services, holds what they were for.
+  const automationRules = foldAutomationRulesNav(people.modules)
   return {
-    modules: people.modules,
+    modules: automationRules.modules,
     tabs: uniqueFound.length === 0 ? null : uniqueFound,
-    owners: { ...owners, ...products.owners, ...people.owners },
-    retired: [...products.retired, ...people.retired],
+    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners },
+    retired: [...products.retired, ...people.retired, ...automationRules.retired],
   }
 }
 

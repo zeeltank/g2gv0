@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import { ATLAS_KEYS } from './atlas'
 
-import { CHOOSER_TARGETS, FULL_ORDER, SHORT_ORDER, detour, goto, initial, keyAt, next, prev, progress, returnFromDetour, setMode } from './navigation'
+import { CHOOSER_TARGETS, FULL_ORDER, SHORT_ORDER, detour, goto, initial, keyAt, next, prev, progress, returnFromDetour, setBeat, setMode } from './navigation'
 
 const beatsOf = (k: string) => (k === 's4' ? 8 : k === 's1' ? 2 : 1)
 
@@ -91,4 +91,16 @@ test('the 59-second film is the sixth scene, between the introduction and the ec
   assert.deepEqual([keyAt(s), s.pos + 1], ['s17', 6])
   s = next(s, beats)
   assert.equal(keyAt(s), 's6')
+})
+
+test('a click on a tab (setBeat) goes straight to that beat as a jump, clamps to the scene, and keeps the scene', () => {
+  const beats = (k: string) => (k === 's3' ? 6 : 0)
+  const s = goto(initial('full'), 's3', beats)
+  const to = setBeat(s, 4, beats)
+  assert.deepEqual([keyAt(to), to.beat, to.entry, to.pos], ['s3', 4, 'jump', s.pos])
+  assert.equal(setBeat(to, 99, beats).beat, 6)
+  assert.equal(setBeat(to, -5, beats).beat, 0)
+  assert.equal(setBeat(to, 4.9, beats).beat, 4)
+  assert.equal(setBeat(to, 4, beats), to, 'the same beat is not a new state')
+  assert.equal(setBeat(s, 2, (k) => (k === 's3' ? 0 : 0)).beat, 0, 'a scene with no beats stays at 0')
 })

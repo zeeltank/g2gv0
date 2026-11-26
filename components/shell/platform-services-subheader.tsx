@@ -77,6 +77,8 @@ import { PlatformServiceIcon } from '@/lib/platform/icons'
 import { MODULE_LABEL } from '@/lib/platform/access-links'
 import { useCurrentPlatformModule } from '@/hooks/use-current-platform-module'
 import { useActiveModule } from '@/hooks/use-active-module'
+import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
+import { moduleIdForPlatformKey } from '@/lib/platform/module-scope'
 import { OWN_ROUTE_SERVICES } from '@/components/shell/platform-shell'
 import { cn } from '@/lib/utils'
 
@@ -115,6 +117,7 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
    * behaviour that was already there.
    */
   const { moduleId, platformKey, navModule } = useActiveModule()
+  const { modules } = useSidebarNavigation()
   const moduleKey = scopedByQuery ?? platformKey
   const activeMenuSlug = /^\/module\/([^/?#]+)/.exec(navModule?.accessLink ?? '')?.[1]
   const moduleRouteKey = /^\/intelligence\/module\/([^/?#]+)/.exec(pathname ?? '')?.[1]
@@ -131,7 +134,10 @@ function PlatformServicesSubheaderContent({ inert }: { inert: boolean }) {
     ? DECENTRALIZABLE_SERVICES.filter((service) => service.decentralizedModules?.includes(moduleKey))
     : DECENTRALIZABLE_SERVICES
 
-  const moduleAiStackHref = moduleId ? `/module/${moduleId}/ai-stack` : null
+  // On a `/platform-services/*?module=crm` page the URL names the module but carries no menu id: take it from the live tree,
+  // so AI Stack opens the module's own page instead of a "choose a module" picker.
+  const aiStackModuleId = moduleId ?? (moduleKey ? moduleIdForPlatformKey(modules, moduleKey) : null)
+  const moduleAiStackHref = aiStackModuleId ? `/module/${aiStackModuleId}/ai-stack` : null
 
   return (
     <nav
