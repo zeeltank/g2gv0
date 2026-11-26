@@ -11,6 +11,7 @@ import { join } from 'node:path'
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1] }
 const base = arg('base', 'http://127.0.0.1:3320')
+const pagePath = arg('page', '/')   // '/core.html' renders the Scholar Core film
 const outDir = arg('out', 'D:/client-presentation-assets/film-out')
 const name = arg('name', 'scholarclone-59s-v2')
 const fps = Number(arg('fps', 30)), crf = Number(arg('crf', 20)), maxrate = arg('maxrate', '1700k')
@@ -26,7 +27,7 @@ const page = await ctx.newPage()
 const errs = []
 page.on('pageerror', (e) => errs.push(String(e).slice(0, 240)))
 page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push('console: ' + m.text().slice(0, 240)) })
-await page.goto(`${base}/?render=1`, { waitUntil: 'load' })
+await page.goto(`${base}${pagePath}?render=1`, { waitUntil: 'load' })
 await page.waitForFunction('window.__ready === true', null, { timeout: 180000 })
 const gl = await page.evaluate(() => window.__gl)
 console.log('renderer:', gl.renderer)

@@ -117,6 +117,14 @@ function buildTour(F, subs) {
     const modules = list(`${w}.roles[${i}].modules`, r.modules, 1, 6).map((id) => { const sub = need(`${w}.roles[${i}].modules`, id); return sub && { id, name: sub.name } }).filter(Boolean)
     return { role: r.role, who: r.who, benefits: r.benefits, use: r.use, modules }
   })
+  // an optional film (a rendered video under public/client-presentation/film) that plays on its own slide between the opener and the tour
+  let film = null
+  if (t.film) {
+    const base = join(root, 'public/client-presentation/film')
+    for (const k of ['file', 'poster']) if (typeof t.film[k] !== 'string' || !existsSync(join(base, t.film[k]))) fail(`${w}.film.${k}: file not found in public/client-presentation/film`)
+    if (!(t.film.seconds > 5 && t.film.seconds < 300)) fail(`${w}.film.seconds: needs a number between 5 and 300`)
+    film = { src: `/client-presentation/film/${t.film.file}`, poster: `/client-presentation/film/${t.film.poster}`, seconds: t.film.seconds }
+  }
   const TABS = ['summary', 'problem', 'intelligence', 'ai', 'research', 'features', 'roles']
   for (const tab of TABS) if (typeof t.notes?.[tab] !== 'string' || !t.notes[tab].trim()) fail(`${w}.notes.${tab}: the presenter script for this tab is missing`)
   const notes = { evidence: Object.fromEntries(TABS.map((k) => [k, t[k]?.evidence ?? null])), owner_to_confirm: t.owner_to_confirm ?? [] }
@@ -124,6 +132,7 @@ function buildTour(F, subs) {
     tour: { summary: { lines: sum }, problem: { label: t.problem.label, beats, turn: t.problem.turn, scattered, record: t.problem.record }, intelligence: { lead: t.intelligence.lead, modules: insights, close: t.intelligence.close }, ai: { lead: t.ai.lead, uses, guard: t.ai.guard, control: t.ai.control, sample: { label: t.ai.sample.label, text: t.ai.sample.text } }, research: { items }, features: { groups: outGroups }, roles },
     notes,
     presenter: t.notes,
+    film,
   }
 }
 
@@ -173,7 +182,7 @@ for (const F of FAMILIES) {
   else warns.push(`${F.key}: no family sheet`)
   const built = buildTour(F, subs)
   if (built) presenter[F.key] = built.presenter
-  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs, ...(built ? { tour: built.tour } : {}) })
+  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs, ...(built ? { tour: built.tour } : {}), ...(built?.film ? { film: built.film } : {}) })
   notes.products.push({ key: F.key, family_evidence: family?.evidence ?? [], subs: subNotes, ...(built ? { tour: built.notes } : {}) })
 }
 // cross-cutting technology and design basis (tech.json)
@@ -203,6 +212,7 @@ function buildPlan() {
   const plan = [{ kind: 'hub', theme: 'ink', title: 'Choose a product', kicker: 'Products', ghost: '', beats: 0 }]
   for (const p of filled) {
     plan.push({ kind: 'opener', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
+    if (p.tour && p.film) plan.push({ kind: 'film', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
     if (p.tour) { plan.push({ kind: 'tour', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: tourBeats(p.tour) }); continue }
     const groups = chunk(p.subs, 5)
     groups.forEach((g, i) => plan.push({ kind: 'subs', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: `${i + 1}/${groups.length}`, family: p.key, subs: g.map((x) => x.id), beats: g.length - 1 }))

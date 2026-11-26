@@ -1053,7 +1053,32 @@
      }
     },
     "research": {
-     "items": []
+     "items": [
+      {
+       "text": "How an education system collects, joins, keeps and shares its data so people can plan and decide from it.",
+       "source": "UNESCO, Education Management Information Systems (EMIS) framework"
+      },
+      {
+       "text": "A UNESCO diagnostic that shows where an education data system is strong, where it can improve, and the path to better.",
+       "source": "UNESCO, EMIS Progress Assessment Tool for Transformation (EMIS-PATT)"
+      },
+      {
+       "text": "A community-built standard for education data, so records keep the same meaning when different systems exchange them.",
+       "source": "Ed-Fi Alliance, Ed-Fi Data Standard"
+      },
+      {
+       "text": "The office's work from first enquiry to confirmed admission, then fees, attendance, exams and transport, read as one chain of steps.",
+       "source": "Research area: School Operations and Process Excellence"
+      },
+      {
+       "text": "One set of records that serves every desk, so staff stop re-entering the same details.",
+       "source": "Research area: Interoperability and Information Architecture"
+      },
+      {
+       "text": "AI drafts the wording while a person decides: nothing is written to a field until someone presses Apply.",
+       "source": "Research area: AI-Native School Administration"
+      }
+     ]
     },
     "features": {
      "groups": [
@@ -1392,6 +1417,11 @@
       ]
      }
     ]
+   },
+   "film": {
+    "src": "/client-presentation/film/scholar-core-film.mp4",
+    "poster": "/client-presentation/film/scholar-core-film-poster.jpg",
+    "seconds": 81.67
    }
   },
   {

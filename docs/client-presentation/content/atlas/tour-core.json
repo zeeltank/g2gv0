@@ -1,5 +1,11 @@
 {
   "family": "core",
+  "film": {
+    "file": "scholar-core-film.mp4",
+    "poster": "scholar-core-film-poster.jpg",
+    "seconds": 81.67,
+    "note": "docs/client-presentation/15-core-film.md. Plays on its own slide between the Core opener and the tour. Silent: every word on it is checked tour text."
+  },
   "summary": {
     "lines": [
       "Your whole school office, in one place.",
@@ -106,7 +112,39 @@
     }
   },
   "research": {
-    "items": []
+    "items": [
+      {
+        "text": "How an education system collects, joins, keeps and shares its data so people can plan and decide from it.",
+        "source": "UNESCO, Education Management Information Systems (EMIS) framework",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "A UNESCO diagnostic that shows where an education data system is strong, where it can improve, and the path to better.",
+        "source": "UNESCO, EMIS Progress Assessment Tool for Transformation (EMIS-PATT)",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "A community-built standard for education data, so records keep the same meaning when different systems exchange them.",
+        "source": "Ed-Fi Alliance, Ed-Fi Data Standard",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "The office's work from first enquiry to confirmed admission, then fees, attendance, exams and transport, read as one chain of steps.",
+        "source": "Research area: School Operations and Process Excellence",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+      },
+      {
+        "text": "One set of records that serves every desk, so staff stop re-entering the same details.",
+        "source": "Research area: Interoperability and Information Architecture",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+      },
+      {
+        "text": "AI drafts the wording while a person decides: nothing is written to a field until someone presses Apply.",
+        "source": "Research area: AI-Native School Administration",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "lms_k12/components/ai/AiFieldAssistant.tsx"]
+      }
+    ],
+    "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
   },
   "features": {
     "groups": [
@@ -348,14 +386,14 @@
     "Fees insight rules include overdue cycles and collection by class and by fee head; Transport rules include seats over capacity and riders with no enrolment this year. The slide names only the questions, no numbers.",
     "Library: issuing a book is not built in the new Book Resources screen (see the Library sheet), so the tour says catalogue, barcodes, returns and shelf checks only.",
     "Inventory: stock balance is not fully reconciled (see the Inventory sheet), so the tour does not promise live stock levels.",
-    "Research tab: no research text exists for Scholar Core. Add items to research.items (text, source, and evidence path); the tab appears on its own once there is at least one. Any figure in your data will fail the percentage rule until you decide how sourced figures may be shown."
+    "Research tab: filled on 26 Nov 2026 from the owner's pasted list (UNESCO EMIS framework; UNESCO EMIS-PATT; Ed-Fi Alliance education data standard; and three areas: School Operations and Process Excellence, Interoperability and Information Architecture, AI-Native School Administration). Three things to confirm: (1) the paste lost which source belongs to which area and what 'ERP' heads, so the slide lists sources and areas side by side without pairing them; (2) the owner gave only the names of the three areas, so each area's one line is wording already checked in this tour, not a document; (3) no code or doc in the four repositories cites EMIS, EMIS-PATT or Ed-Fi, so 'Designed from' rests on the owner's list: say if it should read 'Read against' instead. Any percentage still fails the checker; no figure is shown (see assets/core-research-sources.json)."
   ],
   "notes": {
     "summary": "Let the three lines land one at a time. Ask: which of these desks in your school is the busiest on a Monday morning?",
     "problem": "Tell it as their morning, not ours. Pause after 'three versions of the truth'. Say it is an illustration, not their school.",
     "intelligence": "These are questions, not predictions. Each insight shows the records behind it. If asked: the insights are rules over the school's own records, not an AI model.",
     "ai": "Only drafting. Say clearly that nothing is applied until a person presses Apply. If asked about control: administrators set what AI may do for the admissions and attendance screens; confirm for the rest.",
-    "research": "Use only the figures the owner has approved. No percentages unless the sourced-figure rule has been agreed.",
+    "research": "Say what each source is, not what it proves. The left three are public reference sources; the three research areas are what the office, records and AI parts of Scholar Core were read against. Do not say Scholar Core conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
     "features": "One group at a time. Do not read the lines; let them point at the group their desk is in and open that screen.",
     "roles": "Let the client name their own role first, then open it. Every use line is an illustration. For Students, say the school app is where students and families see these things, and show the staff-side screens behind it."
   }

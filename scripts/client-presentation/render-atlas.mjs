@@ -16,6 +16,8 @@ const holdSubs = Number(arg('hold', 3.6)); const fps = Number(arg('fps', 30)); c
 if (!name || !keys.length) { console.log('usage: --name <file | auto> --keys a1,a2   (auto: one key, the file is named atlas-<slug>, e.g. atlas-core-tour, so it survives a change in slide order)'); process.exit(1) }
 mkdirSync(outDir, { recursive: true })
 const plan = JSON.parse(readFileSync(new URL('../../lib/client-presentation/generated/atlas-plan.json', import.meta.url), 'utf8'))
+const filmKeys = keys.filter((k) => plan.find((s) => s.key === k)?.kind === 'film')
+if (filmKeys.length) { console.log(`${filmKeys.join(', ')} is a film slide: the film is already a rendered video (film-studio, docs/client-presentation/15-core-film.md), not a page to record`); process.exit(1) }
 if (name === 'auto') {
   if (keys.length !== 1) { console.log('--name auto needs exactly one key'); process.exit(1) }
   const one = plan.find((s) => s.key === keys[0]); if (!one) { console.log('no atlas slide ' + keys[0]); process.exit(1) }

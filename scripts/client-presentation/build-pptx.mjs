@@ -38,7 +38,7 @@ for (const [slot, a] of Object.entries(deck.assets)) {
 }
 
 // ---- the Product Atlas (build-atlas.mjs): sheets per sub-module, edited screenshots as JPEG copies
-const { atlas, notes: atlasNotes } = loadAtlas(root)
+const { atlas, notes: atlasNotes, presenter: atlasPresenter } = loadAtlas(root)
 const atlasImg = new Map()
 for (const p of atlas.products) for (const sub of p.subs) {
   const f = sub.shots[0]; if (!f) continue
@@ -48,8 +48,13 @@ for (const p of atlas.products) for (const sub of p.subs) {
 }
 const imgOfSub = (sub) => atlasImg.get(sub.id) ?? null
 const atlasPlan = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/atlas-plan.json'), 'utf8'))
-const atlasVideoDir = arg('atlas-video', 'D:/client-presentation-assets/atlas-video')
-const { list: atlasList, firstOf: atlasFirstOf } = atlasOrder(atlas, atlasPlan)
+const atlasVideoDir = arg('atlas-video', 'D:/client-presentation-assets/atlas-video-v2')   // v2: rendered after the render page got its palette and base styles (the first set has dark text on a dark ground)
+const { list: atlasList, firstOf: atlasFirstOf, tourFirst: atlasTourFirst } = atlasOrder(atlas, atlasPlan)
+// The Scholar Core film (film-studio, docs/client-presentation/15-core-film.md) is a slide of the plan (kind 'film', slug core-film), so atlasOrder already puts
+// it after the Core opener as a video slide: it plays atlas-core-film.mp4 from the video folder (the full-quality render; the web deck uses a smaller copy).
+for (const slug of atlasPlan.filter((s) => s.kind === 'film').map((s) => s.slug)) {
+  for (const f of [`atlas-${slug}.mp4`, `atlas-${slug}-poster.jpg`]) if (!existsSync(join(atlasVideoDir, f))) console.log(`warning: ${f} is missing from ${atlasVideoDir}: the film slide will show a title instead of the film`)
+}
 
 const S = (n) => deck.slides.find((s) => s.n === n)
 const L = (s, role) => s.lines.filter((l) => l.role === role)
@@ -269,15 +274,16 @@ function make(slidesToBuild) {
     text(sl, T(s, 'brand').toUpperCase(), 140, 500, 600, 40, { bold: true, color: '7FB6FF', fontSize: 14, charSpacing: 8 }); head(sl, T(s, 'headline'), 140, 560, 760, 330, 44)
     L(s6, 'product').forEach((l, i) => { const [n, d] = split(l.text); const y = 120 + i * 132; line(sl, 1000, y, 1780, y, { line: { color: '3A5878', width: 1 } }); head(sl, n, 1000, y + 14, 520, 60, 40); text(sl, d, 1000, y + 76, 520, 40, { fontSize: 12, color: C.soft }) })
   }); notes(sl, s, `Also: ${S(6).say}`) }
-  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir, { at, firstOf: atlasFirstOf, endN: 15 })
+  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir, { at, firstOf: atlasFirstOf, endN: 15, tourFirst: atlasTourFirst, presenter: atlasPresenter })
   const atlasFn = (n) => {
     const it = atlasList.find((x) => x.n === n); if (!it) return null
-    if (it.kind === 'video') return AB.video(n, it.key, it.title, it.family)
+    if (it.kind === 'video') return AB.video(n, it.slug, it.title, it.family)
     if (it.kind === 'hub') return AB.hub
     if (it.kind === 'opener') return AB.opener(n, it.family)
     if (it.kind === 'sub') return AB.sub(n, it.family, it.sub)
     if (it.kind === 'glance') return AB.glance(n, it.family)
     if (it.kind === 'gallery') return AB.gallery(n, it.family, it.subs)
+    if (it.kind === 'tour') return AB.tour(n, it.family, it.tab, it.step)
     return null
   }
   for (const n of slidesToBuild) (typeof n === 'string' ? { s2: SHORT2, s5: SHORT3 }[n] : (B[n] ?? atlasFn(n)))()

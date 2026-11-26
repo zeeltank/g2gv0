@@ -69,10 +69,17 @@ test('Shift plus a digit reads the physical key and means the Nth tab in the bar
 
 const core = ATLAS.products.find((p) => p.key === 'core')
 
-test('Scholar Core has a tour, and its Research tab is hidden because there is no research data yet', () => {
+test("Scholar Core has a tour, and its Research tab shows the owner's three sources and three areas, with no figure", () => {
   assert.ok(core?.tour, 'run node scripts/client-presentation/build-atlas.mjs')
-  assert.equal(core?.tour?.research.items.length, 0)
-  assert.ok(!tourTabs(core!.tour!).includes('research'))
+  const items = core!.tour!.research.items
+  assert.equal(items.length, 6)
+  assert.ok(tourTabs(core!.tour!).includes('research'))
+  const sources = items.map((r) => r.source).join(' | ')
+  for (const must of [/UNESCO.*EMIS/, /EMIS-PATT/, /Ed-Fi/, /School Operations and Process Excellence/, /Interoperability and Information Architecture/, /AI-Native School Administration/]) assert.match(sources, must)
+  for (const r of items) {
+    assert.ok(r.text.split(/\s+/).length <= 24 && r.source.split(/\s+/).length <= 12, r.source)
+    assert.ok(!/\d\s*%|percent|validated|research-backed|proven|endorse/i.test(`${r.text} ${r.source}`), `no figure and no endorsement claim: ${r.source}`)
+  }
 })
 
 test('Core: the five groups hold every one of the 25 modules exactly once, each with a tagline and a screenshot', () => {
@@ -104,7 +111,7 @@ test('Core: the AI tab promises only drafting and a person deciding', () => {
 
 test('Core: the six roles the owner confirmed, in order', () => {
   assert.deepEqual(core!.tour!.roles.map((r) => r.role), ['Principal and trustees', 'Admission and front office', 'Accounts', 'Teachers and coordinators', 'Operations', 'Students'])
-  assert.equal(tourBeats(core!.tour!), 14, 'summary, problem, intelligence, AI, five groups, six roles: 15 steps, so 14 presses of Next')
+  assert.equal(tourBeats(core!.tour!), 15, 'summary, problem, intelligence, AI, research, five groups, six roles: 16 steps, so 15 presses of Next')
 })
 
 test('Core: every role points at real modules, has three benefits, and the situation is tagged illustrative', () => {

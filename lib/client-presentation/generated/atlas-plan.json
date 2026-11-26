@@ -23,15 +23,27 @@
   "slug": "core-opener"
  },
  {
+  "kind": "film",
+  "theme": "ink",
+  "title": "Scholar Core",
+  "kicker": "Institute ERP",
+  "ghost": "",
+  "family": "core",
+  "beats": 0,
+  "key": "a3",
+  "n": 203,
+  "slug": "core-film"
+ },
+ {
   "kind": "tour",
   "theme": "ink",
   "title": "Scholar Core",
   "kicker": "Institute ERP",
   "ghost": "",
   "family": "core",
-  "beats": 14,
-  "key": "a3",
-  "n": 203,
+  "beats": 15,
+  "key": "a4",
+  "n": 204,
   "slug": "core-tour"
  },
  {
@@ -42,8 +54,8 @@
   "ghost": "",
   "family": "learn",
   "beats": 0,
-  "key": "a4",
-  "n": 204,
+  "key": "a5",
+  "n": 205,
   "slug": "learn-opener"
  },
  {
@@ -60,8 +72,8 @@
    "learn-curriculum-planning"
   ],
   "beats": 3,
-  "key": "a5",
-  "n": 205,
+  "key": "a6",
+  "n": 206,
   "slug": "learn-subs-1"
  },
  {
@@ -77,8 +89,8 @@
    "learn-pal-engines"
   ],
   "beats": 2,
-  "key": "a6",
-  "n": 206,
+  "key": "a7",
+  "n": 207,
   "slug": "learn-subs-2"
  },
  {
@@ -89,8 +101,8 @@
   "ghost": "",
   "family": "learn",
   "beats": 0,
-  "key": "a7",
-  "n": 207,
+  "key": "a8",
+  "n": 208,
   "slug": "learn-glance"
  },
  {
@@ -110,8 +122,8 @@
    "learn-pal-engines"
   ],
   "beats": 0,
-  "key": "a8",
-  "n": 208,
+  "key": "a9",
+  "n": 209,
   "slug": "learn-gallery"
  },
  {
@@ -122,8 +134,8 @@
   "ghost": "",
   "family": "ccb",
   "beats": 0,
-  "key": "a9",
-  "n": 209,
+  "key": "a10",
+  "n": 210,
   "slug": "ccb-opener"
  },
  {
@@ -139,8 +151,8 @@
    "ccb-talent-management"
   ],
   "beats": 2,
-  "key": "a10",
-  "n": 210,
+  "key": "a11",
+  "n": 211,
   "slug": "ccb-subs-1"
  },
  {
@@ -156,8 +168,8 @@
    "ccb-lms"
   ],
   "beats": 2,
-  "key": "a11",
-  "n": 211,
+  "key": "a12",
+  "n": 212,
   "slug": "ccb-subs-2"
  },
  {
@@ -168,8 +180,8 @@
   "ghost": "",
   "family": "ccb",
   "beats": 0,
-  "key": "a12",
-  "n": 212,
+  "key": "a13",
+  "n": 213,
   "slug": "ccb-glance"
  },
  {
@@ -188,8 +200,8 @@
    "ccb-lms"
   ],
   "beats": 0,
-  "key": "a13",
-  "n": 213,
+  "key": "a14",
+  "n": 214,
   "slug": "ccb-gallery"
  },
  {
@@ -200,8 +212,8 @@
   "ghost": "",
   "family": "insight",
   "beats": 0,
-  "key": "a14",
-  "n": 214,
+  "key": "a15",
+  "n": 215,
   "slug": "insight-opener"
  },
  {
@@ -218,8 +230,8 @@
    "insight-analytics"
   ],
   "beats": 3,
-  "key": "a15",
-  "n": 215,
+  "key": "a16",
+  "n": 216,
   "slug": "insight-subs-1"
  },
  {
@@ -235,8 +247,8 @@
    "insight-settings"
   ],
   "beats": 2,
-  "key": "a16",
-  "n": 216,
+  "key": "a17",
+  "n": 217,
   "slug": "insight-subs-2"
  },
  {
@@ -247,8 +259,8 @@
   "ghost": "",
   "family": "insight",
   "beats": 0,
-  "key": "a17",
-  "n": 217,
+  "key": "a18",
+  "n": 218,
   "slug": "insight-glance"
  },
  {
@@ -268,8 +280,8 @@
    "insight-settings"
   ],
   "beats": 0,
-  "key": "a18",
-  "n": 218,
+  "key": "a19",
+  "n": 219,
   "slug": "insight-gallery"
  },
  {
@@ -280,8 +292,8 @@
   "ghost": "",
   "family": "compass",
   "beats": 0,
-  "key": "a19",
-  "n": 219,
+  "key": "a20",
+  "n": 220,
   "slug": "compass-opener"
  },
  {
@@ -298,8 +310,8 @@
    "compass-career-intelligence"
   ],
   "beats": 3,
-  "key": "a20",
-  "n": 220,
+  "key": "a21",
+  "n": 221,
   "slug": "compass-subs"
  },
  {
@@ -310,8 +322,8 @@
   "ghost": "",
   "family": "compass",
   "beats": 0,
-  "key": "a21",
-  "n": 221,
+  "key": "a22",
+  "n": 222,
   "slug": "compass-glance"
  },
  {
@@ -328,8 +340,8 @@
    "compass-career-intelligence"
   ],
   "beats": 0,
-  "key": "a22",
-  "n": 222,
+  "key": "a23",
+  "n": 223,
   "slug": "compass-gallery"
  }
 ]
