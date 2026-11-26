@@ -99,7 +99,7 @@ export const MODULE_LABEL: Record<DecentralizedModuleKey, string> = {
   lms: 'Learning',
   competency: 'Capability',
   task: 'Task management',
-  crm: 'CRM',
+  crm: 'Sales & Marketing',
 }
 
 /**

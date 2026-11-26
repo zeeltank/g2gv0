@@ -27,6 +27,7 @@ const EMPTY_MODULES: PlatformServicesAccess['modules'] = {
   lms: false,
   competency: false,
   task: false,
+  crm: false,
 }
 
 const EMPTY_AI: PlatformServicesAccess['ai'] = {
