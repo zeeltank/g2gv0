@@ -15,6 +15,8 @@ export interface SignalReviewApi {
   decide(id: number, body: DecisionRequest): Promise<SignalDecisionResponse>
   history(id: number): Promise<SignalHistoryResponse>
   promote(id: number): Promise<SignalPromoteResponse>
+  /** Queues a public-contact search for the signal's organisation. Information only: the signal itself is never changed. */
+  researchContacts(id: number): Promise<{ status: number; message: string }>
   productOptions(): Promise<PmEnvelope<PmOption[]>>
 }
 
@@ -71,6 +73,10 @@ export const signalReviewService: SignalReviewApi = {
    * Makes a CRM lead from the signal. A signal that already has one answers 200 with `created: false` and the same `lead_id`, so pressing twice is safe.
    * A refusal arrives as an ApiError (403 not allowed to edit signals, 404 not found in this organisation).
    */
+  researchContacts(id) {
+    return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/contacts/research`, {})
+  },
+
   promote(id) {
     return apiClient.post(`/signals/opportunities/${encodeURIComponent(String(id))}/promote-to-crm`, {})
   },
