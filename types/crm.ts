@@ -740,7 +740,7 @@ export interface CrmBulkActionResponse {
 export type CrmModule =
   | 'leads' | 'contacts' | 'organizations' | 'campaigns'
   | 'opportunities' | 'quotes' | 'products' | 'services' | 'sms_log'
-  | 'vendors' | 'sales_orders' | 'purchase_orders' | 'invoices'
+  | 'sales_orders' | 'invoices'
   | 'tickets' | 'faqs' | 'service_contracts' | 'assets'
 
 // ── Saved Views (shared across all 4 modules) ─────────────────────────────
@@ -1339,75 +1339,6 @@ export interface CrmQuoteStageHistoryResponse {
   data: CrmQuoteStageHistoryEntry[]
 }
 
-// ── Vendors ───────────────────────────────────────────────────────────────
-// `CrmVendor`, never bare `Vendor` - `services/lms/governance.ts` already
-// exports a bare `Vendor` type for an unrelated LMS-training-suppliers
-// concept (same collision-avoidance reasoning this file already documents
-// for CrmOpportunity/CrmQuote/CrmProduct).
-
-export interface CrmVendor {
-  id: string
-  legacyId: string | null
-  vendorNo: string | null
-  name: string
-  phone: string | null
-  email: string | null
-  website: string | null
-  glAccount: string | null
-  category: string | null
-  street: string | null
-  city: string | null
-  state: string | null
-  country: string | null
-  postalCode: string | null
-  poBox: string | null
-  description: string | null
-  isActive: boolean
-  assignedTo: string | null
-  assignedToName: string | null
-  createdBy: string | null
-  createdAt: string | null
-  updatedAt: string | null
-}
-
-export type CrmVendorPayload = Partial<Omit<CrmVendor, 'id' | 'vendorNo' | 'assignedToName' | 'createdAt' | 'updatedAt' | 'createdBy'>>
-
-export interface CrmVendorListResponse {
-  status: number
-  message: string
-  data: { items: CrmVendor[]; pagination: CrmPagination }
-}
-
-export interface CrmVendorResponse {
-  status: number
-  message: string
-  data: CrmVendor
-}
-
-export interface CrmVendorListQuery {
-  page?: number
-  perPage?: number
-  search?: string
-  sortBy?: string
-  sortDir?: 'asc' | 'desc'
-  category?: string
-  isActive?: boolean
-}
-
-/** A Contact linked to a Vendor - `id` is the junction row (crm_vendor_contacts), for removal. */
-export interface CrmVendorContact {
-  id: string
-  contactId: string
-  name: string
-  subLabel: string | null
-}
-
-export interface CrmVendorContactsResponse {
-  status: number
-  message: string
-  data: CrmVendorContact[]
-}
-
 // ── Sales Orders ───────────────────────────────────────────────────────────
 
 export interface CrmSalesOrder {
@@ -1531,138 +1462,6 @@ export interface CrmSalesOrderStatusHistoryResponse {
   data: CrmSalesOrderStatusHistoryEntry[]
 }
 
-// ── Purchase Orders ──────────────────────────────────────────────────────
-
-export interface CrmPurchaseOrder {
-  id: string
-  poNo: string | null
-  subject: string
-  vendorId: string | null
-  vendorName: string | null
-  organizationId: string | null
-  organizationName: string | null
-  contactId: string | null
-  contactName: string | null
-  quoteId: string | null
-  quoteNo: string | null
-  poStage: string | null
-  requisitionNo: string | null
-  trackingNo: string | null
-  dueDate: string | null
-  currency: string | null
-  subtotal: number
-  discountPercent: number | null
-  discountAmount: number
-  shippingHandlingAmount: number
-  adjustment: number
-  taxTotal: number
-  /** Server-authoritative - recomputed from line items on every save, never trusted from the client. */
-  total: number
-  billingStreet: string | null
-  billingCity: string | null
-  billingState: string | null
-  billingCode: string | null
-  billingCountry: string | null
-  billingPoBox: string | null
-  shippingStreet: string | null
-  shippingCity: string | null
-  shippingState: string | null
-  shippingCode: string | null
-  shippingCountry: string | null
-  shippingPoBox: string | null
-  termsConditions: string | null
-  description: string | null
-  assignedTo: string | null
-  createdBy: string | null
-  createdAt: string | null
-  updatedAt: string | null
-}
-
-/**
- * vendorId IS a genuine input and is REQUIRED at the application-validation
- * level in store()/update() even though nullable at the DB level (legacy
- * marks Vendor mandatory on a Purchase Order) - every other FK here stays
- * optional, same as Quotes. subtotal/discountAmount/taxTotal/total are
- * server-computed outputs only, recomputed from line items on every save.
- */
-export type CrmPurchaseOrderPayload = Partial<
-  Omit<
-    CrmPurchaseOrder,
-    'id' | 'poNo' | 'vendorName' | 'organizationName' | 'contactName' | 'quoteNo'
-    | 'subtotal' | 'discountAmount' | 'taxTotal' | 'total'
-    | 'createdAt' | 'updatedAt' | 'createdBy'
-  >
->
-
-export interface CrmPurchaseOrderListResponse {
-  status: number
-  message: string
-  data: { items: CrmPurchaseOrder[]; pagination: CrmPagination }
-}
-
-export interface CrmPurchaseOrderResponse {
-  status: number
-  message: string
-  data: CrmPurchaseOrder
-}
-
-export interface CrmPurchaseOrderListQuery {
-  page?: number
-  perPage?: number
-  search?: string
-  sortBy?: string
-  sortDir?: 'asc' | 'desc'
-  poStage?: string
-  vendorId?: string
-  organizationId?: string
-  contactId?: string
-  quoteId?: string
-}
-
-export interface CrmPurchaseOrderLineItem {
-  id: string
-  productId: string | null
-  description: string | null
-  quantity: number
-  unitPrice: number
-  discountPercent: number | null
-  discountAmount: number | null
-  taxRateId: string | null
-  /** Frozen at save time - editing crm_tax_rates later never changes an already-saved purchase order's total. */
-  taxNameSnapshot: string | null
-  taxPercentSnapshot: number | null
-  lineTotal: number
-  sequenceNo: number
-}
-
-/** The whole line-item set is replaced wholesale on every save - no per-line create/update/delete endpoints. */
-export type CrmPurchaseOrderLineItemInput = Omit<CrmPurchaseOrderLineItem, 'id' | 'lineTotal' | 'taxNameSnapshot' | 'taxPercentSnapshot'>
-
-export interface CrmPurchaseOrderLineItemsResponse {
-  status: number
-  message: string
-  data: CrmPurchaseOrderLineItem[]
-}
-
-export interface CrmPurchaseOrderStageChangePayload {
-  poStage: string
-}
-
-export interface CrmPurchaseOrderStatusHistoryEntry {
-  id: string
-  fromStage: string | null
-  toStage: string | null
-  total: number | null
-  changedBy: string | null
-  createdAt: string | null
-}
-
-export interface CrmPurchaseOrderStageHistoryResponse {
-  status: number
-  message: string
-  data: CrmPurchaseOrderStatusHistoryEntry[]
-}
-
 // ── Invoices ───────────────────────────────────────────────────────────────
 
 export interface CrmInvoice {
@@ -1721,7 +1520,7 @@ export interface CrmInvoice {
  * shippingHandlingAmount/adjustment ARE genuine inputs - only subtotal/
  * discountAmount/taxTotal/total are server-computed outputs, recomputed
  * from line items on every save and never accepted from the client.
- * invoiceStage is NOT mandatory (unlike so_stage/po_stage on its siblings).
+ * invoiceStage is NOT mandatory (unlike so_stage on its sibling).
  */
 export type CrmInvoicePayload = Partial<
   Omit<
@@ -1896,7 +1695,7 @@ export interface CrmServiceContractListQuery {
 // onboarding-tabs.tsx` already exports a bare `OnbAsset`/`AssetsPanel` for an
 // unrelated employee IT-equipment-issuance concept (same collision-avoidance
 // reasoning this file already documents for CrmOpportunity/CrmQuote/
-// CrmProduct/CrmVendor).
+// CrmProduct).
 
 export interface CrmAsset {
   id: string

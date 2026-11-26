@@ -85,7 +85,7 @@ export function everything(): { status: number; data: PmListData } {
 export function usageFull(over: Partial<PmUsageFull> = {}): PmUsageFull {
   return {
     signals: 4, icp: 'active', quotes: 2, basePrice: 1500, currency: 'INR',
-    counts: { quotes: 2, salesOrders: 1, purchaseOrders: 0, invoices: 1, opportunities: 3, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
+    counts: { quotes: 2, salesOrders: 1, invoices: 1, opportunities: 3, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
     pointers: null,
     latest: {
       quotes: [{ id: 91, number: 'Q-0091', date: '2026-11-03', status: 'Sent' }, { id: 90, number: 'Q-0090', date: '2026-11-01', status: 'Draft' }],

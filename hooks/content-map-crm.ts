@@ -18,10 +18,6 @@ const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-li
 const SalesOrderListView = createLazyComponent(() => import('@/domain/crm/sales-order-list-view').then((m) => ({ default: m.SalesOrderListView })))
 const InvoiceListView = createLazyComponent(() => import('@/domain/crm/invoice-list-view').then((m) => ({ default: m.InvoiceListView })))
 
-// Order-to-cash phase (Vendors/Sales Orders/Purchase Orders/Invoices)
-const VendorListView = createLazyComponent(() => import('@/domain/crm/vendor-list-view').then((m) => ({ default: m.VendorListView })))
-const PurchaseOrderListView = createLazyComponent(() => import('@/domain/crm/purchase-order-list-view').then((m) => ({ default: m.PurchaseOrderListView })))
-
 // Support phase (Tickets/FAQ/Service Contracts/Assets)
 const AssetListView = createLazyComponent(() => import('@/domain/crm/asset-list-view').then((m) => ({ default: m.AssetListView })))
 const TicketListView = createLazyComponent(() => import('@/domain/crm/ticket-list-view').then((m) => ({ default: m.TicketListView })))
@@ -108,12 +104,6 @@ export const CRM_CONTENT: ContentRoute[] = [
 
   // 18. Billing: Invoices
   { accessLink: '/module/crm/sales/invoices', component: InvoiceListView },
-
-  // 19. Procurement: Vendors
-  { accessLink: '/module/crm/sales/vendors', component: VendorListView },
-
-  // 20. Procurement: Purchase Orders
-  { accessLink: '/module/crm/sales/purchase-orders', component: PurchaseOrderListView },
 
   // 21. Customer Success & Renewals
   { accessLink: '/gtm/customers', component: CustomersView },

@@ -9,7 +9,7 @@ import { forgetResolved } from './resolver'
  * Every document that holds lines of Sub-products, as a person meets it (slice 15, P3-C): the REAL page, the REAL line table, the REAL picker and the REAL
  * services, only the network replaced. Choosing a Sub-product must fill the same fields the old product list did (the description, the base price, the default
  * tax rate), and the SAVED body must carry the CATALOGUE id as text under `productId`, exactly as before (never the master id), because the line tables of the
- * four documents point at `crm_products.id`. A Sub-product the picker no longer offers (paused) must still be shown by name on an old document, and saving that
+ * three documents point at `crm_products.id`. A Sub-product the picker no longer offers (paused) must still be shown by name on an old document, and saving that
  * document without touching it must send the same id back.
  */
 interface Spec {
@@ -26,12 +26,11 @@ const common = {
   id: '7', currency: 'INR', subtotal: 0, discountAmount: 0, discountPercent: null, taxTotal: 0, total: 0, shippingHandlingAmount: 0, adjustment: 0, organizationId: null, organizationName: null,
   contactId: null, contactName: null, opportunityId: null, opportunityName: null, billingStreet: null, billingCity: null, billingState: null, billingCode: null, billingCountry: null,
   shippingStreet: null, shippingCity: null, shippingState: null, shippingCode: null, shippingCountry: null, termsConditions: null, description: null, assignedTo: '2',
-  amountPaid: 0, balanceDue: 0, quoteStage: 'Draft', soStage: 'Created', poStage: 'Created', invoiceStage: 'Draft', validTill: null, dueDate: null,
+  amountPaid: 0, balanceDue: 0, quoteStage: 'Draft', soStage: 'Created', invoiceStage: 'Draft', validTill: null, dueDate: null,
 }
 const SPECS: Spec[] = [
   { name: 'a quote', module: 'quote-detail-page', exportName: 'QuoteDetailPage', prop: 'quote', stageProp: 'quoteStages', endpoint: '/crm/quotes/7/line-items', doc: { ...common, subject: 'Hillcrest quote', quoteNo: 'Q-0007' } },
   { name: 'a sales order', module: 'sales-order-detail-page', exportName: 'SalesOrderDetailPage', prop: 'salesOrder', stageProp: 'soStages', endpoint: '/crm/sales-orders/7/line-items', doc: { ...common, subject: 'Hillcrest order', soNo: 'SO-0007' } },
-  { name: 'a purchase order', module: 'purchase-order-detail-page', exportName: 'PurchaseOrderDetailPage', prop: 'purchaseOrder', stageProp: 'poStages', endpoint: '/crm/purchase-orders/7/line-items', doc: { ...common, subject: 'Hillcrest PO', poNo: 'PO-0007', vendorName: null } },
   { name: 'an invoice', module: 'invoice-detail-page', exportName: 'InvoiceDetailPage', prop: 'invoice', stageProp: 'invoiceStages', endpoint: '/crm/invoices/7/line-items', doc: { ...common, subject: 'Hillcrest invoice', invoiceNo: 'INV-0007' } },
 ]
 

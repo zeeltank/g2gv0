@@ -41,7 +41,6 @@ const LINK = ['<ProductPageLink', "from '@/components/domain/portfolio/product-p
 export const CONSUMERS: readonly PickerConsumer[] = [
   { file: 'components/domain/crm/quote-line-item-table.tsx', picks: 'a quote line (and an invoice line: the invoice page reuses this table)', uses: SUB, pinnedBy: 'consumer-documents.test.tsx' },
   { file: 'components/domain/crm/sales-order-line-item-table.tsx', picks: 'a sales order line', uses: SUB, pinnedBy: 'consumer-documents.test.tsx' },
-  { file: 'components/domain/crm/purchase-order-line-item-table.tsx', picks: 'a purchase order line', uses: SUB, pinnedBy: 'consumer-documents.test.tsx' },
   { file: 'components/domain/crm/opportunity-detail-page.tsx', picks: 'the Sub-product of interest of an opportunity', uses: SUB, pinnedBy: 'consumer-forms.test.tsx' },
   { file: 'components/domain/crm/create-ticket-modal.tsx', picks: 'the Sub-product of a ticket', uses: SUB, pinnedBy: 'consumer-forms.test.tsx' },
   { file: 'components/domain/crm/create-asset-modal.tsx', picks: 'the Sub-product of an asset', uses: SUB, pinnedBy: 'consumer-forms.test.tsx' },

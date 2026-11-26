@@ -2,7 +2,7 @@ import { ApiError } from '@/services/core'
 
 /**
  * The refusal a document gives when a Sub-product that is priced in one currency is put on a document in another (S16, 25 Nov 2026; hp_erp contract section 4, item (a)).
- * The four documents (quote, sales order, invoice, purchase order) answer a save of their lines with a 422 and ONE plain sentence:
+ * The three documents (quote, sales order, invoice) answer a save of their lines with a 422 and ONE plain sentence:
  *
  *   "<Sub-product> is priced in <CUR>, this document is in <CUR>."
  *

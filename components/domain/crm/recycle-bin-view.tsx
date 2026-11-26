@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Briefcase, Building2, FileSignature, FileText, HelpCircle, Laptop, LifeBuoy, Loader2, Megaphone, Package, Receipt, RotateCcw, ShoppingCart, Target, Trash2, Truck, User, UserPlus } from 'lucide-react'
+import { Briefcase, Building2, FileSignature, FileText, HelpCircle, Laptop, LifeBuoy, Loader2, Megaphone, Package, Receipt, RotateCcw, ShoppingCart, Target, Trash2, User, UserPlus } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -21,9 +21,7 @@ const TYPE_META: Record<CrmRecycleBinType, { label: string; icon: typeof User; b
   quotes: { label: 'Quote', icon: FileText, badge: 'outline' },
   products: { label: 'Product', icon: Package, badge: 'muted' },
   services: { label: 'Service', icon: Briefcase, badge: 'destructive' },
-  vendors: { label: 'Vendor', icon: Truck, badge: 'navy' },
   sales_orders: { label: 'Sales Order', icon: ShoppingCart, badge: 'success' },
-  purchase_orders: { label: 'Purchase Order', icon: Package, badge: 'warning' },
   invoices: { label: 'Invoice', icon: Receipt, badge: 'default' },
   tickets: { label: 'Ticket', icon: LifeBuoy, badge: 'destructive' },
   faqs: { label: 'FAQ', icon: HelpCircle, badge: 'secondary' },

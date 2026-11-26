@@ -10,8 +10,8 @@ import { forgetResolved } from '../product-picker/resolver'
  * REAL document pages and line tables, the REAL services, only the network replaced.
  *
  *  - The quote form has no Price Book choice, and neither the form nor the quote page asks the server for a price book.
- *  - A save the server refuses with the `currency_mismatch` sentence shows that sentence, in words, on the line table of ALL FOUR documents (quote, sales order, invoice,
- *    purchase order), as an alert above the lines; it clears when the person edits a line; and any other failure still goes to the page's notice.
+ *  - A save the server refuses with the `currency_mismatch` sentence shows that sentence, in words, on the line table of ALL THREE documents (quote, sales order, invoice),
+ *    as an alert above the lines; it clears when the person edits a line; and any other failure still goes to the page's notice.
  */
 
 const SENTENCE = 'Scholar Nine is priced in INR, this document is in USD.'
@@ -20,12 +20,11 @@ const common = {
   id: '7', currency: 'USD', subtotal: 0, discountAmount: 0, discountPercent: null, taxTotal: 0, total: 0, shippingHandlingAmount: 0, adjustment: 0, organizationId: null, organizationName: null,
   contactId: null, contactName: null, opportunityId: null, opportunityName: null, billingStreet: null, billingCity: null, billingState: null, billingCode: null, billingCountry: null,
   shippingStreet: null, shippingCity: null, shippingState: null, shippingCode: null, shippingCountry: null, termsConditions: null, description: null, assignedTo: '2',
-  amountPaid: 0, balanceDue: 0, quoteStage: 'Draft', soStage: 'Created', poStage: 'Created', invoiceStage: 'Draft', validTill: null, dueDate: null,
+  amountPaid: 0, balanceDue: 0, quoteStage: 'Draft', soStage: 'Created', invoiceStage: 'Draft', validTill: null, dueDate: null,
 }
 const SPECS = [
   { name: 'a quote', module: 'quote-detail-page', exportName: 'QuoteDetailPage', prop: 'quote', stageProp: 'quoteStages', endpoint: '/crm/quotes/7/line-items', doc: { ...common, subject: 'Hillcrest quote', quoteNo: 'Q-0007' } },
   { name: 'a sales order', module: 'sales-order-detail-page', exportName: 'SalesOrderDetailPage', prop: 'salesOrder', stageProp: 'soStages', endpoint: '/crm/sales-orders/7/line-items', doc: { ...common, subject: 'Hillcrest order', soNo: 'SO-0007' } },
-  { name: 'a purchase order', module: 'purchase-order-detail-page', exportName: 'PurchaseOrderDetailPage', prop: 'purchaseOrder', stageProp: 'poStages', endpoint: '/crm/purchase-orders/7/line-items', doc: { ...common, subject: 'Hillcrest PO', poNo: 'PO-0007', vendorName: null } },
   { name: 'an invoice', module: 'invoice-detail-page', exportName: 'InvoiceDetailPage', prop: 'invoice', stageProp: 'invoiceStages', endpoint: '/crm/invoices/7/line-items', doc: { ...common, subject: 'Hillcrest invoice', invoiceNo: 'INV-0007' } },
 ] as const
 

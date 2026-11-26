@@ -2,7 +2,7 @@
 
 /**
  * A Ticket's full-page detail view - /module/crm/support/tickets/[id]. Same
- * `parseRoutePath`-resolved `initialActive` reasoning as the Asset/Vendor
+ * `parseRoutePath`-resolved `initialActive` reasoning as the Quote/Asset
  * detail routes - "Support" is a fresh menu insert, its id isn't guaranteed
  * to match between connections, so nothing here hardcodes it.
  */

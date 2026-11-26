@@ -86,11 +86,11 @@ describe('a Sub-product page: what the old record pages pinned', () => {
   })
 
   it('draws a real zero in the usage counts as 0', async () => {
-    const { k } = await openPage({ usage: usageFull({ counts: { quotes: 2, purchaseOrders: 0 } }) })
+    const { k } = await openPage({ usage: usageFull({ counts: { quotes: 2, salesOrders: 0 } }) })
     await openTab(k, 'Usage')
     await k.tick(30)
     const term = (label: string) => k.all('dt').find((dt) => dt.textContent === label)
-    assert.equal(term('Purchase orders')?.nextElementSibling?.textContent, '0', 'a count of zero is drawn as 0')
+    assert.equal(term('Sales orders')?.nextElementSibling?.textContent, '0', 'a count of zero is drawn as 0')
     assert.equal(term('Quotes')?.nextElementSibling?.textContent, '2')
     assert.ok(term('FAQs') === undefined, 'a count the server did not send is left out, not drawn as 0')
   })

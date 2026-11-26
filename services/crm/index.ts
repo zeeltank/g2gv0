@@ -116,12 +116,6 @@ import type {
   OrganizationListResponse,
   OrganizationPayload,
   OrganizationResponse,
-  CrmVendor,
-  CrmVendorPayload,
-  CrmVendorListQuery,
-  CrmVendorListResponse,
-  CrmVendorResponse,
-  CrmVendorContactsResponse,
   CrmSalesOrder,
   CrmSalesOrderLineItemInput,
   CrmSalesOrderLineItemsResponse,
@@ -130,15 +124,6 @@ import type {
   CrmSalesOrderPayload,
   CrmSalesOrderResponse,
   CrmSalesOrderStatusHistoryResponse,
-  CrmPurchaseOrder,
-  CrmPurchaseOrderLineItemInput,
-  CrmPurchaseOrderLineItemsResponse,
-  CrmPurchaseOrderListQuery,
-  CrmPurchaseOrderListResponse,
-  CrmPurchaseOrderPayload,
-  CrmPurchaseOrderResponse,
-  CrmPurchaseOrderStageChangePayload,
-  CrmPurchaseOrderStageHistoryResponse,
   CrmInvoice,
   CrmInvoiceLineItemInput,
   CrmInvoiceLineItemsResponse,
@@ -702,64 +687,6 @@ export const crmService = {
   importQuotes: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/quotes/import', { rows, ...baseParams(context) }),
 
-  // ── Vendors ─────────────────────────────────────────────────────────
-  getVendors: (context: LaravelContext, query: CrmVendorListQuery = {}) =>
-    apiClient.get<CrmVendorListResponse>('/crm/vendors', {
-      ...baseParams(context),
-      ...(query.page ? { page: String(query.page) } : {}),
-      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
-      ...(query.search ? { search: query.search } : {}),
-      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
-      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
-      ...(query.category ? { category: query.category } : {}),
-      ...(query.isActive !== undefined ? { isActive: String(query.isActive) } : {}),
-    }),
-
-  getVendor: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmVendorResponse>(`/crm/vendors/${id}`, baseParams(context)),
-
-  createVendor: (context: LaravelContext, payload: CrmVendorPayload) =>
-    apiClient.post<CrmVendorResponse>('/crm/vendors', { ...payload, ...baseParams(context) }),
-
-  updateVendor: (context: LaravelContext, id: string, payload: CrmVendorPayload) =>
-    apiClient.put<CrmVendorResponse>(`/crm/vendors/${id}`, { ...payload, ...baseParams(context) }),
-
-  deleteVendor: (context: LaravelContext, id: string) =>
-    apiClient.delete<{ status: number; message: string }>(`/crm/vendors/${id}`, baseParams(context)),
-
-  bulkDeleteVendors: (context: LaravelContext, ids: string[]) =>
-    apiClient.post<CrmBulkActionResponse>('/crm/vendors/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
-
-  bulkAssignVendors: (context: LaravelContext, ids: string[], assignedTo: string) =>
-    apiClient.post<CrmBulkActionResponse>('/crm/vendors/bulk/assign', {
-      ids: ids.map(Number), assignedTo, ...baseParams(context),
-    }),
-
-  getVendorDuplicates: (context: LaravelContext) =>
-    apiClient.get<CrmDuplicateGroupsResponse>('/crm/vendors/duplicates', baseParams(context)),
-
-  mergeVendors: (context: LaravelContext, survivorId: string, duplicateIds: string[]) =>
-    apiClient.post<CrmMergeResponse>('/crm/vendors/merge', {
-      survivorId: Number(survivorId), duplicateIds: duplicateIds.map(Number), ...baseParams(context),
-    }),
-
-  vendorsExportUrl: (context: LaravelContext, search?: string) =>
-    buildApiUrl('/crm/vendors/export', { ...baseParams(context), ...(search ? { search } : {}) }),
-
-  importVendors: (context: LaravelContext, rows: Record<string, unknown>[]) =>
-    apiClient.post<CrmImportResponse>('/crm/vendors/import', { rows, ...baseParams(context) }),
-
-  getVendorContacts: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmVendorContactsResponse>(`/crm/vendors/${id}/contacts`, baseParams(context)),
-
-  addVendorContact: (context: LaravelContext, id: string, contactId: string) =>
-    apiClient.post<{ status: number; message: string }>(`/crm/vendors/${id}/contacts`, {
-      contactId, ...baseParams(context),
-    }),
-
-  removeVendorContact: (context: LaravelContext, id: string, rowId: string) =>
-    apiClient.delete<{ status: number; message: string }>(`/crm/vendors/${id}/contacts/${rowId}`, baseParams(context)),
-
   // ── Sales Orders ─────────────────────────────────────────────────────
   getSalesOrders: (context: LaravelContext, query: CrmSalesOrderListQuery = {}) =>
     apiClient.get<CrmSalesOrderListResponse>('/crm/sales-orders', {
@@ -821,65 +748,6 @@ export const crmService = {
 
   importSalesOrders: (context: LaravelContext, rows: Record<string, unknown>[]) =>
     apiClient.post<CrmImportResponse>('/crm/sales-orders/import', { rows, ...baseParams(context) }),
-
-  // ── Purchase Orders ───────────────────────────────────────────────────
-  getPurchaseOrders: (context: LaravelContext, query: CrmPurchaseOrderListQuery = {}) =>
-    apiClient.get<CrmPurchaseOrderListResponse>('/crm/purchase-orders', {
-      ...baseParams(context),
-      ...(query.page ? { page: String(query.page) } : {}),
-      ...(query.perPage ? { per_page: String(query.perPage) } : {}),
-      ...(query.search ? { search: query.search } : {}),
-      ...(query.sortBy ? { sort_by: query.sortBy } : {}),
-      ...(query.sortDir ? { sort_dir: query.sortDir } : {}),
-      ...(query.poStage ? { po_stage: query.poStage } : {}),
-      ...(query.vendorId ? { vendor_id: query.vendorId } : {}),
-      ...(query.organizationId ? { organization_id: query.organizationId } : {}),
-      ...(query.contactId ? { contact_id: query.contactId } : {}),
-      ...(query.quoteId ? { quote_id: query.quoteId } : {}),
-    }),
-
-  getPurchaseOrder: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}`, baseParams(context)),
-
-  createPurchaseOrder: (context: LaravelContext, payload: CrmPurchaseOrderPayload) =>
-    apiClient.post<CrmPurchaseOrderResponse>('/crm/purchase-orders', { ...payload, ...baseParams(context) }),
-
-  /** Transactional copy of a Quote's header + whole line-item set into a brand-new Purchase Order - vendorId is left null (Quotes have no vendor concept), set it afterward with updatePurchaseOrder. */
-  createPurchaseOrderFromQuote: (context: LaravelContext, quoteId: string) =>
-    apiClient.post<CrmPurchaseOrderResponse>(`/crm/purchase-orders/from-quote/${quoteId}`, { ...baseParams(context) }),
-
-  updatePurchaseOrder: (context: LaravelContext, id: string, payload: CrmPurchaseOrderPayload) =>
-    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}`, { ...payload, ...baseParams(context) }),
-
-  deletePurchaseOrder: (context: LaravelContext, id: string) =>
-    apiClient.delete<{ status: number; message: string }>(`/crm/purchase-orders/${id}`, baseParams(context)),
-
-  changePurchaseOrderStage: (context: LaravelContext, id: string, payload: CrmPurchaseOrderStageChangePayload) =>
-    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}/stage`, { ...payload, ...baseParams(context) }),
-
-  getPurchaseOrderStageHistory: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmPurchaseOrderStageHistoryResponse>(`/crm/purchase-orders/${id}/stage-history`, baseParams(context)),
-
-  /** Replaces the whole line-item set and returns the purchase order with server-recomputed totals - never a per-line endpoint. */
-  savePurchaseOrderLineItems: (context: LaravelContext, id: string, lineItems: CrmPurchaseOrderLineItemInput[]) =>
-    apiClient.put<CrmPurchaseOrderResponse>(`/crm/purchase-orders/${id}/line-items`, { lineItems, ...baseParams(context) }),
-
-  getPurchaseOrderLineItems: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmPurchaseOrderLineItemsResponse>(`/crm/purchase-orders/${id}/line-items`, baseParams(context)),
-
-  bulkDeletePurchaseOrders: (context: LaravelContext, ids: string[]) =>
-    apiClient.post<CrmBulkActionResponse>('/crm/purchase-orders/bulk/delete', { ids: ids.map(Number), ...baseParams(context) }),
-
-  bulkAssignPurchaseOrders: (context: LaravelContext, ids: string[], assignedTo: string) =>
-    apiClient.post<CrmBulkActionResponse>('/crm/purchase-orders/bulk/assign', {
-      ids: ids.map(Number), assignedTo, ...baseParams(context),
-    }),
-
-  purchaseOrdersExportUrl: (context: LaravelContext, search?: string) =>
-    buildApiUrl('/crm/purchase-orders/export', { ...baseParams(context), ...(search ? { search } : {}) }),
-
-  importPurchaseOrders: (context: LaravelContext, rows: Record<string, unknown>[]) =>
-    apiClient.post<CrmImportResponse>('/crm/purchase-orders/import', { rows, ...baseParams(context) }),
 
   // ── Invoices ─────────────────────────────────────────────────────────
   getInvoices: (context: LaravelContext, query: CrmInvoiceListQuery = {}) =>
@@ -1469,12 +1337,8 @@ export const crmService = {
     apiClient.get<CrmAuditEntryResponse>(`/crm/campaigns/${id}/history`, baseParams(context)),
   getQuoteHistory: (context: LaravelContext, id: string) =>
     apiClient.get<CrmAuditEntryResponse>(`/crm/quotes/${id}/history`, baseParams(context)),
-  getVendorHistory: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmAuditEntryResponse>(`/crm/vendors/${id}/history`, baseParams(context)),
   getSalesOrderHistory: (context: LaravelContext, id: string) =>
     apiClient.get<CrmAuditEntryResponse>(`/crm/sales-orders/${id}/history`, baseParams(context)),
-  getPurchaseOrderHistory: (context: LaravelContext, id: string) =>
-    apiClient.get<CrmAuditEntryResponse>(`/crm/purchase-orders/${id}/history`, baseParams(context)),
   getInvoiceHistory: (context: LaravelContext, id: string) =>
     apiClient.get<CrmAuditEntryResponse>(`/crm/invoices/${id}/history`, baseParams(context)),
   getFaqHistory: (context: LaravelContext, id: string) =>
