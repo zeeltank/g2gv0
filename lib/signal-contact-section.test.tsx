@@ -51,6 +51,21 @@ describe('signal contact section', () => {
   it('cleans a number for dialling', () => {
     assert.equal(telHref('+91 98765-43210'), 'tel:+919876543210')
   })
+  it('shows the address and the website or profile page of every saved contact, so no saved detail is hidden', () => {
+    const html = renderToStaticMarkup(<ContactSection c={{
+      ...base, status: 'partial', phone: '+912239896000',
+      contacts: [
+        { name: null, designation: 'Organisation contact (published), Mumbai office', email: null, phone: '+912239896000', linkedin: null, source_url: 'https://kpmg.test/office', email_source_url: null, phone_source_url: 'https://kpmg.test/office', verification: 'unverified', website: 'https://kpmg.test/in', location: 'Lodha Excelus, Lower Parel, Mumbai 400011' },
+        { name: null, designation: 'Company Facebook page', email: null, phone: null, linkedin: null, source_url: 'https://www.facebook.com/examplepage', email_source_url: null, phone_source_url: null, verification: 'unverified', website: 'https://www.facebook.com/examplepage' },
+      ],
+    }} />)
+    assert.match(html, /data-testid="found-location"[^>]*>.*Lodha Excelus, Lower Parel, Mumbai 400011/)
+    assert.equal((html.match(/data-testid="found-website"/g) ?? []).length, 2)
+    assert.match(html, /href="https:\/\/www\.facebook\.com\/examplepage"/)
+    assert.match(html, /Company Facebook page/)
+    assert.equal((html.match(/data-testid="found-location"/g) ?? []).length, 1, 'no address row for a contact that has none')
+  })
+
   it('lists every contact found on the public web with tel/mailto links, source links and an Unverified label', () => {
     const html = renderToStaticMarkup(<ContactSection c={{
       ...base, status: 'complete', phone: '+919822011223', email: 'asha@sunriseschool.in',
