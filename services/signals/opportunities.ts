@@ -191,7 +191,7 @@ export interface SignalContact {
     searched_at: string | null
     can_search: boolean
     /** What the last lookup did, even when it found nothing or could not search. */
-    attempt?: { at: string; outcome: 'found' | 'none' | 'failed'; searches: number; failed: number; found: number } | null
+    attempt?: { at: string; outcome: 'found' | 'none' | 'failed' | 'quota' | 'budget'; searches: number; failed: number; found: number } | null
   } | null
   verified: boolean
   message: string
@@ -214,6 +214,8 @@ export interface Opportunity {
   entered_manually?: boolean
   /** Set when the signal was found by a connector (YouTube, LinkedIn, ...) or an analysed page or document, not by a research run. */
   found_via?: { kind: 'connector' | 'ingestion'; platform: string | null; label: string } | null
+  /** Which AI delivered this signal (claude | gpt | deepseek | gemini), or null. */
+  ai_source?: 'claude' | 'gpt' | 'deepseek' | 'gemini' | null
   /** The day it was saved, in the signals timezone (YYYY-MM-DD). Null for researched rows. */
   captured_on?: string | null
   /** ScholarClone signals: how hot (plain rules on the server), and the separate assessments behind it. */

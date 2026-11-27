@@ -34,7 +34,7 @@ export function SignalContactPanel({ signal, service, onChanged, search = signal
     setBusy(true)
     try {
       const res = await service.get(signal.id)
-      const next = (res as { data?: Opportunity }).data
+      const next = (res as unknown as { data?: Opportunity }).data
       if (next) onChanged(next)
       setNotice(next?.contact?.contacts?.length ? null : 'Nothing found yet. Searching can take a minute.')
     } catch (e) {

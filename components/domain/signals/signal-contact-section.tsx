@@ -70,6 +70,12 @@ export function researchText(r: NonNullable<SignalContact['research']>): string 
   if (a && a.outcome === 'failed') {
     return `The last search could not run: ${a.failed} of ${a.searches} requests to the search provider failed. This is a provider or key problem, not "no contacts exist". Try again, or ask an administrator to check the provider key.`
   }
+  if (a && a.outcome === 'quota') {
+    return 'Nothing was searched: the search provider is refusing searches because its quota is used up. Try again after the quota resets, or add quota.'
+  }
+  if (a && a.outcome === 'budget') {
+    return 'Nothing was searched: the daily budget for automatic contact searches is used up. Press Find contacts to search this organisation now.'
+  }
   if (a && a.outcome === 'none' && r.state !== 'found') {
     return `The last search made ${a.searches} request${a.searches === 1 ? '' : 's'} and found no published contact details for this organisation. Nothing is guessed.`
   }

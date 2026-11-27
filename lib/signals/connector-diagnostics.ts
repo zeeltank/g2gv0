@@ -159,6 +159,21 @@ export function syncRunDisplay(status: string): { label: string; tone: Connector
   }
 }
 
+/** How long a sync may sit queued before the screen says no worker has taken it. */
+export const WORKER_WAIT_SECONDS = 60
+
+/**
+ * A sync that has been queued for over a minute is not progressing: a Signals queue worker is not running (or not reaching it). Say so, and what to check,
+ * instead of "Waiting in the queue" for the ten minutes it takes the server to give up on it. Null while it is still reasonable to wait, or once it started.
+ */
+export function workerWaitHint(run: { status: string; started_at: string | null }, now: number = Date.now()): string | null {
+  if (run.status !== 'queued' || !run.started_at) return null
+  const waited = Math.floor((now - Date.parse(run.started_at)) / 1000)
+  if (!Number.isFinite(waited) || waited < WORKER_WAIT_SECONDS) return null
+
+  return `Waiting ${Math.max(1, Math.floor(waited / 60))} minute(s) and no Signals queue worker has picked this up. A worker must be running on the server (php artisan queue:work --queue=signals,default). Ask an administrator to check it. A sync nobody picks up is marked failed after 10 minutes.`
+}
+
 /** The text shown after pressing Sync Now: the server's own message, or an honest queued line. Never "synced". */
 export function syncRequestedMessage(serverMessage: string | null | undefined, connectorName: string): string {
   const text = (serverMessage ?? '').trim()
