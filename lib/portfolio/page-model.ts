@@ -11,13 +11,27 @@ import { PRODUCT_ONLY_SELL_FIELDS } from './form-model'
  */
 
 export type SubTabId = 'overview' | 'details' | 'bundle' | 'usage' | 'history' | 'signals' | 'custom'
-export type ProductTabId = 'overview' | 'sub-products' | 'signals' | 'history'
+export type ProductTabId = 'overview' | 'sub-products' | 'signals' | 'kit' | 'history'
 
 export const SUB_TAB_LABELS: Record<SubTabId, string> = {
   overview: 'Overview', details: 'Details', bundle: 'Bundle', usage: 'Usage', history: 'History', signals: 'Signals & ICP', custom: 'Custom Fields',
 }
-export const PRODUCT_TAB_LABELS: Record<ProductTabId, string> = { overview: 'Overview', 'sub-products': 'Sub-products', signals: 'Signals & ICP', history: 'History' }
-export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals', 'history']
+export const PRODUCT_TAB_LABELS: Record<ProductTabId, string> = { overview: 'Overview', 'sub-products': 'Sub-products', signals: 'Signals & ICP', kit: 'Sales Kit', history: 'History' }
+/** Every tab a Product page can have, in order. The Sales Kit is in it only for a caller who may view it: see `productTabIds`. */
+export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals', 'kit', 'history']
+
+/**
+ * The tabs a Product page draws. A Product that only the Portfolio has (the built-in Commercial Bundle) has its Sub-products and its history and nothing else; any other Product has the
+ * four tabs, and the Sales Kit is the fifth only for a caller who may view it (the Sales Kit row of Role & Permissions, `meta.can.kitView`). A tab the caller may not see is not drawn at all.
+ */
+export function productTabIds({ full, kit }: { full: boolean; kit: boolean }): ProductTabId[] {
+  return full ? PRODUCT_TAB_IDS.filter((id) => id !== 'kit' || kit) : ['sub-products', 'history']
+}
+
+/** The tab to show: the one asked for when the page has it, else the Overview (or the Sub-products on a page that has no Overview). A `?tab=kit` the caller may not open lands on the Overview. */
+export function activeProductTab(tab: ProductTabId, ids: readonly ProductTabId[]): ProductTabId {
+  return ids.includes(tab) ? tab : ids.includes('overview') ? 'overview' : 'sub-products'
+}
 
 /**
  * The tab a Product page opens on, from `?tab=`. The addresses that already exist keep working: `offers` (every link written before the merge) and `icp`
@@ -26,6 +40,7 @@ export const PRODUCT_TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-produc
 export function resolveProductTab(value: string | null | undefined): ProductTabId {
   if (value === 'offers' || value === 'icp' || value === 'sub-products') return 'sub-products'
   if (value === 'signals') return 'signals'
+  if (value === 'kit') return 'kit'
   return value === 'history' ? 'history' : 'overview'
 }
 

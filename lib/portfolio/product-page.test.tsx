@@ -4,7 +4,7 @@ import { disposeAll, kit } from '../scaffolds/dom-test-kit'
 import { routerHarness } from '../signals/router-harness'
 import { portfolioProducts } from '../signals/opportunity-fixtures'
 import { axeViolations } from '../agent/a11y'
-import { eventWord, resolveProductTab } from './page-model'
+import { activeProductTab, eventWord, PRODUCT_TAB_IDS, PRODUCT_TAB_LABELS, productTabIds, resolveProductTab } from './page-model'
 import { everything, historyRow, listRow, meta } from './fixtures'
 import { fill, installWorld, openTab, press, tabLabels, type World } from './screen-kit'
 
@@ -217,8 +217,29 @@ describe('the Product page tabs of the addresses that already exist', () => {
     assert.equal(resolveProductTab('sub-products'), 'sub-products')
     assert.equal(resolveProductTab('signals'), 'signals')
     assert.equal(resolveProductTab('history'), 'history', 'the History tab has an address of its own')
+    assert.equal(resolveProductTab('kit'), 'kit', 'and so does the Sales Kit (27 Nov 2026)')
     assert.equal(resolveProductTab('nonsense'), 'overview')
     assert.equal(resolveProductTab(null), 'overview')
+  })
+
+  it('draws the Sales Kit as the fifth tab, before History, only for a caller who may view it, and only on a Product that has the full tab list', () => {
+    assert.deepEqual([...PRODUCT_TAB_IDS], ['overview', 'sub-products', 'signals', 'kit', 'history'])
+    assert.equal(PRODUCT_TAB_LABELS.kit, 'Sales Kit')
+    assert.deepEqual(productTabIds({ full: true, kit: true }), ['overview', 'sub-products', 'signals', 'kit', 'history'])
+    assert.deepEqual(productTabIds({ full: true, kit: false }), ['overview', 'sub-products', 'signals', 'history'], 'the four tabs of before')
+    assert.deepEqual(productTabIds({ full: false, kit: true }), ['sub-products', 'history'], 'a Portfolio-only Product has no Sales Kit')
+    assert.deepEqual(productTabIds({ full: false, kit: false }), ['sub-products', 'history'])
+  })
+
+  it('shows the tab asked for when the page has it, else the Overview (the Sub-products on a page with no Overview)', () => {
+    const four = productTabIds({ full: true, kit: false })
+    assert.equal(activeProductTab('kit', four), 'overview', 'a pasted ?tab=kit without the right lands on the Overview')
+    assert.equal(activeProductTab('kit', productTabIds({ full: true, kit: true })), 'kit')
+    assert.equal(activeProductTab('history', four), 'history')
+    const short = productTabIds({ full: false, kit: true })
+    assert.equal(activeProductTab('overview', short), 'sub-products')
+    assert.equal(activeProductTab('kit', short), 'sub-products')
+    assert.equal(activeProductTab('history', short), 'history')
   })
 
   it('words a move of a Sub-product to another Product as such, and keeps the other lines as they were', () => {

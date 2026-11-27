@@ -11,8 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PageTabs, TabPanel, useConfirm, type PageTab } from '@/components/shared/scaffolds'
 import type { LaravelContext } from '@/lib/laravel-context'
 import { NOTICE_TONE } from '@/lib/org-accounts/tones'
-import { PRODUCT_TAB_LABELS, resolveProductTab, type ProductTabId } from '@/lib/portfolio/page-model'
+import { activeProductTab, PRODUCT_TAB_LABELS, productTabIds, resolveProductTab, type ProductTabId } from '@/lib/portfolio/page-model'
 import { normalizeProductKey, configureHref } from '@/lib/product-selection'
+import { salesKitService } from '@/services/product-master/kit-service'
 import { productRecordService } from '@/services/product-master/record-service'
 import type { PmHistoryRow, PmPaging, PmPriceTotal } from '@/services/product-master/record-types'
 import type { PmMeta } from '@/services/product-master/types'
@@ -22,19 +23,20 @@ import { ProductEditDialog } from './product-edit-dialog'
 import { ArchivedChip, SharedChip } from './portfolio-chips'
 import { ProductFormDrawer } from './product-form-drawer'
 import { ProductProfilePanel } from './product-profile-panel'
+import { ProductSalesKit } from './product-sales-kit'
+import { useSalesKit } from './product-sales-kit-data'
 import { ProductSetupSteps } from './product-setup-steps'
 import { RemoveRecordDialog, type RemoveTarget } from './remove-record-dialog'
 import { ProductSignalsTab, SubProductsTab, type SubProductsData } from './product-sub-products'
 import { HistoryTab } from './sub-product-tabs'
 
-const TAB_IDS: readonly ProductTabId[] = ['overview', 'sub-products', 'signals', 'history']
 const PER_PAGE = 20
 
 interface MasterFacts { id: number; key: string; name: string; shared: boolean; status: 'active' | 'archived' }
 
 /**
  * One Product on its own page: Overview (the four setup steps and the customer and buyer summary), Sub-products (a paged list, each linking to its own
- * page, with Add sub-product) and Signals & ICP. The Product is named by the address, so what is shown is that Product's stored data only. A Product
+ * page, with Add sub-product), Signals & ICP and, for a caller who may view it, the Sales Kit. The Product is named by the address, so what is shown is that Product's stored data only. A Product
  * has no ideal customer of its own: each Sub-product has its own. A built-in Product shared by every organisation is read only.
  */
 export function ProductDetailView({ context, productKey }: { context: LaravelContext; productKey: string }) {
@@ -115,6 +117,9 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   }, [wantedKey, wantedName, productsLoaded])
 
   const masterId = master?.id
+  // The Sales Kit is read as soon as the Product is known, so its tab can show a count before it is opened. Only a caller whose Sales Kit row says view, on a Product that has a record of its own.
+  const kitTab = product !== null && master !== null && meta?.can.kitView === true
+  const kit = useSalesKit(salesKitService, masterId, kitTab)
   const loadSubs = useCallback(async (page: number) => {
     if (masterId === undefined) return
     setSubsBusy(true)
@@ -207,9 +212,9 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   // One number for the header and the tab: the ACTIVE Sub-products, like the Portfolio list's (the Sub-products tab also lists the archived ones, so they can be restored).
   const activeCount = subs ? Math.max(0, subs.paging.total - archivedCount) : (product?.offers.length ?? 0)
   // A Product that exists only in the Portfolio has no setup steps, no customer summary and no signals of its own: its page is its Sub-products.
-  const tabIds: readonly ProductTabId[] = product ? TAB_IDS : ['sub-products', 'history']
-  const activeTab: ProductTabId = product ? tab : (tab === 'history' ? 'history' : 'sub-products')
-  const tabs: PageTab[] = tabIds.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? activeCount : undefined }))
+  const tabIds = productTabIds({ full: product !== null, kit: kitTab })
+  const activeTab = activeProductTab(tab, tabIds)
+  const tabs: PageTab[] = tabIds.map((id) => ({ id, label: PRODUCT_TAB_LABELS[id], count: id === 'sub-products' ? activeCount : id === 'kit' ? kit.state.data?.counts.all : undefined }))
   const description = [
     `${activeCount} sub-product${activeCount === 1 ? '' : 's'}`,
     archivedCount > 0 ? `${archivedCount} archived` : null,
@@ -272,6 +277,12 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
       {product && (
         <TabPanel id="signals" active={activeTab} idPrefix="product-page">
           <ProductSignalsTab data={subs} productKey={product.key} error={subsError} />
+        </TabPanel>
+      )}
+
+      {kitTab && master && (
+        <TabPanel id="kit" active={activeTab} idPrefix="product-page">
+          <ProductSalesKit productId={master.id} state={kit.state} onReload={kit.reload} onRetry={kit.retry} />
         </TabPanel>
       )}
 
