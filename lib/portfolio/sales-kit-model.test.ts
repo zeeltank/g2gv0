@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { kitItem, scholarcloneItems } from '../../services/product-master/kit-fake-service'
+import { fakeShare, kitItem, scholarcloneItems } from '../../services/product-master/kit-fake-service'
 import {
-  acceptAttribute, acceptedExtensionsText, addedText, checkFile, defaultKindForFile, emptyText, entryFormErrors, fileFamily, filterItems, isKitFilter, kindChoicesForFile, kitChips, linkHref, primaryAction,
-  secondaryAction, shareDecision, shelfOf, sizeText, sortItems, THUMBNAIL_LIMIT_BYTES, tileOf, titleFromFileName, typeWord, uploadLimitText, VIDEO_PLAY_LIMIT_BYTES, visibilityText,
+  acceptAttribute, acceptedExtensionsText, addedText, canShare, checkFile, DEFAULT_SHARE_DAYS, deckKeyOf, defaultKindForFile, emptyText, entryFormErrors, fileFamily, filterItems, isKitFilter, isLiveShare,
+  kindChoicesForFile, kitChips, linkHref, primaryAction, publicShareUrl, secondaryAction, SHARE_DAY_CHOICES, shareDecision, shareExpiryText, shareMark, shareMode, shelfOf, showShareLink, sizeText,
+  sortItems, THUMBNAIL_LIMIT_BYTES, tileOf, titleFromFileName, typeWord, uploadLimitText, VIDEO_PLAY_LIMIT_BYTES, visibilityText,
 } from './sales-kit-model'
 
 /**
@@ -279,5 +280,86 @@ describe('adding from the Document Library', () => {
       assert.match(decision.note!, /Only its owner can share it/)
     }
     assert.equal(visibilityText(theirs), 'Not shared with your organisation')
+  })
+})
+
+describe('the public link', () => {
+  const deck = () => link({ kind: 'presentation', url: '/signals/portfolio/deck/scholarclone' })
+
+  it('is the origin of this site, then /share/kit/, then the token, whatever slash the origin ends with', () => {
+    assert.equal(publicShareUrl('https://g2gv0.vercel.app', 'Tabc123'), 'https://g2gv0.vercel.app/share/kit/Tabc123')
+    assert.equal(publicShareUrl('https://g2gv0.vercel.app/', 'Tabc123'), 'https://g2gv0.vercel.app/share/kit/Tabc123')
+    assert.equal(publicShareUrl('http://localhost:3000///', 'x'), 'http://localhost:3000/share/kit/x')
+    assert.equal(publicShareUrl('https://a.test', 'a/b?c'), 'https://a.test/share/kit/a%2Fb%3Fc', 'a token is never able to change the path')
+  })
+
+  it('offers 7 days, 30 days, 90 days, 1 year and no expiry, and starts on No expiry', () => {
+    assert.deepEqual(SHARE_DAY_CHOICES.map((c) => [c.value, c.label]), [[7, '7 days'], [30, '30 days'], [90, '90 days'], [365, '1 year'], [0, 'No expiry']])
+    assert.equal(DEFAULT_SHARE_DAYS, 0)
+    assert.ok(SHARE_DAY_CHOICES.some((c) => c.value === DEFAULT_SHARE_DAYS))
+  })
+
+  it('says when a link stops: until a date, never, or expired on a date', () => {
+    assert.equal(shareExpiryText({ expiresAt: '2026-12-27 12:00:00', expired: false }), 'Works until 27 Dec 2026')
+    assert.equal(shareExpiryText({ expiresAt: '2026-12-27T12:00:00+05:30', expired: false }), 'Works until 27 Dec 2026')
+    assert.equal(shareExpiryText({ expiresAt: null, expired: false }), 'Never expires')
+    assert.equal(shareExpiryText({ expiresAt: '2026-11-01 08:00:00', expired: true }), 'Expired on 1 Nov 2026')
+    assert.equal(shareExpiryText({ expiresAt: 'soon', expired: false }), 'Works for a limited time', 'a date the browser cannot read is not invented')
+    assert.equal(shareExpiryText({ expiresAt: 'soon', expired: true }), 'Expired')
+  })
+
+  it('trusts the server\'s word that a link has expired, not the clock of the person\'s computer', () => {
+    assert.equal(shareExpiryText({ expiresAt: '2020-01-01 00:00:00', expired: false }), 'Works until 1 Jan 2020', 'a past date with expired=false is still reported as the server says')
+    assert.equal(isLiveShare({ share: fakeShare(1, 30) }), true)
+    assert.equal(isLiveShare({ share: fakeShare(1, 30, { expired: true }) }), false)
+    assert.equal(isLiveShare({ share: null }), false)
+    assert.equal(isLiveShare({}), false, 'a server with no share link says nothing')
+  })
+
+  it('can be had by a file, an address on the web and the interactive deck, and by no other page inside the app', () => {
+    assert.equal(canShare(kitItem({ fileName: 'a.pdf' })), true)
+    assert.equal(canShare(link({ url: 'https://example.com/video' })), true)
+    assert.equal(canShare(deck()), true)
+    assert.equal(canShare(link({ url: '/module/lms/learning/courses/7' })), false, 'a page that needs a sign-in')
+    assert.equal(canShare(link({ url: '/signals/portfolio' })), false)
+    assert.equal(canShare(link({ url: '/signals/portfolio/deck/' })), false, 'a deck with no key')
+    assert.equal(canShare(link({ url: '/signals/portfolio/deck/a/b' })), false)
+    assert.equal(canShare(link({ url: 'javascript:alert(1)' })), false)
+    assert.equal(canShare(link({ url: 'http://example.com' })), false)
+    assert.equal(canShare(link({ url: null })), false)
+    assert.equal(canShare(kitItem({ missing: true, fileName: null })), false, 'a file that is gone has nothing to share')
+  })
+
+  it('reads the deck key out of the deck path and nothing else', () => {
+    assert.equal(deckKeyOf('/signals/portfolio/deck/scholarclone'), 'scholarclone')
+    assert.equal(deckKeyOf('/signals/portfolio/deck/scholar-clone/'), 'scholar-clone')
+    for (const bad of ['/module/lms/learning/client-presentation/scholarclone', '/signals/portfolio/deck/Up', '/signals/portfolio/deck/a.b', 'https://x.test/signals/portfolio/deck/scholarclone', '', null, undefined]) assert.equal(deckKeyOf(bad), null, String(bad))
+  })
+
+  it('marks a card Shared, or Link expired, or nothing', () => {
+    assert.equal(shareMark({ share: fakeShare(1, 30) }), 'Shared')
+    assert.equal(shareMark({ share: fakeShare(1, 30, { expired: true }) }), 'Link expired')
+    assert.equal(shareMark({ share: null }), null)
+    assert.equal(shareMark({}), null)
+  })
+
+  it('lets a manager make, renew and stop a link, and a viewer only copy a live one', () => {
+    assert.equal(shareMode({ share: null }, true), 'create')
+    assert.equal(shareMode({ share: fakeShare(1, 30) }, true), 'manage')
+    assert.equal(shareMode({ share: fakeShare(1, 30, { expired: true }) }, true), 'manage')
+    assert.equal(shareMode({ share: fakeShare(1, 30) }, false), 'copy')
+    assert.equal(shareMode({ share: fakeShare(1, 30, { expired: true }) }, false), 'expired')
+    assert.equal(shareMode({ share: null }, false), 'none', 'a viewer with no link is offered nothing')
+  })
+
+  it('draws "Share link" for a manager on anything that can be shared, and for a viewer only where a link exists', () => {
+    const file = kitItem({ fileName: 'a.pdf' })
+    const shared = kitItem({ fileName: 'a.pdf', share: fakeShare(1, 30) })
+    assert.equal(showShareLink(file, true), true)
+    assert.equal(showShareLink(file, false), false)
+    assert.equal(showShareLink(shared, false), true)
+    assert.equal(showShareLink(shared, true), true)
+    assert.equal(showShareLink(link({ url: '/module/crm/x' }), true), false, 'an unshareable page has none, for anyone')
+    assert.equal(showShareLink(kitItem({ missing: true, fileName: null, share: fakeShare(1, 30) }), false), false)
   })
 })

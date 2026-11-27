@@ -91,4 +91,20 @@ describe('the Sales Kit service sends the real requests', () => {
     fakeFetch(() => new Response(JSON.stringify({ status: 0, message: 'The Sales Kit is not set up on this server yet.' }), { status: 503, headers: { 'Content-Type': 'application/json' } }))
     await assert.rejects(() => salesKitService.get(1), (error: Error & { status?: number }) => error.message === 'The Sales Kit is not set up on this server yet.' && error.status === 503)
   })
+
+  it('makes or renews a public link with POST .../share and the number of days, and sends no days when none were chosen', async () => {
+    await salesKitService.share(1, 7, { days: 90 })
+    await salesKitService.share(1, 7, { days: 0 })
+    await salesKitService.share(1, 7)
+    assert.deepEqual(calls.map((c) => [method(c), path(c)]), [['POST', '/product-master/1/kit/7/share'], ['POST', '/product-master/1/kit/7/share'], ['POST', '/product-master/1/kit/7/share']])
+    assert.deepEqual(calls.map((c) => JSON.parse(String(c.init?.body))), [{ days: 90 }, { days: 0 }, {}], 'no expiry is sent as 0, and an absent choice is left to the server\'s default')
+    for (const c of calls) assert.equal(header(c, 'Authorization'), 'Bearer tok-9')
+  })
+
+  it('stops sharing with DELETE .../share, by the entry\'s id and nothing else', async () => {
+    await salesKitService.stopSharing(1, 7)
+    assert.deepEqual(calls.map((c) => [method(c), path(c)]), [['DELETE', '/product-master/1/kit/7/share']])
+    assert.equal(calls[0].init?.body, undefined)
+    assert.equal(header(calls[0], 'Authorization'), 'Bearer tok-9')
+  })
 })
