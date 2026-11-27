@@ -46,6 +46,17 @@ function FoundPerson({ p }: { p: ContactPerson }) {
           {p.email && <> · <SourceLink url={p.email_source_url ?? p.source_url} label="source" /></>}
         </p>
       </div>
+      {p.location && (
+        <p className="mt-1 min-w-0 break-words text-[11px]" data-testid="found-location">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Address </span>{p.location}
+        </p>
+      )}
+      {p.website && (
+        <p className="mt-1 min-w-0 break-all text-[11px]" data-testid="found-website">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Website / page </span>
+          <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{p.website}</a>
+        </p>
+      )}
       {(p.linkedin || p.source_url) && (
         <p className="mt-1 text-[11px]">
           {p.linkedin && <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">LinkedIn</a>}

@@ -206,6 +206,10 @@ export interface ContactPerson {
   source_url: string | null
   email_source_url: string | null
   phone_source_url: string | null
+  /** The contact's own website, or the organisation's Facebook / Instagram page (labelled by `designation`). */
+  website?: string | null
+  /** The address as it was printed on the page it came from. */
+  location?: string | null
   verification: 'unverified'
 }
 
