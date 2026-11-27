@@ -28,6 +28,7 @@
 import { usePathname, useSearchParams } from 'next/navigation'
 import { DECENTRALIZED_MODULES } from '@shared/platform-services-core'
 import { MODULE_LANDING_HREF, isDecentralizedModule, type DecentralizedModuleKey } from '@/lib/platform/access-links'
+import { isCrmPath } from '@/lib/platform/module-scope'
 
 export function useCurrentPlatformModule(): DecentralizedModuleKey | null {
   const searchParams = useSearchParams()
@@ -42,6 +43,11 @@ export function useCurrentPlatformModule(): DecentralizedModuleKey | null {
     if (pathname?.startsWith(MODULE_LANDING_HREF[key])) {
       return key
     }
+  }
+
+  // Sales & Marketing: its landing path is a single screen (Leads), but the whole module is scoped, GTM and Market Signals included.
+  if (isCrmPath(pathname)) {
+    return 'crm'
   }
 
   return null

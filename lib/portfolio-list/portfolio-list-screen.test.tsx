@@ -14,11 +14,11 @@ describe('the Product Portfolio list: what is on the page', () => {
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })
   const open = async (opts: Parameters<typeof setup>[0] = {}) => { current = await setup(opts); return current }
 
-  it('is a product page with its own title and NO Signals buttons (Company Opportunities, Ingestion Engine, Partner Network)', async () => {
+  it('is a product page with its own title and NO Signals buttons (Market Signals, Ingestion Engine)', async () => {
     const { k, text } = await open()
     assert.equal(k.one('h1')!.textContent, 'Product Portfolio')
-    for (const word of ['Company Opportunities', 'Ingestion Engine', 'Partner Network', 'Market Signals']) assert.ok(!text().includes(word), `the page shows no "${word}"`)
-    assert.equal(k.all('a').filter((a) => /^\/(signals|ingestion|partners)/.test(a.getAttribute('href') ?? '')).length, 0, 'no link into a Signals page')
+    for (const word of ['Ingestion Engine', 'Market Signals']) assert.ok(!text().includes(word), `the page shows no "${word}"`)
+    assert.equal(k.all('a').filter((a) => /^\/(signals|ingestion)/.test(a.getAttribute('href') ?? '')).length, 0, 'no link into a Signals page')
   })
 
   it('shows the Products as group headers with their Sub-products under them, and a "No product yet" group for strays', async () => {

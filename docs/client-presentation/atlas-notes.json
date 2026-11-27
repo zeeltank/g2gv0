@@ -514,7 +514,57 @@
       "The plan cites an external 50-section specification PDF that is not in either repo, so the research field is left empty."
      ]
     }
-   ]
+   ],
+   "tour": {
+    "evidence": {
+     "summary": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-family.json",
+      "g2gv0/docs/client-presentation/content/scholarclone.story.json"
+     ],
+     "problem": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"
+     ],
+     "intelligence": [
+      "next_lms_erp/app/Brain/Intelligence/FeesSignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/PettyCashIntelligence.php",
+      "next_lms_erp/app/Brain/Intelligence/InventorySignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/TransportSignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/LibrarySignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/CorrespondenceSignalRules.php"
+     ],
+     "ai": [
+      "lms_k12/components/ai/AiFieldAssistant.tsx",
+      "lms_k12/app/admissions/admission_enquiry/page.tsx",
+      "lms_k12/app/easy_com/_components/EntryPage.tsx",
+      "lms_k12/app/student/_components/StudentCareModule.tsx",
+      "lms_k12/docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md",
+      "lms_k12/app/admissions/ai-stack/_screens/admissions-policies-screen.tsx",
+      "next_lms_erp/routes/ai.php"
+     ],
+     "research": [
+      "g2gv0/docs/client-presentation/assets/core-research-sources.json"
+     ],
+     "features": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-1.json",
+      "g2gv0/docs/client-presentation/content/atlas/part-core-2.json",
+      "g2gv0/docs/client-presentation/content/atlas/part-core-3.json"
+     ],
+     "roles": null
+    },
+    "owner_to_confirm": [
+     "The five groups of the 25 modules (Students and academics; Money and stores; Front office and records; Communication and trust; Community and administration) are ours, not a product structure. Regroup freely.",
+     "Roles: the owner confirmed on 26 Nov 2026 Principal and trustees; Admission and front office; Accounts; Teachers and coordinators; Operations; and Students. No sheet names a Principal or trustee screen: that row rests on the family benefit line ('answer parents and leaders faster') and on the six insight modules.",
+     "Students: students and parents use the NATIVE school app, which is not in the two repositories. Only the server side was verified (calendar, photo and video albums, exam schedule files and leave requests in Mobile Apps; certificates and I-cards from Student and Document Templates). Confirm what the demo school's students actually see in the app before showing this role, and that a student (not only a parent) can send the leave request.",
+     "Every 'use' line under a role is illustrative: it strings together screens that exist, and is tagged illustrative on the slide.",
+     "Ask your records: 'staff can ask questions of school records in plain words' is the second AI line of the family sheet (route file next_lms_erp/routes/ai.php). Confirm it is switched on for the demo school before showing it.",
+     "School administrators set what AI may do: proven for the admissions and attendance AI settings screens (policies). Confirm the same control exists for the Student health-note and Communication drafting before widening the claim.",
+     "Insights: the sidebar item is labelled 'AI insights' for the six modules, but the code is rule-based over the school's own records (no AI model). The slide says 'insights' and 'rules', never AI. Confirm each of the six is visible in the demo school's sidebar.",
+     "Fees insight rules include overdue cycles and collection by class and by fee head; Transport rules include seats over capacity and riders with no enrolment this year. The slide names only the questions, no numbers.",
+     "Library: issuing a book is not built in the new Book Resources screen (see the Library sheet), so the tour says catalogue, barcodes, returns and shelf checks only.",
+     "Inventory: stock balance is not fully reconciled (see the Inventory sheet), so the tour does not promise live stock levels.",
+     "Research tab: filled on 26 Nov 2026 from the owner's pasted list (UNESCO EMIS framework; UNESCO EMIS-PATT; Ed-Fi Alliance education data standard; and three areas: School Operations and Process Excellence, Interoperability and Information Architecture, AI-Native School Administration). Three things to confirm: (1) the paste lost which source belongs to which area and what 'ERP' heads, so the slide lists sources and areas side by side without pairing them; (2) the owner gave only the names of the three areas, so each area's one line is wording already checked in this tour, not a document; (3) no code or doc in the four repositories cites EMIS, EMIS-PATT or Ed-Fi, so 'Designed from' rests on the owner's list: say if it should read 'Read against' instead. Any percentage still fails the checker; no figure is shown (see assets/core-research-sources.json)."
+    ]
+   }
   },
   {
    "key": "learn",

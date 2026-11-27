@@ -11,12 +11,19 @@ import { join } from 'node:path'
 
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i < 0 ? d : process.argv[i + 1] }
 const base = arg('base', 'http://localhost:3210'); const outDir = arg('out', 'D:/client-presentation-assets/atlas-video')
-const name = arg('name', null); const keys = arg('keys', '')?.split(',').filter(Boolean)
+let name = arg('name', null); const keys = arg('keys', '')?.split(',').filter(Boolean)
 const holdSubs = Number(arg('hold', 3.6)); const fps = Number(arg('fps', 30)); const crf = Number(arg('crf', 24))
-if (!name || !keys.length) { console.log('usage: --name <file> --keys a1,a2'); process.exit(1) }
+if (!name || !keys.length) { console.log('usage: --name <file | auto> --keys a1,a2   (auto: one key, the file is named atlas-<slug>, e.g. atlas-core-tour, so it survives a change in slide order)'); process.exit(1) }
 mkdirSync(outDir, { recursive: true })
 const plan = JSON.parse(readFileSync(new URL('../../lib/client-presentation/generated/atlas-plan.json', import.meta.url), 'utf8'))
-const HOLD = { hub: 3.5, opener: 4.2, glance: 3.6, subs: holdSubs, gallery: 3.4 }
+const filmKeys = keys.filter((k) => plan.find((s) => s.key === k)?.kind === 'film')
+if (filmKeys.length) { console.log(`${filmKeys.join(', ')} is a film slide: the film is already a rendered video (film-studio, docs/client-presentation/15-core-film.md), not a page to record`); process.exit(1) }
+if (name === 'auto') {
+  if (keys.length !== 1) { console.log('--name auto needs exactly one key'); process.exit(1) }
+  const one = plan.find((s) => s.key === keys[0]); if (!one) { console.log('no atlas slide ' + keys[0]); process.exit(1) }
+  name = `atlas-${one.slug}`
+}
+const HOLD = { hub: 3.5, opener: 4.2, glance: 3.6, subs: holdSubs, gallery: 3.4, tour: 2.8 }
 
 const require = createRequire('C:/Users/MILAN/Downloads/lms_k12/')
 const { chromium } = require('playwright-core')
@@ -50,6 +57,7 @@ for (const key of keys) {
   const slide = plan.find((s) => s.key === key); if (!slide) throw new Error('no atlas slide ' + key)
   await page.goto(`${base}/module/lms/learning/client-presentation/atlas/${key}`, { waitUntil: 'domcontentloaded', timeout: 180000 })
   try { await page.waitForFunction(() => Boolean(window.__atlasTl), null, { timeout: 120000 }) } catch (e) { await page.screenshot({ path: join(outDir, `${name}-fail.png`) }); console.log('page errors:', errs.join(' | ') || 'none', '| url', page.url(), '| render flag', await page.evaluate(() => String(window.__atlasRender)).catch(() => '?')); throw e }
+  await page.addStyleTag({ content: 'nextjs-portal, [data-nextjs-toast], [data-next-badge-root], #__next-build-watcher { display: none !important }' })   // the dev-mode "N" badge was in every earlier atlas video
   await page.evaluate(() => document.fonts.ready); await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode().catch(() => {}))))
   const labels = await page.evaluate(() => { const tl = window.__atlasTl; tl.pause(); return Object.entries(tl.labels).filter(([k]) => /^b\d+$/.test(k)).sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1))).map(([, t]) => t) })
   const times = []; const hold = Math.round((HOLD[slide.kind] ?? 3) * fps)

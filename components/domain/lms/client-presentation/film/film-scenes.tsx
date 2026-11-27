@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 
-import deckJson from '@/lib/client-presentation/generated/scholarclone.deck.json'
+import deckJson from '@/lib/client-presentation/generated/scholarclone.public.json'
 import { FILM, beatOf, lineOf, linesOf, splitProduct } from '@/lib/client-presentation/film'
 
 import { gsap } from '../motion/gsap'

@@ -27,7 +27,7 @@ export function setupSteps(product: ProductInfo): { key: string; title: string; 
     },
     {
       key: 'generate', title: 'Generate signals', state: product.ready ? 'done' : 'todo',
-      detail: product.ready ? 'Ready. Start research from Company Opportunities' : 'Available once a sub-product has an ICP',
+      detail: product.ready ? 'Ready. Start research from Market Signals' : 'Available once a sub-product has an ICP',
     },
   ]
 }
@@ -44,7 +44,7 @@ export function ProductSetupSteps({ product }: { product: ProductInfo }) {
         </div>
         <Button asChild size="sm" variant={product.ready ? 'default' : 'outline'} disabled={!product.ready}>
           <Link href={`/signals?product=${encodeURIComponent(product.key)}`} aria-disabled={!product.ready} tabIndex={product.ready ? undefined : -1}>
-            Go to Company Opportunities <ArrowRight className="ml-1.5 size-4" />
+            Go to Market Signals <ArrowRight className="ml-1.5 size-4" />
           </Link>
         </Button>
       </div>

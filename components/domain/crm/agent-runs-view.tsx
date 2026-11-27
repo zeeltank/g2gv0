@@ -26,7 +26,7 @@ import { AgentWaitingQueue } from './agent-waiting-queue'
  * The autonomy settings are read once here, because their answer decides whether the Autonomy tab exists, and the Waiting tab warns while the agent is
  * switched off. A server that has not got the queue or the settings yet (the route answers 404) is said so in that tab, and the other tabs keep working.
  */
-export function AgentRunsView({ service = agentService }: { service?: AgentApi }) {
+export function AgentRunsView({ service = agentService, embedded = false }: { service?: AgentApi; embedded?: boolean }) {
   const context = useMemo(() => getLaravelContext(), [])
   const [named, setUrlTab] = useUrlTab(AGENT_TAB_IDS, AGENT_TAB_PARAM)
   const urlTab = toAgentTab(named)
@@ -63,19 +63,25 @@ export function AgentRunsView({ service = agentService }: { service?: AgentApi }
   const decided = useCallback(() => { void loadAutonomy(true) }, [loadAutonomy])
 
   return (
-    <div className="@container mx-auto max-w-6xl space-y-6 p-4 @xl:p-6">
-      {/* Header */}
-      <div className="border-b border-border pb-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Agent run history</h1>
-          <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
-            <History aria-hidden className="size-3" /> Audit log
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every run of an agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
+    <div className={cn('@container space-y-6', embedded ? 'p-6' : 'mx-auto max-w-6xl p-4 @xl:p-6')}>
+      {/* Header. Inside the Run Log page (components/domain/agentic/ag-run-log-page.tsx) that page names the screen, so only the sentence that says what these runs are stays. */}
+      {embedded ? (
+        <p className="text-sm text-muted-foreground">
+          Every run of a Sales &amp; Marketing agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
         </p>
-      </div>
+      ) : (
+        <div className="border-b border-border pb-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Agent run history</h1>
+            <span className={cn(CHIP_BASE, AGENT_MARK_TONE)}>
+              <History aria-hidden className="size-3" /> Audit log
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every run of an agent: what it read, what it proposed, what it did on its own, what a person decided, and what it cost.
+          </p>
+        </div>
+      )}
 
       <PageTabs tabs={tabs} active={tab} onChange={setUrlTab} label="Agent run history sections" idPrefix={AGENT_TAB_PREFIX} />
 

@@ -17,6 +17,8 @@ interface Opts {
   beats: number
   entry: Entry
   reduced: boolean
+  /** The longest a press of Next may take to play its step, in seconds (default 1.8). The product tour's steps are richer and ask for more. */
+  maxTween?: number
 }
 
 /**
@@ -27,7 +29,7 @@ interface Opts {
  * Going forward tweens to the next label at natural speed; going back tweens back the same way.
  * Arriving by Back or by a jump (and when the viewer prefers reduced motion) shows the finished state at once, with no movement.
  */
-export function useBeatTimeline(scope: RefObject<HTMLElement | null>, build: (tl: gsap.core.Timeline, ctx: BeatCtx) => void, { beat, beats, entry, reduced }: Opts): void {
+export function useBeatTimeline(scope: RefObject<HTMLElement | null>, build: (tl: gsap.core.Timeline, ctx: BeatCtx) => void, { beat, beats, entry, reduced, maxTween = 1.8 }: Opts): void {
   const tlRef = useRef<gsap.core.Timeline | null>(null)
   const mounted = useRef(false)
 
@@ -65,6 +67,8 @@ export function useBeatTimeline(scope: RefObject<HTMLElement | null>, build: (tl
     }
     const tl = tlRef.current
     if (!tl) return
+    // The latest press wins: a tween still running from an earlier press (or from Back) would otherwise go on moving the playhead after a jump or a new press.
+    gsap.killTweensOf(tl)
     const label = `b${beat}`
     if (reduced) {
       tl.seek(label, false)
@@ -72,6 +76,11 @@ export function useBeatTimeline(scope: RefObject<HTMLElement | null>, build: (tl
     }
     const target = tl.labels[label]
     if (target === undefined) return
-    tl.tweenTo(label, { ease: 'power1.inOut', duration: Math.min(1.8, Math.max(0.35, Math.abs(target - tl.time()))) })
-  }, [beat, reduced])
+    // A jump (a click on a tab of the product tour) shows the beat at once: tweening would play through every beat in between.
+    if (entry === 'jump') {
+      tl.seek(label, false)
+      return
+    }
+    tl.tweenTo(label, { ease: 'power1.inOut', duration: Math.min(maxTween, Math.max(0.35, Math.abs(target - tl.time()))) })
+  }, [beat, reduced, entry, maxTween])
 }

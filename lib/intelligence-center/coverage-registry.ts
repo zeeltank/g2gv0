@@ -169,27 +169,30 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
   row('crm', 'S8', 'Products and services', `${CRM}/sales/products`),
   row('crm', 'S9', 'Price books', `${CRM}/sales/price-books`),
   row('crm', 'S10', 'Sales orders', `${CRM}/sales/sales-orders`),
-  row('crm', 'S11', 'Purchase orders', `${CRM}/sales/purchase-orders`),
-  row('crm', 'S12', 'Vendors', `${CRM}/sales/vendors`),
+  // S11 and S12: the Purchase Orders and Vendors screens were retired (26 Nov 2026); the matrix rows stay (the matrix is source-derived), with no screen.
+  row('crm', 'S11', 'Purchase orders', null),
+  row('crm', 'S12', 'Vendors', null),
   partial('crm', 'S13', 'Invoices', `${CRM}/sales/invoices`, INVOICE),
   row('crm', 'S14', 'Support (tickets, SLA, assets, contracts, FAQ, templates, SMS)', `${CRM}/support/tickets`),
   row('crm', 'S15', 'CRM reports', `${CRM}/reports`),
-  row('crm', 'S16', 'Saved views, recycle bin, picklists and tax rates', `${CRM}/master-fields`),
-  row('crm', 'S17', 'CRM agents and automation', `${CRM}/marketing/automation-rules`),
+  row('crm', 'S16', 'Saved views, recycle bin, picklists and tax rates', '/platform-services/fields-configuration'),
+  // S17: Automation Rules moved into Workflows (Automations tab), which is where this functionality lives now.
+  row('crm', 'S17', 'CRM agents and automation', '/platform-services/workflow'),
   row('crm', 'S18', 'Account 360 and knowledge graph', `${CRM}/signals`),
   partial('crm', 'S19', 'GTM command center', '/gtm/command-center', PIPE),
   partial('crm', 'S20', 'GTM deals and pipeline', '/gtm/deals', DEAL, PIPE),
-  partial('crm', 'S21', 'GTM forecast', '/gtm/forecast', PIPE),
+  // S21 and S23: the GTM Forecast and Prospecting screens were retired (26 Nov 2026); the pipeline-attention detector still assesses open deals.
+  partial('crm', 'S21', 'GTM forecast', null, PIPE),
   partial('crm', 'S22', 'GTM customers and renewals', '/gtm/customers', RENEW),
-  row('crm', 'S23', 'GTM prospecting (accounts and contacts)', '/gtm/prospecting'),
+  row('crm', 'S23', 'GTM prospecting (accounts and contacts)', null),
   row('crm', 'S24', 'GTM campaigns, segments and outreach', '/gtm/campaigns'),
   row('crm', 'S25', 'GTM playbooks, agents and workflows', '/gtm/playbooks'),
   row('crm', 'S26', 'GTM reports and monitoring', '/gtm/reports'),
-  partial('crm', 'S27', 'Signals: company opportunities', '/signals', SIGEV),
+  partial('crm', 'S27', 'Signals: market signals', '/signals', SIGEV),
   partial('crm', 'S28', 'Signals: research runs', '/signals', SIGYIELD),
   partial('crm', 'S29', 'Signals: review', '/signal-review', SIGEV),
   row('crm', 'S30', 'Signals: ingestion and connectors', '/ingestion'),
-  row('crm', 'S31', 'Signals: portfolio, partners, ICP and matching', '/portfolio'),
+  row('crm', 'S31', 'Signals: portfolio, ICP and matching', '/portfolio'),
   row('crm', 'S32', 'Legacy signal inbox', `${CRM}/marketing/signal-inbox`),
 
   // 3.8 Platform Services (11). P3, P4, P6, P9, P10, P11 are covered by the new platform detectors (named by contract with the backend).
@@ -207,7 +210,7 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
 
   // 3.9 Agentic AI (2)
   partial('agentic-ai', 'A1', 'Core screens (dashboard, library, create, run log, analytics, multi-agent, reflection, workspace)', '/module/agentic-ai/agent-dashboard', 'agentic.run_health'),
-  row('agentic-ai', 'A2', 'Agent gateway (runs, proposals, autonomy, Ask)', `${CRM}/marketing/agent-runs`),
+  row('agentic-ai', 'A2', 'Agent gateway (runs, proposals, autonomy, Ask)', '/module/agentic-ai/run-log'),
 ]
 
 /**

@@ -2,11 +2,12 @@
  * Types and helpers for the client-facing presentation (ScholarClone first).
  *
  * The browser only ever sees the public deck written by scripts/client-presentation/export-deck.mjs from the checked story:
- * on-slide text, status badges, presenter notes, scenarios and image slots. Claims, their sources and the visual direction stay
- * in docs/client-presentation and are never shipped.
+ * on-slide text, scenarios and image files. Claims, their sources, the visual direction, the presenter notes (say / ask / limits)
+ * and the image-slot briefs stay out of this file's data; only presenter-deck.ts imports them, and only the signed-in presenter
+ * window loads that. Keep it that way: the public share page (app/present) bundles this module.
  */
 import { atlasSlides } from './atlas'
-import deckJson from './generated/scholarclone.deck.json'
+import deckJson from './generated/scholarclone.public.json'
 
 export interface Line {
   role: string
@@ -67,7 +68,7 @@ export interface Deck {
 }
 
 /** The Product Atlas slides are appended after the story slides (numbers from 201), so notes and slide lookups work the same way. */
-function withAtlas(d: Deck): Deck {
+export function withAtlas(d: Deck): Deck {
   return { ...d, slides: [...d.slides, ...atlasSlides()] }
 }
 

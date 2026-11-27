@@ -97,7 +97,8 @@ const analyse = () => {
     if (t.fs < 20 && !t.el.closest('.cp-credit')) flag(warns, 'tiny-type', `"${t.txt}" ${t.fs.toFixed(0)}px`, [t])
   }
   // 5. near-miss alignment: left edges 2 to 10 px apart between text blocks that are close in height and not rotated
-  const blocks = items.filter((t) => !t.rot && t.w > 60 && !t.el.closest('.cp-badge, .cp-credit, .cp-shot, svg'))
+  // (the product rail and the module pills of a product tour are badge-like controls whose positions follow their text widths: like .cp-badge, they are not content that should line up with a heading word)
+  const blocks = items.filter((t) => !t.rot && t.w > 60 && !t.el.closest('.cp-badge, .cp-credit, .cp-shot, .at-prodrail, .tr-mods, svg'))
   const seen = new Set()
   for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
     const a = blocks[i]; const b = blocks[j]; const d = Math.abs(a.x - b.x)

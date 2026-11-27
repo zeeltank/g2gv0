@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import planJson from './generated/atlas-plan.json'
-import { ATLAS, ATLAS_KEYS, ATLAS_PLAN, GALLERY_PER_SLIDE, HUB_KEY, PRODUCT_NAV, atlasByN, atlasSlides, buildAtlasPlan, chunk, openerKeyOf } from './atlas'
+import { ATLAS, ATLAS_KEYS, ATLAS_PLAN, GALLERY_PER_SLIDE, HUB_KEY, PRODUCT_NAV, atlasByN, atlasSlides, buildAtlasPlan, chunk, filmOf, openerKeyOf } from './atlas'
+import { tourBeats } from './tour'
 
 test('chunk splits evenly and never exceeds the maximum', () => {
   assert.deepEqual(chunk([1, 2, 3, 4, 5, 6, 7], 5).map((c) => c.length), [4, 3])
@@ -24,10 +27,13 @@ test('the plan starts with the hub, then one section per product, in product ord
   }
 })
 
-test('every product section is opener, spotlights, how it works, screens', () => {
+test('a product with a tour is its opener and ONE tour slide; every other product is opener, spotlights, how it works, screens', () => {
   for (const p of ATLAS.products.filter((x) => x.subs.length)) {
     const kinds = ATLAS_PLAN.filter((s) => s.family === p.key).map((s) => s.kind)
     assert.equal(kinds[0], 'opener')
+    if (p.tour) { assert.deepEqual(kinds, p.film ? ['opener', 'film', 'tour'] : ['opener', 'tour'], `${p.key} has a tour${p.film ? ' and a film between the opener and the tour' : ''}`); continue }
+    assert.ok(!kinds.includes('film'), `${p.key} has no tour, so no film slide`)
+    assert.ok(!kinds.includes('tour'), `${p.key} has no tour data, so no tour slide`)
     assert.equal(kinds[kinds.length - 1], 'gallery')
     assert.equal(kinds.filter((k) => k === 'glance').length, 1)
     const rank = { opener: 0, subs: 1, glance: 2, gallery: 3 } as Record<string, number>
@@ -35,9 +41,9 @@ test('every product section is opener, spotlights, how it works, screens', () =>
   }
 })
 
-test('the spotlights cover every sub-module exactly once, in family order', () => {
+test('the spotlights cover every sub-module of a product without a tour exactly once, in family order', () => {
   const seen = ATLAS_PLAN.filter((s) => s.kind === 'subs').flatMap((s) => s.subs ?? [])
-  const all = ATLAS.products.flatMap((p) => p.subs.map((s) => s.id))
+  const all = ATLAS.products.filter((p) => !p.tour).flatMap((p) => p.subs.map((s) => s.id))
   assert.deepEqual(seen, all)
   assert.equal(new Set(seen).size, seen.length)
 })
@@ -45,7 +51,7 @@ test('the spotlights cover every sub-module exactly once, in family order', () =
 test('the screens slides hold every sub-module that has a screenshot, at most nine to a slide', () => {
   const shown = ATLAS_PLAN.filter((s) => s.kind === 'gallery')
   for (const s of shown) assert.ok((s.subs?.length ?? 0) >= 1 && (s.subs?.length ?? 0) <= GALLERY_PER_SLIDE)
-  const withShot = ATLAS.products.flatMap((p) => p.subs.filter((x) => x.shots.length).map((x) => x.id))
+  const withShot = ATLAS.products.filter((p) => !p.tour).flatMap((p) => p.subs.filter((x) => x.shots.length).map((x) => x.id))
   assert.deepEqual(shown.flatMap((s) => s.subs ?? []), withShot)
 })
 
@@ -55,9 +61,27 @@ test('slide numbers and keys are unique, start at 201 and match the plan order',
   ATLAS_PLAN.forEach((s, i) => { assert.equal(s.n, 201 + i); assert.equal(s.key, `a${i + 1}`); assert.equal(atlasByN(s.n), s) })
 })
 
-test('a spotlight has one press of Next per sub-module after the first', () => {
+test('a spotlight has one press of Next per sub-module after the first, a tour one per step of its tabs, every other slide none', () => {
   for (const s of ATLAS_PLAN.filter((x) => x.kind === 'subs')) assert.equal(s.beats, (s.subs?.length ?? 0) - 1)
-  for (const s of ATLAS_PLAN.filter((x) => x.kind !== 'subs')) assert.equal(s.beats, 0)
+  for (const s of ATLAS_PLAN.filter((x) => x.kind === 'tour')) {
+    const tour = ATLAS.products.find((p) => p.key === s.family)?.tour
+    assert.ok(tour, `${s.family}: a tour slide needs tour data`)
+    assert.equal(s.beats, tourBeats(tour!))
+  }
+  for (const s of ATLAS_PLAN.filter((x) => x.kind !== 'subs' && x.kind !== 'tour')) assert.equal(s.beats, 0)
+})
+
+test('every slide has a stable slug: unique, built from product and kind, and not tied to the slide order', () => {
+  assert.equal(new Set(ATLAS_PLAN.map((s) => s.slug)).size, ATLAS_PLAN.length)
+  for (const s of ATLAS_PLAN) {
+    assert.match(s.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/)
+    if (s.kind === 'hub') assert.equal(s.slug, 'hub')
+    else assert.ok(s.slug.startsWith(`${s.family}-${s.kind}`), `${s.slug}`)
+  }
+  // a product with several slides of one kind numbers them; a single one has no number
+  const subs = ATLAS_PLAN.filter((s) => s.kind === 'subs' && s.family === 'learn')
+  if (subs.length > 1) assert.deepEqual(subs.map((s) => s.slug), subs.map((_, i) => `learn-subs-${i + 1}`))
+  assert.ok(ATLAS_PLAN.filter((s) => s.kind === 'opener').every((s) => s.slug === `${s.family}-opener`))
 })
 
 test('the product rail opens each product at its opener', () => {
@@ -69,6 +93,21 @@ test('the product rail opens each product at its opener', () => {
     assert.equal(slide?.family, n.key)
     assert.ok(!n.short.startsWith('Scholar'))
   }
+})
+
+test('a film slide plays a real file: the video and its poster exist under public/, and filmOf finds it by the slide key', () => {
+  const films = ATLAS_PLAN.filter((s) => s.kind === 'film')
+  assert.equal(films.length, ATLAS.products.filter((p) => p.tour && p.film).length)
+  for (const s of films) {
+    const film = filmOf(s.key)
+    assert.ok(film, `${s.key}: filmOf`)
+    for (const f of [film!.src, film!.poster]) assert.ok(existsSync(join(process.cwd(), 'public', f)), f)
+    assert.ok(film!.seconds > 5)
+    assert.equal(s.beats, 0)
+    assert.equal(s.slug, `${s.family}-film`)
+  }
+  assert.equal(filmOf(HUB_KEY), null)
+  assert.equal(filmOf('nope'), null)
 })
 
 test('the plan is empty without sheets, and the slides carry notes', () => {

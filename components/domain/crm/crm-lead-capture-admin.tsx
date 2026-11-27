@@ -2,7 +2,7 @@
 
 /**
  * Sales & Marketing gap-closure, Wave 3 - the admin screen behind public
- * web-to-lead capture. Fourth tab on the Master Fields console, same
+ * web-to-lead capture. Fourth tab of the Field settings console (the retired Master Fields screen), same
  * precedent Tax Rates and Lead Scoring & Assignment already set.
  */
 

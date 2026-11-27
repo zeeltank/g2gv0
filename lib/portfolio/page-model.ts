@@ -126,7 +126,6 @@ export const USAGE_COUNTS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'quotes', label: 'Quotes' },
   { key: 'salesOrders', label: 'Sales orders' },
   { key: 'invoices', label: 'Invoices' },
-  { key: 'purchaseOrders', label: 'Purchase orders' },
   { key: 'opportunities', label: 'Opportunities' },
   { key: 'bundleParts', label: 'Parts in its bundle' },
   { key: 'usedInBundles', label: 'Bundles it is a part of' },
@@ -218,7 +217,7 @@ export function whenWord(at: string | null): string {
 // ---------------------------------------------------------------------------------------------------------------------------- links
 
 /**
- * Company Opportunities for one Product, or for one of its Sub-products: the Signals screen's own `?product=` address, so the page that counts the signals can
+ * Market Signals for one Product, or for one of its Sub-products: the Signals screen's own `?product=` address, so the page that counts the signals can
  * also show them. A Sub-product is "key::ID" (`choiceOf`); a record with no Product key has no address (null). Moved here from the old product-line model when
  * the old Products screens were removed (slice 15, WPD); its one caller is the Signals & ICP tab.
  */

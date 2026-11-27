@@ -238,7 +238,7 @@ describe('where the links go', () => {
     assert.equal(links.opportunities, null)
   })
 
-  it('looks for no Signal Review menu row at all: that screen was merged into Company Opportunities on 13 Nov 2026', () => {
+  it('looks for no Signal Review menu row at all: that screen was merged into the Signals screen on 13 Nov 2026', () => {
     const asked: string[] = []
     const links = buildLinks((accessLink) => { asked.push(accessLink); return accessLink })
     assert.deepEqual(asked.filter((accessLink) => accessLink.includes('review')), [], 'the retired row is not asked for, under either spelling')
@@ -247,7 +247,7 @@ describe('where the links go', () => {
     assert.deepEqual(Object.keys(DEFAULT_LINKS).sort(), Object.keys(links).sort())
   })
 
-  it('opens one signal in Company Opportunities with every status and the title in the search, and nothing without the Signals screen', () => {
+  it('opens one signal in Market Signals with every status and the title in the search, and nothing without the Signals screen', () => {
     assert.equal(signalHref(DEFAULT_LINKS, 'Tender & bids'), '/signals?status=all&q=Tender%20%26%20bids')
     assert.equal(signalHref({ signals: null }, 'x'), null)
     assert.equal(signalHref(buildLinks(menu(['/signals'])), 'Tender'), '/signals?status=all&q=Tender', 'it follows the Signals link the person has')

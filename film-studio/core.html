@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scholar Core film</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @font-face { font-family: 'Fraunces'; src: url(/fonts/Fraunces-normal-latin.woff2) format('woff2'); font-weight: 100 900; font-style: normal; }
+  @font-face { font-family: 'Fraunces'; src: url(/fonts/Fraunces-italic-latin.woff2) format('woff2'); font-weight: 100 900; font-style: italic; }
+  @font-face { font-family: 'Manrope'; src: url(/fonts/Manrope-latin.woff2) format('woff2'); font-weight: 200 800; font-style: normal; }
+  html, body { margin: 0; background: #02080f; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; background: #02080f; }
+  #gl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+  #dom { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; font-family: 'Manrope', system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .disp { font-family: 'Fraunces', Georgia, serif; font-variation-settings: 'opsz' 144; letter-spacing: -0.028em; line-height: 1.04; }
+  .t { position: absolute; margin: 0; white-space: nowrap; will-change: transform, opacity; text-shadow: 0 2px 28px rgba(2, 8, 15, 0.65); }
+  .w { display: inline-block; white-space: pre; }
+  .lab { position: absolute; font: 800 22px/1 'Manrope', sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: #9fd0ff; opacity: 0; white-space: nowrap; text-shadow: 0 2px 18px rgba(2, 8, 15, 0.7); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" width="1920" height="1080"></canvas>
+  <div id="dom"></div>
+</div>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/examples/jsm/",
+  "gsap": "/vendor/gsap/index.js",
+  "gsap/": "/vendor/gsap/"
+} }
+</script>
+<script type="module" src="/src/core-main.js"></script>
+</body>
+</html>

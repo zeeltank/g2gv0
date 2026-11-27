@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * The warm light workspace shared by Company Opportunities, Ingestion Engine, Product Portfolio and Partner Network (styles: `.g2g-premium`
+ * The warm light workspace shared by Market Signals, Ingestion Engine and Product Portfolio (styles: `.g2g-premium`
  * in globals.css, scoped to light mode and to these modules).
  */
 export function PremiumPage({ children, className }: { children: ReactNode; className?: string }) {

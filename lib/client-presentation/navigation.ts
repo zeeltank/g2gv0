@@ -59,6 +59,12 @@ export function goto(s: NavState, key: string, beatsOf: BeatsOf, atEnd = false):
   return { ...s, pos, beat: atEnd ? beatsOf(key) : 0, back: null, entry: 'jump' }
 }
 
+/** Go straight to a beat of the current scene (a click on a tab of the product tour). The scene shows it at once, without playing through the beats in between. */
+export function setBeat(s: NavState, beat: number, beatsOf: BeatsOf): NavState {
+  const to = Math.min(Math.max(0, Math.floor(beat)), beatsOf(keyAt(s)))
+  return to === s.beat ? s : { ...s, beat: to, entry: 'jump' }
+}
+
 /** Open one scenario slide from the chooser; "next" at its end (or the Return button) comes back to where the presenter was. */
 export function detour(s: NavState, key: string): NavState {
   const pos = orderOf(s.mode).indexOf(key)

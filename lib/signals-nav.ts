@@ -1,16 +1,17 @@
 import type { ActiveNav, NavModule, NavNode } from '@/lib/gtg-navigation'
 
 /**
- * The four screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
+ * The three screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
  * Each one keeps its own route (deep links and bookmarks still work); only the sidebar's child rows are folded away, in code, never in the database.
+ * The first tab is called Market Signals too (owner, 26 Nov 2026: it was "Company Opportunities"); its key stays `opportunities`. A fourth tab, the partner registry, was removed the same day;
+ * its old address /partners is a redirect page to /signals (app/partners/page.tsx).
  */
 export const SIGNALS_TABS = [
-  { key: 'opportunities', label: 'Company Opportunities', href: '/signals', route: '/signals', hint: 'Generate and review signals' },
+  { key: 'opportunities', label: 'Market Signals', href: '/signals', route: '/signals', hint: 'Generate and review signals' },
   { key: 'ingestion', label: 'Ingestion Engine', href: '/ingestion', route: '/ingestion', hint: 'Analyse a page or document' },
   // `href` is the menu row's access link (what the sidebar fold and the rights know it by); `route` is where the tab goes. The Product Portfolio tab opens the list INSIDE
-  // Market Signals, under the four tabs, so a person can switch between them quickly (owner, 23 Nov 2026). The Product Portfolio sidebar entry opens /portfolio, which has no tabs.
+  // Market Signals, under the three tabs, so a person can switch between them quickly (owner, 23 Nov 2026). The Product Portfolio sidebar entry opens /portfolio, which has no tabs.
   { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', route: '/signals/portfolio', hint: 'Products, sub-products and ICPs' },
-  { key: 'partners', label: 'Partner Network', href: '/partners', route: '/partners', hint: 'Delivery and sales partners' },
 ] as const
 
 export type SignalsTabKey = (typeof SIGNALS_TABS)[number]['key']
@@ -181,6 +182,53 @@ function foldPeopleNav(modules: NavModule[]): ProductsFold {
   return { modules: mapNodes(modules, (node) => (isPeopleNode(node) ? null : node)), owners, retired }
 }
 
+/*
+ * AUTOMATION RULES WERE MERGED INTO WORKFLOWS (26 Nov 2026; owner decision: "merge the CRM sub-module Automation Rules into the Platform Services Workflows page"). The rules a
+ * person saved there were never run by anything; the Workflows engine (the Automations and Runs tabs of /platform-services/workflow) is the one that does. The menu ROW stays
+ * in the database with status 1, for the same reason as the rows above: a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds
+ * the row keeps holding it. The sidebar does not DRAW it, here, in code. Its address is a redirect page (it keeps resolving to itself for a person whose menu held the row, so a
+ * link built from it still lands on the page that redirects), and it has no owner to highlight: the Workflows page is a Platform Services screen, not a sidebar entry.
+ * The row is found by its access_link, a leaf only (a row with children is never touched).
+ */
+const AUTOMATION_RULES_PATH = '/module/crm/marketing/automation-rules'
+
+const isAutomationRulesNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === AUTOMATION_RULES_PATH
+
+/** See the comment above `AUTOMATION_RULES_PATH`. Pure: the tree is not changed in place, and a branch that does not hold the row comes back as the same objects. */
+function foldAutomationRulesNav(modules: NavModule[]): ProductsFold {
+  if (!locate(modules, isAutomationRulesNode)) return { modules, owners: {}, retired: [] }
+
+  return { modules: mapNodes(modules, (node) => (isAutomationRulesNode(node) ? null : node)), owners: {}, retired: [AUTOMATION_RULES_PATH] }
+}
+
+/*
+ * MASTER FIELDS AND AGENT RUN HISTORY WERE MERGED INTO OTHER SCREENS (26 Nov 2026; owner decision): Master Fields into Field settings (/platform-services/fields-configuration?module=crm,
+ * its picklist, tax rate, lead scoring, web-to-lead and SLA policy consoles are tabs there) and Agent Run History into the Run Log of Agentic AI (the "Sales & Marketing agents" section of
+ * /module/agentic-ai/run-log). Neither is drawn in the sidebar, here, in code; both addresses are redirect pages that keep resolving to themselves.
+ *   - The Master Fields row is deleted in the database by hp_erp's `crm:retire-master-fields-menu`; this fold covers a host that still holds it.
+ *   - The Agent Run History row STAYS in the database with status 1: the agent API checks a right on it (AgentAccess::RUN_HISTORY), so deleting it would lock the runs list, the waiting
+ *     queue and the autonomy settings, and a status-0 row loses its rights on the next Role and Permissions save. It is only not drawn.
+ * Each row is found by its access_link, a leaf only (a row with children is never touched).
+ */
+const MASTER_FIELDS_PATH = '/module/crm/master-fields'
+const AGENT_RUNS_PATH = '/module/crm/marketing/agent-runs'
+
+const isMasterFieldsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === MASTER_FIELDS_PATH
+const isAgentRunsNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === AGENT_RUNS_PATH
+
+/** See the comment above `MASTER_FIELDS_PATH`. Pure: the tree is not changed in place, and a branch that holds neither row comes back as the same objects. */
+function foldMergedAdminScreens(modules: NavModule[]): ProductsFold {
+  const hasMasterFields = locate(modules, isMasterFieldsNode)
+  const hasAgentRuns = locate(modules, isAgentRunsNode)
+  if (!hasMasterFields && !hasAgentRuns) return { modules, owners: {}, retired: [] }
+
+  return {
+    modules: mapNodes(modules, (node) => (isMasterFieldsNode(node) || isAgentRunsNode(node) ? null : node)),
+    owners: {},
+    retired: [...(hasMasterFields ? [MASTER_FIELDS_PATH] : []), ...(hasAgentRuns ? [AGENT_RUNS_PATH] : [])],
+  }
+}
+
 const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
@@ -316,11 +364,15 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const products = foldProductsNav(shown, owners)
   // The two Contacts rows are not drawn either (S18, 25 Nov 2026): a person is a tab of a company and a scope of Organizations.
   const people = foldPeopleNav(products.modules)
+  // Automation Rules are not drawn either (26 Nov 2026): the Workflows page, in Platform Services, holds what they were for.
+  const automationRules = foldAutomationRulesNav(people.modules)
+  // Master Fields and Agent Run History are not drawn either (26 Nov 2026): Field settings and the Run Log hold what they were for.
+  const merged = foldMergedAdminScreens(automationRules.modules)
   return {
-    modules: people.modules,
+    modules: merged.modules,
     tabs: uniqueFound.length === 0 ? null : uniqueFound,
-    owners: { ...owners, ...products.owners, ...people.owners },
-    retired: [...products.retired, ...people.retired],
+    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners },
+    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired],
   }
 }
 

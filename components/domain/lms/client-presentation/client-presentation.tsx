@@ -1,24 +1,26 @@
 'use client'
 
-import { PRODUCT_NAV } from '@/lib/client-presentation/atlas'
+import { PRODUCT_NAV, tourOf } from '@/lib/client-presentation/atlas'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 
 import { DECKS, slideByN, type Deck } from '@/lib/client-presentation/deck'
-import { detour as navDetour, orderOf, goto as navGoto, initial, keyAt, next as navNext, prev as navPrev, progress, returnFromDetour, setMode, type Mode, type NavState } from '@/lib/client-presentation/navigation'
+import { detour as navDetour, orderOf, goto as navGoto, initial, keyAt, next as navNext, prev as navPrev, progress, returnFromDetour, setBeat as navSetBeat, setMode, type Mode, type NavState } from '@/lib/client-presentation/navigation'
 import { rootVars } from '@/lib/client-presentation/palette'
+import { firstBeatOfTab, tabForCode } from '@/lib/client-presentation/tour'
 
 import './styles/base.css'
 import { beatsOf, SCENES } from './scenes'
 import type { SceneNav } from './scenes/types'
 
 type Action =
-  | { t: 'next' } | { t: 'prev' } | { t: 'goto'; key: string; end?: boolean } | { t: 'detour'; key: string } | { t: 'return' } | { t: 'mode'; mode: Mode } | { t: 'sync'; state: NavState }
+  | { t: 'next' } | { t: 'prev' } | { t: 'beat'; beat: number } | { t: 'goto'; key: string; end?: boolean } | { t: 'detour'; key: string } | { t: 'return' } | { t: 'mode'; mode: Mode } | { t: 'sync'; state: NavState }
 
 function reducer(s: NavState, a: Action): NavState {
   switch (a.t) {
     case 'next': return navNext(s, beatsOf)
     case 'prev': return navPrev(s, beatsOf)
+    case 'beat': return navSetBeat(s, a.beat, beatsOf)
     case 'goto': return navGoto(s, a.key, beatsOf, a.end)
     case 'detour': return navDetour(s, a.key)
     case 'return': return returnFromDetour(s)
@@ -39,9 +41,11 @@ interface Props {
   initialBeat?: number
   mode?: Mode
   embedded?: boolean
+  /** The presenter window (P key and the button). Off on the public share page, where there are no presenter notes to show. */
+  presenter?: boolean
 }
 
-export function ClientPresentation({ productKey, initialSlide, initialBeat, mode = 'full', embedded = false }: Props) {
+export function ClientPresentation({ productKey, initialSlide, initialBeat, mode = 'full', embedded = false, presenter = true }: Props) {
   const deck: Deck = DECKS[productKey]
   const reducedPref = useReducedMotion()
   const reduced = Boolean(reducedPref)
@@ -93,6 +97,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
     goto: (k) => dispatch({ t: 'goto', key: k }),
     returnBack: () => dispatch({ t: 'return' }),
     canReturn: Boolean(state.back),
+    setBeat: (beat) => dispatch({ t: 'beat', beat }),
   }), [state.back])
 
   const openPresenter = useCallback(() => {
@@ -115,13 +120,20 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
       if (e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const k = e.key
+      // Shift + a digit opens the Nth tab of a product tour. It reads the physical key (e.code), so plain digits 1 to 5 stay "open this product".
+      const tour = e.shiftKey ? tourOf(key) : null
+      if (tour) {
+        const tab = tabForCode(tour, e.code)
+        const to = tab ? firstBeatOfTab(tour, tab) : null
+        if (to !== null) { e.preventDefault(); dispatch({ t: 'beat', beat: to }); showUi(); return }
+      }
       if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { e.preventDefault(); dispatch({ t: 'next' }) }
       else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); dispatch({ t: 'prev' }) }
       else if (k === 'Home') dispatch({ t: 'goto', key: keyAt(initial(state.mode)) })
       else if (k === 'End') dispatch({ t: 'goto', key: 's15', end: true })
       else if (k === 'Escape') { if (credits) setCredits(false); else if (state.back) dispatch({ t: 'return' }) }
       else if (/^[1-9]$/.test(k) && PRODUCT_NAV[Number(k) - 1]) dispatch({ t: 'goto', key: PRODUCT_NAV[Number(k) - 1].opener })   // 1 to 5: open a product of the Product Atlas
-      else if (k === 'p' || k === 'P') openPresenter()
+      else if ((k === 'p' || k === 'P') && presenter) openPresenter()
       else if (k === 'f' || k === 'F') toggleFullscreen()
       else if (k === 'c' || k === 'C') setCredits((v) => !v)
       else if (k === 'm' || k === 'M') dispatch({ t: 'mode', mode: state.mode === 'full' ? 'short' : 'full' })
@@ -129,7 +141,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [credits, openPresenter, showUi, state.back, state.mode, toggleFullscreen])
+  }, [credits, key, openPresenter, presenter, showUi, state.back, state.mode, toggleFullscreen])
 
   // Presenter window: broadcast the state, accept commands.
   useEffect(() => {
@@ -188,7 +200,7 @@ export function ClientPresentation({ productKey, initialSlide, initialBeat, mode
           <span className="cp-sep" />
           {state.back && <button type="button" onClick={() => dispatch({ t: 'return' })}>↩ Return to journey</button>}
           <button type="button" onClick={() => dispatch({ t: 'mode', mode: state.mode === 'full' ? 'short' : 'full' })} title="M">{state.mode === 'full' ? 'Five-slide version' : 'Full deck'}</button>
-          <button type="button" onClick={openPresenter} title="P">Presenter notes</button>
+          {presenter && <button type="button" onClick={openPresenter} title="P">Presenter notes</button>}
           <button type="button" onClick={() => setCredits(true)} title="C">Credits</button>
           <button type="button" onClick={toggleFullscreen} title="F">Full screen</button>
         </div>

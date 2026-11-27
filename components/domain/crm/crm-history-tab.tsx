@@ -33,7 +33,7 @@ function fieldLabel(field: string): string {
  * renders inline) - this one is just reusable across 9 entities instead of
  * living inline in one page.
  *
- * Deliberately NOT used by Opportunity/Quote/SalesOrder/PurchaseOrder/
+ * Deliberately NOT used by Opportunity/Quote/SalesOrder/
  * Invoice/Ticket - each already has its own narrower stage/status-history
  * tab, and showing both would answer the same "what happened here" question
  * twice on one page.

@@ -1,7 +1,7 @@
 // Builds the public deck the browser renders from the checked story and the asset register.
 //   node scripts/client-presentation/export-deck.mjs
 // Reads  docs/client-presentation/content/scholarclone.story.json and docs/client-presentation/assets/assets.json
-// Writes lib/client-presentation/generated/scholarclone.deck.json
+// Writes lib/client-presentation/generated/scholarclone.deck.json (full: scripts and the presenter window) and scholarclone.public.json (the browser bundle, no presenter notes)
 // Left OUT on purpose (internal, never shipped to the browser): claims and their sources, visual and motion direction, owner decisions.
 // An image slot gets a src only when its register row is 'authorised' and its file exists under public/.
 import { createHash } from 'node:crypto'
@@ -58,6 +58,22 @@ deck.source_sha256 = createHash('sha256').update(JSON.stringify([story.slides, s
 const out = join(root, 'lib/client-presentation/generated/scholarclone.deck.json')
 mkdirSync(dirname(out), { recursive: true })
 writeFileSync(out, JSON.stringify(deck, null, 1) + '\n', 'utf8')
+// The copy the BROWSER bundle imports (lib/client-presentation/deck.ts). It carries what a viewer sees and nothing a presenter uses:
+// no say / ask / transition / limits, no image-slot briefs, no appendix, no source hash. Those stay in scholarclone.deck.json, which only
+// the scripts (PowerPoint, verify) and the signed-in presenter window (presenter-deck.ts) read. This is what keeps the presenter
+// cautions out of the JavaScript the public share page (app/present) sends to a stranger. lib/client-presentation/public-deck.test.ts
+// fails if any of those strings reappears in it.
+const publicDeck = {
+  product: deck.product,
+  title: deck.title,
+  slides: deck.slides.map((s) => ({ n: s.n, id: s.id, section: s.section, lines: s.lines, say: '', ask: '', transition: '', limits: [], slots: [] })),
+  short: deck.short,
+  scenarios: deck.scenarios,
+  assets: deck.assets,
+}
+const publicOut = join(dirname(out), 'scholarclone.public.json')
+writeFileSync(publicOut, JSON.stringify(publicDeck, null, 1) + '\n', 'utf8')
+console.log('wrote', publicOut)
 // The explainer clips: text only (claims stay behind), in the same shape as slide lines.
 const clipsSrc = JSON.parse(readFileSync(join(root, 'docs/client-presentation/content/clips.json'), 'utf8'))
 const clipsOut = {

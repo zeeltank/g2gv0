@@ -2,8 +2,8 @@
 
 /**
  * Sales & Marketing gap-closure, Wave 2 - the admin screen behind automated
- * lead scoring and round-robin assignment. Lives on the Master Fields
- * console as a third tab, same precedent crm-tax-rate-admin.tsx set for a
+ * lead scoring and round-robin assignment. Lives as a tab of the Field settings console (it was a tab of the retired Master Fields
+ * screen), same precedent crm-tax-rate-admin.tsx set for a
  * small admin-managed list. Two independent sections on one screen because
  * both are small and both answer "how does a new lead get routed."
  */

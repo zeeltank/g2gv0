@@ -4,7 +4,6 @@ import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 const SignalInboxListView = createLazyComponent(() => import('@/domain/crm/signal-inbox-list-view').then((m) => ({ default: m.SignalInboxListView })))
 const OutreachApprovalListView = createLazyComponent(() => import('@/domain/crm/outreach-approval-list-view').then((m) => ({ default: m.OutreachApprovalListView })))
 const AgentRunListView = createLazyComponent(() => import('@/domain/crm/agent-run-list-view').then((m) => ({ default: m.AgentRunListView })))
-const AutomationRulesListView = createLazyComponent(() => import('@/domain/crm/automation-rules-list-view').then((m) => ({ default: m.AutomationRulesListView })))
 const ConsentListView = createLazyComponent(() => import('@/domain/crm/consent-list-view').then((m) => ({ default: m.ConsentListView })))
 
 const LeadListView = createLazyComponent(() => import('@/domain/crm/lead-list-view').then((m) => ({ default: m.LeadListView })))
@@ -17,10 +16,6 @@ const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-
 const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const SalesOrderListView = createLazyComponent(() => import('@/domain/crm/sales-order-list-view').then((m) => ({ default: m.SalesOrderListView })))
 const InvoiceListView = createLazyComponent(() => import('@/domain/crm/invoice-list-view').then((m) => ({ default: m.InvoiceListView })))
-
-// Order-to-cash phase (Vendors/Sales Orders/Purchase Orders/Invoices)
-const VendorListView = createLazyComponent(() => import('@/domain/crm/vendor-list-view').then((m) => ({ default: m.VendorListView })))
-const PurchaseOrderListView = createLazyComponent(() => import('@/domain/crm/purchase-order-list-view').then((m) => ({ default: m.PurchaseOrderListView })))
 
 // Support phase (Tickets/FAQ/Service Contracts/Assets)
 const AssetListView = createLazyComponent(() => import('@/domain/crm/asset-list-view').then((m) => ({ default: m.AssetListView })))
@@ -38,13 +33,6 @@ const CrmReportsShell = createLazyComponent(() => import('@/domain/crm/crm-repor
 // Market Signals & Intelligence
 const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-signals-view').then((m) => ({ default: m.MarketSignalsView })))
 
-// Marketing Automation & AI Agent Runs
-const AutomationRulesView = createLazyComponent(() => import('@/domain/crm/automation-rules-view').then((m) => ({ default: m.AutomationRulesView })))
-const AgentRunsView = createLazyComponent(() => import('@/domain/crm/agent-runs-view').then((m) => ({ default: m.AgentRunsView })))
-
-// Master Fields Admin
-const MasterFieldsRoute = createLazyComponent(() => import('@/app/module/crm/master-fields/page').then((m) => ({ default: m.default })))
-
 // GTM Intelligence Modules (Unified Single-Pane)
 const CommandCenterView = createLazyComponent(() => import('@/domain/gtm/command-center-view').then((m) => ({ default: m.CommandCenterView })))
 const PlaybooksView = createLazyComponent(() => import('@/domain/gtm/playbooks-view').then((m) => ({ default: m.PlaybooksView })))
@@ -52,7 +40,6 @@ const CampaignsView = createLazyComponent(() => import('@/domain/gtm/campaigns-v
 const OutreachView = createLazyComponent(() => import('@/domain/gtm/outreach-view').then((m) => ({ default: m.OutreachView })))
 const CustomersView = createLazyComponent(() => import('@/domain/gtm/customers-view').then((m) => ({ default: m.CustomersView })))
 const AgentsView = createLazyComponent(() => import('@/domain/gtm/agents-view').then((m) => ({ default: m.AgentsView })))
-const WorkflowsView = createLazyComponent(() => import('@/domain/gtm/workflows-view').then((m) => ({ default: m.WorkflowsView })))
 const MonitoringView = createLazyComponent(() => import('@/domain/gtm/monitoring-view').then((m) => ({ default: m.MonitoringView })))
 
 export const CRM_CONTENT: ContentRoute[] = [
@@ -88,8 +75,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 9. Lead Qualification
   { accessLink: '/module/crm/marketing/leads', component: LeadListView },
 
-  // 10. Automation Rules
-  { accessLink: '/module/crm/marketing/automation-rules', component: AutomationRulesView },
+  // 10. Automation Rules were merged into the Automations tab of the Workflows page in Platform Services (26 Nov 2026): the saved rules were never run by anything. The
+  // old address is a redirect page under app/module/crm/marketing, so nothing is mapped here.
 
   // 11. Opportunities & Deals Pipeline (with AI Coach & MEDDPICC)
   { accessLink: '/module/crm/sales/opportunities', component: OpportunityListView },
@@ -109,12 +96,6 @@ export const CRM_CONTENT: ContentRoute[] = [
   // 18. Billing: Invoices
   { accessLink: '/module/crm/sales/invoices', component: InvoiceListView },
 
-  // 19. Procurement: Vendors
-  { accessLink: '/module/crm/sales/vendors', component: VendorListView },
-
-  // 20. Procurement: Purchase Orders
-  { accessLink: '/module/crm/sales/purchase-orders', component: PurchaseOrderListView },
-
   // 21. Customer Success & Renewals
   { accessLink: '/gtm/customers', component: CustomersView },
   { accessLink: '/module/crm/customers', component: CustomersView },
@@ -126,12 +107,11 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/agents', component: AgentsView },
   { accessLink: '/module/crm/agents', component: AgentsView },
 
-  // 24. AI Agent Run History & Telemetry
-  { accessLink: '/module/crm/marketing/agent-runs', component: AgentRunsView },
+  // 24. Agent Run History is the "Sales & Marketing agents" tab of the Agentic AI Run Log (26 Nov 2026). The old address is a redirect page under
+  // app/module/crm/marketing/agent-runs, so nothing is mapped here.
 
-  // 25. Revenue Workflows Engine
-  { accessLink: '/gtm/workflows', component: WorkflowsView },
-  { accessLink: '/module/crm/workflows', component: WorkflowsView },
+  // 25. The Revenue Workflows engine is the Automations and Runs tabs of the Workflows page in Platform Services (26 Nov 2026). The old GTM address is a redirect page
+  // under app/gtm/workflows, so nothing is mapped here.
 
   // 26. Unified Reports & Governance
   { accessLink: '/module/crm/reports', component: CrmReportsShell },
@@ -142,8 +122,7 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/monitoring', component: MonitoringView },
   { accessLink: '/module/crm/monitoring', component: MonitoringView },
 
-  // 28. Governance: Master Fields Admin
-  { accessLink: '/module/crm/master-fields', component: MasterFieldsRoute },
+  // 28. Master Fields are tabs of Field settings (26 Nov 2026). The old address is a redirect page under app/module/crm/master-fields, so nothing is mapped here.
 
   // Fallback for legacy Consent link
   { accessLink: '/module/crm/marketing/consent', component: ConsentListView },

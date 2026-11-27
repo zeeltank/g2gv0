@@ -4,7 +4,7 @@
 export interface OrgLinks {
   /** CRM › Organizations; an organisation's page is `${crmOrganisations}/${crm id}`. */
   crmOrganisations: string | null
-  /** The Signals screen (Company Opportunities). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
+  /** The Signals screen (the Market Signals tab). A signal's title opens it too, narrowed to that signal (see `signalHref`). */
   signals: string | null
   opportunities: string | null
 }
@@ -35,8 +35,8 @@ export function buildLinks(resolve: (accessLink: string) => string): OrgLinks {
 export const recordHref = (base: string | null, id: number): string | null => (base ? `${base}/${id}` : null)
 
 /**
- * One signal opened in Company Opportunities (`/signals`): every status (a decided signal would be hidden by the default of "needs a decision") narrowed by the
- * signal's title, which the screen's search matches. The Signal Review screen was merged into Company Opportunities on 13 Nov 2026, so this follows the Signals
+ * One signal opened in Market Signals (`/signals`): every status (a decided signal would be hidden by the default of "needs a decision") narrowed by the
+ * signal's title, which the screen's search matches. The Signal Review screen was merged into the Signals screen (then called Company Opportunities) on 13 Nov 2026, so this follows the Signals
  * link and no longer looks for a menu row of its own (the function keeps its older name). Its query uses the names the screen reads: `status` and `q`.
  */
 export function signalHref(links: Pick<OrgLinks, 'signals'>, title: string): string | null {

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SignalRunsPanel } from '@/components/domain/signals/signal-runs-panel'
 
 /**
- * "Run health & cost" on Company Opportunities: how the latest research runs of the organisation went and what they cost (the Signal Review's Runs tab).
+ * "Run health & cost" on Market Signals: how the latest research runs of the organisation went and what they cost (the Signal Review's Runs tab).
  * It is always there, in every scope, because the runs belong to the organisation and not to the product on screen. The panel reads the runs when the
  * window opens, so what it shows is as old as the click. It is NOT the Advanced tools' "Report history" (one product's reports and the sources each read).
  *

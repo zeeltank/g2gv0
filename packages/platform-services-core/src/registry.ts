@@ -84,17 +84,16 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     name: 'Workflows',
     section: 'services',
     icon: 'Workflow',
-    purpose: 'Define the approval chains that sit in front of a module action.',
+    purpose: 'Decide who signs a request off and, in Sales & Marketing, what happens on its own when something changes.',
     whyCentral:
       'Four modules have each grown their own approval model, so "who signs this off" is answered in four shapes and can be asked in none.',
     todayInG2g:
-      'Eight approval points are declared in config/platform_services.php, and chains against them are stored in g2g_platform_workflows. Seven of the eight are genuinely enforced. hrms.leave.approval was first, its own LeaveApprovalWorkflow. Round 4 added a generic ApprovalEngine over a shared g2g_platform_approval_steps table and wired it to the other six real domains: attendance regularisation, task execution approval, competency mapping review, talent offers (a real fix rode along — offer creation no longer sends the letter itself; a chain holds it for a decision), offboarding case closure, and mobility transfer completion (paired with a real security fix — creating a transfer can no longer set its own status to Completed). One shared approvals:escalate sweep handles all six. The four older per-module paths still exist and are unchanged: Talent has talent_workflows, Leave falls back to hrms_leave_workflow_settings only when no platform chain is configured, Agentic has agentic_workflows, and Competency has its own mapping review path alongside the new one.',
+      'One page with three tabs. Approvals: eight approvals are declared in config/platform_services.php, and flows against them are stored in g2g_platform_workflows. All eight are read by a real approval engine: leave, attendance regularisation, job requisition (a posting is held at Requested until it is approved), offer (a flow holds the letter for a decision), offboarding case closure, mobility transfer completion, competency mapping review and task completion. Leave runs on its own LeaveApprovalWorkflow; the other seven run on the generic ApprovalEngine over g2g_platform_approval_steps, and one shared approvals:escalate sweep handles their escalation. Automations and Runs, for Sales & Marketing: the GTM workflow engine (gtm_workflows and its run tables), with a gallery of ready-made automations that are added as drafts, a builder, a "Try it" check that changes nothing, and a run log with retry and cancel. The engine checks for events about every 10 minutes, and the page says when the scheduler is not running. They are tenant-wide: the GTM engine has no split by module, so only Sales & Marketing and the central view show them. The old Automation Rules screen (rules that were saved and never run by anything) was retired into this page and its address redirects here. The four older per-module approval paths still exist and are unchanged: Talent has talent_workflows, Leave falls back to hrms_leave_workflow_settings only when no platform flow is configured, Agentic has agentic_workflows, and Competency has its own mapping review path alongside the new one.',
     toBuild: [
-      'talent.recruitment.requisition has no enforcement because it has no real underlying object yet — job postings only carry a flat active/inactive toggle, not a pending requisition a chain could attach to. This needs a real feature built first, not wiring.',
-      'Migrating the four per-module paths onto these points, so there is one answer to "who signs this off" rather than five',
+      'Migrating the four per-module approval paths onto these approvals, so there is one answer to "who signs this off" rather than five',
+      'A picker for the role or person of an approval step (today a role is typed by its key and a person by their user id)',
     ],
-    // IN PROGRESS, NOT LIVE. Seven of eight declared points are really
-    // enforced; the eighth has no feature to enforce yet, and the four legacy
+    // IN PROGRESS, NOT LIVE. All eight declared approvals are enforced and the Automations and Runs tabs run on the real GTM engine, but the four legacy approval
     // paths are unmigrated. See the status note at the top of this file.
     status: 'in-progress',
     destination: { kind: 'own-route', href: '/platform-services/workflow' },
@@ -268,7 +267,7 @@ export const PLATFORM_SERVICES: readonly PlatformService[] = [
     name: 'Field settings',
     section: 'setup',
     icon: 'SlidersHorizontal',
-    purpose: 'Add the fields this organisation needs to records the product ships.',
+    purpose: 'Add the fields this organisation needs to records the product ships. Sales & Marketing also keeps its picklist values, tax rates, lead rules and SLA policies here.',
     whyCentral:
       'Every tenant needs a slightly different record, and a code change per tenant is not a product.',
     todayInG2g:

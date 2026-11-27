@@ -62,7 +62,7 @@ export function taxonomy(): TaxonomyData {
     needs: { N07: 'Fees are collected late' }, segments: { k12: 'K-12 schools', he: 'Higher education' }, signals: { funding_old: 'Funding (older code)' },
     signal_families: { funding: { label: 'Funding or budget', examples: 'A grant, a tender', relevance: 'A buyer with money' }, leadership: { label: 'Leadership change', examples: 'A new head', relevance: 'New people buy' } },
     parent_products: { 'Scholar K-12': 'Scholar K-12' }, readiness_statuses: { 'Proposal / concept': 'Proposal / concept', Prototype: 'Prototype', 'Live – with client': 'Live – with client' }, partner_sellable_readiness: ['Live – with client'],
-    deployment_models: { cloud: 'Cloud', onprem: 'On premise' }, deal_bands: {}, procurement_routes: {}, geographies: {}, partner_types: {}, delivery_capabilities: {}, preferred_channels: {}, partner_statuses: {},
+    deployment_models: { cloud: 'Cloud', onprem: 'On premise' }, deal_bands: {}, geographies: {},
   } as TaxonomyData
 }
 
@@ -85,7 +85,7 @@ export function everything(): { status: number; data: PmListData } {
 export function usageFull(over: Partial<PmUsageFull> = {}): PmUsageFull {
   return {
     signals: 4, icp: 'active', quotes: 2, basePrice: 1500, currency: 'INR',
-    counts: { quotes: 2, salesOrders: 1, purchaseOrders: 0, invoices: 1, opportunities: 3, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
+    counts: { quotes: 2, salesOrders: 1, invoices: 1, opportunities: 3, bundleParts: 0, usedInBundles: 0, tickets: 0, assets: 0, faqs: 0, campaigns: 0 },
     pointers: null,
     latest: {
       quotes: [{ id: 91, number: 'Q-0091', date: '2026-11-03', status: 'Sent' }, { id: 90, number: 'Q-0090', date: '2026-11-01', status: 'Draft' }],

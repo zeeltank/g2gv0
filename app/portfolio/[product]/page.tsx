@@ -12,7 +12,7 @@ import { ProductDetailView } from '@/components/domain/portfolio/product-detail-
 
 const PORTFOLIO_ACCESS_LINK = '/portfolio'
 
-/** One product's own page: its details, its ICP and its offers. Reached from Company Opportunities and from the Product Portfolio. */
+/** One product's own page: its details, its ICP and its offers. Reached from Market Signals and from the Product Portfolio. */
 export default function ProductDetailPage() {
   const { user } = useAuth()
   const params = useParams<{ product: string }>()

@@ -56,7 +56,7 @@ const TILE_HINTS = [
 
 /**
  * Unified Signals List and Dashboard:
- * Four counts from the server, the source tabs (All, Generated, Connectors, Manually Added), search, Export CSV, and the signals as cards. It reads stored
+ * Four counts from the server, the source tabs (All, Web search, Connectors, Manually Added; the value behind "Web search" is still `generated`), search, Export CSV, and the signals as cards. It reads stored
  * rows only; choosing filters or pagination never starts research. The list is filtered by the screen's own selectors (sub-product, ICP type, places:
  * `scope_filter`, each one narrowing only when it is set), not by boxes of its own. The search and the page live in the address (`controls`), so a
  * refresh, the Back button and a pasted link open the same view.
@@ -280,7 +280,7 @@ export function SignalList({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Generated
+              Web search
             </button>
             <button
               type="button"

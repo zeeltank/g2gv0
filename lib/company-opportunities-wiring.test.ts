@@ -55,8 +55,8 @@ describe('Product Details & ICP link', () => {
 })
 
 describe('Routes and navigation', () => {
-  it('keeps the four routes', () => {
-    for (const r of ['signals', 'ingestion', 'portfolio', 'partners']) assert.ok(existsSync(join(root, `app/${r}/page.tsx`)), r)
+  it('keeps the three routes', () => {
+    for (const r of ['signals', 'ingestion', 'portfolio']) assert.ok(existsSync(join(root, `app/${r}/page.tsx`)), r)
   })
 
   it('/signals renders Company opportunities (so /signals?product=... keeps working)', () => {
@@ -67,8 +67,8 @@ describe('Routes and navigation', () => {
   // The former "keeps the hub tabs and has no separate ScholarClone tab" test lived here,
   // reading the department-local signals-hub.tsx. Sales & Marketing merge, Phase 5 retired
   // that file (it destructured `department` and never used it - the same unscoped feed on
-  // every department's page); its 4 tabs already have their own real top-level routes,
-  // covered by "keeps the four routes" above, and this file's actual per-department signals
+  // every department's page); its tabs already have their own real top-level routes,
+  // covered by "keeps the three routes" above, and this file's actual per-department signals
   // now come from DepartmentSignalsPanel, outside this test's scope.
 
   // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the screen now offers "All products" for READING (the Signal Review's abilities moved here), so the old pin
@@ -157,9 +157,9 @@ describe('One list and the research-date selector', () => {
 })
 
 describe('Premium workspace and honest forms', () => {
-  it('wraps all four module pages in the scoped premium theme', () => {
+  it('wraps all three module pages in the scoped premium theme', () => {
     // the Product Portfolio tab's page is app/signals/portfolio (app/portfolio/page.tsx only redirects to it, since 24 Nov 2026)
-    for (const page of ['signals', 'ingestion', 'signals/portfolio', 'partners']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
+    for (const page of ['signals', 'ingestion', 'signals/portfolio']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
   })
 
   it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {
@@ -169,18 +169,11 @@ describe('Premium workspace and honest forms', () => {
     assert.equal(/^\.g2g-premium[^{]*\{[^}]*--primary:/m.test(css), false, 'the primary colour is not redefined')
   })
 
-  it('shows failures inline: no native alert() in the four modules', () => {
+  it('shows failures inline: no native alert() in the three modules', () => {
     // The Product Portfolio is now the unified list (portfolio-view.tsx is retired): its screen, its More menu and its one form are read in its place.
-    for (const f of ['components/domain/portfolio/partners-view.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-more-menu.tsx', 'components/domain/portfolio/product-form-drawer.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
+    for (const f of ['components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-more-menu.tsx', 'components/domain/portfolio/product-form-drawer.tsx', 'components/domain/signals/ingestion-engine-view.tsx', 'components/domain/signals/signal-list.tsx']) {
       assert.equal(/\balert\(/.test(read(f)), false, f)
     }
-  })
-
-  it('starts a new partner blank: no random ID and no invented state, empanelment or margin', () => {
-    const src = read('components/domain/portfolio/partners-view.tsx')
-    assert.equal(/Math\.random\(\)/.test(src), false)
-    const blank = src.slice(src.indexOf('const BLANK_PARTNER'), src.indexOf('export function PartnersView'))
-    for (const invented of ['Delhi', 'GeM', 'Margin Share', 'State Government', 'L1/L2', 'referral_margin_pct']) assert.equal(blank.includes(invented), false, invented)
   })
 
   it('has one guided path from configuration to signals on the Product Portfolio', () => {
@@ -198,33 +191,11 @@ describe('Premium workspace and honest forms', () => {
   })
 
   // ── defects found by driving the screens in a real browser ──
-  it('the Partner Type select has an explicit empty choice (a blank value must not look like "Regional SI")', () => {
-    const src = read('components/domain/portfolio/partners-view.tsx')
-    assert.match(src, /value=\{formData\.partner_type \?\? ''\}/)
-    assert.match(src, /<option value="">Select a type…<\/option>/)
-    assert.equal(/partner_type \|\| 'Regional SI'/.test(src), false)
-  })
-
-  it('the partner capacity field shows no invented number and allows 0, as the server does', () => {
-    const src = read('components/domain/portfolio/partners-view.tsx')
-    assert.equal(/max_concurrent_deals \?\? 5/.test(src), false)
-    assert.match(src, /min="0"\s+value=\{formData\.max_concurrent_deals \?\? ''\}/)
-  })
-
   it('double-submit guards are synchronous refs, because a state flag changes only on the next render', () => {
-    const partners = read('components/domain/portfolio/partners-view.tsx')
-    assert.match(partners, /savingRef\.current\) return/)
-    assert.match(partners, /deletingRef\.current\) return/)
     assert.match(read('components/domain/signals/ingestion-engine-view.tsx'), /submittingRef\.current\) return/)
     // The department-local ingestion-view.tsx this also checked is retired (Sales & Marketing
     // merge, Phase 5) - its guards aren't tested here any more because the file is gone, not
     // because the pattern stopped mattering.
-  })
-
-  it('the partner "Try again" really reloads the filters and totals, not only the list', () => {
-    const src = read('components/domain/portfolio/partners-view.tsx')
-    assert.match(src, /const loadMeta = useCallback/)
-    assert.match(src, /const handleRefresh = \(\) => \{[^}]*void loadMeta\(\)/)
   })
 })
 

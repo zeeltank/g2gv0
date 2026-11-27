@@ -16,9 +16,7 @@ const MODULE_LABEL: Record<CrmModule, string> = {
   // FIELD_KEYS has no entry for it (SMS's one field, status, is a fixed
   // enum) - present only to satisfy Record<CrmModule, string>'s completeness.
   sms_log: 'SMS Notifier',
-  vendors: 'Vendors',
   sales_orders: 'Sales Orders',
-  purchase_orders: 'Purchase Orders',
   invoices: 'Invoices',
   tickets: 'Tickets',
   faqs: 'FAQ',
@@ -32,7 +30,7 @@ const FIELD_KEY_LABEL: Record<string, string> = {
   campaign_status: 'Campaign Status', expected_response: 'Expected Response',
   sales_stage: 'Sales Stage', potential_type: 'Opportunity Type', forecast_category: 'Forecast Category',
   quote_stage: 'Quote Stage', category: 'Category',
-  so_stage: 'Sales Order Stage', po_stage: 'Purchase Order Stage', invoice_stage: 'Invoice Stage',
+  so_stage: 'Sales Order Stage', invoice_stage: 'Invoice Stage',
   status: 'Status', priority: 'Priority', severity: 'Severity',
   tracking_unit: 'Tracking Unit', contract_status: 'Contract Status', contract_type: 'Contract Type',
 }

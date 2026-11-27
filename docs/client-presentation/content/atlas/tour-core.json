@@ -1,0 +1,400 @@
+{
+  "family": "core",
+  "film": {
+    "file": "scholar-core-film.mp4",
+    "poster": "scholar-core-film-poster.jpg",
+    "seconds": 81.67,
+    "note": "docs/client-presentation/15-core-film.md. Plays on its own slide between the Core opener and the tour. Silent: every word on it is checked tour text."
+  },
+  "summary": {
+    "lines": [
+      "Your whole school office, in one place.",
+      "From first enquiry to confirmed admission, then fees, attendance, exams, transport, library and every message home.",
+      "One set of records for every desk, so staff could stop re-entering the same details."
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-family.json",
+      "g2gv0/docs/client-presentation/content/scholarclone.story.json"
+    ]
+  },
+  "problem": {
+    "label": "A typical morning. Illustrative.",
+    "illustrative": true,
+    "beats": [
+      "Picture 9 a.m. at your front desk. A parent asks about last month's fee receipt.",
+      "The answer sits in one register. The student's file is in another, the bus list in a spreadsheet.",
+      "Three books, three versions of the truth, and the parent is still waiting.",
+      "By evening the same details have been typed again, in three places."
+    ],
+    "turn": "Scholar Core gives every desk one record to open.",
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"
+    ],
+    "scattered": [
+      "Fee register",
+      "Student file",
+      "Bus list"
+    ],
+    "record": "One record"
+  },
+  "intelligence": {
+    "lead": "Scholar Core reads your own school records and asks the questions your office would ask, then shows the records behind each answer.",
+    "modules": [
+      {
+        "id": "core-fees",
+        "asks": "Is collection keeping pace, and where is money overdue across past cycles?"
+      },
+      {
+        "id": "core-petty-cash",
+        "asks": "Is any claim far above the school's own average, or missing a bill?"
+      },
+      {
+        "id": "core-inventory",
+        "asks": "Did the stock-take record what it found, and which items were not found?"
+      },
+      {
+        "id": "core-transport",
+        "asks": "Which vehicles are over their seats, which run under half full, which stop is busiest?"
+      },
+      {
+        "id": "core-library",
+        "asks": "Which titles are in high demand, what is overdue, what has never been borrowed?"
+      },
+      {
+        "id": "core-inward-outward",
+        "asks": "Which letters have no recorded reply, or sit in a file location not on record?"
+      }
+    ],
+    "close": "When the records are too thin, it raises nothing rather than guessing.",
+    "evidence": [
+      "next_lms_erp/app/Brain/Intelligence/FeesSignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/PettyCashIntelligence.php",
+      "next_lms_erp/app/Brain/Intelligence/InventorySignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/TransportSignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/LibrarySignalRules.php",
+      "next_lms_erp/app/Brain/Intelligence/CorrespondenceSignalRules.php"
+    ]
+  },
+  "ai": {
+    "lead": "AI drafts the wording. A person reads the preview and decides whether to use it.",
+    "uses": [
+      {
+        "name": "Admission",
+        "line": "Draft enquiry remarks for the admission team."
+      },
+      {
+        "name": "Student",
+        "line": "Draft health and vaccination notes for each student."
+      },
+      {
+        "name": "Communication",
+        "line": "Draft message wording, then review it before sending."
+      },
+      {
+        "name": "Ask your records",
+        "line": "Ask questions of school records in plain words."
+      }
+    ],
+    "guard": "Nothing is written to a field until a person presses Apply.",
+    "control": "School administrators set what AI may do.",
+    "evidence": [
+      "lms_k12/components/ai/AiFieldAssistant.tsx",
+      "lms_k12/app/admissions/admission_enquiry/page.tsx",
+      "lms_k12/app/easy_com/_components/EntryPage.tsx",
+      "lms_k12/app/student/_components/StudentCareModule.tsx",
+      "lms_k12/docs/VERIFIED_GENERATIVE_AI_FIELD_COVERAGE.md",
+      "lms_k12/app/admissions/ai-stack/_screens/admissions-policies-screen.tsx",
+      "next_lms_erp/routes/ai.php"
+    ],
+    "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Parent visited on Saturday and is interested in admission for next year. Asked about the bus route and the fee schedule. Follow up by phone on Monday."
+    }
+  },
+  "research": {
+    "items": [
+      {
+        "text": "How an education system collects, joins, keeps and shares its data so people can plan and decide from it.",
+        "source": "UNESCO, Education Management Information Systems (EMIS) framework",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "A UNESCO diagnostic that shows where an education data system is strong, where it can improve, and the path to better.",
+        "source": "UNESCO, EMIS Progress Assessment Tool for Transformation (EMIS-PATT)",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "A community-built standard for education data, so records keep the same meaning when different systems exchange them.",
+        "source": "Ed-Fi Alliance, Ed-Fi Data Standard",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+      },
+      {
+        "text": "The office's work from first enquiry to confirmed admission, then fees, attendance, exams and transport, read as one chain of steps.",
+        "source": "Research area: School Operations and Process Excellence",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+      },
+      {
+        "text": "One set of records that serves every desk, so staff stop re-entering the same details.",
+        "source": "Research area: Interoperability and Information Architecture",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+      },
+      {
+        "text": "AI drafts the wording while a person decides: nothing is written to a field until someone presses Apply.",
+        "source": "Research area: AI-Native School Administration",
+        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "lms_k12/components/ai/AiFieldAssistant.tsx"]
+      }
+    ],
+    "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+  },
+  "features": {
+    "groups": [
+      {
+        "title": "Students and academics",
+        "subs": [
+          {
+            "id": "core-admission",
+            "tagline": "From first enquiry to confirmed admission."
+          },
+          {
+            "id": "core-student",
+            "tagline": "Every student's record, documents and certificates in order."
+          },
+          {
+            "id": "core-attendance",
+            "tagline": "Daily class registers, marked and saved."
+          },
+          {
+            "id": "core-timetable",
+            "tagline": "Weekly grids, class teachers and substitute cover."
+          },
+          {
+            "id": "core-exam",
+            "tagline": "Marks, grades and results, checked as they are entered."
+          }
+        ]
+      },
+      {
+        "title": "Money and stores",
+        "subs": [
+          {
+            "id": "core-fees",
+            "tagline": "Counter or online collection, receipts and refunds."
+          },
+          {
+            "id": "core-petty-cash",
+            "tagline": "Small expenses with their heads and bill images."
+          },
+          {
+            "id": "core-inventory",
+            "tagline": "The store, from requisition to purchase order to receipt."
+          },
+          {
+            "id": "core-transport",
+            "tagline": "Vehicles, routes, stops and every student's seat."
+          },
+          {
+            "id": "core-hostel",
+            "tagline": "Rooms, beds and lockers allocated to residents."
+          }
+        ]
+      },
+      {
+        "title": "Front office and records",
+        "subs": [
+          {
+            "id": "core-front-desk",
+            "tagline": "A searchable log of every visit."
+          },
+          {
+            "id": "core-visitor-management",
+            "tagline": "A gate register with ID card and photo."
+          },
+          {
+            "id": "core-inward-outward",
+            "tagline": "Every letter in and out, with its file location."
+          },
+          {
+            "id": "core-document-templates",
+            "tagline": "One approved layout for every certificate and ID card."
+          },
+          {
+            "id": "core-library",
+            "tagline": "Catalogue, barcodes, returns and shelf checks."
+          }
+        ]
+      },
+      {
+        "title": "Communication and trust",
+        "subs": [
+          {
+            "id": "core-communication",
+            "tagline": "SMS, e-mail, app and WhatsApp from one screen."
+          },
+          {
+            "id": "core-circular",
+            "tagline": "One notice to chosen classes, searchable later."
+          },
+          {
+            "id": "core-parent-communication",
+            "tagline": "Parent messages and staff replies in one list."
+          },
+          {
+            "id": "core-consent",
+            "tagline": "Raise a consent for a whole class together."
+          },
+          {
+            "id": "core-ptm",
+            "tagline": "Meeting slots, parent bookings and who attended."
+          }
+        ]
+      },
+      {
+        "title": "Community and administration",
+        "subs": [
+          {
+            "id": "core-complaint",
+            "tagline": "Every complaint and its outcome in one register."
+          },
+          {
+            "id": "core-alumni-management",
+            "tagline": "Former students, events, mentoring and surveys together."
+          },
+          {
+            "id": "core-mobile-apps",
+            "tagline": "Calendar, albums and schedules families see in the app."
+          },
+          {
+            "id": "core-users",
+            "tagline": "Staff accounts with an access profile for each."
+          },
+          {
+            "id": "core-utility",
+            "tagline": "Year-end rollover, promotions and your own forms."
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-core-1.json",
+      "g2gv0/docs/client-presentation/content/atlas/part-core-2.json",
+      "g2gv0/docs/client-presentation/content/atlas/part-core-3.json"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Principal and trustees",
+      "who": "Leadership",
+      "benefits": [
+        "Answer parents and leaders faster from one set of records.",
+        "See fee, transport, stock and library insights drawn from the school's own records.",
+        "Start a new academic year with less repeated entry."
+      ],
+      "use": "Before a review meeting, open the fee insights, the transport seat check and the library overdue list.",
+      "modules": [
+        "core-fees",
+        "core-transport",
+        "core-library",
+        "core-utility"
+      ]
+    },
+    {
+      "role": "Admission and front office",
+      "who": "The first desk a family meets",
+      "benefits": [
+        "Follow up enquiries and move families through registration and confirmation.",
+        "Keep a searchable record of visits, and find the ones meant for you.",
+        "Trace any letter by number, subject or place."
+      ],
+      "use": "Log an enquiry, follow it up, then confirm the admission and add the student record.",
+      "modules": [
+        "core-admission",
+        "core-front-desk",
+        "core-visitor-management",
+        "core-inward-outward"
+      ]
+    },
+    {
+      "role": "Accounts",
+      "who": "Fees, expenses and purchases",
+      "benefits": [
+        "See dues, receipts and refunds in one place.",
+        "Find any small expense, its bill and its head quickly.",
+        "Follow each purchase request from approval to delivery."
+      ],
+      "use": "Collect a fee at the counter and print the receipt, then cancel or refund it later with remarks.",
+      "modules": [
+        "core-fees",
+        "core-petty-cash",
+        "core-inventory"
+      ]
+    },
+    {
+      "role": "Teachers and coordinators",
+      "who": "The classroom and the timetable",
+      "benefits": [
+        "Take attendance and keep families informed.",
+        "Enter marks and see results prepared from checked entries.",
+        "Plan periods and arrange substitute cover."
+      ],
+      "use": "Mark today's attendance, enter marks, and see the substitute cover for an absent colleague.",
+      "modules": [
+        "core-attendance",
+        "core-exam",
+        "core-timetable"
+      ]
+    },
+    {
+      "role": "Operations",
+      "who": "Transport, library, hostel and stores",
+      "benefits": [
+        "See how full each vehicle is and who rides which route and stop.",
+        "Find any library copy and finish a stock check faster.",
+        "See who is placed where in the hostel and which rooms have space."
+      ],
+      "use": "Map students to a vehicle and stop with a seat check, then scan the library shelf.",
+      "modules": [
+        "core-transport",
+        "core-library",
+        "core-hostel",
+        "core-inventory"
+      ]
+    },
+    {
+      "role": "Students",
+      "who": "In the school app",
+      "benefits": [
+        "Find school dates, photo albums and exam schedules in the school app.",
+        "Send a leave request from the app and see its reply and status.",
+        "Receive certificates and I-cards printed from the school's approved layouts."
+      ],
+      "use": "Open the school app to see tomorrow's calendar and the exam schedule, then send a leave request.",
+      "modules": [
+        "core-mobile-apps",
+        "core-student",
+        "core-document-templates"
+      ]
+    }
+  ],
+  "owner_to_confirm": [
+    "The five groups of the 25 modules (Students and academics; Money and stores; Front office and records; Communication and trust; Community and administration) are ours, not a product structure. Regroup freely.",
+    "Roles: the owner confirmed on 26 Nov 2026 Principal and trustees; Admission and front office; Accounts; Teachers and coordinators; Operations; and Students. No sheet names a Principal or trustee screen: that row rests on the family benefit line ('answer parents and leaders faster') and on the six insight modules.",
+    "Students: students and parents use the NATIVE school app, which is not in the two repositories. Only the server side was verified (calendar, photo and video albums, exam schedule files and leave requests in Mobile Apps; certificates and I-cards from Student and Document Templates). Confirm what the demo school's students actually see in the app before showing this role, and that a student (not only a parent) can send the leave request.",
+    "Every 'use' line under a role is illustrative: it strings together screens that exist, and is tagged illustrative on the slide.",
+    "Ask your records: 'staff can ask questions of school records in plain words' is the second AI line of the family sheet (route file next_lms_erp/routes/ai.php). Confirm it is switched on for the demo school before showing it.",
+    "School administrators set what AI may do: proven for the admissions and attendance AI settings screens (policies). Confirm the same control exists for the Student health-note and Communication drafting before widening the claim.",
+    "Insights: the sidebar item is labelled 'AI insights' for the six modules, but the code is rule-based over the school's own records (no AI model). The slide says 'insights' and 'rules', never AI. Confirm each of the six is visible in the demo school's sidebar.",
+    "Fees insight rules include overdue cycles and collection by class and by fee head; Transport rules include seats over capacity and riders with no enrolment this year. The slide names only the questions, no numbers.",
+    "Library: issuing a book is not built in the new Book Resources screen (see the Library sheet), so the tour says catalogue, barcodes, returns and shelf checks only.",
+    "Inventory: stock balance is not fully reconciled (see the Inventory sheet), so the tour does not promise live stock levels.",
+    "Research tab: filled on 26 Nov 2026 from the owner's pasted list (UNESCO EMIS framework; UNESCO EMIS-PATT; Ed-Fi Alliance education data standard; and three areas: School Operations and Process Excellence, Interoperability and Information Architecture, AI-Native School Administration). Three things to confirm: (1) the paste lost which source belongs to which area and what 'ERP' heads, so the slide lists sources and areas side by side without pairing them; (2) the owner gave only the names of the three areas, so each area's one line is wording already checked in this tour, not a document; (3) no code or doc in the four repositories cites EMIS, EMIS-PATT or Ed-Fi, so 'Designed from' rests on the owner's list: say if it should read 'Read against' instead. Any percentage still fails the checker; no figure is shown (see assets/core-research-sources.json)."
+  ],
+  "notes": {
+    "summary": "Let the three lines land one at a time. Ask: which of these desks in your school is the busiest on a Monday morning?",
+    "problem": "Tell it as their morning, not ours. Pause after 'three versions of the truth'. Say it is an illustration, not their school.",
+    "intelligence": "These are questions, not predictions. Each insight shows the records behind it. If asked: the insights are rules over the school's own records, not an AI model.",
+    "ai": "Only drafting. Say clearly that nothing is applied until a person presses Apply. If asked about control: administrators set what AI may do for the admissions and attendance screens; confirm for the rest.",
+    "research": "Say what each source is, not what it proves. The left three are public reference sources; the three research areas are what the office, records and AI parts of Scholar Core were read against. Do not say Scholar Core conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
+    "features": "One group at a time. Do not read the lines; let them point at the group their desk is in and open that screen.",
+    "roles": "Let the client name their own role first, then open it. Every use line is an illustration. For Students, say the school app is where students and families see these things, and show the staff-side screens behind it."
+  }
+}
