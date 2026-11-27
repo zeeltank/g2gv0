@@ -1,5 +1,6 @@
 import type {
-  ConsentStatus, NewCompanyBody, NewPersonBody, OutreachListQuery, OutreachPerson, OutreachReach, OutreachReachFilter, OutreachSource, OutreachSummary,
+  ConsentStatus, NewCompanyBody, NewPersonBody, OutreachFacets, OutreachFilterQuery, OutreachFilters, OutreachListQuery, OutreachPerson, OutreachReach, OutreachReachFilter,
+  OutreachSource, OutreachSummary,
 } from '@/services/signals/outreach-types'
 
 /**
@@ -94,6 +95,151 @@ export const CONSENT_LABEL: Readonly<Record<ConsentStatus, string>> = {
 
 export const CONSENT_TONE: Readonly<Record<ConsentStatus, Tone>> = { unknown: 'neutral', opted_in: 'success', opted_out: 'danger', suppressed: 'danger' }
 
+// ── The four filters: Product, Sub-product, ICP, Region ──────────────────────────
+//
+// They sit in the ADDRESS (`?product=&subProduct=&icp=&region=`), so Companies, All people and Messages share them: the same four values narrow whichever of the three is open, and a
+// link or a reload opens the same narrowed list. The server decides what a value means and counts the options (`facets`); this part only reads and writes the address, turns it
+// into the query, words the options, and keeps the one rule the server leaves to the screen: the Sub-product list follows the Product.
+
+/** "Not recorded": the value that picks the rows that have nothing recorded for a filter. */
+export const NOT_RECORDED = 'none'
+export const NOT_RECORDED_LABEL = 'Not recorded'
+
+export const FILTER_KEYS = ['product', 'subProduct', 'icp', 'region'] as const
+export type FilterKey = (typeof FILTER_KEYS)[number]
+
+/** The name of each filter in the address. */
+export const FILTER_PARAM: Readonly<Record<FilterKey, string>> = { product: 'product', subProduct: 'subProduct', icp: 'icp', region: 'region' }
+/** The name of each filter in the request the server reads. */
+export const FILTER_QUERY_NAME: Readonly<Record<FilterKey, keyof OutreachFilterQuery>> = { product: 'product', subProduct: 'sub_product', icp: 'icp', region: 'region' }
+export const FILTER_LABEL: Readonly<Record<FilterKey, string>> = { product: 'Product', subProduct: 'Sub-product', icp: 'ICP', region: 'Region' }
+export const FILTER_ALL_LABEL: Readonly<Record<FilterKey, string>> = { product: 'All products', subProduct: 'All sub-products', icp: 'All ICPs', region: 'All regions' }
+/** The one line that explains why some rows sit under Not recorded, so nobody reads a short list as a broken filter. */
+export const FILTER_NOTE = 'Some signals have no product, sub-product, ICP or region recorded: they appear under Not recorded.'
+
+export const ICP_LABEL: Readonly<Record<string, string>> = { b2b: 'B2B: Private organisations', b2c: 'B2C: Consumers', b2g: 'B2G: Government and tenders' }
+
+/** An address value longer than this is not a value the server could have offered; it is dropped instead of being sent. */
+const FILTER_VALUE_MAX = 120
+
+type ParamReader = { get(name: string): string | null }
+
+/** The four filters the address holds. A missing, empty or absurdly long value is no filter; the ICP is lower-cased because the server's values are. */
+export function readFilters(params: ParamReader): OutreachFilters {
+  const filters: OutreachFilters = {}
+  for (const key of FILTER_KEYS) {
+    const raw = (params.get(FILTER_PARAM[key]) ?? '').trim()
+    if (raw === '' || raw.length > FILTER_VALUE_MAX) continue
+    filters[key] = key === 'icp' ? raw.toLowerCase() : raw
+  }
+
+  return filters
+}
+
+/** `base` with the four filters set to `filters`: a filter that is not set is removed, every other parameter (view, section, person, tab) is kept. */
+export function writeFilters(base: URLSearchParams, filters: OutreachFilters): URLSearchParams {
+  const out = new URLSearchParams(base)
+  for (const key of FILTER_KEYS) {
+    const value = filters[key]
+    if (value) out.set(FILTER_PARAM[key], value)
+    else out.delete(FILTER_PARAM[key])
+  }
+
+  return out
+}
+
+export const filtersActive = (filters: OutreachFilters): boolean => FILTER_KEYS.some((key) => Boolean(filters[key]))
+
+/** One string for a set of filters: two sets are the same filters exactly when their keys are equal. */
+export const filtersKey = (filters: OutreachFilters): string => FILTER_KEYS.map((key) => `${key}=${filters[key] ?? ''}`).join('&')
+
+/** The filters as the request the server reads; only the ones that are set. */
+export function filterQuery(filters: OutreachFilters): OutreachFilterQuery {
+  const query: OutreachFilterQuery = {}
+  for (const key of FILTER_KEYS) {
+    const value = filters[key]
+    if (value) query[FILTER_QUERY_NAME[key]] = value
+  }
+
+  return query
+}
+
+const NOT_RECORDED_COUNT: Readonly<Record<FilterKey, keyof OutreachFacets['notRecorded']>> = { product: 'products', subProduct: 'subProducts', icp: 'icps', region: 'regions' }
+const same = (a: string | number | null | undefined, b: string | number | null | undefined): boolean => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b)
+
+/** A real product is one a person can have picked from the list: not "all" and not "Not recorded". */
+const isRealProduct = (product: string | undefined): product is string => Boolean(product) && product !== NOT_RECORDED
+
+/**
+ * Does the chosen sub-product still belong when the product becomes `product`? Any product keeps a sub-product that is Not recorded; "all products" keeps every sub-product; a real
+ * product keeps only its own; Not recorded keeps one that no product holds (a code). A sub-product the options do not list cannot be told, so it does not belong.
+ */
+function subProductBelongs(subProduct: string, product: string | undefined, facets: OutreachFacets | null | undefined): boolean {
+  if (subProduct === NOT_RECORDED || !product) return true
+  const entry = facets?.subProducts.find((option) => same(option.value, subProduct))
+  if (!entry) return false
+  if (product === NOT_RECORDED) return entry.productId === null || entry.productId === undefined
+
+  return same(entry.productId, product)
+}
+
+/**
+ * The filters after one change. `patch` names the filter or filters that changed (an empty string clears one). THE CASCADE: choosing another product clears a sub-product that does
+ * not belong to it, so the list never sits on a pair that cannot match. A patch that names the sub-product itself is taken as it is.
+ */
+export function changeFilters(current: OutreachFilters, patch: Partial<Record<FilterKey, string>>, facets: OutreachFacets | null | undefined): OutreachFilters {
+  const next: OutreachFilters = { ...current }
+  for (const key of FILTER_KEYS) {
+    if (!(key in patch)) continue
+    const value = patch[key]
+    if (value) next[key] = value
+    else delete next[key]
+  }
+  const productChanged = 'product' in patch && (patch.product || undefined) !== current.product
+  if (productChanged && !('subProduct' in patch) && next.subProduct && !subProductBelongs(next.subProduct, next.product, facets)) delete next.subProduct
+
+  return next
+}
+
+export interface FilterOption {
+  value: string
+  label: string
+}
+
+/** "Name (12)": an option with the number of rows it picks. */
+export const optionText = (label: string, count: number): string => `${label} (${count})`
+
+/** What a chosen value is called when the server did not list it (an address typed by hand, or the options not read yet), so the box never shows a blank. */
+function unlistedLabel(key: FilterKey, value: string): string {
+  if (key === 'icp') return ICP_LABEL[value] ?? value
+  if (key === 'subProduct') return value.startsWith('offer:') ? value.slice('offer:'.length) : 'Unknown sub-product'
+  if (key === 'product') return 'Unknown product'
+
+  return value
+}
+
+/**
+ * The options of one filter, in the order they are drawn: "All ...", the options the server counted as "Name (count)", then "Not recorded (count)". An option with no rows is left out
+ * unless it is the chosen one, which always stays so a person can see (and undo) what is applied. The Sub-product options are the ones of the chosen product when a real product is
+ * chosen. The server's order is kept: names for Product and Sub-product, B2B then B2C then B2G, the most common first for Region.
+ */
+export function filterOptions(key: FilterKey, facets: OutreachFacets | null | undefined, filters: OutreachFilters): FilterOption[] {
+  const chosen = filters[key] ?? ''
+  const listed = !facets ? [] : key === 'product' ? facets.products : key === 'icp' ? facets.icps : key === 'region' ? facets.regions : facets.subProducts
+  const own = key === 'subProduct' && isRealProduct(filters.product)
+    ? facets?.subProducts.filter((option) => same(option.productId, filters.product) || same(option.value, chosen)) ?? []
+    : listed
+  const options: FilterOption[] = [{ value: '', label: FILTER_ALL_LABEL[key] }]
+  for (const option of own) {
+    if (option.count > 0 || same(option.value, chosen)) options.push({ value: String(option.value), label: optionText(option.label, option.count) })
+  }
+  if (chosen && chosen !== NOT_RECORDED && !options.some((option) => option.value === chosen)) options.push({ value: chosen, label: optionText(unlistedLabel(key, chosen), 0) })
+  const none = facets?.notRecorded[NOT_RECORDED_COUNT[key]] ?? 0
+  if (none > 0 || chosen === NOT_RECORDED) options.push({ value: NOT_RECORDED, label: optionText(NOT_RECORDED_LABEL, none) })
+
+  return options
+}
+
 // ── The chips ────────────────────────────────────────────────────────────────────
 
 export type OutreachChip = 'all' | 'reachable' | 'needs_details' | 'found' | 'manual' | 'mine' | 'blocked'
@@ -130,15 +276,29 @@ export interface OutreachListState {
   chip: OutreachChip
   sortKey: OutreachSortKey
   sortAsc: boolean
+  /** The four filters (`filtersKey`) the page number was chosen under. A page chosen under other filters is not this list's page any more, so it counts as page one. */
+  filtersKey: string
 }
 
-export const INITIAL_OUTREACH_STATE: OutreachListState = { page: 1, search: '', chip: 'all', sortKey: 'name', sortAsc: true }
+export const INITIAL_OUTREACH_STATE: OutreachListState = { page: 1, search: '', chip: 'all', sortKey: 'name', sortAsc: true, filtersKey: filtersKey({}) }
 
-/** A chip asks for exactly its own filter, so the chips are exclusive. The default order puts the most reachable rows first (the server knows how). */
-export function outreachQuery(state: OutreachListState, extra: Pick<OutreachListQuery, 'company_id'> = {}): OutreachListQuery {
-  const query: OutreachListQuery = { page: state.page, per_page: OUTREACH_PAGE_SIZE, sort: state.sortKey, dir: state.sortAsc ? 'asc' : 'desc', ...extra }
+/**
+ * The page a list is on. The filters live in the address and are shared by three lists, so a filter can change while another list is out of sight with its own page number: a page
+ * chosen under different filters is dropped here, not remembered, and the list starts again at page one. Without `filters` the page is the state's own.
+ */
+export function listPage(state: OutreachListState, filters?: OutreachFilters): number {
+  return filters === undefined || state.filtersKey === filtersKey(filters) ? state.page : 1
+}
+
+/**
+ * A chip asks for exactly its own filter, so the chips are exclusive. The default order puts the most reachable rows first (the server knows how). `filters` are the four filters of
+ * the address (Product, Sub-product, ICP, Region); each is sent only when it is set.
+ */
+export function outreachQuery(state: OutreachListState, extra: Pick<OutreachListQuery, 'company_id'> = {}, filters?: OutreachFilters): OutreachListQuery {
+  const query: OutreachListQuery = { page: listPage(state, filters), per_page: OUTREACH_PAGE_SIZE, sort: state.sortKey, dir: state.sortAsc ? 'asc' : 'desc', ...extra }
   const search = state.search.trim()
   if (search) query.search = search
+  if (filters) Object.assign(query, filterQuery(filters))
   const reach: Partial<Record<OutreachChip, OutreachReachFilter>> = { reachable: 'reachable', needs_details: 'needs_details', blocked: 'blocked' }
   if (reach[state.chip]) query.reach = reach[state.chip]
   if (state.chip === 'found' || state.chip === 'manual') query.source = state.chip
@@ -147,9 +307,12 @@ export function outreachQuery(state: OutreachListState, extra: Pick<OutreachList
   return query
 }
 
-/** A new filter, search or sort goes back to page one; the page number alone does not. */
-export function withChange(state: OutreachListState, change: Partial<OutreachListState>): OutreachListState {
-  const next = { ...state, ...change }
+/**
+ * A new chip, search or sort goes back to page one; the page number alone does not. `filtersKey` is the key of the four filters the change is made under (kept as it was when
+ * omitted), so the page that results is remembered against them.
+ */
+export function withChange(state: OutreachListState, change: Partial<OutreachListState>, filtersKeyNow?: string): OutreachListState {
+  const next = { ...state, ...change, filtersKey: filtersKeyNow ?? change.filtersKey ?? state.filtersKey }
   const pageOnly = Object.keys(change).length === 1 && 'page' in change
 
   return pageOnly ? next : { ...next, page: change.page ?? 1 }

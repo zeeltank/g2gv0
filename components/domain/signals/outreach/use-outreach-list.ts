@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { OutreachListQuery, OutreachListResponse, OutreachSummary } from '@/services/signals/outreach-types'
+import type { OutreachFacets, OutreachListQuery, OutreachListResponse, OutreachSummary } from '@/services/signals/outreach-types'
 import { errorText } from './outreach-parts'
 
 interface ListState<T> {
   rows: T[]
   summary: OutreachSummary | null
+  /** The options of the four filters, counted by the server for the rows of this list; null until the first answer (or when the server sends none). */
+  facets: OutreachFacets | null
   total: number
   lastPage: number
   loading: boolean
@@ -16,14 +18,15 @@ interface ListState<T> {
 /**
  * One page of the Companies or the All people list. It asks again whenever the query changes (a chip, a search, a sort, a page) or `reload()` is called, and only the answer to
  * the LATEST question is kept: a slow answer to an earlier one arrives after it and is dropped, so the list never shows rows that do not match the chip that is pressed.
- * The summary (the numbers on the chips) is kept while the next page loads, so the chips do not blink. A failure keeps the sentence for the screen to show and leaves the chips as they were.
+ * The summary (the numbers on the chips) and the facets (the options of the four filters) are kept while the next page loads, so the chips and the selects do not blink. A failure keeps the
+ * sentence for the screen to show and leaves both as they were.
  */
 export function useOutreachList<T>(load: (query: OutreachListQuery) => Promise<OutreachListResponse<T>>, query: OutreachListQuery, failure: string) {
   const key = JSON.stringify(query)
   const loadRef = useRef(load)
   useEffect(() => { loadRef.current = load })
   const [version, setVersion] = useState(0)
-  const [state, setState] = useState<ListState<T>>({ rows: [], summary: null, total: 0, lastPage: 1, loading: true, error: '' })
+  const [state, setState] = useState<ListState<T>>({ rows: [], summary: null, facets: null, total: 0, lastPage: 1, loading: true, error: '' })
   const asked = useRef(0)
 
   const run = useCallback(async () => {
@@ -32,7 +35,7 @@ export function useOutreachList<T>(load: (query: OutreachListQuery) => Promise<O
     try {
       const response = await loadRef.current(JSON.parse(key) as OutreachListQuery)
       if (mine !== asked.current) return
-      setState({ rows: response.data, summary: response.summary, total: response.meta.total, lastPage: Math.max(1, response.meta.last_page), loading: false, error: '' })
+      setState({ rows: response.data, summary: response.summary, facets: response.facets ?? null, total: response.meta.total, lastPage: Math.max(1, response.meta.last_page), loading: false, error: '' })
     } catch (cause) {
       if (mine === asked.current) setState((current) => ({ ...current, rows: [], total: 0, lastPage: 1, loading: false, error: errorText(cause, failure) }))
     }

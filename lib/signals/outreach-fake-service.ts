@@ -1,6 +1,43 @@
 import type { OutreachApi } from '../../services/signals/outreach'
-import type { OutreachListQuery, WriteMessagesBody } from '../../services/signals/outreach-types'
+import type { OutreachCompany, OutreachListQuery, OutreachListResponse, OutreachPerson, OutreachSummary, WriteMessagesBody } from '../../services/signals/outreach-types'
+import { computeFacets, filtersOf, hasFilters, narrow, type FacetSets } from './outreach-facet-engine'
+import { companySets, FACET_CATALOG, personSets } from './outreach-facet-fixtures'
 import { companies, companyDetail, listOf, people, person, company } from './outreach-fixtures'
+
+/** The chips' numbers for a set of rows, the way the server's summary counts them (nobody is "mine" in a fixture). */
+function summaryOf(rows: Array<Pick<OutreachCompany, 'reach' | 'source'>>): OutreachSummary {
+  const reachable = (reach: string) => reach === 'ready' || reach === 'email_only' || reach === 'phone_only'
+
+  return {
+    all: rows.length,
+    reachable: rows.filter((row) => reachable(row.reach)).length,
+    needs_details: rows.filter((row) => row.reach === 'needs_details').length,
+    blocked: rows.filter((row) => row.reach === 'blocked').length,
+    found: rows.filter((row) => row.source === 'found').length,
+    manual: rows.filter((row) => row.source === 'manual').length,
+    mine: 0,
+  }
+}
+
+/**
+ * A list as the server answers it once the four filters (Product, Sub-product, ICP, Region) exist: the rows that pass them, the options of each filter counted with the other
+ * three applied, and, while a filter is set, chip numbers that follow the narrowed rows. With no filter set the chip numbers stay the fixed ones the older tests were written
+ * against, and every row is returned whatever chip, search or page was asked for (this fake does not implement those; it records them).
+ */
+export function facetedAnswer<T extends Pick<OutreachCompany, 'reach' | 'source'>>(rows: T[], setsOf: (row: T) => FacetSets, query: OutreachListQuery): OutreachListResponse<T> {
+  const filters = filtersOf(query)
+  const kept = narrow(rows, setsOf, filters)
+  const answer = listOf(kept)
+
+  return { ...answer, summary: hasFilters(filters) ? summaryOf(kept) : answer.summary, facets: computeFacets(rows, setsOf, filters, FACET_CATALOG) }
+}
+
+const companyRowSets = (row: OutreachCompany): FacetSets => companySets(row.id)
+const personRowSets = (row: OutreachPerson): FacetSets => personSets(row)
+
+/** What the fake answers to a Companies / All people question when nothing is overridden; a test that overrides the answer (to page, say) can start from it and keep the filtering. */
+export const companiesAnswer = (query: OutreachListQuery): OutreachListResponse<OutreachCompany> => facetedAnswer(companies(), companyRowSets, query)
+export const peopleAnswer = (query: OutreachListQuery): OutreachListResponse<OutreachPerson> => facetedAnswer(people(), personRowSets, query)
 
 export interface OutreachFakeCalls {
   companies: OutreachListQuery[]
@@ -31,10 +68,10 @@ export function fakeOutreachService(overrides: Partial<OutreachApi> = {}) {
     findContacts: [], convertToLead: [], writeMessages: [], personMessages: [],
   }
   const service: OutreachApi = {
-    companies: async (q) => { calls.companies.push(q); return overrides.companies ? overrides.companies(q) : listOf(companies()) },
+    companies: async (q) => { calls.companies.push(q); return overrides.companies ? overrides.companies(q) : companiesAnswer(q) },
     company: async (id) => { calls.company.push(id); return overrides.company ? overrides.company(id) : { status: 1, data: companyDetail({ id }) } },
     person: async (id) => { calls.person.push(id); return overrides.person ? overrides.person(id) : { status: 1, data: people().find((p) => p.id === id) ?? person({ id }) } },
-    people: async (q) => { calls.people.push(q); return overrides.people ? overrides.people(q) : listOf(people()) },
+    people: async (q) => { calls.people.push(q); return overrides.people ? overrides.people(q) : peopleAnswer(q) },
     addCompany: async (body) => { calls.addCompany.push(body); return overrides.addCompany ? overrides.addCompany(body) : { status: 1, data: company({ id: 99, name: body.name, source: 'manual', signals_count: 0, people_count: 0, reachable_people_count: 0, best_contact: null, reach: 'needs_details', latest_signal: null }) } },
     updateCompany: async (id, body) => { calls.updateCompany.push({ id, body }); return overrides.updateCompany ? overrides.updateCompany(id, body) : { status: 1, data: company({ id, ...body }) } },
     deleteCompany: async (id) => { calls.deleteCompany.push(id); return overrides.deleteCompany ? overrides.deleteCompany(id) : { status: 1 } },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,12 @@ import {
 } from '@/services/gtm/gtm'
 import { errMsg, fmtDate, useGtmCanWrite, useGtmReady } from '@/components/domain/gtm/gtm-shared'
 import { attemptNote, gateRefusalMessage, isCheckable, messageProductId, messageSignature } from '@/lib/outreach/model'
-import { MESSAGE_SECTION_IDS, MESSAGE_SECTION_PARAM, type MessageSection } from '@/lib/signals/outreach-model'
+import { filterQuery, MESSAGE_SECTION_IDS, MESSAGE_SECTION_PARAM, type FilterKey, type MessageSection } from '@/lib/signals/outreach-model'
+import type { OutreachFacets } from '@/services/signals/outreach-types'
 import { OutreachChecks, type GateRefusal } from '@/components/domain/gtm/outreach-checks'
 import { SmsLogSection } from './messages-sms-log'
+import { OutreachFilterBar } from './outreach-filter-bar'
+import { useOutreachFilters } from './use-outreach-filters'
 
 const TEXTAREA = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
@@ -46,6 +49,8 @@ function toServerTime(local: string): string | undefined {
  * header of its own because it sits under the Outreach tabs. The section is kept in `?section=` (the Outreach tab itself uses `?view=`), so a link opens the same section:
  *   Message queue        - every email passes through four separate steps (written, submitted, approved by a person, sent) and the server re-checks everything at send time.
  *                          The panel at the top says plainly whether sending is possible and, if not, exactly why. Editing the text of an approved message withdraws its approval and send time.
+ *                          Above its status chips sit the Outreach tab's four filters (Product, Sub-product, ICP, Region), kept in the address and shared with Companies and All people;
+ *                          the status counts and the options of the four filters come from the server for the rows the filters leave.
  *   Do not contact list  - the suppression list: addresses and domains that must never be emailed.
  *   SMS log              - a read-only list of the text messages other screens sent. Nothing can be sent from here.
  * Only the open section is built, so a section loads its data when it is opened.
@@ -76,18 +81,26 @@ function MessageQueue() {
   const [openId, setOpenId] = useState<number | null>(null)
   const [probing, setProbing] = useState(false)
   const [creating, setCreating] = useState(false)
+  const { filters, active: filtersOn, set: setFilters, clear: clearFilters } = useOutreachFilters()
+  const [facets, setFacets] = useState<OutreachFacets | null>(null)
+  const query = useMemo(() => filterQuery(filters), [filters])
+  // Only the answer to the latest question is kept: the filters can change faster than the server answers, and an older answer must not replace a newer one.
+  const asked = useRef(0)
 
   const load = useCallback(async () => {
+    const mine = ++asked.current
     try {
-      const [l, r] = await Promise.all([outreachService.list(status), outreachService.readiness()])
+      const [l, r] = await Promise.all([outreachService.list(status, query), outreachService.readiness()])
+      if (mine !== asked.current) return
       setItems(l.data.items)
       setCounts(l.data.counts)
+      setFacets(l.data.facets ?? null)
       setReadiness((prev) => ({ ...r.data, smtp: prev?.smtp ?? null }))
       setError(null)
     } catch (e) {
-      setError(errMsg(e, 'Unable to load outreach'))
+      if (mine === asked.current) setError(errMsg(e, 'Unable to load outreach'))
     }
-  }, [status])
+  }, [status, query])
 
   useEffect(() => { if (ready) queueMicrotask(() => void load()) }, [ready, load])
 
@@ -130,6 +143,10 @@ function MessageQueue() {
         </div>
       )}
 
+      <div className="mb-4">
+        <OutreachFilterBar filters={filters} facets={facets} onChange={(patch: Partial<Record<FilterKey, string>>) => setFilters(patch, facets)} onClear={clearFilters} />
+      </div>
+
       {/* The statuses filter the queue. They are drawn as chips so they do not read as a second row of sections under the section tabs. */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Show messages that are">
@@ -143,7 +160,9 @@ function MessageQueue() {
       </div>
 
       {error ? <ErrorState title="Could not load outreach" description={error} retry={load} /> : !items ? <Skeleton className="h-40" /> : items.length === 0 ? (
-        <EmptyState title="No messages" description="Write a message, or run the Outreach Agent on an account and save its draft, then submit it for approval." />
+        filtersOn
+          ? <EmptyState title="No messages match these filters." action={<Button variant="outline" onClick={clearFilters}>Clear filters</Button>} />
+          : <EmptyState title="No messages" description="Write a message, or run the Outreach Agent on an account and save its draft, then submit it for approval." />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
