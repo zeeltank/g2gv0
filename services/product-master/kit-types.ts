@@ -7,6 +7,21 @@
 export type KitKind = 'presentation' | 'document' | 'video' | 'image'
 export type KitSource = 'file' | 'link'
 
+/**
+ * The public link of an entry. A person who is not signed in opens `/share/kit/<token>` with it. A viewer sees it too (sales staff copy it to send to a customer); only a manager creates,
+ * renews or stops it. `expired` is the server's own reckoning of `expiresAt`, so the screen never compares a date on the person's clock.
+ */
+export interface KitShare {
+  token: string
+  /** null: it never expires. */
+  expiresAt: string | null
+  sharedAt: string
+  expired: boolean
+}
+
+/** How long a new link works, in days; 0 is no expiry. */
+export type KitShareDays = 7 | 30 | 90 | 365 | 0
+
 export interface KitItem {
   id: number
   kind: KitKind
@@ -29,6 +44,8 @@ export interface KitItem {
   updatedAt: string
   /** The document was deleted from the Document Library: the row stays, `fileName` is null, and only a manager can remove it. */
   missing: boolean
+  /** The public link, or null when there is none. Absent on a server that predates the share link (read as null). */
+  share?: KitShare | null
 }
 
 export interface KitCounts {

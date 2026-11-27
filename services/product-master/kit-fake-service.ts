@@ -1,6 +1,6 @@
 import { ApiError } from '@/services/core'
 import type { SalesKitApi } from './kit-service'
-import type { KitCan, KitCounts, KitData, KitFileMeta, KitFromLibraryBody, KitItem, KitKind, KitLibraryHit, KitLimits, KitLinkBody, KitUpdateBody } from './kit-types'
+import type { KitCan, KitCounts, KitData, KitFileMeta, KitFromLibraryBody, KitItem, KitKind, KitLibraryHit, KitLimits, KitLinkBody, KitShare, KitUpdateBody } from './kit-types'
 
 /*
  * A stand-in for the Sales Kit API for the tests of the tab: the kit is held in memory, so an add, an edit and a remove show up in the next read, and every call is recorded exactly as the
@@ -13,6 +13,19 @@ export const ALL_RIGHTS: KitCan = { view: true, add: true, edit: true, delete: t
 export const VIEW_ONLY: KitCan = { view: true, add: false, edit: false, delete: false }
 
 let nextId = 100
+
+/** The moment the fake treats as now, so an expiry a test reads is the same every day. */
+export const FAKE_NOW = '2026-11-27 12:00:00'
+
+/** A 48-character token of letters and digits, as the server makes them. `n` makes each different. */
+export const fakeToken = (n: number): string => `T${String(n).padStart(47, 'a')}`
+
+/** The share a fake link gets: `days` after `FAKE_NOW`, or never when 0. */
+export function fakeShare(n: number, days: number, over: Partial<KitShare> = {}): KitShare {
+  const end = new Date(`${FAKE_NOW.replace(' ', 'T')}Z`)
+  end.setUTCDate(end.getUTCDate() + days)
+  return { token: fakeToken(n), expiresAt: days === 0 ? null : end.toISOString().slice(0, 19).replace('T', ' '), sharedAt: FAKE_NOW, expired: false, ...over }
+}
 
 /** One entry of a kit, a file by default, with the fields a test cares about changed. */
 export function kitItem(over: Partial<KitItem> = {}): KitItem {
@@ -35,6 +48,7 @@ export function kitItem(over: Partial<KitItem> = {}): KitItem {
     createdAt: '2026-11-20 10:00:00',
     updatedAt: '2026-11-20 10:00:00',
     missing: false,
+    share: null,
     ...over,
   }
 }
@@ -75,6 +89,8 @@ export interface KitFakeCalls {
   searchLibrary: Array<{ productId: number; q: string }>
   update: Array<{ productId: number; itemId: number; patch: KitUpdateBody }>
   remove: Array<{ productId: number; itemId: number }>
+  share: Array<{ productId: number; itemId: number; days?: number }>
+  stopSharing: Array<{ productId: number; itemId: number }>
   fetchFile: Array<{ productId: number; itemId: number; inline: boolean }>
 }
 
@@ -100,9 +116,10 @@ const kindOfFile = (name: string): KitKind => {
 
 export function fakeSalesKitService(options: KitFakeOptions = {}) {
   const items: KitItem[] = [...(options.items ?? scholarcloneItems())]
-  const calls: KitFakeCalls = { get: [], uploadFile: [], addLink: [], fromLibrary: [], searchLibrary: [], update: [], remove: [], fetchFile: [] }
+  const calls: KitFakeCalls = { get: [], uploadFile: [], addLink: [], fromLibrary: [], searchLibrary: [], update: [], remove: [], share: [], stopSharing: [], fetchFile: [] }
   const overrides = options.overrides ?? {}
   const state = { items }
+  let tokens = 0
   const snapshot = (): KitData => kitData(
     [...items].sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id),
     { product: options.product ?? { id: 1, name: 'ScholarClone' }, can: options.can ?? ALL_RIGHTS, ...(options.limits ? { limits: options.limits } : {}) },
@@ -158,6 +175,25 @@ export function fakeSalesKitService(options: KitFakeOptions = {}) {
       find(itemId)
       items.splice(items.findIndex((i) => i.id === itemId), 1)
       return { status: 1, data: { id: itemId } }
+    },
+    share: async (productId, itemId, body = {}) => {
+      calls.share.push({ productId, itemId, days: body.days })
+      if (overrides.share) return overrides.share(productId, itemId, body)
+      if (options.can && !options.can.edit) throw new ApiError('You are not allowed to do this.', 403)
+      const item = find(itemId)
+      // The server's own rules: a page inside the app cannot be public (the interactive deck is the one exception), and a file that is gone has nothing to share.
+      if (item.missing) throw new ApiError('Its file is no longer in the Document Library, so it cannot be shared.', 422)
+      if (item.source === 'link' && (item.url ?? '').startsWith('/') && !/^\/signals\/portfolio\/deck\/[a-z0-9-]+$/.test(item.url ?? '')) throw new ApiError('A page inside the app cannot be shared publicly.', 422)
+      item.share = fakeShare(++tokens, body.days ?? 30)
+      return { status: 1, data: item }
+    },
+    stopSharing: async (productId, itemId) => {
+      calls.stopSharing.push({ productId, itemId })
+      if (overrides.stopSharing) return overrides.stopSharing(productId, itemId)
+      if (options.can && !options.can.edit) throw new ApiError('You are not allowed to do this.', 403)
+      const item = find(itemId)
+      item.share = null
+      return { status: 1, data: item }
     },
     fetchFile: async (productId, itemId, fetchOptions = {}) => {
       calls.fetchFile.push({ productId, itemId, inline: fetchOptions.inline === true })

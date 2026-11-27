@@ -1,9 +1,9 @@
 'use client'
 
-import { Download, ExternalLink, Eye, Loader2, MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, Eye, Loader2, MoreHorizontal, Pencil, Play, Share2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { linkHref, primaryAction, secondaryAction, type KitActionId } from '@/lib/portfolio/sales-kit-model'
+import { linkHref, primaryAction, secondaryAction, showShareLink, type KitActionId } from '@/lib/portfolio/sales-kit-model'
 import type { KitCan, KitItem } from '@/services/product-master/kit-types'
 
 const ICON: Record<KitActionId, typeof Download> = { 'open-link': ExternalLink, download: Download, preview: Eye, play: Play }
@@ -48,14 +48,15 @@ export function KitActionButtons({ item, large = false, busy = false, onRun }: {
 }
 
 /**
- * What a manager may do to an entry. A file that is gone can only be removed, so it gets that one button, drawn plainly; any other entry gets one menu. Nothing is drawn for a person who
- * may neither edit nor remove.
+ * What a person may do to an entry besides using it. A file that is gone can only be removed, so it gets that one button, drawn plainly; any other entry gets one menu: Share link (for a
+ * person who may make a link, or for anybody when the entry already has one), Edit details and Remove, each only for the right it needs. Nothing is drawn when there is nothing to offer.
  */
-export function KitManage({ item, can, onEdit, onRemove }: { item: KitItem; can: KitCan; onEdit: (item: KitItem) => void; onRemove: (item: KitItem) => void }) {
+export function KitManage({ item, can, onEdit, onRemove, onShare }: { item: KitItem; can: KitCan; onEdit: (item: KitItem) => void; onRemove: (item: KitItem) => void; onShare: (item: KitItem) => void }) {
   if (item.missing) {
     return can.delete ? <Button type="button" variant="outline" size="sm" aria-label={`Remove ${item.title}`} onClick={() => onRemove(item)}><Trash2 aria-hidden="true" />Remove</Button> : null
   }
-  if (!can.edit && !can.delete) return null
+  const share = showShareLink(item, can.edit)
+  if (!share && !can.edit && !can.delete) return null
 
   return (
     <DropdownMenu>
@@ -63,6 +64,7 @@ export function KitManage({ item, can, onEdit, onRemove }: { item: KitItem; can:
         <Button type="button" variant="ghost" size="icon-sm" aria-label={`More actions for ${item.title}`}><MoreHorizontal aria-hidden="true" /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {share && <DropdownMenuItem onSelect={() => onShare(item)}><Share2 className="mr-2 size-4" aria-hidden="true" />Share link</DropdownMenuItem>}
         {can.edit && <DropdownMenuItem onSelect={() => onEdit(item)}><Pencil className="mr-2 size-4" aria-hidden="true" />Edit details</DropdownMenuItem>}
         {can.delete && <DropdownMenuItem onSelect={() => onRemove(item)}><Trash2 className="mr-2 size-4" aria-hidden="true" />Remove</DropdownMenuItem>}
       </DropdownMenuContent>

@@ -53,6 +53,7 @@ import { useLaravelContext } from '@/hooks/use-agentic'
 import { isLaravelContextReady } from '@/lib/laravel-context'
 import { cn } from '@/lib/utils'
 import { isHrAdmin, isRole } from '@/types/role'
+import { folderOwnedByOthers } from '@/lib/documents/folder-owner'
 import {
   accountService,
   type AccountDocument,
@@ -384,13 +385,15 @@ export function DocumentLibraryView() {
     // per DocumentSearchService::applyFilters()'s own presence-not-
     // truthiness convention for this field.
     const everywhere = searchEverywhere && debouncedQuery !== ''
+    // A folder that is not mine (an organisation folder such as "Sales Kit", or somebody else's) holds documents that others own and I may open: no owner filter inside it.
+    const inSharedFolder = folderOwnedByOthers(folderTree, currentFolderId, myId)
 
     try {
       const response = await accountService.searchDocuments(context, {
         q: debouncedQuery || undefined,
         category: (category as 'personnel' | 'organization') || undefined,
         document_type: documentType || undefined,
-        owner_id: scope === 'mine' && myId ? myId : undefined,
+        owner_id: scope === 'mine' && myId && !inSharedFolder ? myId : undefined,
         owner_name: scope === 'visible' ? debouncedOwnerName || undefined : undefined,
         folder_id: everywhere ? undefined : (currentFolderId ?? 0),
         date_from: dateFrom || undefined,
@@ -425,6 +428,7 @@ export function DocumentLibraryView() {
     searchDepartmentId,
     searchEverywhere,
     isElevated,
+    folderTree,
   ])
 
   useEffect(() => {

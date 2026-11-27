@@ -122,7 +122,7 @@ describe('the tab is gated on the right the server reports', () => {
     const actions = read(`${COMPONENT_DIR}/product-sales-kit-actions.tsx`)
     assert.match(actions, /can\.edit && <DropdownMenuItem/)
     assert.match(actions, /can\.delete && <DropdownMenuItem/)
-    assert.match(actions, /if \(!can\.edit && !can\.delete\) return null/)
+    assert.match(actions, /if \(!share && !can\.edit && !can\.delete\) return null/)
   })
 })
 

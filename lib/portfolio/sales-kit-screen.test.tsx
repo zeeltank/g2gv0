@@ -72,14 +72,14 @@ describe('a manager', () => {
     const s = await shelf()
     const tile = s.entry('Fee collection one-pager')!
     await s.openMenu('More actions for Fee collection one-pager')
-    assert.deepEqual(s.menuItems(), ['Edit details', 'Remove'])
+    assert.deepEqual(s.menuItems(), ['Share link', 'Edit details', 'Remove'])
     assert.ok(tile)
   })
 
   it('gets only the menu items it has the right to: no Remove without the delete right, no Edit without the edit right', async () => {
     const noDelete = await shelf({ can: { ...ALL_RIGHTS, delete: false } })
     await noDelete.openMenu('More actions for Fee collection one-pager')
-    assert.deepEqual(noDelete.menuItems(), ['Edit details'])
+    assert.deepEqual(noDelete.menuItems(), ['Share link', 'Edit details'])
     await disposeAll()
     const noEdit = await shelf({ can: { ...ALL_RIGHTS, edit: false } })
     await noEdit.openMenu('More actions for Fee collection one-pager')

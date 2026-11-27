@@ -1,4 +1,4 @@
-import type { KitCounts, KitItem, KitKind, KitLibraryHit, KitLimits } from '@/services/product-master/kit-types'
+import type { KitCounts, KitItem, KitKind, KitLibraryHit, KitLimits, KitShare, KitShareDays } from '@/services/product-master/kit-types'
 
 /*
  * What the Sales Kit tab of a Product shows, as plain functions: the filter chips and their counts, the words for a kind and a file, the sizes, the one featured presentation and the
@@ -285,3 +285,84 @@ export function shareDecision(hit: Pick<KitLibraryHit, 'visibility' | 'ownedByMe
 
   return { canAdd: false, needsAgreement: false, makeShared: false, note: 'Only its owner can share it with your organisation. Ask them to share it, then add it here.' }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------- the public link
+
+/** The choices of "Link works for", in the order a person reads them. 0 is no expiry. */
+export const SHARE_DAY_CHOICES: ReadonlyArray<{ value: KitShareDays; label: string }> = [
+  { value: 7, label: '7 days' },
+  { value: 30, label: '30 days' },
+  { value: 90, label: '90 days' },
+  { value: 365, label: '1 year' },
+  { value: 0, label: 'No expiry' },
+]
+
+/** What a new link works for unless somebody chooses. */
+// The owner (27 Nov 2026) wants links that do not expire: a new link starts on No expiry. A manager may still pick 7 days, 30 days, 90 days or 1 year, and may stop a link or make a new one at any time.
+export const DEFAULT_SHARE_DAYS: KitShareDays = 0
+
+/** The address a customer opens: the origin of this site and the token, `/share/kit/<token>`. A slash at the end of the origin is dropped. */
+export const publicShareUrl = (origin: string, token: string): string => `${origin.replace(/\/+$/, '')}/share/kit/${encodeURIComponent(token)}`
+
+/** The deck key of an app path to a web deck (`/signals/portfolio/deck/scholarclone`), or null. */
+export function deckKeyOf(url: string | null | undefined): string | null {
+  const match = /^\/signals\/portfolio\/deck\/([a-z0-9-]{1,40})\/?$/.exec((url ?? '').trim())
+  return match ? match[1] : null
+}
+
+/**
+ * Whether an entry can have a public link: a file that is still in the Document Library, an address on the web (`https://`), or the interactive deck. Any other page inside the app needs
+ * a sign-in to open, so it cannot be made public. The server checks the same rule and answers 422 for the rest.
+ */
+export function canShare(item: Pick<KitItem, 'source' | 'missing' | 'url'>): boolean {
+  if (item.missing) return false
+  if (item.source === 'file') return true
+  const href = linkHref(item.url)
+  if (href === null) return false
+
+  return href.startsWith('/') ? deckKeyOf(href) !== null : true
+}
+
+/** The public link of an entry, or null. */
+export const shareOf = (item: Pick<KitItem, 'share'>): KitShare | null => item.share ?? null
+
+/** There is a link and it still opens. */
+export const isLiveShare = (item: Pick<KitItem, 'share'>): boolean => {
+  const share = shareOf(item)
+  return share !== null && !share.expired
+}
+
+/** The words on a card for an entry that has a link: "Shared", or "Link expired" when it has run out. Null when there is none. */
+export function shareMark(item: Pick<KitItem, 'share'>): string | null {
+  const share = shareOf(item)
+  return share === null ? null : share.expired ? 'Link expired' : 'Shared'
+}
+
+const dayText = (value: string | null | undefined): string | null => {
+  const day = new Date(`${(value ?? '').slice(0, 10)}T00:00:00`)
+  return Number.isNaN(day.getTime()) ? null : day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/** When a link stops, in words: "Works until 27 Dec 2026", "Never expires" or "Expired on 27 Dec 2026". */
+export function shareExpiryText(share: Pick<KitShare, 'expiresAt' | 'expired'>): string {
+  if (share.expiresAt === null) return share.expired ? 'Expired' : 'Never expires'
+  const date = dayText(share.expiresAt)
+  if (date === null) return share.expired ? 'Expired' : 'Works for a limited time'
+
+  return share.expired ? `Expired on ${date}` : `Works until ${date}`
+}
+
+/**
+ * Whether the person may make, renew or stop the link (the kit's edit right), and what the dialog should offer. A person who only looks sees a live link and can copy it, an expired one
+ * with the words to ask a manager, and nothing at all when there is none: the menu does not even draw "Share link" for them then.
+ */
+export function shareMode(item: Pick<KitItem, 'share'>, canEdit: boolean): 'create' | 'manage' | 'copy' | 'expired' | 'none' {
+  const share = shareOf(item)
+  if (share === null) return canEdit ? 'create' : 'none'
+  if (canEdit) return 'manage'
+
+  return share.expired ? 'expired' : 'copy'
+}
+
+/** The "Share link" menu item is there for a person who can make a link (and the entry can have one), or for anybody when a link already exists. */
+export const showShareLink = (item: Pick<KitItem, 'source' | 'missing' | 'url' | 'share'>, canEdit: boolean): boolean => canShare(item) && shareMode(item, canEdit) !== 'none'

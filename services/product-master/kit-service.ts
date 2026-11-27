@@ -1,5 +1,5 @@
 import { apiClient } from '@/services/core'
-import type { KitData, KitEnvelope, KitFileMeta, KitFromLibraryBody, KitItem, KitLibraryHit, KitLinkBody, KitUpdateBody } from './kit-types'
+import type { KitData, KitEnvelope, KitFileMeta, KitFromLibraryBody, KitItem, KitLibraryHit, KitLinkBody, KitShareDays, KitUpdateBody } from './kit-types'
 
 /** What the Sales Kit tab needs from the server. Components take this shape, so a test can hand them a fake. */
 export interface SalesKitApi {
@@ -18,6 +18,13 @@ export interface SalesKitApi {
   remove(productId: number, itemId: number): Promise<KitEnvelope<{ id: number }>>
   /** The file's bytes (a 404 for a link). `inline` asks for the file to be shown rather than saved. */
   fetchFile(productId: number, itemId: number, options?: { inline?: boolean }): Promise<Blob>
+  /**
+   * Makes the public link of an entry, or renews it: a new token, and the old link stops at once. `days` is how long it works (the server's default is 30; 0 is no expiry). The entry comes
+   * back with its `share`. A 422 says why it cannot be shared (a page inside the app, a file that is gone); a 503 says the server has no share link yet.
+   */
+  share(productId: number, itemId: number, body?: { days?: KitShareDays }): Promise<KitEnvelope<KitItem>>
+  /** Stops sharing. The entry comes back with `share: null`. Stopping a link that is already stopped is fine. */
+  stopSharing(productId: number, itemId: number): Promise<KitEnvelope<KitItem>>
 }
 
 const BASE = '/product-master'
@@ -48,4 +55,8 @@ export const salesKitService: SalesKitApi = {
   remove: (productId, itemId) => apiClient.delete(`${kitPath(productId)}/${enc(itemId)}`),
 
   fetchFile: (productId, itemId, options = {}) => apiClient.getBlob(`${kitPath(productId)}/${enc(itemId)}/download`, options.inline ? { inline: '1' } : undefined),
+
+  share: (productId, itemId, body = {}) => apiClient.post(`${kitPath(productId)}/${enc(itemId)}/share`, body.days === undefined ? {} : { days: body.days }),
+
+  stopSharing: (productId, itemId) => apiClient.delete(`${kitPath(productId)}/${enc(itemId)}/share`),
 }

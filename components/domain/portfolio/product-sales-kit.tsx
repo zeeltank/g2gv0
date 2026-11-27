@@ -17,6 +17,7 @@ import type { KitRun } from './product-sales-kit-actions'
 import { KitEditDialog, KitLinkDialog } from './product-sales-kit-forms'
 import { KitLibraryDialog } from './product-sales-kit-library'
 import { kitErrorText } from './product-sales-kit-parts'
+import { KitShareDialog } from './product-sales-kit-share'
 import { KitFeatured, KitTile } from './product-sales-kit-tile'
 import { KitUploadDialog } from './product-sales-kit-upload'
 import { KitVideoDialog } from './product-sales-kit-video'
@@ -58,6 +59,7 @@ export function ProductSalesKit({ productId, state, onReload, onRetry, service =
   const [linkOpen, setLinkOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [editing, setEditing] = useState<KitItem | null>(null)
+  const [sharing, setSharing] = useState<KitItem | null>(null)
   const [previewing, setPreviewing] = useState<KitItem | null>(null)
   const [playing, setPlaying] = useState<KitItem | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
@@ -149,7 +151,7 @@ export function ProductSalesKit({ productId, state, onReload, onRetry, service =
   const shelf = shelfOf(data.items, filter)
   const total = data.items.length
   const words = emptyText({ filter, canAdd: can.add, total })
-  const entry = (item: KitItem) => ({ item, can, fetcher, busy: busyId === item.id, onRun: run, onEdit: setEditing, onRemove: (target: KitItem) => void remove(target) })
+  const entry = (item: KitItem) => ({ item, can, fetcher, busy: busyId === item.id, onRun: run, onEdit: setEditing, onShare: setSharing, onRemove: (target: KitItem) => void remove(target) })
 
   return (
     <div className="relative space-y-4" {...drag}>
@@ -238,6 +240,7 @@ export function ProductSalesKit({ productId, state, onReload, onRetry, service =
       <KitUploadDialog batch={batch} limits={data.limits} productId={productId} service={service} onOpenChange={(open) => { if (!open) setBatch(null) }} onUploaded={(added) => saved(added === 1 ? 'Added 1 file to the Sales Kit.' : `Added ${added} files to the Sales Kit.`)} />
       <KitLinkDialog open={linkOpen} productId={productId} service={service} onOpenChange={setLinkOpen} onSaved={() => saved('Added the link to the Sales Kit.')} />
       <KitLibraryDialog open={libraryOpen} productId={productId} service={service} onOpenChange={setLibraryOpen} onSaved={() => saved('Added the document to the Sales Kit.')} />
+      <KitShareDialog item={sharing} canEdit={can.edit} productId={productId} service={service} onClose={() => setSharing(null)} onChanged={() => void onReload()} />
       <KitEditDialog item={editing} productId={productId} service={service} onClose={() => setEditing(null)} onSaved={() => saved('Saved.')} />
       <DocumentViewer
         open={previewing !== null}
