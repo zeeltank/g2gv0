@@ -32,8 +32,10 @@ describe('Product page routes', () => {
   it('the page has no ICP tab or editor (a product has no ICP of its own) and shows every stored offer detail', () => {
     const detail = read('components/domain/portfolio/product-detail-view.tsx')
     assert.doesNotMatch(detail, /ProductIcpEditor|panel-icp|key: 'icp'|show\('icp'\)/)
-    assert.match(detail, /<SubProductIcpBadge product=\{product\} \/>/)
+    // Owner, 27 Nov 2026: the Product page does not say "N of M sub-products have an ICP" (header or summary card). The setup steps keep their own sentence for the partial case.
+    assert.doesNotMatch(detail, /SubProductIcpBadge|icp-status-badge/)
     const panel = read('components/domain/portfolio/product-profile-panel.tsx')
+    assert.doesNotMatch(panel, /SubProductIcpBadge|icp-status-badge/)
     for (const f of ['Features and capabilities', 'Customer problems solved', 'Target customers', 'Buying events', 'Benefits and proof', 'Pricing model', 'Typical deal size', 'Delivery owner', 'Notes']) assert.ok(panel.includes(f), f)
     assert.match(panel, /portfolioService\.getOffer/)
   })

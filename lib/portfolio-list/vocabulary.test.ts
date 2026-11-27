@@ -20,6 +20,9 @@ const FILES = [
   'components/domain/portfolio/portfolio-list-chips.tsx', 'components/domain/portfolio/portfolio-more-menu.tsx', 'components/domain/portfolio/portfolio-matches.tsx',
   'components/domain/portfolio/portfolio-redirect.tsx',
   'lib/portfolio-list/model.ts', 'lib/portfolio-list/query.ts', 'lib/portfolio-list/import-template.ts', 'lib/portfolio-list/tones.ts', 'lib/portfolio-redirect.ts', 'lib/signals-nav.ts',
+  // the grid view (27 Nov 2026)
+  'components/domain/portfolio/portfolio-list-grid.tsx', 'components/domain/portfolio/portfolio-list-card.tsx', 'components/domain/portfolio/portfolio-layout-toggle.tsx',
+  'lib/portfolio-list/grid.ts', 'lib/portfolio-list/layout.ts',
 ]
 
 // A word is the word only when it is not part of a longer or hyphenated one: `items-center` (a class name) and `itemType` (an identifier) are not offences.
@@ -60,7 +63,7 @@ describe('the files of this track say Product and Sub-product, never Catalogue, 
 
   it('reads every file it lists', () => {
     for (const file of FILES) assert.ok(readFileSync(path.resolve(file), 'utf8').length > 100, `${file} is empty or missing`)
-    assert.equal(FILES.length, 19)
+    assert.equal(FILES.length, 24)
   })
 
   it('sees a retired word in a label, a sentence, an attribute and the text between tags, in either case', () => {

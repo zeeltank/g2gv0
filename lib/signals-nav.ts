@@ -267,6 +267,33 @@ function foldOutreachNav(modules: NavModule[]): ProductsFold {
   return { modules: mapNodes(modules, (node) => (isOutreachNode(node) ? null : node)), owners: {}, retired }
 }
 
+/*
+ * THE SALES KIT ROW IS THE RIGHTS ROW OF A TAB (27 Nov 2026). The Sales Kit is a tab of a Product's page, not a screen of its own, so there is nothing for the sidebar to open. Its menu ROW
+ * (`/portfolio/sales-kit`, a sibling of the Product Portfolio row) exists for Role & Permissions: it carries the four flags (view, add, edit, delete) that the tab reads from `meta.can`. It
+ * stays in the database with status 1, for the same reason as the rows above: a Role & Permissions save deletes the rights of every row that is not status 1. The sidebar does not DRAW it,
+ * here, in code. Market Signals owns its address when the person has that group (the Product Portfolio pages it belongs to are Market Signals'), and the address keeps resolving to
+ * itself for a person whose menu held the row. The row is found by its access_link, a leaf only (a row with children is never touched).
+ */
+const SALES_KIT_PATH = '/portfolio/sales-kit'
+
+const isSalesKitNode = (n: NavNode): boolean => n.children.length === 0 && linkOf(n) === SALES_KIT_PATH
+
+/**
+ * See the comment above `SALES_KIT_PATH`. Pure: the tree is not changed in place, and a branch that does not hold the row comes back as the same objects. `held` is whether the person's
+ * menu held the row BEFORE the Signals group was folded: the row is a sibling of the Product Portfolio row, so under Market Signals it is already gone by now (that group draws no
+ * children), and the address must still be claimed.
+ */
+function foldSalesKitNav(held: boolean, modules: NavModule[], ownersSoFar: Record<string, ActiveNav>): ProductsFold {
+  if (!held) return { modules, owners: {}, retired: [] }
+  const owner = ownersSoFar[PORTFOLIO_PATH]
+
+  return {
+    modules: locate(modules, isSalesKitNode) ? mapNodes(modules, (node) => (isSalesKitNode(node) ? null : node)) : modules,
+    owners: owner ? { [SALES_KIT_PATH]: owner } : {},
+    retired: [SALES_KIT_PATH],
+  }
+}
+
 const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
@@ -408,11 +435,13 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const merged = foldMergedAdminScreens(automationRules.modules)
   // Outreach, Outreach Approvals and the two SMS Notifiers are not drawn either (27 Nov 2026): the Outreach tab of Market Signals holds what they were for.
   const outreach = foldOutreachNav(merged.modules)
+  // The Sales Kit row is not drawn either (27 Nov 2026): it is the rights row of a tab of the Product page.
+  const salesKit = foldSalesKitNav(locate(modules, isSalesKitNode) !== null, outreach.modules, owners)
   return {
-    modules: outreach.modules,
+    modules: salesKit.modules,
     tabs: uniqueFound.length === 0 ? null : uniqueFound,
-    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners, ...outreach.owners },
-    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired, ...outreach.retired],
+    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners, ...outreach.owners, ...salesKit.owners },
+    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired, ...outreach.retired, ...salesKit.retired],
   }
 }
 

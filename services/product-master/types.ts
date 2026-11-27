@@ -118,6 +118,14 @@ export interface PmCan {
   archiveProduct: boolean
   restore: boolean
   restoreProduct: boolean
+  /**
+   * The Sales Kit tab of a Product, from the Sales Kit row of Role & Permissions: who sees it, adds to it, edits it and removes from it. Absent from a server that predates the
+   * Sales Kit (read as false), so a caller without the row never sees the tab.
+   */
+  kitView?: boolean
+  kitAdd?: boolean
+  kitEdit?: boolean
+  kitDelete?: boolean
 }
 
 export interface PmMeta {

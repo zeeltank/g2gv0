@@ -31,11 +31,13 @@ describe('contrast of the Product Portfolio list', () => {
 describe('the components of the Product Portfolio list keep to those looks (a scan, because the bug was a class string)', () => {
   const names = [
     'portfolio-list', 'portfolio-list-table', 'portfolio-list-toolbar', 'portfolio-list-chips', 'portfolio-more-menu', 'portfolio-matches', 'portfolio-redirect',
+    // the grid (27 Nov 2026): its chips come from chipClass(tone), and it obeys the same rules as the table
+    'portfolio-list-grid', 'portfolio-list-card', 'portfolio-layout-toggle',
   ]
   const files = names.map((name) => path.resolve('components/domain/portfolio', `${name}.tsx`))
 
   it('finds the components it scans', () => {
-    assert.equal(files.length, 7)
+    assert.equal(files.length, 10)
     for (const file of files) assert.ok(existsSync(file), `${file} exists`)
   })
 

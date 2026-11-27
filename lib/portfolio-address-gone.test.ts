@@ -210,7 +210,7 @@ describe('the old Products and Services components are gone, and no live route i
   // A live route is a page under app/ or an entry of a content map under hooks/ (the shell draws whatever those import). The screens of this track are scanned too.
   const live = () => [
     ...sourceFiles(ROOT, ['app', 'hooks']),
-    ...sourceFiles(ROOT, ['components/domain/portfolio']).filter((f) => /\/(portfolio-list|portfolio-more-menu|portfolio-matches|portfolio-redirect)/.test(f)),
+    ...sourceFiles(ROOT, ['components/domain/portfolio']).filter((f) => /\/(portfolio-list|portfolio-layout-toggle|portfolio-more-menu|portfolio-matches|portfolio-redirect)/.test(f)),
     ...sourceFiles(ROOT, ['lib/portfolio-list']).filter((f) => !/\.test\./.test(f)),
   ]
 
@@ -221,7 +221,7 @@ describe('the old Products and Services components are gone, and no live route i
 
   it('scans the files that matter, and sees an import in each spelling', () => {
     const files = live()
-    for (const expected of ['app/portfolio/page.tsx', 'hooks/content-map-crm.ts', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-redirect.tsx', 'app/module/crm/sales/products/[id]/page.tsx']) {
+    for (const expected of ['app/portfolio/page.tsx', 'hooks/content-map-crm.ts', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-list-grid.tsx', 'components/domain/portfolio/portfolio-layout-toggle.tsx', 'components/domain/portfolio/portfolio-redirect.tsx', 'app/module/crm/sales/products/[id]/page.tsx']) {
       assert.ok(files.includes(expected), `${expected} is not scanned`)
     }
     for (const line of [
