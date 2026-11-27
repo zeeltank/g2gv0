@@ -63,6 +63,7 @@ import { usePosterDownload } from './poster-menu'
 import { POSTER_FORMATS, POSTER_FORMAT_LABELS } from '@/lib/poster'
 import { recruitmentService } from '@/services/talent'
 import { InterviewToolsDrawer } from './interview-tools-drawer'
+import { RecruitmentSignalsTab } from './recruitment-signals-tab'
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
@@ -119,7 +120,7 @@ function getStageVariant(stage: CandidateStage): 'default' | 'active' | 'inactiv
 // -------------------------------------------------------------------
 // Tab type
 // -------------------------------------------------------------------
-type MainTab = 'requisitions' | 'job-openings' | 'candidates' | 'interviews' | 'offers'
+type MainTab = 'requisitions' | 'job-openings' | 'candidates' | 'interviews' | 'offers' | 'signals'
 type CandidateView = 'kanban' | 'table' | 'calendar'
 
 /**
@@ -131,7 +132,7 @@ type CandidateView = 'kanban' | 'table' | 'calendar'
  * the user is here their own clicks own the state, and re-applying the param on
  * every render would reopen a drawer they had just closed.
  */
-const DEEP_LINK_TABS: MainTab[] = ['requisitions', 'job-openings', 'candidates', 'interviews', 'offers']
+const DEEP_LINK_TABS: MainTab[] = ['requisitions', 'job-openings', 'candidates', 'interviews', 'offers', 'signals']
 const DEEP_LINK_ACTIONS: RecruitmentAction[] = ['job', 'candidate', 'interview', 'offer']
 
 function readDeepLinkTab(value: string | null): MainTab | null {
@@ -258,6 +259,7 @@ export function RecruitmentCenter() {
     { id: 'candidates', label: 'Candidates' },
     { id: 'interviews', label: 'Interviews' },
     { id: 'offers', label: 'Offers' },
+    { id: 'signals', label: 'Signals' },
   ]
 
   // Filtered candidates
@@ -393,7 +395,7 @@ export function RecruitmentCenter() {
         </div>
       </div>
 
-      {activeTab !== 'candidates' && (
+      {activeTab !== 'candidates' && activeTab !== 'signals' && (
         <div className="mb-4 flex items-center gap-2">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -412,8 +414,8 @@ export function RecruitmentCenter() {
         </div>
       )}
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      {/* KPI Row (the Signals tab has its own screens, so the hiring KPIs are not repeated above them) */}
+      <div className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6', activeTab === 'signals' && 'hidden')}>
         <KpiCard icon={FileText} label="Open Requisitions" value={requisitions.filter((item) => item.status === 'Open').length} subtitle={`${requisitions.length} total`} />
         <KpiCard icon={Briefcase} label="Open Positions" value={jobs.filter((item) => item.status === 'Open').length} subtitle={`${jobs.length} job postings`} />
         <KpiCard icon={Users} label="Applications" value={candidates.length} subtitle={`${stageCounts.Applied} newly applied`} subtitleColor="text-success" />
@@ -438,6 +440,9 @@ export function RecruitmentCenter() {
           </button>
         ))}
       </div>
+
+      {/* TAB: Signals - the existing Market Signals, Ingestion Engine and Product Portfolio screens, reused as they are */}
+      {activeTab === 'signals' && <RecruitmentSignalsTab />}
 
       {/* TAB: Candidates */}
       {activeTab === 'candidates' && (
