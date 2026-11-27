@@ -16,6 +16,7 @@ import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { configureHref, normalizeProductKey } from '@/lib/product-selection'
 import { createLatestOnly } from '@/lib/signal-run-view'
+import { gridCards, gridSortNote, gridSortValue, parseGridSort } from '@/lib/portfolio-list/grid'
 import { displayItems, listScreenState, matchesToReview, mayTickRow, mergeBulkAnswers, planBulk, SELL_ACTIONS_NOTE, sellActionsFit, type ListScreenState, type RowAction } from '@/lib/portfolio-list/model'
 import { moveActionShown } from '@/lib/portfolio/removal-model'
 import { clearFiltersPatch, effectiveSort, isNarrowed, listRequest, PORTFOLIO_QUERY, productIdOf, type SortKey } from '@/lib/portfolio-list/query'
@@ -24,8 +25,10 @@ import { ApiError } from '@/services/core'
 import type { CrmBulkActionResponse } from '@/types/crm'
 import { portfolioListService } from '@/services/product-master/portfolio-list-service'
 import { productRecordService } from '@/services/product-master/record-service'
-import type { MatchesData, PortfolioCan, PortfolioItemType, PortfolioListEnvelope, PortfolioRow } from '@/services/product-master/portfolio-list-types'
+import type { MatchesData, PortfolioCan, PortfolioItemType, PortfolioListEnvelope, PortfolioListQuery, PortfolioRow } from '@/services/product-master/portfolio-list-types'
 import { MoveSubProductsDialog, type MoveSubject } from './move-sub-products-dialog'
+import { PortfolioLayoutToggle, usePortfolioLayout } from './portfolio-layout-toggle'
+import { GridSortSelect, PortfolioGridSkeleton, PortfolioListGrid } from './portfolio-list-grid'
 import { MatchesBanner, MatchesReview } from './portfolio-matches'
 import { ProductFormDrawer, type ProductFormMode } from './product-form-drawer'
 import { PortfolioListTable } from './portfolio-list-table'
@@ -50,6 +53,9 @@ const errorText = (cause: unknown, fallback: string) => (cause instanceof ApiErr
  *
  * What a person sees follows what the API sent: the SKU, price, category, stock and Sold in CRM columns, the Sold in CRM filter and the bulk bar are drawn only
  * for a caller who may view Sell (`meta.can.viewSell`); the pair review only for an administrator (`meta.can.confirmMatches`).
+ *
+ * The same page can be drawn two ways (27 Nov 2026): the List (the default, a table) or the Grid (one card for each Product, with its Sub-products inside it). The choice is in
+ * the address (`?layout=grid`) and remembered by the browser; the search, filters, sort, page and ticked rows are the same in both, so switching only changes how the rows are drawn.
  */
 export function PortfolioList({ canManage, embedded = false }: { canManage: boolean; embedded?: boolean }) {
   const { query, setQuery, setSearch, setPage, setFilter, toggleSort } = useListQuery(PORTFOLIO_QUERY)
@@ -79,7 +85,12 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
     if (oldKey !== '') router.replace(configureHref(oldKey))
   }, [oldKey, router])
 
-  const request = useMemo(() => listRequest(query), [query])
+  // The layout is in the address too, so switching it gives `query` a new identity. The request is rebuilt only when its CONTENT changes (and when the pair review is opened or
+  // closed, as before), so List | Grid neither reads the page again nor drops the ticked rows.
+  const { layout, setLayout } = usePortfolioLayout()
+  const grid = layout === 'grid'
+  const requestKey = JSON.stringify([listRequest(query), query.filters.view])
+  const request = useMemo(() => (JSON.parse(requestKey) as [PortfolioListQuery, string])[0], [requestKey])
   const can = data?.meta.can ?? NOTHING
   const showMatches = query.filters.view === 'matches'
 
@@ -153,7 +164,9 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
     : listScreenState({ loaded: data !== null, error: data === null && error ? error.text : '', available: data?.meta.available ?? true, rows: data?.data.length ?? 0, narrowed })
   const rows = useMemo(() => data?.data ?? [], [data])
   const items = useMemo(() => displayItems(rows, query.page), [rows, query.page])
+  const cards = useMemo(() => (grid ? gridCards(items, can) : []), [grid, items, can])
   const sort: SortKey = effectiveSort(query, can.viewSell)
+  const onGridSort = useCallback((value: string) => setQuery(parseGridSort(value, can.viewSell)), [setQuery, can.viewSell])
   const itemType: PortfolioItemType = query.filters.type === 'service' ? 'service' : 'product'
   const pending = matchesToReview(matches).length
 
@@ -310,11 +323,15 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
             onSearch={setSearch}
             onFilter={setFilter}
             onClear={clear}
-          />
+          >
+            {grid && <GridSortSelect value={gridSortValue(sort, query.dir, can.viewSell)} canViewSell={can.viewSell} onChange={onGridSort} />}
+            <PortfolioLayoutToggle value={layout} onChange={setLayout} />
+          </PortfolioListToolbar>
 
           {error && data !== null && <p role="alert" className={`rounded-lg border p-2.5 text-sm ${BANNER_TONE.error}`}>{error.text}</p>}
 
-          {screen === 'loading' && (
+          {screen === 'loading' && grid && <PortfolioGridSkeleton />}
+          {screen === 'loading' && !grid && (
             <div role="status" className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card p-10 text-sm text-muted-foreground">Loading…</div>
           )}
           {screen === 'error' && <ErrorState title="The portfolio could not be loaded" description={error?.text} retry={() => void load()} />}
@@ -331,20 +348,36 @@ export function PortfolioList({ canManage, embedded = false }: { canManage: bool
 
           {screen === 'ready' && data && (
             <div className="space-y-3">
-              <PortfolioListTable
-                items={items}
-                can={can}
-                sort={sort}
-                dir={query.dir}
-                onSort={toggleSort}
-                selected={selected}
-                onToggle={toggle}
-                onToggleAll={toggleAll}
-                canAddSubProduct={can.createSubProduct}
-                onAddSubProduct={(productId) => setDrawer({ mode: 'create-sub-product', defaultProductId: productId })}
-                onRowAction={onRowAction}
-                busy={loading}
-              />
+              {grid
+                ? (
+                  <PortfolioListGrid
+                    cards={cards}
+                    can={can}
+                    selected={selected}
+                    onToggle={toggle}
+                    onToggleAll={toggleAll}
+                    onAddSubProduct={(productId) => setDrawer({ mode: 'create-sub-product', defaultProductId: productId })}
+                    onRowAction={onRowAction}
+                    busy={loading}
+                    sortNote={gridSortNote(sort)}
+                  />
+                )
+                : (
+                  <PortfolioListTable
+                    items={items}
+                    can={can}
+                    sort={sort}
+                    dir={query.dir}
+                    onSort={toggleSort}
+                    selected={selected}
+                    onToggle={toggle}
+                    onToggleAll={toggleAll}
+                    canAddSubProduct={can.createSubProduct}
+                    onAddSubProduct={(productId) => setDrawer({ mode: 'create-sub-product', defaultProductId: productId })}
+                    onRowAction={onRowAction}
+                    busy={loading}
+                  />
+                )}
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                 <span>{data.meta.total} {data.meta.total === 1 ? 'result' : 'results'}</span>
                 <div className="flex items-center gap-2">

@@ -36,7 +36,7 @@ describe('every page of the Product Portfolio and of Market Signals is full widt
 
   it('scans the page frames (a rename that hides one from this scan fails here)', () => {
     const names = all.map((f) => relative(ROOT, f).replace(/\\/g, '/'))
-    for (const must of ['components/domain/portfolio/product-detail-view.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/sub-product-page.tsx', 'components/domain/signals/signals-frame.tsx', 'app/portfolio/page.tsx']) {
+    for (const must of ['components/domain/portfolio/product-detail-view.tsx', 'components/domain/portfolio/portfolio-list.tsx', 'components/domain/portfolio/portfolio-list-grid.tsx', 'components/domain/portfolio/portfolio-list-card.tsx', 'components/domain/portfolio/portfolio-layout-toggle.tsx', 'components/domain/portfolio/sub-product-page.tsx', 'components/domain/signals/signals-frame.tsx', 'app/portfolio/page.tsx']) {
       assert.ok(names.includes(must), `${must} is scanned`)
     }
   })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/shared/scaffolds/form-field'
 import { ListSearch } from '@/components/shared/scaffolds/list-search'
@@ -23,8 +23,9 @@ function Facet({ label, value, choices, onChange }: { label: string; value: stri
 /**
  * The search and the five filters (Product, Type, Sold in CRM, Readiness, Status), kept in the address by the screen around it. They wrap, so a narrow screen
  * never scrolls sideways. "Sold in CRM" is drawn only for a caller who may open the Products screen (the mock-up shows it to no one else).
+ * `children` (the List | Grid switch, and the grid's Sort) are drawn at the end of the same row, pushed to its right edge.
  */
-export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell, narrowed, onSearch, onFilter, onClear }: {
+export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell, narrowed, onSearch, onFilter, onClear, children }: {
   query: ListQuery
   lines: ReadonlyArray<{ id: number; name: string }>
   readinessWords: readonly string[]
@@ -33,6 +34,7 @@ export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell
   onSearch: (q: string) => void
   onFilter: (name: string, value: string) => void
   onClear: () => void
+  children?: ReactNode
 }) {
   const f = query.filters
   return (
@@ -47,6 +49,7 @@ export function PortfolioListToolbar({ query, lines, readinessWords, canViewSell
       <Facet label="Status" value={f.status} choices={STATUS_CHOICES} onChange={(v) => onFilter('status', v)} />
       <Facet label="Page size" value={f.per} choices={PER_PAGE_LABELS} onChange={(v) => onFilter('per', v)} />
       {narrowed && <Button type="button" variant="outline" onClick={onClear}>Clear filters</Button>}
+      {children && <div className="ml-auto flex flex-wrap items-end gap-3">{children}</div>}
     </div>
   )
 }

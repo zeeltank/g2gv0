@@ -73,6 +73,11 @@ export function displayItems(rows: readonly PortfolioRow[], page: number): Displ
   return out
 }
 
+/** Where a row opens: a Product its own page (`/portfolio/{key}`), a Sub-product the page of the record (`/portfolio/products/{id}`). Shared by the table and the grid. */
+export function rowHref(row: Pick<PortfolioRow, 'kind' | 'key' | 'id'>): string {
+  return row.kind === 'product' ? `/portfolio/${encodeURIComponent(row.key)}` : `/portfolio/products/${row.id}`
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------- words
 
 /** The Sell state in words. A record in the Recycle Bin says so, because that is where a person goes to bring it back. */

@@ -7,17 +7,15 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { formatMoney, formatQuantity, mayTickRow, productTotal, rowActions, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
+import { formatMoney, formatQuantity, mayTickRow, productTotal, rowActions, rowHref, sellKeysPresent, whyNoTick, type DisplayItem, type GroupHeader, type RowAction } from '@/lib/portfolio-list/model'
 import type { SortKey } from '@/lib/portfolio-list/query'
 import { GROUP_ROW } from '@/lib/portfolio-list/tones'
 import type { PortfolioCan, PortfolioRow } from '@/services/product-master/portfolio-list-types'
 import { Money } from './currency-badge'
 import { ArchivedChip, IcpChip, ProductChip, ReadinessChip, ServiceChip, SharedChip, StateChip } from './portfolio-list-chips'
 
-/** Where a row opens: a Product its own page (`/portfolio/{key}`), a Sub-product the page of the record (`/portfolio/products/{id}`). */
-export function rowHref(row: Pick<PortfolioRow, 'kind' | 'key' | 'id'>): string {
-  return row.kind === 'product' ? `/portfolio/${encodeURIComponent(row.key)}` : `/portfolio/products/${row.id}`
-}
+// The address of a row now lives with the other pure rules (the grid opens the same pages); it is re-exported so nothing that imported it from here breaks.
+export { rowHref }
 
 function SortHead({ label, sortKey, active, dir, onSort, className }: {
   label: string
@@ -43,7 +41,7 @@ function SortHead({ label, sortKey, active, dir, onSort, className }: {
 export type RowActionHandler = (row: PortfolioRow, action: RowAction) => void
 
 /** The "..." menu of a row: Move to another Product and Delete for a Sub-product, Delete product for a Product. Not drawn when the person may do neither. */
-function RowMenu({ row, can, onAction }: { row: PortfolioRow; can: PortfolioCan; onAction: RowActionHandler }) {
+export function RowMenu({ row, can, onAction }: { row: PortfolioRow; can: PortfolioCan; onAction: RowActionHandler }) {
   const actions = rowActions(row, can)
   if (actions.length === 0) return null
   return (
@@ -76,7 +74,7 @@ function SellValue({ row, value }: { row: PortfolioRow; value: ReactNode }) {
 }
 
 /** A Product's total (S16): the first currency's price with its tax, and "+1 more" when the Sub-products are priced in other currencies too (the sentence names them for a screen reader). */
-function ProductTotal({ row }: { row: PortfolioRow }) {
+export function ProductTotal({ row }: { row: PortfolioRow }) {
   const total = productTotal(row)
   if (total === null) return null
   const { first, more } = total

@@ -1,4 +1,5 @@
 import { adminRows, ADMIN_CAN, envelope, matchesData } from './fixtures'
+import { LAYOUT_STORAGE_KEY } from './layout'
 import { MENU_ROWS, menuOf, screenKit, type Call } from './screen-kit'
 import type { MatchesData, PortfolioCan, PortfolioListEnvelope, PortfolioRow } from '../../services/product-master/portfolio-list-types'
 
@@ -23,6 +24,10 @@ export interface SetupOptions {
   /** The whole-list total the fake reports, when more than `rows` (paging tests). */
   total?: number
   lastPage?: number
+  /** The List | Grid choice this browser remembered before the page opened (the address may still override it). Absent: nothing remembered, whatever an earlier test left. */
+  remembered?: string
+  /** Runs after the fake browser exists and before the page is drawn: a test that needs the browser's storage to refuse, for one. */
+  beforeMount?: (w: Window & typeof globalThis) => void
 }
 
 export const LINES = [{ id: 1, key: 'scholarclone', name: 'ScholarClone' }, { id: 2, key: 'g2g', name: 'G2G' }]
@@ -56,6 +61,10 @@ export async function setup(opts: SetupOptions = {}) {
       return undefined
     },
   })
+  // A remembered layout from an earlier test in this file must not leak into this one: the fake browser (and its storage) lives as long as the test process.
+  sk.k.w.localStorage.removeItem(LAYOUT_STORAGE_KEY)
+  if (opts.remembered !== undefined) sk.k.w.localStorage.setItem(LAYOUT_STORAGE_KEY, opts.remembered)
+  opts.beforeMount?.(sk.k.w)
   const { PortfolioList } = await import('../../components/domain/portfolio/portfolio-list')
   await sk.mount(sk.k.h(PortfolioList, { canManage: opts.canManage ?? true, embedded: opts.embedded }))
 

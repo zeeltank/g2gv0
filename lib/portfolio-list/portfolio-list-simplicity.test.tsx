@@ -74,17 +74,35 @@ describe('three actions in the header, the rest under More', () => {
   })
 })
 
-describe('one list, no second view', () => {
+// CHANGED ON PURPOSE (27 Nov 2026). This block used to be "one list, no second view": the owner's 23 Nov decision, made against the live Products screen with its Catalogue |
+// Product lines switch. He then asked for a filterable GRID of cards on this same list, which reverses "no second view" for exactly one switch: List | Grid, over the SAME
+// rows, the same filters, sort, page and ticks (the grid's own tests are in portfolio-list-grid.test.tsx). Everything else this block protected still holds: the list is
+// the default, there are no tabs or radios, none of the retired switch words, no Views or Refresh, the filters are the same six in one wrapping row, and in list mode
+// the page is one table and shows no Sort select (the column headings are the list's sort).
+describe('one list by default, with one List | Grid switch over the same rows', () => {
   let current: Awaited<ReturnType<typeof setup>> | null = null
   afterEach(async () => { current?.restore(); current = null; await disposeAll() })
 
-  it('has no switch between two views: no tabs, no radio group, no Catalogue | Product lines toggle, no Views, no Refresh', async () => {
+  it('has one switch between the list and the grid, as two pressed-or-not buttons (not tabs or radios), and none of the old view switches: no Catalogue | Product lines toggle, no Views, no Refresh', async () => {
     current = await setup()
     const { k, text } = current
     assert.equal(k.all('[role="tablist"], [role="tab"], [role="radiogroup"], [role="radio"]').length, 0, 'no tab or radio switch on the page')
     for (const word of ['Catalogue', 'Product lines', 'Product line', 'Views', 'View', 'Refresh', 'Saved views']) assert.ok(!k.all('button, a, [role="tab"]').some((el) => el.textContent?.trim() === word), `no ${word} control`)
     assert.ok(!RETIRED.test(text()), `no retired word on the page: ${text().match(RETIRED)?.[0]}`)
+    const group = k.one('[role="group"][aria-label="Layout"]')
+    assert.ok(group, 'the one switch')
+    assert.deepEqual(Array.from(group!.querySelectorAll('button')).map((b) => [b.textContent?.trim(), b.getAttribute('aria-pressed')]), [['List', 'true'], ['Grid', 'false']], 'List and Grid, and the list is the one that is on')
+    assert.equal(k.all('[role="group"]').filter((g) => g.querySelectorAll('button[aria-pressed]').length > 0).length, 1, 'and it is the only such switch')
     assert.equal(k.all('table').length, 1, 'one table: Products with their Sub-products under them')
+    assert.equal(k.all('[data-card]').length, 0, 'and no cards: the grid is drawn only when it is asked for')
+  })
+
+  it('puts the switch after the filters, in the same row, so the header keeps its three actions', async () => {
+    current = await setup()
+    const { k } = current
+    const toolbar = k.all('select')[0].closest('div.flex-wrap')!
+    assert.ok(toolbar.querySelector('[role="group"][aria-label="Layout"]'), 'the switch is in the filters\' row')
+    assert.equal(k.one('header')!.querySelector('[role="group"]'), null, 'and not in the header')
   })
 
   it('puts the filters in one row that wraps: Product, Type, Sold in CRM, Readiness, Status and the page size, after the search', async () => {
@@ -94,7 +112,7 @@ describe('one list, no second view', () => {
     const toolbar = selects[0].closest('div.flex-wrap')!
     for (const select of selects) assert.equal(select.closest('div.flex-wrap'), toolbar, 'every filter is in the same wrapping row')
     const labels = selects.map((s) => k.w.document.querySelector(`label[for="${s.id}"]`)?.textContent)
-    assert.deepEqual(labels, ['Product', 'Type', 'Sold in CRM', 'Readiness', 'Status', 'Page size'])
+    assert.deepEqual(labels, ['Product', 'Type', 'Sold in CRM', 'Readiness', 'Status', 'Page size'], 'in list mode there is no Sort select: the column headings sort the list')
     assert.ok(toolbar.querySelector('input'), 'the search is in the same row')
   })
 
@@ -117,7 +135,7 @@ describe('the same list inside Market Signals (the Product Portfolio tab) and on
     current = await setup({ embedded: true })
     assert.equal(current.k.all('h1').length, 0, 'no second title under the Signals header')
     assert.ok(current.text().includes('Every product and the sub-products under it'), 'the description stays')
-    assert.deepEqual(Array.from(current.k.all('button')).map((b) => b.textContent?.trim()).slice(0, 3), ['More', 'Add product', 'Add sub-product'], 'and so do the three actions, first on the page')
+    assert.deepEqual(Array.from(current.k.all('button')).map((b) => b.textContent?.trim()).slice(0, 3), ['More', 'Add product', 'Add sub-product'], 'and so do the three actions, first on the page (the List | Grid switch sits further down, with the filters)')
     assert.equal(current.k.all('tr[data-group]').length >= 3, true, 'and the same list is under it')
   })
 })
