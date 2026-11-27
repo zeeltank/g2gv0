@@ -17,7 +17,8 @@ import type { RowActionHandler } from './portfolio-list-table'
  * The columns come from the width of the grid's own box, not of the window (a container query), so it fits the Market Signals tab with its sidebar the same as a
  * full-width page: one column on a phone, two, three and four as the box widens.
  */
-const COLUMNS = 'grid grid-cols-1 gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4'
+// `items-start`: a card is as tall as what it holds. Stretching every card to the tallest one of its row left a Product with no sub-products as a tall box with a gap in the middle.
+const COLUMNS = 'grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4'
 
 export function PortfolioListGrid({ cards, can, selected, onToggle, onToggleAll, onAddSubProduct, onRowAction, busy, sortNote }: {
   cards: GridCard[]
