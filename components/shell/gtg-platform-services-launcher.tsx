@@ -33,6 +33,7 @@ import type { LucideIcon } from 'lucide-react'
 import { AI_CAPABILITIES } from '@shared/ai-intelligence-core'
 import { PLATFORM_MENU_SECTION } from '@shared/platform-services-core'
 import { platformServiceIcon } from '@/lib/platform/icons'
+import { SIGNALS_TABS } from '@/lib/signals-nav'
 import { usePlatformDestination } from '@/hooks/use-platform-destination'
 import { useCapabilityDestination } from '@/hooks/use-capability-destination'
 import { usePlatformServicesAccess } from '@/hooks/use-platform-services-access'
@@ -104,7 +105,7 @@ function useMenuSections(): MenuSection[] {
   const resolveService = usePlatformDestination()
   const resolveCapability = useCapabilityDestination()
   const access = usePlatformServicesAccess()
-  const { resolveAccessLink } = useSidebarNavigation()
+  const { resolveAccessLink, signalsTabs } = useSidebarNavigation()
 
   const isServiceVisible = (service: PlatformService): boolean => {
     switch (service.slug) {
@@ -215,6 +216,23 @@ function useMenuSections(): MenuSection[] {
         href: resolveAccessLink(screen.accessLink),
         badge: undefined,
       })),
+    },
+    {
+      /*
+       * THE SIGNAL GENERATION ENGINE: the Signals screens (Market Signals, Ingestion Engine, Product Portfolio; Outreach is left out on purpose), listed directly like Agent Management above (they are G2G
+       * module screens, not a cross-product capability, so the shared registry is left untouched). Shown only to a person whose own menu already contains Signals
+       * (`signalsTabs` is null when it does not); the screens' own backend checks apply either way.
+       */
+      label: 'Signal engine',
+      items: signalsTabs === null
+        ? []
+        : SIGNALS_TABS.filter((tab) => tab.key !== 'outreach').map((tab) => ({
+          id: `signals.${tab.key}`,
+          label: tab.label,
+          icon: undefined,
+          href: tab.route as string,
+          badge: undefined,
+        })),
     },
   ].filter((column) => column.items.length > 0)
 

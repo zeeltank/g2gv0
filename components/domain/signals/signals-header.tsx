@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { OUTREACH_TAB, visibleSignalsTabs, type SignalsTabKey } from '@/lib/signals-nav'
+import { visibleSignalsTabs, type SignalsTabKey } from '@/lib/signals-nav'
 
 /**
  * The top of every Signals screen: the title, one line of guidance, and the four Signals screens as tabs. Each tab is a link to that screen's own
@@ -11,7 +11,7 @@ import { OUTREACH_TAB, visibleSignalsTabs, type SignalsTabKey } from '@/lib/sign
  */
 export function SignalsHeader({ active, className = '' }: { active?: SignalsTabKey | string; className?: string }) {
   const { signalsTabs } = useSidebarNavigation()
-  const tabs = [...visibleSignalsTabs(signalsTabs), OUTREACH_TAB]
+  const tabs = visibleSignalsTabs(signalsTabs)
 
   return (
     <header className={`premium-hero space-y-3 px-4 py-3 @xl:px-6 ${className}`}>
