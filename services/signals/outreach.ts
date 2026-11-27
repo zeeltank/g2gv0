@@ -31,7 +31,10 @@ export interface OutreachApi {
 
 const BASE = '/signals/outreach'
 
-/** Query values as strings; a missing value is left out entirely so the server applies no filter, and `all` is never sent. */
+/**
+ * Query values as strings; a missing value is left out entirely so the server applies no filter, and `all` is never sent. The four filters (`product`, `sub_product`, `icp`,
+ * `region`) go the same way: each is sent only when it holds a value, so an unset filter never reaches the server as an empty one.
+ */
 export function outreachQueryParams(query: OutreachListQuery): Record<string, string> {
   const params: Record<string, string> = {}
   for (const [key, value] of Object.entries(query)) {

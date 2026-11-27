@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { disposeAll } from '../scaffolds/dom-test-kit'
-import { screenKit } from '../facts/screen-kit'
+import { screenKit, type Responder } from '../facts/screen-kit'
 import { gateAnswer, wireChecks } from '../outreach/fixtures'
 import type { GateApi } from '../../services/outreach/gate-service'
 import type { OutreachApi } from '../../services/signals/outreach'
@@ -23,11 +23,12 @@ export async function cleanup() {
   for (const screen of live.splice(0)) screen.restore()
 }
 
-export async function outreachKit(options: { search?: string; pathname?: string; overrides?: Partial<OutreachApi> } = {}) {
+/** `respond` answers the calls the screens make outside the Outreach API (the Messages queue reads the GTM API): a test that mounts the real queue gives it the answers. */
+export async function outreachKit(options: { search?: string; pathname?: string; overrides?: Partial<OutreachApi>; respond?: Responder } = {}) {
   const screen = await screenKit({
     search: options.search ?? '',
     pathname: options.pathname ?? '/signals/outreach',
-    respond: (call) => (call.path.endsWith('/table_data') ? EMPLOYEES : undefined),
+    respond: (call) => (call.path.endsWith('/table_data') ? EMPLOYEES : options.respond?.(call)),
   })
   live.push(screen)
   const { k } = screen
@@ -73,6 +74,29 @@ export async function outreachKit(options: { search?: string; pathname?: string;
     await press(k.one(`[role="combobox"][aria-label="${name}"]`))
     await press(k.all('[role="option"]').find((o) => o.textContent?.includes(option)))
   }
+  /** The four filters' selects are the shared Select: it commits an option on pointer down, not on click. Opens the list of one by its name and chooses an option by its words. */
+  const pick = async (name: string, optionText: string) => {
+    await press(k.one(`[role="combobox"][aria-label="${name}"]`))
+    const list = k.all('[role="listbox"]').filter((el) => el.getAttribute('aria-label') === name).pop()
+    assert.ok(list, `the list of ${name} is open`)
+    const option = Array.from(list.querySelectorAll('[role="option"]')).find((o) => o.textContent?.trim() === optionText) as HTMLElement | undefined
+    assert.ok(option, `${optionText} is among the choices of ${name}: ${Array.from(list.querySelectorAll('[role="option"]')).map((o) => o.textContent?.trim()).join(' | ')}`)
+    await k.act(async () => { option.dispatchEvent(new k.w.Event('pointerdown', { bubbles: true, cancelable: true })) })
+    // The closed list stays in the page for 150 ms (its fade); wait it out so a later reading of the page does not see options that are no longer offered.
+    await k.tick(200)
+  }
+  /** What a filter's select shows as its choice. */
+  const shown = (name: string) => k.one(`[role="combobox"][aria-label="${name}"]`)?.textContent?.trim() ?? null
+  /** The words of every option a filter's select offers, read by opening it and closing it again. */
+  const optionsOf = async (name: string) => {
+    await press(k.one(`[role="combobox"][aria-label="${name}"]`))
+    const list = k.all('[role="listbox"]').filter((el) => el.getAttribute('aria-label') === name).pop()
+    assert.ok(list, `the list of ${name} is open`)
+    const words = Array.from(list.querySelectorAll('[role="option"]')).map((o) => o.textContent?.trim() ?? '')
+    await k.press('Escape', k.one(`[role="combobox"][aria-label="${name}"]`)!)
+    await k.tick(200)
+    return words
+  }
   const openMenu = async (name = 'More actions') => {
     const trigger = k.one(`button[aria-label="${name}"]`)
     assert.ok(trigger, 'the menu button exists')
@@ -81,5 +105,5 @@ export async function outreachKit(options: { search?: string; pathname?: string;
   }
   const menuItem = (text: string) => k.all('[role="menuitem"]').find((item) => item.textContent?.trim() === text)
 
-  return { ...screen, fake, calls: fake.calls, service: fake.service, gate, gateCalls, submit, submitted, messageDeps, mount, settle, press, type, rowOf, chip, button, dialog, confirmDialog, field, choose, openMenu, menuItem }
+  return { ...screen, fake, calls: fake.calls, service: fake.service, gate, gateCalls, submit, submitted, messageDeps, mount, settle, press, type, rowOf, chip, button, dialog, confirmDialog, field, choose, pick, shown, optionsOf, openMenu, menuItem }
 }

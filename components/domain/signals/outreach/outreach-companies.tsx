@@ -12,15 +12,17 @@ import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
 import { leadHref } from '@/lib/signals/lead-action'
-import { INITIAL_OUTREACH_STATE, NO_VALUE, outreachCompanyHref, outreachQuery, withChange, type OutreachListState, type OutreachSortKey } from '@/lib/signals/outreach-model'
+import { filtersKey, INITIAL_OUTREACH_STATE, listPage, NO_VALUE, outreachCompanyHref, outreachQuery, withChange, type FilterKey, type OutreachListState, type OutreachSortKey } from '@/lib/signals/outreach-model'
 import { cn } from '@/lib/utils'
 import { outreachService, type OutreachApi } from '@/services/signals/outreach'
 import type { OutreachCompany, OutreachPerson } from '@/services/signals/outreach-types'
 import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
 import { AddCompanyDialog } from './add-company-dialog'
 import { OutreachBulkBar } from './outreach-bulk-bar'
+import { OutreachFilterBar } from './outreach-filter-bar'
 import { errorText, lastContactedText, NoticeBar, OutreachChips, Pager, SearchBox, SortHead, type OutreachNotice } from './outreach-parts'
 import { ReachChip } from './reach-chip'
+import { useOutreachFilters } from './use-outreach-filters'
 import { useOutreachList } from './use-outreach-list'
 import { WriteMessageDialog, type MessageDeps } from './write-message-dialog'
 
@@ -46,7 +48,8 @@ export function OutreachCompanies({ service = outreachService, listState, action
   const context = useMemo(() => getLaravelContext(), [])
   const ownState = useState<OutreachListState>(INITIAL_OUTREACH_STATE)
   const [state, setState] = listState ?? ownState
-  const query = useMemo(() => outreachQuery(state), [state])
+  const { filters, active: filtersOn, set: setFilters, clear: clearFilters } = useOutreachFilters()
+  const query = useMemo(() => outreachQuery(state, {}, filters), [state, filters])
   const list = useOutreachList<OutreachCompany>((asked) => service.companies(asked), query, 'The companies could not be loaded.')
   const selectable = useMemo(() => list.rows.map((row) => ({ id: String(row.id) })), [list.rows])
   const { selectedIds, toggle, toggleAll, clear, allSelected } = useBulkSelection(selectable)
@@ -59,7 +62,10 @@ export function OutreachCompanies({ service = outreachService, listState, action
   const [addOpen, setAddOpen] = useState(false)
   const [writing, setWriting] = useState<OutreachPerson[] | null>(null)
 
-  const change = (patch: Partial<OutreachListState>) => { setState((current) => withChange(current, patch)); clear() }
+  const change = (patch: Partial<OutreachListState>) => { setState((current) => withChange(current, patch, filtersKey(filters))); clear() }
+  // The four filters are in the address (shared with the other two views); the page goes back to one on its own, because a page chosen under other filters is no longer this one's.
+  const onFilter = (patch: Partial<Record<FilterKey, string>>) => { setFilters(patch, list.facets); clear() }
+  const onClearFilters = () => { clearFilters(); clear() }
   const onSort = (key: OutreachSortKey) => change(key === state.sortKey ? { sortAsc: !state.sortAsc } : { sortKey: key, sortAsc: true })
   const open = (company: OutreachCompany) => router.push(outreachCompanyHref(company.id))
 
@@ -146,6 +152,8 @@ export function OutreachCompanies({ service = outreachService, listState, action
       {actionsHost === undefined && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
       {actionsHost ? createPortal(actions, actionsHost) : null}
 
+      <OutreachFilterBar filters={filters} facets={list.facets} onChange={onFilter} onClear={onClearFilters} />
+
       <div className="flex flex-wrap items-center gap-2">
         <SearchBox value={state.search} onCommit={(search) => change({ search })} label="Search companies" placeholder="Search company, industry, place or contact" />
         <OutreachChips active={state.chip} summary={list.summary} onPick={(chip) => change({ chip })} />
@@ -185,7 +193,12 @@ export function OutreachCompanies({ service = outreachService, listState, action
             )}
             {!list.loading && !list.error && list.rows.length === 0 && (
               <TableRow><TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
-                {narrowed
+                {filtersOn ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p>No companies match these filters.</p>
+                    <Button size="sm" variant="outline" onClick={onClearFilters}>Clear filters</Button>
+                  </div>
+                ) : narrowed
                   ? 'No company matches. Clear the search, or pick All.'
                   : <>No companies yet. Generate signals in <Link href="/signals" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Market Signals</Link>, or add one by hand.</>}
               </TableCell></TableRow>
@@ -230,7 +243,7 @@ export function OutreachCompanies({ service = outreachService, listState, action
         </Table>
       </div>
 
-      <Pager total={list.total} noun="company" nounPlural="companies" page={state.page} lastPage={list.lastPage} onPage={(page) => change({ page })} />
+      <Pager total={list.total} noun="company" nounPlural="companies" page={listPage(state, filters)} lastPage={list.lastPage} onPage={(page) => change({ page })} />
 
       <AddCompanyDialog
         open={addOpen}

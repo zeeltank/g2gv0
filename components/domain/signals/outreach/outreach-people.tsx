@@ -10,16 +10,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useBulkSelection } from '@/hooks/use-bulk-selection'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { CHIP_BASE, CHIP_TONE } from '@/lib/org-accounts/tones'
-import { INITIAL_OUTREACH_STATE, NO_VALUE, outreachCompanyHref, outreachQuery, personLabel, SOURCE_LABEL, titleLine, withChange, type OutreachListState, type OutreachSortKey } from '@/lib/signals/outreach-model'
+import { filtersKey, INITIAL_OUTREACH_STATE, listPage, NO_VALUE, outreachCompanyHref, outreachQuery, personLabel, SOURCE_LABEL, titleLine, withChange, type FilterKey, type OutreachListState, type OutreachSortKey } from '@/lib/signals/outreach-model'
 import { cn } from '@/lib/utils'
 import { outreachService, type OutreachApi } from '@/services/signals/outreach'
 import type { OutreachPerson } from '@/services/signals/outreach-types'
 import { useAssignableEmployees } from '@/components/domain/crm/lead-employees'
 import { AddPersonDialog } from './add-person-dialog'
 import { OutreachBulkBar } from './outreach-bulk-bar'
+import { OutreachFilterBar } from './outreach-filter-bar'
 import { errorText, lastContactedText, NoticeBar, OutreachChips, Pager, SearchBox, SortHead, type OutreachNotice } from './outreach-parts'
 import { OutreachPersonPanel } from './outreach-person-panel'
 import { ConsentChip, ReachChip } from './reach-chip'
+import { useOutreachFilters } from './use-outreach-filters'
 import { useOutreachList } from './use-outreach-list'
 import { WriteMessageDialog, type MessageDeps } from './write-message-dialog'
 
@@ -56,7 +58,8 @@ export function OutreachPeople({ service = outreachService, listState, actionsHo
   const context = useMemo(() => getLaravelContext(), [])
   const ownState = useState<OutreachListState>(INITIAL_OUTREACH_STATE)
   const [state, setState] = listState ?? ownState
-  const query = useMemo(() => outreachQuery(state), [state])
+  const { filters, active: filtersOn, set: setFilters, clear: clearFilters } = useOutreachFilters()
+  const query = useMemo(() => outreachQuery(state, {}, filters), [state, filters])
   const list = useOutreachList<OutreachPerson>((asked) => service.people(asked), query, 'The people could not be loaded.')
   const selectable = useMemo(() => list.rows.map((row) => ({ id: String(row.id) })), [list.rows])
   const { selectedIds, toggle, toggleAll, clear, allSelected } = useBulkSelection(selectable)
@@ -83,7 +86,10 @@ export function OutreachPeople({ service = outreachService, listState, actionsHo
     router.replace(text ? `${pathname}?${text}` : pathname, { scroll: false })
   }, [router, pathname, searchParams])
 
-  const change = (patch: Partial<OutreachListState>) => { setState((current) => withChange(current, patch)); clear() }
+  const change = (patch: Partial<OutreachListState>) => { setState((current) => withChange(current, patch, filtersKey(filters))); clear() }
+  // The four filters are in the address (shared with the other two views); the page goes back to one on its own, because a page chosen under other filters is no longer this one's.
+  const onFilter = (patch: Partial<Record<FilterKey, string>>) => { setFilters(patch, list.facets); clear() }
+  const onClearFilters = () => { clearFilters(); clear() }
   const onSort = (key: OutreachSortKey) => change(key === state.sortKey ? { sortAsc: !state.sortAsc } : { sortKey: key, sortAsc: true })
 
   const assign = async (userId: number) => {
@@ -122,6 +128,8 @@ export function OutreachPeople({ service = outreachService, listState, actionsHo
     <div className={cn('space-y-4', selected.length > 0 && 'pb-28')}>
       {actionsHost === undefined && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
       {actionsHost ? createPortal(actions, actionsHost) : null}
+
+      <OutreachFilterBar filters={filters} facets={list.facets} onChange={onFilter} onClear={onClearFilters} />
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchBox value={state.search} onCommit={(search) => change({ search })} label="Search all people" placeholder="Search name, email, phone, job title or company" />
@@ -163,7 +171,12 @@ export function OutreachPeople({ service = outreachService, listState, actionsHo
             )}
             {!list.loading && !list.error && list.rows.length === 0 && (
               <TableRow><TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
-                {narrowed ? 'No person matches. Clear the search, or pick All.' : 'No people yet. Open a company and use Find contacts, or add a person by hand.'}
+                {filtersOn ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p>No people match these filters.</p>
+                    <Button size="sm" variant="outline" onClick={onClearFilters}>Clear filters</Button>
+                  </div>
+                ) : narrowed ? 'No person matches. Clear the search, or pick All.' : 'No people yet. Open a company and use Find contacts, or add a person by hand.'}
               </TableCell></TableRow>
             )}
             {!list.loading && list.rows.map((person) => (
@@ -198,7 +211,7 @@ export function OutreachPeople({ service = outreachService, listState, actionsHo
         </Table>
       </div>
 
-      <Pager total={list.total} noun="person" nounPlural="people" page={state.page} lastPage={list.lastPage} onPage={(page) => change({ page })} />
+      <Pager total={list.total} noun="person" nounPlural="people" page={listPage(state, filters)} lastPage={list.lastPage} onPage={(page) => change({ page })} />
 
       <AddPersonDialog
         open={addOpen}

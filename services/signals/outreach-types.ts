@@ -123,11 +123,52 @@ export interface OutreachSummary {
   mine: number
 }
 
+/**
+ * The four filters of the Outreach tab (28 Nov 2026): Product, Sub-product, ICP (the kind of customer) and Region. A value is what the server's facet option names (a product or
+ * sub-product id, `b2b`, `b2c` or `b2g`, a region key) or `none` for "Not recorded". An unset filter is simply absent. These are the names the ADDRESS uses (`subProduct`);
+ * the query the server reads spells the second one `sub_product` (see OutreachListQuery).
+ */
+export interface OutreachFilters {
+  product?: string
+  subProduct?: string
+  icp?: string
+  region?: string
+}
+
+export interface OutreachFacetOption {
+  value: string
+  label: string
+  /** How many rows pick this option, counted with the OTHER three filters applied and not this one, so choosing it never promises rows it does not have. */
+  count: number
+}
+
+export interface OutreachSubProductOption extends OutreachFacetOption {
+  /** The product master id this sub-product belongs to; null for a code that no product master holds. */
+  productId: number | null
+}
+
+/** What the server counted for the four filters, sent in the same answer as the list. */
+export interface OutreachFacets {
+  products: OutreachFacetOption[]
+  subProducts: OutreachSubProductOption[]
+  icps: OutreachFacetOption[]
+  regions: OutreachFacetOption[]
+  /** The rows that have no value for the filter ("Not recorded"), counted the same way. */
+  notRecorded: { products: number; subProducts: number; icps: number; regions: number }
+  /** The filters the server applied, echoed back. */
+  active: { product: string | null; subProduct: string | null; icp: string | null; region: string | null }
+}
+
 export interface OutreachListResponse<T> {
   status: number
   data: T[]
   meta: OutreachListMeta
   summary: OutreachSummary
+  /**
+   * A TOP-LEVEL key beside `meta` and `summary` (the answer's keys are status, data, meta, summary, facets), because `data` is the list. Option values are always strings. It is counted over
+   * the rows the search leaves and before the chip. Absent on a server that does not know the filters yet, and on the company page's own people call; the screens draw no options then.
+   */
+  facets?: OutreachFacets
 }
 
 export interface OutreachOneResponse<T> {
@@ -150,7 +191,15 @@ export interface OutreachListQuery {
   per_page?: number
   sort?: string
   dir?: 'asc' | 'desc'
+  /** The four filters, under the names the server reads. Each is sent only when set. */
+  product?: string
+  sub_product?: string
+  icp?: string
+  region?: string
 }
+
+/** Just the four filters of a query: what the Messages queue's read takes besides its status. */
+export type OutreachFilterQuery = Pick<OutreachListQuery, 'product' | 'sub_product' | 'icp' | 'region'>
 
 export interface NewCompanyBody {
   name: string

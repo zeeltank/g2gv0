@@ -7,6 +7,7 @@
  */
 
 import { apiClient } from '@/services/core'
+import type { OutreachFacets, OutreachFilterQuery } from '@/services/signals/outreach-types'
 
 export const ACCOUNT_STAGES = ['target', 'engaged', 'opportunity', 'customer', 'churned', 'disqualified'] as const
 export type AccountStage = (typeof ACCOUNT_STAGES)[number]
@@ -426,7 +427,15 @@ export type OutreachEventType = 'reply' | 'bounce' | 'complaint'
 export interface OutreachEventResult { status: string; detail?: string; contact_id?: number; message_id?: number | null }
 
 export const outreachService = {
-  list: (status?: string) => apiClient.get<Env<{ items: OutreachMessage[]; counts: Record<string, number> }>>('/gtm/outreach', status ? { status } : {}),
+  /**
+   * The message queue. `filters` are the Outreach tab's Product, Sub-product, ICP and Region (under the names the server reads); each is sent only when it holds a value, and the
+   * answer then holds the filtered rows, status `counts` that follow them, and `facets` (the options of the four filters, with counts) beside them.
+   */
+  list: (status?: string, filters: OutreachFilterQuery = {}) =>
+    apiClient.get<Env<{ items: OutreachMessage[]; counts: Record<string, number>; facets?: OutreachFacets }>>('/gtm/outreach', {
+      ...(status ? { status } : {}),
+      ...Object.fromEntries(Object.entries(filters).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1] !== '')),
+    }),
   readiness: (check = false) => apiClient.get<Env<OutreachReadiness>>('/gtm/outreach/readiness', check ? { check: '1' } : {}),
   create: (input: { contact_id: number; subject: string; body: string; deal_id?: number | null; campaign_id?: number | null }) =>
     apiClient.post<Env<{ message: OutreachMessage }>>('/gtm/outreach', input),
