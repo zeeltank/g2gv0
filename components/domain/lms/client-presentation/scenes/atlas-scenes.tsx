@@ -10,7 +10,7 @@ import { useBeatTimeline } from '../motion/use-beat-timeline'
 
 import './atlas.css'
 import { Rail, Words, pad2, stopKeys } from './atlas-shared'
-import FilmScene from './film-scene'
+import { SketchTourScene } from './sketch-tour-scene'
 import { TourScene } from './tour-scene'
 import type { SceneProps } from './types'
 
@@ -270,8 +270,7 @@ export default function AtlasScene(props: SceneProps) {
     case 'subs': return <Subs {...p} />
     case 'glance': return <Glance {...p} />
     case 'gallery': return <Gallery {...p} />
-    case 'film': return <FilmScene {...p} />
-    case 'tour': return <TourScene {...p} />
+    case 'tour': return productOf(plan.family ?? '')?.tour?.style === 'sketchbook' ? <SketchTourScene {...p} /> : <TourScene {...p} />   // the tour's own style says which scene plays it
     default: return null
   }
 }

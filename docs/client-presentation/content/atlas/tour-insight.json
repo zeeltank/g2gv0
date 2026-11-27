@@ -1,0 +1,249 @@
+{
+  "family": "insight",
+  "style": "sketchbook",
+  "labels": {
+    "draft": "Recommendation draft",
+    "apply": "Approve",
+    "discard": "Reject"
+  },
+  "art": {
+    "summary.photo": [
+      "insight-photo-summary-desk"
+    ],
+    "summary.cut1": [
+      "insight-cartoon-analyst"
+    ],
+    "problem.photo": [
+      "insight-photo-problem-reports"
+    ],
+    "problem.cutout": [
+      "insight-cartoon-principal-reports"
+    ],
+    "roles.0": [
+      "insight-cartoon-leader-chart"
+    ],
+    "roles.1": [
+      "insight-cartoon-manager"
+    ],
+    "roles.2": [
+      "insight-cartoon-staff"
+    ]
+  },
+  "summary": {
+    "lines": [
+      "One view of the school, with the evidence behind every finding.",
+      "Findings from attendance, results, fees and staff records come from fixed rules, and each one shows its working.",
+      "A person decides what happens next, and the outcome is recorded."
+    ],
+    "evidence": [
+      "next_lms_erp/app/Brain/Intelligence/RuleCatalogue.php",
+      "next_lms_erp/app/Brain/Intelligence/ExecutionCenterRules.php"
+    ]
+  },
+  "problem": {
+    "label": "An illustration, not your school",
+    "illustrative": true,
+    "beats": [
+      "The principal asks how the term is going, and gets three different answers.",
+      "Attendance is in one report, results in another, fees in a ledger.",
+      "Each person answers from memory, and nobody can say why a class is slipping.",
+      "By the time the pieces are joined, the moment to act has passed."
+    ],
+    "turn": "Scholar Insight puts the findings in one view, with the evidence shown.",
+    "scattered": [
+      "Attendance report",
+      "Results sheet",
+      "Fee ledger"
+    ],
+    "record": "One clear view",
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-insight.json"
+    ]
+  },
+  "intelligence": {
+    "lead": "Fixed rules read the school's records and raise findings. Each one answers a plain question, and shows how it got there.",
+    "modules": [
+      {
+        "id": "insight-overview",
+        "basis": "Rules-based reasoning",
+        "asks": "Where does attention need to go first?"
+      },
+      {
+        "id": "insight-intelligence-loop",
+        "basis": "Explained with its working",
+        "asks": "Why was this flagged, and what is the evidence?"
+      },
+      {
+        "id": "insight-knowledge",
+        "basis": "Knowledge graph of school records",
+        "asks": "Which department, staff or class does this touch?"
+      },
+      {
+        "id": "insight-automation",
+        "basis": "Human approval before action",
+        "asks": "What was decided, and what happened afterwards?"
+      }
+    ],
+    "close": "Rules find and explain. People decide.",
+    "evidence": [
+      "next_lms_erp/app/Http/Controllers/Brain/BrainIntelligenceController.php",
+      "next_lms_erp/app/Brain/Intelligence/HealthScores.php",
+      "next_lms_erp/app/Brain/Intelligence/Reasoner.php",
+      "next_lms_erp/app/Brain/Intelligence/EntityIntelligence.php",
+      "next_lms_erp/app/Brain/Intelligence/ExecutionCenter.php"
+    ]
+  },
+  "ai": {
+    "lead": "No AI writes these findings. Fixed rules do, and a person decides what to do with each one.",
+    "uses": [
+      {
+        "name": "Findings",
+        "line": "Come from fixed rules over school records, not generated text."
+      },
+      {
+        "name": "Explanations",
+        "line": "Each finding shows its evidence and the steps that led to it."
+      },
+      {
+        "name": "Confidence",
+        "line": "A recommendation's confidence is computed from its evidence."
+      },
+      {
+        "name": "Likely causes",
+        "line": "Shown only where the rule library has one, else marked not confirmed."
+      },
+      {
+        "name": "Recommendations",
+        "line": "Drafts wait for a person to approve or reject, with a reason."
+      }
+    ],
+    "guard": "Nothing runs by itself: automations only suggest, and a person decides.",
+    "control": "Approvals are recorded with the person and the reason.",
+    "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Recommendation (draft): Review attendance in one class that is below the school's own rate. Owner: class teacher. Evidence: attendance records this term. Status: waiting for a decision."
+    },
+    "evidence": [
+      "next_lms_erp/app/Brain/Intelligence/Reasoner.php",
+      "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php",
+      "next_lms_erp/app/Http/Controllers/Brain/BrainIntelligenceController.php",
+      "next_lms_erp/routes/brain.php",
+      "lms_k12/app/enterprise-brain/automation/page.tsx"
+    ]
+  },
+  "research": {
+    "items": []
+  },
+  "features": {
+    "groups": [
+      {
+        "title": "See the school",
+        "subs": [
+          {
+            "id": "insight-overview",
+            "tagline": "Health score across school areas, with its working shown."
+          },
+          {
+            "id": "insight-analytics",
+            "tagline": "Findings, decisions and outcomes counted, with charts of school data."
+          },
+          {
+            "id": "insight-foundation",
+            "tagline": "Flags gaps in staff records, such as no department head."
+          },
+          {
+            "id": "insight-knowledge",
+            "tagline": "Walk from department to staff, and class to students."
+          }
+        ]
+      },
+      {
+        "title": "Decide and act",
+        "subs": [
+          {
+            "id": "insight-intelligence-loop",
+            "tagline": "Each finding opens to its evidence and reasoning steps."
+          },
+          {
+            "id": "insight-automation",
+            "tagline": "Approve or reject recommendations, with a reason recorded."
+          },
+          {
+            "id": "insight-settings",
+            "tagline": "Your role, an audit log, and who may change settings."
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-insight.json"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Principal and administrators",
+      "who": "Whole-school view and settings",
+      "benefits": [
+        "See every finding, with the evidence and the steps behind it.",
+        "Approve or reject recommendations, and record the outcome.",
+        "Change Insight settings and read the audit log."
+      ],
+      "use": "Open the overview, see where attention is needed first, read why, and decide with a reason recorded.",
+      "modules": [
+        "insight-overview",
+        "insight-intelligence-loop",
+        "insight-settings"
+      ]
+    },
+    {
+      "role": "Trustees and department heads",
+      "who": "Managers across the school",
+      "benefits": [
+        "See findings and health scores for the whole school.",
+        "Approve or reject recommendations, with a reason.",
+        "Follow what was decided and what happened."
+      ],
+      "use": "Check the decision feed for your area, then approve or reject a recommendation with a reason.",
+      "modules": [
+        "insight-overview",
+        "insight-automation",
+        "insight-analytics"
+      ]
+    },
+    {
+      "role": "Teachers and staff",
+      "who": "Every other signed-in staff member",
+      "benefits": [
+        "See findings and the evidence behind them.",
+        "Walk from department to staff, and class to students.",
+        "See what was decided and what happened afterwards."
+      ],
+      "use": "Open a finding, read the evidence and the steps, and see how it was decided.",
+      "modules": [
+        "insight-overview",
+        "insight-knowledge",
+        "insight-automation"
+      ]
+    }
+  ],
+  "owner_to_confirm": [
+    "Evidence pass of 27 Nov 2026 (read-only agent) CORRECTED the checked sheet: there is NO AI or model call anywhere in the Insight / Brain code (app/Brain, the Brain controllers, config/brain.php, the Insight pages). The sheet family evidence list over-attributes: the DecisionGate, RecommendationDrafter and GroundedClaims code belongs to a separate ai_* stack that nothing in Insight calls. \"Explanations must cite verified evidence or fail the check\" is true only in that other stack: it is NOT said on the slide.",
+    "Approval is narrower than the sheet says. Server side: a person (the signed-in user) approves, rejects or defers a recommendation with a reason of at least 3 characters. The screen has Approve and Reject buttons only (no Defer button; Defer exists only on the Fees screen). The server does not check the current status, so a recommendation can be decided twice. The \"policy requires a named person\" row is a text row that nothing reads; the real safeguard is that nothing executes at all (automations are suggest-only). The slide claims only what is enforced.",
+    "Confidence: a recommendation's confidence is computed from evidence (Reasoner.php); a finding card's confidence chip is a constant typed in the rules. The slide says \"recommendation\", never \"finding\".",
+    "\"Likely causes written by people and shown only where approved\": the cause text lives in the rule catalogue (a PHP constant) and the screen says \"cause has not been confirmed\" where there is none; there is no approval record or screen for causes. The slide says \"shown only where the rule library has one\".",
+    "Roles: config/brain.php maps principal, admin and school admin to full access; vice principal, trustee, head of department and coordinator to manager; teacher, clerk, accountant and counsellor to analyst; students get a 403; no parent mapping was found. A test file (BrainRoleBridgeTest) expects a teacher to be read-only while the config says analyst: so whether teachers can approve is UNSETTLED and the third role lists read-only benefits. Menu rights per school live in the database (tblgroupwise_rights): not in source. Confirm the three roles and who may approve.",
+    "The \"Knowledge\" claim (walk department to staff and class to students) and the Analytics and KASBA claims of the sheet were not line-checked in this pass.",
+    "Not on any slide, for the owner: Decision Intelligence, Executive metrics, Memory and the process library are filled only by a demo seeder; the audit log shows a numeric actor id; owner is a role label not a person; there is no due date field; nothing sets a signal to resolved although a catalogue comment says it does.",
+    "RESEARCH TAB HIDDEN. The owner's EB list (capability framework, KASBA, O*NET and ESCO, ESO engine) is not what Insight uses: no Insight code path reads O*NET or ESCO; KASBA, capabilities and ESO are the product's own model (ESO has five or more expansions in the repos: never expand it on a slide). The same code ties those items to CCB (People and Competency). The G2G list (decision intelligence, organizational learning, human-in-the-loop) matches Insight screens but names no source. See assets/insight-research-sources.json. Decide: swap the two lists, or name external sources Insight really uses.",
+    "Pictures: stock photographs (Pexels, licence read 27 Nov 2026) and unDraw cut-outs recoloured to the deck palette; none generated."
+  ],
+  "notes": {
+    "summary": "Let the three lines land one at a time. Ask: who gives you the numbers about your school today, and how many different people is that?",
+    "problem": "Tell it as the principal asking one simple question and getting three answers. Say it is an illustration, not their school.",
+    "intelligence": "These are plain questions the school's own records answer. Rules raise the findings; every finding opens to its evidence and the steps. It is rules, not AI. Do not say it predicts.",
+    "ai": "Say plainly: there is no AI in this module. Fixed rules raise the findings. A recommendation is a draft; a person approves or rejects it with a reason; nothing runs by itself. Do NOT say a named person is required by policy, and do NOT say explanations are checked against evidence: those are not enforced here.",
+    "research": "Hidden for now: the research list for Insight is waiting for the owner. If it is ever shown, say what each source is, never that Scholar Insight conforms to it.",
+    "features": "Two groups: see the school, then decide and act. Let them point at the group their question belongs to, then open that screen.",
+    "roles": "Let the client name their own role first. Who may approve depends on the school's rights: say it is set per school. Every use line is an illustration."
+  }
+}

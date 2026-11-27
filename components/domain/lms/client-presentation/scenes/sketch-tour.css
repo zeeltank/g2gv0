@@ -1,0 +1,134 @@
+/* The illustrated ("sketchbook") product tour: paper, tape, torn scraps, marker, cut-outs. Fixed 1920 x 1080 stage, one grid, labels in the same
+   place in every cell, nothing clickable below y 1000. Colours come from the deck palette plus ONE marker yellow (the style bible,
+   docs/client-presentation/16-illustrated-tours.md). Every moving thing is positioned here and moved by the timeline in sketch-tour-scene.tsx. */
+.sk { --sk-paper: #f4f0e6; --sk-card: #fffdf6; --sk-ink: #0c2a4a; --sk-body: #35495f; --sk-blue: #1088f6; --sk-blue-d: #0a6ad0; --sk-green: #74cd23; --sk-marker: #ffd84d; --sk-line: rgba(12, 42, 74, 0.22); color: var(--sk-ink); }
+.sk-panel { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+.sk-grain { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 82% 18%, rgba(16, 136, 246, 0.05), transparent 55%), radial-gradient(ellipse at 10% 95%, rgba(116, 205, 35, 0.06), transparent 50%); }
+
+/* the tab bar: paper index tabs, a marker stroke behind the one being shown, a rule that fills with its steps */
+.sk-tabs { position: absolute; left: 140px; top: 148px; width: 1640px; display: grid; column-gap: 24px; z-index: 4; }
+.sk-tab { position: relative; display: block; height: 76px; padding: 0; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; color: inherit; }
+.sk-tab:focus-visible { outline: 3px solid var(--sk-blue); outline-offset: 4px; }
+.sk-rule { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--sk-line); }
+.sk-rule em { position: absolute; inset: 0; background: var(--sk-blue); transform-origin: 0 50%; transform: scaleX(0); }
+.sk-tabin { position: relative; display: flex; align-items: baseline; gap: 12px; margin-top: 22px; opacity: 0.65; white-space: nowrap; }   /* dimmed, not faded: ink at 65% on paper is 4.55:1 (WCAG AA for any size) */
+.sk-tabin i { font: 800 20px/1 var(--cp-sans), sans-serif; font-style: normal; color: var(--sk-blue-d); letter-spacing: 0.08em; }
+.sk-tabin b { position: relative; isolation: isolate; font: 700 24px/1.1 var(--cp-sans), sans-serif; }
+.sk-mk { position: absolute; left: -8px; right: -8px; bottom: -2px; height: 16px; background: var(--sk-marker); border-radius: 3px; transform-origin: 0 50%; transform: scaleX(0); z-index: -1; }
+
+/* shared pieces */
+.sk-lead { position: absolute; left: 140px; top: 270px; width: 780px; margin: 0; font: 600 32px/1.32 var(--cp-sans), sans-serif; color: var(--sk-ink); opacity: 0; }
+.sk-note { position: absolute; padding: 16px 22px 18px; background: var(--sk-card); color: var(--sk-ink); font: 600 28px/1.3 var(--cp-sans), sans-serif; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.16), 0 14px 28px rgba(12, 42, 74, 0.12); opacity: 0; }
+.sk-tape { position: absolute; width: 120px; height: 34px; background: rgba(255, 216, 77, 0.78); box-shadow: 0 1px 0 rgba(12, 42, 74, 0.1); opacity: 0; }
+.sk-frame { position: absolute; background: var(--sk-card); padding: 14px 14px 14px; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.16), 0 22px 44px rgba(12, 42, 74, 0.18); opacity: 0; }
+.sk-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sk-cut { position: absolute; opacity: 0; filter: drop-shadow(0 10px 14px rgba(12, 42, 74, 0.2)); }
+.sk-cut img { display: block; width: 100%; height: auto; }
+.sk-mark { position: relative; display: inline; background: linear-gradient(transparent 58%, var(--sk-marker) 58%, var(--sk-marker) 92%, transparent 92%) no-repeat 0 0 / 0% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* 1 summary */
+.sk-s1 { position: absolute; left: 140px; top: 290px; width: 800px; margin: 0; font: 300 82px/1.06 var(--cp-display), Georgia, serif; letter-spacing: -0.03em; opacity: 0; }
+.sk-s2, .sk-s3 { position: absolute; left: 140px; width: 760px; margin: 0; font: 500 30px/1.38 var(--cp-sans), sans-serif; color: var(--sk-body); opacity: 0; }
+.sk-s2 { top: 560px; }
+.sk-s3 { top: 700px; }
+.sk-count { position: absolute; left: 140px; top: 880px; display: flex; align-items: baseline; gap: 16px; opacity: 0; }
+.sk-count b { font: 800 96px/1 var(--cp-display), Georgia, serif; color: var(--sk-blue-d); letter-spacing: -0.04em; }
+.sk-count span { font: 700 24px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-body); }
+.sk-groups { position: absolute; left: 980px; top: 860px; width: 800px; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 14px 28px; }
+.sk-grow { font: 700 24px/1.2 var(--cp-sans), sans-serif; color: var(--sk-ink); opacity: 0; }
+
+/* 2 problem */
+.sk-illus { position: absolute; left: 140px; top: 262px; padding: 6px 16px; border: 2px solid var(--sk-ink); border-radius: 4px; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sk-ink); background: var(--sk-marker); transform: rotate(-2deg); opacity: 0; }
+.sk-pl { position: absolute; left: 140px; width: 780px; height: 104px; margin: 0; opacity: 0; }
+.sk-pl .sk-note { position: relative; display: block; width: 100%; height: 100%; opacity: 1; font-size: 28px; }
+.sk-turn { position: absolute; left: 140px; top: 800px; width: 780px; margin: 0; font: 500 40px/1.2 var(--cp-display), Georgia, serif; letter-spacing: -0.015em; opacity: 0; }
+.sk-reg { position: absolute; display: flex; align-items: center; justify-content: center; width: 300px; height: 92px; background: var(--sk-card); font: 800 30px/1 var(--cp-sans), sans-serif; color: var(--sk-ink); letter-spacing: 0.02em; opacity: 0; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.2), 0 10px 18px rgba(12, 42, 74, 0.2); }
+.sk-record { position: absolute; width: 440px; height: 290px; padding: 36px 36px 0; background: var(--sk-card); opacity: 0; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.2), 0 24px 44px rgba(12, 42, 74, 0.25); background-image: repeating-linear-gradient(transparent 0 46px, rgba(16, 136, 246, 0.28) 46px 48px); background-position: 0 70px; }
+.sk-record b { display: block; font: 800 22px/1 var(--cp-sans), sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sk-blue-d); }
+.sk-record span { display: block; margin-top: 22px; font: 500 52px/1.05 var(--cp-display), Georgia, serif; letter-spacing: -0.02em; }
+.sk-stamp { position: absolute; width: 150px; height: 150px; border: 6px solid var(--sk-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center; font: 800 22px/1.1 var(--cp-sans), sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #3f7a10; transform: rotate(-14deg); opacity: 0; }
+
+/* 3 intelligence */
+.sk-irows { position: absolute; left: 140px; top: 440px; width: 780px; margin: 0; padding: 0; list-style: none; }
+.sk-irow { position: relative; min-height: 104px; padding: 14px 0 10px;   /* grows with its question (up to two lines) */ border-top: 2px solid var(--sk-line); opacity: 0; }
+.sk-irow b { display: block; font: 800 22px/1.1 var(--cp-sans), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sk-blue-d); }
+.sk-irow span { display: block; margin-top: 8px; font: 600 28px/1.22 var(--cp-sans), sans-serif; }
+.sk-mapsvg { position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.sk-ilink { fill: none; stroke: var(--sk-ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 0; }
+.sk-hub { position: absolute; width: 230px; height: 110px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; background: var(--sk-marker); border: 3px solid var(--sk-ink); border-radius: 14px; font: 800 26px/1.15 var(--cp-sans), sans-serif; opacity: 0; }
+.sk-inode { position: absolute; width: 260px; min-height: 76px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px 16px; background: var(--sk-card); border: 3px solid var(--sk-ink); border-radius: 12px; font: 700 24px/1.15 var(--cp-sans), sans-serif; opacity: 0; box-shadow: 0 8px 0 rgba(12, 42, 74, 0.12); }
+.sk-close { position: absolute; left: 140px; top: 890px; width: 780px; margin: 0; font: 500 34px/1.25 var(--cp-display), Georgia, serif; opacity: 0; }
+
+/* 4 AI */
+.sk-arows { position: absolute; left: 140px; top: 440px; width: 800px; margin: 0; padding: 0; list-style: none; }
+.sk-arow { position: relative; padding: 14px 0 14px; border-top: 2px solid var(--sk-line); opacity: 0; }
+.sk-arow b { display: block; font: 800 22px/1.1 var(--cp-sans), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sk-blue-d); }
+.sk-arow span { display: block; margin-top: 6px; font: 600 26px/1.22 var(--cp-sans), sans-serif; }
+.sk-sheet { position: absolute; left: 1000px; top: 280px; width: 780px; height: 520px; padding: 30px 36px; background: var(--sk-card); opacity: 0; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.2), 0 26px 50px rgba(12, 42, 74, 0.22); background-image: repeating-linear-gradient(transparent 0 46px, rgba(16, 136, 246, 0.2) 46px 48px); background-position: 0 96px; }
+.sk-sheet-h { display: flex; justify-content: space-between; align-items: baseline; }
+.sk-sheet-h span { font: 800 22px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-blue-d); }
+.sk-sheet-h em { font: 600 22px/1 var(--cp-sans), sans-serif; font-style: normal; color: var(--sk-body); }
+.sk-typed { margin: 26px 0 0; min-height: 250px; font: 500 30px/1.55 var(--cp-sans), sans-serif; }
+.sk-sheet-f { position: absolute; left: 36px; bottom: 28px; display: flex; gap: 16px; }
+.sk-btn { padding: 14px 30px; border: 3px solid var(--sk-ink); border-radius: 10px; font: 800 24px/1 var(--cp-sans), sans-serif; background: var(--sk-card); }
+.sk-btn.apply { background: var(--sk-blue); color: #fff; border-color: var(--sk-blue-d); }
+.sk-guard { position: absolute; left: 1000px; top: 830px; width: 780px; margin: 0; font: 500 34px/1.22 var(--cp-display), Georgia, serif; opacity: 0; }
+.sk-control { position: absolute; left: 1000px; top: 930px; width: 780px; margin: 0; font: 600 26px/1.3 var(--cp-sans), sans-serif; color: var(--sk-body); opacity: 0; }
+
+/* 5 research: a table of two fixed columns, the sentence and its source */
+.sk-banner { position: absolute; left: 740px; top: 236px; width: 1040px; height: 96px; opacity: 0; }
+.sk-banner img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0.5; mix-blend-mode: multiply; }
+.sk-research { position: absolute; left: 140px; top: 350px; width: 1640px; margin: 0; padding: 0; list-style: none; }
+.sk-ritem { display: grid; grid-template-columns: 1fr 520px; column-gap: 40px; align-items: start; min-height: 96px; margin-bottom: 6px; padding: 16px 0 12px; border-top: 2px solid var(--sk-line); opacity: 0; }   /* rows grow with their text; the validator caps the rows so the table fits */
+.sk-ritem span { display: block; font: 500 28px/1.22 var(--cp-display), Georgia, serif; letter-spacing: -0.01em; }
+.sk-ritem em { display: block; margin-top: 4px; font: 700 20px/1.25 var(--cp-sans), sans-serif; font-style: normal; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sk-blue-d); }
+
+/* 6 features: the group chips, then up to seven modules taped to the page */
+.sk-gchips { position: absolute; left: 140px; top: 262px; display: flex; gap: 18px; z-index: 3; }
+.sk-gchip { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; }
+.sk-gchip:focus-visible { outline: 3px solid var(--sk-blue); outline-offset: 4px; }
+.sk-gin { display: block; padding: 10px 20px; border: 2px solid var(--sk-ink); border-radius: 999px; font: 700 24px/1.1 var(--cp-sans), sans-serif; opacity: 0.65; white-space: nowrap; }
+.sk-gin i { margin-right: 10px; font-style: normal; color: var(--sk-blue-d); }
+.sk-group { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+.sk-gtitle { position: absolute; left: 140px; top: 350px; margin: 0; font: 300 72px/1.05 var(--cp-display), Georgia, serif; letter-spacing: -0.03em; opacity: 0; }
+.sk-cols { position: absolute; left: 140px; top: 500px; width: 1640px; display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); column-gap: 32px; }
+.sk-col { position: relative; opacity: 0; }
+.sk-shot { position: relative; width: 100%; aspect-ratio: var(--ar, 4 / 3); background: var(--sk-card); padding: 10px; box-shadow: 0 2px 0 rgba(12, 42, 74, 0.16), 0 14px 26px rgba(12, 42, 74, 0.16); }
+.sk-shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.sk-shot::before { content: ''; position: absolute; left: 50%; top: -14px; width: 96px; height: 28px; margin-left: -48px; background: rgba(255, 216, 77, 0.8); transform: rotate(-3deg); }
+.sk-col b { display: block; margin-top: 26px; font: 800 28px/1.15 var(--cp-sans), sans-serif; }
+.sk-col span { display: block; margin-top: 8px; font: 500 24px/1.3 var(--cp-sans), sans-serif; color: var(--sk-body); }
+
+/* 7 roles: the list of roles, then one role in full */
+.sk-rolelist { position: absolute; left: 140px; top: 270px; width: 440px; margin: 0; padding: 0; list-style: none; }
+.sk-rolebtn { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.sk-rolebtn:focus-visible { outline: 3px solid var(--sk-blue); outline-offset: 4px; }
+.sk-rbin { display: block; padding: 16px 0; border-top: 2px solid var(--sk-line); font: 700 26px/1.2 var(--cp-sans), sans-serif; opacity: 0.65; }
+.sk-rbin i { margin-right: 14px; font-style: normal; color: var(--sk-blue-d); font-size: 20px; letter-spacing: 0.08em; }
+.sk-role { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+.sk-who { position: absolute; left: 660px; top: 270px; font: 800 22px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-blue-d); opacity: 0; }
+.sk-rname { position: absolute; left: 660px; top: 316px; width: 1000px; margin: 0; font: 300 76px/1.05 var(--cp-display), Georgia, serif; letter-spacing: -0.03em; opacity: 0; }
+.sk-ben { position: absolute; left: 660px; top: 470px; width: 700px; margin: 0; padding: 0; list-style: none; }
+.sk-ben li { padding: 14px 0; border-top: 2px solid var(--sk-line); font: 600 28px/1.28 var(--cp-sans), sans-serif; opacity: 0; }
+.sk-use { position: absolute; left: 660px; top: 810px; width: 700px; opacity: 0; }
+.sk-use em { display: block; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; font-style: normal; color: var(--sk-blue-d); }
+.sk-use p { margin: 12px 0 0; font: 500 28px/1.3 var(--cp-sans), sans-serif; color: var(--sk-body); }
+.sk-mods { position: absolute; left: 140px; top: 560px; width: 440px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.sk-mods-h { position: absolute; left: 140px; top: 510px; margin: 0; font: 800 20px/1 var(--cp-sans), sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sk-blue-d); opacity: 0; }
+.sk-mods span { padding: 8px 18px; background: var(--sk-card); border: 2px solid var(--sk-ink); border-radius: 999px; font: 700 22px/1.2 var(--cp-sans), sans-serif; opacity: 0; }
+
+/* the full-stage layers (a group, a role, a panel) must never swallow a click meant for a button under them */
+.sk-panel, .sk-group, .sk-role { pointer-events: none; }
+.sk-tab, .sk-gchip, .sk-rolebtn { pointer-events: auto; }
+.sk-rolelist { z-index: 3; }
+
+/* five or more groups: the chips are smaller so the row fits the 1640 px stage */
+.sk-gchips[data-n="5"], .sk-gchips[data-n="6"] { gap: 12px; }
+.sk-gchips[data-n="5"] .sk-gin, .sk-gchips[data-n="6"] .sk-gin { padding: 8px 14px; font-size: 20px; }
+/* more than three roles: the list of roles is taller, so the module pills move below it */
+.sk-panel[data-tab="roles"][data-many="true"] .sk-mods-h { top: 712px; }
+.sk-panel[data-tab="roles"][data-many="true"] .sk-mods { top: 756px; }
+
+/* long questions (more than about 40 words in all) wrap to two lines: the rows start a little higher and the closing sentence moves under the map, so nothing collides */
+.sk-panel[data-tab="intelligence"][data-tall="true"] .sk-irows { top: 428px; }
+.sk-panel[data-tab="intelligence"][data-tall="true"] .sk-close { left: 1000px; top: 860px; width: 780px; }

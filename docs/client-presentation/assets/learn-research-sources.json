@@ -1,0 +1,225 @@
+{
+  "about": "Source list for the Research tab of the Scholar Learn tour. The product sheet (content/atlas/part-learn.json, family research field, line 14) says: 'Question drafting designed from Bloom; concept notes use Webb DOK; framework views use CASEL, NGSS, NCDG; lessons use NCF and NCERT outcomes.' Each source below was opened on 26 Nov 2026 on its publisher or owner site and described only as far as that page says. No figure is taken from any of them. Pages that a fetch tool could not open (NCDA and NCERT served errors to the fetch tool) were opened with a plain command-line request instead; nextgenscience.org could not be opened at all (see the NGSS entry). Repo evidence paths are relative to C:\\Users\\MILAN\\Downloads and were checked on the same date. Code searched: next_lms_erp (config, docs, app, database) and lms_k12 (app, lib, components, docs); g2gv0 only for the product sheet.",
+  "supplied_by_owner": [
+    "Bloom (revised taxonomy)",
+    "Webb DOK",
+    "CASEL",
+    "NGSS",
+    "NCDG",
+    "NCF",
+    "NCERT learning outcomes"
+  ],
+  "sources": [
+    {
+      "id": "bloom-revised",
+      "name": "Bloom's taxonomy, revised (Anderson, Krathwohl and others)",
+      "page_title": "Taxonomy for Learning, Teaching, and Assessing, A, Pearson New International Edition, 1st edition",
+      "publisher": "Pearson",
+      "urls": [
+        "https://www.pearson.com/en-gb/subject-catalog/p/taxonomy-for-learning-teaching-and-assessing-a-pearson-new-international-edition/P200000003582/9781292042848"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "Pearson's page for the book lists Lorin W. Anderson, David R. Krathwohl and co-authors, publication 1 November 2013 (copyright 2014), and describes it as a revision of Bloom's taxonomy that builds on the original framework. Its two-dimensional framework interrelates knowledge with the cognitive processes students use to gain and work with knowledge, and is meant to help teachers understand, build and analyse standards-based curriculums from four perspectives: what is taught, how it is taught, how learning is assessed, and how well these are aligned. Limit: this page is the 2013 Pearson New International Edition; it does not mention the 2001 first edition, so the year 2001 is not confirmed by any page opened here.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/config/lms_content_boards.php:77",
+        "next_lms_erp/config/lms_content_boards.php:102",
+        "next_lms_erp/config/pal_content.php:24",
+        "next_lms_erp/config/pal_content_model.php:65",
+        "next_lms_erp/app/Services/QuestionGenerationService.php:42",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:48"
+      ]
+    },
+    {
+      "id": "webb-dok",
+      "name": "Webb's Depth of Knowledge (DOK), Norman Webb",
+      "page_title": "What is Depth of Knowledge (DOK)? (DOK Primer, PDF on the WebbAlign site); site pages titled WebbAlign and Wisconsin Center for Education Products and Services (WCEPS)",
+      "publisher": "WebbAlign, a program of the non-profit Wisconsin Center for Education Products and Services (WCEPS)",
+      "urls": [
+        "https://www.webbalign.org/dok-primer",
+        "https://webbalign.org/about/dok-explained",
+        "https://wceps.org/"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "The primer says Dr. Norman Webb originally developed the DOK language system to evaluate the relationship between the cognitive complexity of academic standards and the complexity of matching assessment items, and that DOK helps people communicate about the complexity of standards, learning objectives, tasks, prompts and questions. The 'DOK Explained' page says the DOK framework differentiates complexity from difficulty, and that DOK lets educators communicate about the content complexity of learning expectations, instructional materials and assessment items. WCEPS says it works with Dr. Norman Webb, the developer of DOK. None of the opened pages lists the four level names; the four names in the product code are a standard public form that was not read off an official page here.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/config/pal_content_model.php:130",
+        "next_lms_erp/config/pal_content_model.php:132",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:59",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:64",
+        "next_lms_erp/app/Services/QuestionGenerationService.php:49",
+        "next_lms_erp/app/Services/QuestionGenerationService.php:67"
+      ]
+    },
+    {
+      "id": "casel",
+      "name": "CASEL, the CASEL framework (the CASEL Wheel) for social and emotional learning",
+      "page_title": "What Is SEL? - CASEL",
+      "publisher": "CASEL (Collaborative for Academic, Social, and Emotional Learning), Chicago",
+      "urls": [
+        "https://casel.org/what-is-sel/",
+        "https://casel.org/fundamentals-of-sel/what-is-the-casel-framework/"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "The page calls the CASEL Wheel 'our full framework for SEL'. It names the competencies self-awareness, self-management, social awareness, relationship skills and responsible decision-making, and places them within the settings where children and young people live and learn: communities, families and caregivers, schools and classrooms. The second URL, which the product code cites, redirects to the first. The page carries no publication date (footer copyright 2026).",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/frameworks/casel.cypher:28",
+        "next_lms_erp/config/pal_h5p.php:1233",
+        "next_lms_erp/config/pal_architecture.php:181",
+        "next_lms_erp/app/Services/PAL/Gamification/BadgeService.php:23",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:15",
+        "lms_k12/lib/roadmap/registry.ts:420",
+        "lms_k12/app/h5p/html_contents/page.tsx:282"
+      ]
+    },
+    {
+      "id": "ngss",
+      "name": "Next Generation Science Standards (NGSS)",
+      "page_title": "Next Generation Science Standards | Achieve",
+      "publisher": "Achieve, Inc. (one of the four partners the page names as developing the standards)",
+      "urls": [
+        "https://achieve.org/node/36"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "The page says the NGSS are K-12 science standards created through a collaborative, state-led process, with lead partner states leading the standards writing teams, and that they are based on the Framework for K-12 Science Education developed by the National Research Council and released in July 2011. The page names the National Research Council, the National Science Teachers Association, the American Association for the Advancement of Science and Achieve as the joint effort behind them. NOT OPENED: nextgenscience.org, the standards' own site, refused the connection or timed out from this machine on 26 Nov 2026 (three tries, two tools), so this entry rests on Achieve's page and should be re-checked against nextgenscience.org.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/frameworks/ngss.cypher:14",
+        "next_lms_erp/config/pal_h5p.php:1306",
+        "next_lms_erp/config/pal_architecture.php:181",
+        "next_lms_erp/config/pal_architecture.php:590",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:86",
+        "lms_k12/lib/roadmap/registry.ts:430"
+      ]
+    },
+    {
+      "id": "ncdg",
+      "name": "National Career Development Guidelines (NCDG), National Career Development Association",
+      "page_title": "NCDG Website (home); NCDA | The Framework; NCDA | History of NCDG",
+      "publisher": "National Career Development Association (NCDA), ncda.org",
+      "urls": [
+        "https://ncda.org/aws/NCDA/pt/sp/NCDG_home_page",
+        "https://ncda.org/aws/NCDA/pt/sp/ncdg_framework",
+        "https://ncda.org/aws/NCDA/pt/sp/ncdg_history"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "The NCDG are a framework of career development competencies and indicators of mastery, including a recommended strategy for implementing career development programs for youth or adults. First released in 1989 by the National Occupational Information Coordinating Committee, the framework passed to NCDA in 2007 to maintain, and the pages describe a 2024 version. In that 2024 version the three domains are named Career Development, Academic and Lifelong Learning, and Social Emotional Learning (formerly Career Management, Educational Achievement and Lifelong Learning, and Personal Social Development). Expansion confirmed: NCDG = National Career Development Guidelines (the repo's own seed file says the same, ncdg.cypher:2 and :73). Version note: the product code uses the earlier domain names and goal codes (PS, ED, CM), taken from an NCDA framework PDF that is still online (ncda.org/aws/NCDA/asset_manager/get_file/3384).",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:2",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:19",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:73",
+        "next_lms_erp/config/pal_h5p.php:1322",
+        "next_lms_erp/config/pal_h5p.php:1333",
+        "next_lms_erp/config/pal_architecture.php:834",
+        "next_lms_erp/app/Services/PAL/Framework/FrameworkCatalogService.php:37",
+        "lms_k12/app/pal/new/gamification/badges/page.tsx:90"
+      ]
+    },
+    {
+      "id": "ncf-se",
+      "name": "National Curriculum Framework for School Education (NCF-SE), NCERT",
+      "page_title": "Document: National Curriculum Framework for School Education 2023; listing page on the NCERT NCF portal (Home | National Curriculum Framework (NCF))",
+      "publisher": "National Council of Educational Research and Training (NCERT), Government of India, Ministry of Education",
+      "urls": [
+        "https://ncf.ncert.gov.in/ncf-se-2023",
+        "https://ncf.ncert.gov.in/sites/default/files/documents/1f0eb504-c745-4698-a085-927dca547963_1.pdf"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "NCERT's NCF portal lists 'National Curriculum Framework for School Education, 2023' with publish date 23 August 2023. In the document's Foreword it is called the first integrated curriculum framework for children across school ages in India, a direct outcome of the 5+3+3+4 curricular and pedagogical structure in the National Education Policy 2020, with the Foundational Stage framework integrated within it. The document describes four stages of schooling (Foundational, Preparatory, Middle, Secondary) and says it sets out aims, principles and approaches for content selection, pedagogy and assessment, with Learning Standards by subject. The PDF itself is marked First Edition October 2024 (ISBN 978-93-5292-741-8); the portal lists 23 August 2023, so the slide should cite the title and not a date.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/config/lms_content_boards.php:104",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php:22",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php:274",
+        "next_lms_erp/app/Console/Commands/SyncCurriculumLearningOutcomes.php:22",
+        "next_lms_erp/config/pal_architecture.php:585",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:123"
+      ]
+    },
+    {
+      "id": "ncert-learning-outcomes",
+      "name": "NCERT, Learning Outcomes at the Elementary Stage",
+      "page_title": "Learning Outcomes at the Elementary Stage (document); listed as 'Learning Outcomes at Elementary Stage' on NCERT's other publications page",
+      "publisher": "National Council of Educational Research and Training (NCERT), New Delhi",
+      "urls": [
+        "https://ncert.nic.in/other-publications.php",
+        "https://ncert.nic.in/pdf/publication/otherpublications/tilops101.pdf"
+      ],
+      "checked": "2026-11-26",
+      "what_the_pages_say": "First Edition April 2017 (ISBN 978-93-5007-785-6). The document says Learning Outcomes for the elementary classes have now been defined, were developed by NCERT at the national level with inputs from stakeholders at state and district levels, are meant for teachers, teacher-educators, administrators and parents, and are 'not prescriptive and may be contextualised as per the local-specific requirement'. NCERT's publications page also lists secondary-stage outcomes and a draft higher-secondary version, which this entry does not cover.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Learn conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/config/lms_content_boards.php:104",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php:32",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php:300",
+        "next_lms_erp/app/Console/Commands/SyncCurriculumLearningOutcomes.php:22",
+        "next_lms_erp/docs/lms-pal-content-intelligence-master-prompt.md:48",
+        "lms_k12/app/course-master/[courseId]/chapters/sideDrawer.tsx:470"
+      ]
+    }
+  ],
+  "proposed_rows": [
+    {
+      "text": "Bloom's revised taxonomy interrelates knowledge with cognitive processes; Webb's Depth of Knowledge communicates the content complexity of learning expectations and assessment items.",
+      "source": "Anderson, Krathwohl and others, Pearson; Norman Webb, WebbAlign",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-learn.json:14",
+        "next_lms_erp/config/lms_content_boards.php:77",
+        "next_lms_erp/config/pal_content_model.php:132",
+        "next_lms_erp/docs/content-design-system/vocabulary.md:48"
+      ]
+    },
+    {
+      "text": "CASEL's framework, the CASEL Wheel, positions social and emotional competencies within classroom, school, family and community settings.",
+      "source": "CASEL, What Is SEL?, casel.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+        "next_lms_erp/database/neo4j/frameworks/casel.cypher:28",
+        "next_lms_erp/config/pal_h5p.php:1233"
+      ]
+    },
+    {
+      "text": "The Next Generation Science Standards are K-12 science standards created through a state-led process and based on the Framework for K-12 Science Education.",
+      "source": "Achieve, Next Generation Science Standards, achieve.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+        "next_lms_erp/database/neo4j/frameworks/ngss.cypher:14",
+        "next_lms_erp/config/pal_h5p.php:1306"
+      ]
+    },
+    {
+      "text": "The National Career Development Guidelines are a framework of career development competencies and indicators of mastery, maintained by the National Career Development Association.",
+      "source": "National Career Development Association, NCDG Framework, ncda.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:2",
+        "next_lms_erp/config/pal_h5p.php:1322"
+      ]
+    },
+    {
+      "text": "NCERT publishes the National Curriculum Framework for School Education and, separately, class-wise Learning Outcomes at the Elementary Stage.",
+      "source": "NCERT, NCF for School Education 2023; Learning Outcomes at the Elementary Stage",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+        "next_lms_erp/config/lms_content_boards.php:104",
+        "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php:300"
+      ]
+    }
+  ],
+  "no_code_cites": [],
+  "no_code_cites_note": "Every source is cited somewhere in next_lms_erp or lms_k12. Gaps in how they are cited: no repo file names Anderson, Krathwohl or the year 2001 (the code says only 'Bloom's revised taxonomy', lms_content_boards.php:77); no repo file names Norman Webb or a Webb publication (the code says 'DOK (Webb)', pal_content_model.php:130, and 'Webb scale', vocabulary.md:60). The NGSS, CASEL and NCDG seed files do cite their official pages (ngss.cypher:14, casel.cypher:28, ncdg.cypher:23).",
+  "owner_to_confirm": [
+    "Webb DOK scope: keep it to concept notes. The question generator derives a DOK number from the Bloom level through a fixed ladder and labels it Easy, Medium or Hard (QuestionGenerationService.php:49 and :67), and WebbAlign's own page says DOK differentiates complexity from difficulty. part-learn.json:178 already says the paper picker uses 'DOK tags, never Webb'. Also confirm that concept notes in the live data really carry DOK levels (the config defines them at pal_content_model.php:132; stored values were not checked).",
+    "NCDG version: the code uses the earlier NCDA domains and goal codes (PS, ED, CM; ncdg.cypher:19-22), while ncda.org now shows the 2024 version (CD, ALL, SEL). The seed file also records a goal count of eight (ncdg.cypher:75) where the cited NCDA PDF says eleven in total. The slide names NCDG and the National Career Development Guidelines only and does not name a version.",
+    "NGSS: the code uses the science and engineering practices only (ngss.cypher:14, pal_h5p.php:1306), not the full standards, and the lms_k12 roadmap lists NGSS alignment as coming soon (registry.ts:433). The page opened is Achieve's; nextgenscience.org could not be opened from this machine and should be re-checked.",
+    "CASEL: the graph seed leaves self-awareness unmapped on purpose (casel.cypher:34-42), so 'framework views use CASEL' is true of the vocabulary and tags, not of full coverage. The slide must not imply every competency is mapped.",
+    "Lead wording 'Designed from': the product sheet says 'framework views use CASEL, NGSS, NCDG' (part-learn.json:14 and :259). The repo uses these three as tag vocabularies, so 'designed from' fits Bloom and the NCF and NCERT row better than the three framework rows. Decide whether to keep one lead word for all rows.",
+    "NCERT outcomes: the row cites the elementary-stage document, which is the one the repo's board profile names (lms_content_boards.php:104). NCERT also publishes secondary-stage outcomes; confirm which stage the lesson drafts actually use. Whether the rows in the lms_learning_outcomes table match NCERT's text was not checked; only the code that reads and syncs them was read (SyncCurriculumLearningOutcomes.php:22, MicroPlannerService.php:288).",
+    "Bloom edition: the page opened is Pearson's 2013 edition of the revision; no page opened here confirms the 2001 first edition, so the slide cites the authors and not the year unless you confirm it.",
+    "NCF date: the NCERT portal lists 23 August 2023 while the PDF is marked First Edition October 2024. The slide cites the title with 2023 in the citation only."
+  ]
+}

@@ -1,0 +1,517 @@
+{
+  "about": "Source list for the Research tab of the Scholar Compass tour. The product sheet (content/atlas/part-compass.json, family research field, line 14) says: 'Designed from O*NET occupation data and its Interest Profiler. Each covered career's entry requirements carry a named source.' The owner pasted a ten-topic list (below). Every external source was opened on 27 Nov 2026 on its publisher or owner site and described only as far as that page says. onetcenter.org, onetonline.org, services.onetcenter.org and ncda.org were read with a plain command-line request (and the O*NET pages also with the fetch tool); the two regulator PDFs were downloaded and read as text. No figure is taken from any source. Topics are themes: where the repo names no theory behind a topic, the entry says so and no outside page was researched. Repo evidence paths are relative to C:\\Users\\MILAN\\Downloads and were read in source on the same date. Code searched: next_lms_erp (app, config, routes, docs, database/neo4j incl. cai and frameworks), lms_k12 (app, lib, docs), hp_erp (app, config, Docs), and g2gv0 only for the product sheet. A whole-repo search (vendor and node_modules left out) found no Savickas, Bandura, Lent-Brown-Hackett or SCCT, Krumboltz, Gottfredson, Donald Super or 'career adaptability' in next_lms_erp, lms_k12 or hp_erp. The only Big Five mention is the words 'IPIP Big Five' in one hp_erp sales-catalogue row (config/portfolio_seed_data.json:606, readiness 'In development', not confirmed) with no implementation in next_lms_erp or lms_k12. 'Self-efficacy' appears in next_lms_erp only for learning reflection. 'Internship' appears in the Alumni and recruitment modules and in one static report line, not in any Compass screen. The ten product feature names from the owner's list were also searched by name in next_lms_erp, lms_k12, hp_erp and g2gv0 (app, config, docs, lib, components, database, routes): none found.",
+  "supplied_by_owner": [
+    "Career Development Theory: how career interests and identity develop over time -> Longitudinal career profile",
+    "Interest Assessment: what activities and occupational areas attract students -> Interest intelligence",
+    "Aptitude and Ability: what abilities students demonstrate or are developing -> Strength and aptitude profile",
+    "Personality and Work Preferences: how students prefer to work and interact -> Career environment matching",
+    "Career Self-Efficacy: how confident students are in performing career-related tasks -> Confidence and readiness",
+    "Career Decision-Making: how students compare options and make informed choices -> Career decision support",
+    "Career Awareness: how students discover occupations and industries -> Career exploration",
+    "Career Adaptability: how students prepare for changing careers and environments -> Future-readiness intelligence",
+    "Skills and Occupation Mapping: which skills, qualifications and competencies are required for occupations -> Career-Skill Knowledge Graph",
+    "Experiential Career Learning: how projects, internships and real-world exposure influence career interests -> Prayogshala and career projects"
+  ],
+  "sources": [
+    {
+      "id": "onet-interest-profiler",
+      "name": "O*NET Interest Profiler (O*NET Resource Center, U.S. Department of Labor, Employment and Training Administration)",
+      "kind": "external",
+      "page_title": "Interest Profiler (IP) at O*NET Resource Center",
+      "publisher": "U.S. Department of Labor, Employment and Training Administration (USDOL/ETA); developed by the National Center for O*NET Development",
+      "urls": [
+        "https://www.onetcenter.org/IP.html",
+        "https://www.onetcenter.org/reports/IP_Manual.html"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The page calls the O*NET Interest Profiler a family of self-assessment career exploration tools that help people discover the type of work activities and occupations they would like. It measures six types of occupational interests: Realistic, Investigative, Artistic, Social, Enterprising, Conventional. It lists a 30-question Mini-IP and a 60-question IP Short Form, and the feature line 'Compatible with Holland's R-I-A-S-E-C Interest Structure (Holland, 1985)'. The IP Manual page (March 2021) says it is a vocational interest inventory designed for use in educational planning, career exploration and career guidance, and that 'John Holland's (1997) RIASEC theoretical model' is the basis of the Interest Profiler scales. Page footer: site updated October 6, 2026.",
+      "licence_or_terms": "\"The O*NET Interest Profiler may be redistributed or used to develop other assessments under a choice of licenses.\" and \"Interest Profiler (IP) by U.S. Department of Labor, Employment and Training Administration is licensed under a Creative Commons Attribution 4.0 International License.\" (https://www.onetcenter.org/IP.html). The Career Exploration Tools licence page (https://www.onetcenter.org/license_tools.html) offers two options: CC BY-ND 4.0 to copy without modification, or the O*NET Tools Developer License to modify, edit or extend, which asks users to credit the source, link to the licence and \"validate all products incorporating content from the Tools\". It also says: \"O*NET is a trademark of USDOL/ETA\", \"The trademark symbol must be properly displayed when referring to O*NET\" and, for modified content, \"USDOL/ETA has not approved, endorsed, or tested these modifications.\"",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1174",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1208",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1239",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1271",
+        "next_lms_erp/routes/lms.php:405",
+        "lms_k12/app/career-counselling/_lib/types.ts:2",
+        "lms_k12/app/career-counselling/_lib/api.ts:61",
+        "lms_k12/app/career-counselling/_lib/api.ts:74",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx:25",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/riasecMeta.ts:18",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json:106"
+      ]
+    },
+    {
+      "id": "holland-riasec",
+      "name": "Holland's RIASEC model of vocational interests (as described by O*NET)",
+      "kind": "external",
+      "page_title": "O*NET Interest Profiler Manual at O*NET Resource Center (same publisher as above)",
+      "publisher": "U.S. Department of Labor, Employment and Training Administration, via the O*NET Resource Center",
+      "urls": [
+        "https://www.onetcenter.org/reports/IP_Manual.html",
+        "https://www.onetcenter.org/IP.html"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The IP Manual says: 'John Holland's (1997) RIASEC theoretical model (Realistic-Investigative-Artistic-Social-Enterprising-Conventional) is the basis of the Interest Profiler scales.' The IP page words it as 'Compatible with Holland's R-I-A-S-E-C Interest Structure (Holland, 1985)'. LIMIT: Holland's own book (Making Vocational Choices, 1997) and any publisher page for it were not opened; this entry rests only on what O*NET's pages say about Holland. The two O*NET pages give different years (1985 and 1997).",
+      "licence_or_terms": "The IP Manual page footer reads \"licensed under a Creative Commons Attribution 4.0 International License\" (https://www.onetcenter.org/reports/IP_Manual.html). That covers the O*NET manual, not Holland's book.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:709",
+        "next_lms_erp/app/Services/PAL/Framework/FrameworkCatalogService.php:42",
+        "next_lms_erp/config/pal_architecture.php:829",
+        "next_lms_erp/config/pal_v4.php:86",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx:25"
+      ]
+    },
+    {
+      "id": "onet-web-services",
+      "name": "O*NET Web Services (how the product obtains the Interest Profiler questions and results)",
+      "kind": "external",
+      "page_title": "O*NET Web Services; Terms of Service; O*NET Web Services Data License; O*NET Interest Profiler Services",
+      "publisher": "U.S. Department of Labor, Employment & Training Administration, developed by the National Center for O*NET Development",
+      "urls": [
+        "https://services.onetcenter.org/",
+        "https://services.onetcenter.org/ip",
+        "https://services.onetcenter.org/terms",
+        "https://services.onetcenter.org/help/license_data"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The site describes O*NET Web Services as an API developers can use to display O*NET information in their applications. The Interest Profiler Services page says the API provides the 30-question Mini-IP and a 60-question version, and that the Interest Profiler is also free on the web at My Next Move. The Terms of Service page (last updated June 25, 2019) says the services are provided only to parties who agree to its terms, including registering the site or application, showing a link to the O*NET Web Services site near the use of the information, and not changing the information.",
+      "licence_or_terms": "Terms of Service (https://services.onetcenter.org/terms): \"The Web Services are provided free of charge provided that a URL or link to the O*NET Web Services site is displayed in a prominent place near the use of the Web Services information, such that users understand the origin of the information.\" Also: \"Parties may only make use of Web Services on sites or applications under their control, and which are registered with the Center.\" Data License (https://services.onetcenter.org/help/license_data): account holders may publish O*NET data from the APIs provided they \"Present O*NET data without alteration or modification\" and credit with: \"This site incorporates information from O*NET Web Services by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). O*NET is a trademark of USDOL/ETA.\"",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:150",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:163",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:231",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1174",
+        "next_lms_erp/.env.example:22",
+        "lms_k12/app/career-counselling/_lib/types.ts:5"
+      ]
+    },
+    {
+      "id": "onet-content-model",
+      "name": "The O*NET Content Model (O*NET Resource Center)",
+      "kind": "external",
+      "page_title": "The O*NET Content Model at O*NET Resource Center",
+      "publisher": "U.S. Department of Labor, Employment and Training Administration, via the O*NET Resource Center",
+      "urls": [
+        "https://www.onetcenter.org/content.html"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The page says the Content Model is the foundation of O*NET and organizes the most important information about jobs and workers into a clear, structured system, and that it 'is based on research about jobs and how people work'. It names six main areas (Worker Characteristics, Worker Requirements, Experience Requirements, Occupational Requirements, Occupation-Specific Info, Workforce Characteristics). Under Worker Characteristics the outline lists Career Interests, Abilities and Work Styles; under Worker Requirements it lists Skills, Knowledge and Education. LIMIT: the current outline does not list Work Values, although the product code reads work-values tables (see owner_to_confirm).",
+      "licence_or_terms": "The page itself shows no licence line and no date (only a 'License agreements' link in its menu). The database licence page (https://www.onetcenter.org/license_db.html, titled 'O*NET 31.0 Database Content License') says: \"the content of the O*NET 31.0 Database is licensed under a Creative Commons Attribution 4.0 International License\" and asks users to \"credit the O*NET 31.0 Database and the U.S. Department of Labor, Employment and Training Administration as the original source, link to the license, and indicate where any changes were made to the original.\"",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:586",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:658",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:686",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:741",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:769",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:796",
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php:16",
+        "lms_k12/app/career-explorer/_components/EduSideMenu.tsx:17"
+      ]
+    },
+    {
+      "id": "onet-online",
+      "name": "O*NET OnLine (U.S. Department of Labor) and the O*NET Database it draws on",
+      "kind": "external",
+      "page_title": "O*NET OnLine",
+      "publisher": "Sponsored by the U.S. Department of Labor, Employment & Training Administration; developed by the National Center for O*NET Development",
+      "urls": [
+        "https://www.onetonline.org/",
+        "https://www.onetcenter.org/license_db.html"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The home page says: 'Welcome to your tool for career exploration and job analysis! O*NET OnLine has detailed descriptions of the world of work for use by job seekers, workforce development and HR professionals, students, developers, researchers, and more!' and offers search and browse across 900+ occupations. The footer says it is sponsored by the U.S. Department of Labor, Employment & Training Administration and developed by the National Center for O*NET Development. Site updated October 6, 2026.",
+      "licence_or_terms": "Footer (https://www.onetonline.org/): \"O*NET OnLine by U.S. Department of Labor, Employment and Training Administration is licensed under a Creative Commons Attribution 4.0 International License.\" Database licence page (https://www.onetcenter.org/license_db.html): \"This page includes information from the O*NET 31.0 Database by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under the CC BY 4.0 license.\" and, for edited content, \"USDOL/ETA has not approved, endorsed, or tested these modifications.\" Naming rule on the same page: use \"O*NET\" as an adjective followed by the generic product name, display the trademark symbol, never in the possessive or plural form.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/cai/occupations/lawyer.cypher:6",
+        "next_lms_erp/database/neo4j/cai/occupations/fashion_designer.cypher:6",
+        "next_lms_erp/database/neo4j/cai/occupations/doctor.cypher:17",
+        "next_lms_erp/database/neo4j/cai/occupations/chartered_accountant.cypher:14",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php:50",
+        "next_lms_erp/app/Console/Commands/SyncONetOccupationData.php:37"
+      ]
+    },
+    {
+      "id": "ncdg",
+      "name": "National Career Development Guidelines (NCDG), National Career Development Association",
+      "kind": "external",
+      "page_title": "NCDG Website (home); NCDA | The Framework; NCDA | History of NCDG",
+      "publisher": "National Career Development Association (NCDA), ncda.org",
+      "urls": [
+        "https://ncda.org/aws/NCDA/pt/sp/NCDG_home_page",
+        "https://ncda.org/aws/NCDA/pt/sp/ncdg_framework",
+        "https://ncda.org/aws/NCDA/pt/sp/ncdg_history"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The NCDG are 'a framework of career development competencies and indicators of mastery, including a recommended strategy for implementing career development programs for youth or adults.' The pages describe a 2024 version with three domains: Career Development (defined as meeting career goals through information management and decision-making, while mastering employability skills and integrating world conditions), Academic and Lifelong Learning, and Social Emotional Learning. Indicators are presented in three learning stages derived from Bloom's Taxonomy (knowledge acquisition, application, reflection), 'not tied to an individual's age or level of education'. First released by the National Occupational Information Coordinating Committee in 1989 and handed to NCDA in 2007 to maintain. One indicator example on the home page (CD1.K4) lists self-efficacy and flexibility among career management traits; the repo does not implement that indicator.",
+      "licence_or_terms": null,
+      "licence_note": "No reuse licence is stated on the three pages read. Footer shows '2026 National Career Development Guidelines' with links to Contact Us, Legal Disclaimer and Privacy Policy; the Legal Disclaimer page was not opened.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:2",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:6",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher:71",
+        "next_lms_erp/app/Services/PAL/Framework/FrameworkCatalogService.php:37",
+        "next_lms_erp/config/pal_v4.php:82",
+        "next_lms_erp/config/pal_h5p.php:1332",
+        "next_lms_erp/config/pal_architecture.php:834"
+      ],
+      "compass_note": "No NCDG mention exists in the four Compass screens folders, CareerIntelligence services or counselling controllers (searched), and part-compass.json does not name it. The only link to Compass is that ncdg.cypher maps NCDG goals onto the same Occupation, Exam and Degree nodes the alignment check uses."
+    },
+    {
+      "id": "coa-regulations",
+      "name": "Council of Architecture (Minimum Standards of Architectural Education) Regulations, 2020",
+      "kind": "external",
+      "page_title": "Gazette of India, Extraordinary, Part III Section 4, 11 August 2020: Council of Architecture notification F. No. CA/193/2020/MSAER",
+      "publisher": "Council of Architecture, New Delhi (statutory authority constituted under the Architects Act, 1972), published in the Gazette of India",
+      "urls": [
+        "https://coa.gov.in/app/myauth/notification/COA_Minimum_Standards_of_Architectural_Education_Regulations_2020.pdf"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The notification, dated 11 August 2020, makes the regulations that may be called the Council of Architecture (Minimum Standards of Architectural Education) Regulations, 2020, in force from 1 November 2020, superseding the 1983 regulations. Regulation 4 (Admission to the Architecture degree course) sets the 10+2 subject and aggregate-mark condition, naming Physics, Chemistry and Mathematics, and requires qualifying an Aptitude Test in Architecture conducted by the Council. The PDF opened and was read as text (Hindi and English).",
+      "licence_or_terms": null,
+      "licence_note": "A government gazette notification; no reuse licence line read.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/cai/occupations/architect.cypher:5",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json:231"
+      ]
+    },
+    {
+      "id": "vci-bulletin",
+      "name": "Veterinary Council of India, online counselling information bulletin for BVSc and AH, academic year 2026-27",
+      "kind": "external",
+      "page_title": "VETERINARY COUNCIL OF INDIA, Online Counseling (AY 2026-27), Information Bulletin",
+      "publisher": "Veterinary Council of India (statutory body of the Government of India), New Delhi",
+      "urls": [
+        "https://www.vci.dahd.gov.in/sites/default/files/News%20update/CompositIBAY2026-27.pdf"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The first pages identify the document as the Veterinary Council of India information bulletin for online counselling for admission to the BVSc and AH degree programme in recognised veterinary colleges, academic year 2026-27, with a contents list that includes eligibility criteria. Only the first pages were read; the eligibility text itself was not checked against the repo's cypher comment.",
+      "licence_or_terms": null,
+      "licence_note": "No reuse licence line read.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/cai/occupations/veterinarian.cypher:8"
+      ]
+    },
+    {
+      "id": "ipip-big-five",
+      "name": "International Personality Item Pool (IPIP), named for 'IPIP Big Five' in a sales-catalogue row only",
+      "kind": "external",
+      "page_title": "IPIP Home (International Personality Item Pool)",
+      "publisher": "The page calls itself the official IPIP website; it names Dr. Lewis R. Goldberg as the person who oversaw it and asks for donations to the nonprofit Oregon Research Institute, but does not say who publishes the site",
+      "urls": [
+        "https://ipip.ori.org/"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The page describes the IPIP as 'A Scientific Collaboratory for the Development of Advanced Measures of Personality and Other Individual Differences', with over 3,000 items and over 250 scales built from them, launched in 1998 with an NIMH grant to Dr. Lewis R. Goldberg, who authored most of the items. It links to multi-construct inventories 'including measures of the five major personality factors'. It does not define the Big Five on that page. Site text notes Goldberg's death on March 29, 2026. NOT USED ON THE SLIDE: the repo names this only in a sales catalogue row, with no implementation.",
+      "licence_or_terms": "\"The items and scales are in the public domain, which means that one can copy, edit, translate, or use them for any purpose without asking permission and without paying a fee.\" (https://ipip.ori.org/)",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it. Not proposed as a row because no code or screen uses it.",
+      "evidence_in_repo": [
+        "hp_erp/config/portfolio_seed_data.json:606",
+        "hp_erp/tests/Support/BuildsProductUnifyWorld.php:142"
+      ]
+    },
+    {
+      "id": "topic-career-development-theory",
+      "name": "Career Development Theory (owner topic) -> Longitudinal career profile",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only, no named source. No developmental theory (Super, Savickas or other) is named in the repos. NCDG is named as a career-development competency framework and Holland/RIASEC as an interest model; neither is a theory of how identity develops over time. No page researched.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not cite a theory or claim a feature by this name.",
+      "feature_name": "Longitudinal career profile",
+      "feature_evidence_in_repo": [
+        "no repo evidence under this name. Nearest, and not in the four Compass sub-modules: PAL 'Career pathway' signals accumulated from a configured grade to a report at a configured grade: next_lms_erp/config/pal_architecture.php:778, next_lms_erp/config/pal_architecture.php:821, next_lms_erp/config/pal_architecture.php:822, next_lms_erp/app/Services/PAL/Gamification/CareerQuestService.php:11, next_lms_erp/app/Models/PAL/Gamification/CareerQuestState.php:8, next_lms_erp/routes/pal_api.php:437, lms_k12/app/pal/new/gamification/career-quest/page.tsx:25"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/config/pal_architecture.php:778",
+        "next_lms_erp/app/Services/PAL/Gamification/CareerQuestService.php:11"
+      ]
+    },
+    {
+      "id": "topic-interest-assessment",
+      "name": "Interest Assessment (owner topic) -> Interest intelligence",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Theory is named: the O*NET Interest Profiler and Holland's RIASEC model (see the two entries above).",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Compass conforms to it or is endorsed by it.",
+      "feature_name": "Interest intelligence",
+      "feature_evidence_in_repo": [
+        "name 'Interest intelligence': no repo evidence",
+        "the capability behind it is the Interest Profiler screen (Knowing Yourself): lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx:25, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1174",
+        "results are passed through unchanged and are not part of the career graph: lms_k12/app/career-counselling/_lib/types.ts:5, next_lms_erp/app/CareerIntelligence/CareerCounsellingNarrator.php:17"
+      ],
+      "evidence_in_repo": [
+        "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx:25",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1174",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1208"
+      ]
+    },
+    {
+      "id": "topic-aptitude-ability",
+      "name": "Aptitude and Ability (owner topic) -> Strength and aptitude profile",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only, no named aptitude source. The repo names no aptitude test or theory. O*NET Abilities (an occupation attribute, not a student result) is used in Career Explorer. PAL config lists aptitude domains as a tag vocabulary. No page researched.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not claim a student aptitude profile.",
+      "feature_name": "Strength and aptitude profile",
+      "feature_evidence_in_repo": [
+        "name 'Strength and aptitude profile': no repo evidence; no student-facing aptitude screen found (searched lms_k12/app and lms_k12/lib for 'aptitude': no match)",
+        "config/tag vocabulary only: next_lms_erp/config/pal_architecture.php:831, next_lms_erp/config/pal_architecture.php:837, next_lms_erp/config/pal_content.php:743, next_lms_erp/app/Services/PAL/Content/PalVocabulary.php:410",
+        "O*NET abilities as an occupation filter: next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:400, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:658"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/config/pal_architecture.php:831",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:658"
+      ]
+    },
+    {
+      "id": "topic-personality-work-preferences",
+      "name": "Personality and Work Preferences (owner topic) -> Career environment matching",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only in the code: no personality instrument or theory is implemented. 'IPIP Big Five' is named for the Career Intelligence & Counselling offer only in an hp_erp sales-catalogue row (readiness 'In development', not confirmed); its public page was opened (see ipip-big-five) but nothing in next_lms_erp or lms_k12 uses it. MBTI is named in the code as a school-set test card and Gardner's multiple intelligences as a PAL signal, but neither is tied to this topic or to Compass, so neither was researched. O*NET Work Styles and Work Values are occupation attributes used as filters, not student personality results.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not claim personality matching.",
+      "feature_name": "Career environment matching",
+      "feature_evidence_in_repo": [
+        "name 'Career environment matching': no repo evidence",
+        "occupation-side filters for work styles and work values: next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:465, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:478, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:713, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:741",
+        "route matchProfile returns a hard-coded sample array (a fixed profile for a fixed student id) and no lms_k12 file calls it: next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1373, next_lms_erp/routes/lms.php:412",
+        "MBTI card shown only when a school names a course MBTI: lms_k12/app/career-counselling/interest-profile/_components/CounsellingCourses.tsx:17",
+        "'IPIP Big Five' appears only as text in a sales-catalogue row, no implementation: hp_erp/config/portfolio_seed_data.json:606, hp_erp/tests/Support/BuildsProductUnifyWorld.php:142"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:741",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1373"
+      ]
+    },
+    {
+      "id": "topic-career-self-efficacy",
+      "name": "Career Self-Efficacy (owner topic) -> Confidence and readiness",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only, no named source. No Bandura or SCCT in the repos. The word self-efficacy appears only as a learning-reflection score in the practice engine, not about career tasks. Nearest career feature is Career Certainty (the student records how sure they are of a job goal), which is not self-efficacy and cites no source. No page researched.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not claim a career self-efficacy measure.",
+      "feature_name": "Confidence and readiness",
+      "feature_evidence_in_repo": [
+        "name 'Confidence and readiness': no repo evidence",
+        "learning self-efficacy, not career: next_lms_erp/app/Services/PAL/Pedagogy/MetacognitionEngine.php:98, next_lms_erp/app/Services/PAL/Intelligence/LearnerStateEngine.php:134",
+        "'confidence' is a data-quality label on evidence, and 'readiness' is one explainer sentence: next_lms_erp/app/CareerIntelligence/CaiCoreService.php:336, next_lms_erp/app/CareerIntelligence/CareerRecommendationExplainer.php:25"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/app/Services/PAL/Pedagogy/MetacognitionEngine.php:98",
+        "lms_k12/app/career-awareness/_components/panels/Certainty.tsx:30"
+      ]
+    },
+    {
+      "id": "topic-career-decision-making",
+      "name": "Career Decision-Making (owner topic) -> Career decision support",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only, no named decision-making theory in the repos. A feature of this kind exists (the Career Intelligence alignment check, alternative occupations and counsellor narrative) but it cites no theory. The NCDG Career Development domain is defined on its page as including decision-making; the repo does not tie it to this feature.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide may describe the feature, not a theory behind it.",
+      "feature_name": "Career decision support",
+      "feature_evidence_in_repo": [
+        "name 'Career decision support': no repo evidence; the feature itself exists as Career Intelligence",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php:50",
+        "next_lms_erp/app/CareerIntelligence/AlternativeOccupationRecommender.php:8",
+        "next_lms_erp/app/CareerIntelligence/CareerRecommendationExplainer.php:7",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/CareerRecommendationController.php:32",
+        "lms_k12/app/career-intelligence/CareerIntelligenceHub.tsx"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/app/CareerIntelligence/AlternativeOccupationRecommender.php:8",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/CareerRecommendationController.php:32"
+      ]
+    },
+    {
+      "id": "topic-career-awareness",
+      "name": "Career Awareness (owner topic) -> Career exploration",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Source named for the data: O*NET (see entries above). Topic wording clashes with the product: the K12 sub-module called Career Awareness is four pages on career certainty, ambition, alignment and originality; discovering occupations and industries is the Career Explorer sub-module. The Career Awareness screen text links these ideas to later earnings and satisfaction and cites no source (part-compass.json already says not to quote it).",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "States only what the O*NET sources are. It does not say Scholar Compass conforms to them or is endorsed by them.",
+      "feature_name": "Career exploration",
+      "feature_evidence_in_repo": [
+        "name 'Career exploration' not used as a feature name; the feature is Career Explorer (Find Occupation, College, Course, Employer): lms_k12/app/career-explorer/CareerExplorerHub.tsx",
+        "browse by industry and occupation lists: next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:150, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:178, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:517, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:566, next_lms_erp/routes/lms.php:395",
+        "uncited claim text: lms_k12/app/career-awareness/_components/panels/Certainty.tsx:30, lms_k12/app/career-awareness/_components/panels/Alignment.tsx:25"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:150",
+        "next_lms_erp/routes/lms.php:395"
+      ]
+    },
+    {
+      "id": "topic-career-adaptability",
+      "name": "Career Adaptability (owner topic) -> Future-readiness intelligence",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "no repo evidence. No Savickas or career adaptability in next_lms_erp, lms_k12 or hp_erp. 'Adaptive' in the career code means adaptive practice (learning), not career adaptability. The only 'future-readiness' text is an HR workforce spec in hp_erp, unrelated to students. No page researched.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not claim this.",
+      "feature_name": "Future-readiness intelligence",
+      "feature_evidence_in_repo": [
+        "no repo evidence for the name or a student feature. Unrelated HR text only: hp_erp/Docs/phase3/_evidence/spec-CompetencyManagementFeatures.txt:59",
+        "nearest config, employability not adaptability: next_lms_erp/config/pal_architecture.php:796"
+      ],
+      "evidence_in_repo": []
+    },
+    {
+      "id": "topic-skills-occupation-mapping",
+      "name": "Skills and Occupation Mapping (owner topic) -> Career-Skill Knowledge Graph",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Sources named: O*NET (skills and knowledge requirements) and, per covered career, a named entry-requirement source (see the Council of Architecture and Veterinary Council entries; most other careers cite education portals or blogs). The graph the alignment check reads holds Occupation, Stream, Subject, Exam and Degree nodes for a small curated set of careers, with no skill nodes. The repo's own name is 'career knowledge graph', not Career-Skill Knowledge Graph.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "States only what the named sources are. It does not say Scholar Compass conforms to them or is endorsed by them.",
+      "feature_name": "Career-Skill Knowledge Graph",
+      "feature_evidence_in_repo": [
+        "name 'Career-Skill Knowledge Graph': no repo evidence; repo wording is 'career knowledge graph': next_lms_erp/app/CareerIntelligence/CareerCounsellingNarrator.php:65, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:1601",
+        "alignment graph labels, no skills: next_lms_erp/database/neo4j/cai/constraints.cypher:6, next_lms_erp/app/CareerIntelligence/CaiCoreService.php:50",
+        "occupation knowledge requirements read from local O*NET tables: next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php:16",
+        "O*NET skills as an explorer filter and detail section: next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:439, next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:796",
+        "separate HR skills graph with an O*NET reference subgraph (module skills): next_lms_erp/database/neo4j/cypher/70_skills.cypher:1, next_lms_erp/database/neo4j/cypher/70_skills.cypher:51",
+        "staff mentors via an HR-filled crosswalk, dormant until filled: next_lms_erp/app/CareerIntelligence/StaffMentorMatchService.php:8"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php:16",
+        "next_lms_erp/database/neo4j/cai/constraints.cypher:6",
+        "next_lms_erp/database/neo4j/cypher/70_skills.cypher:1"
+      ]
+    },
+    {
+      "id": "topic-experiential-career-learning",
+      "name": "Experiential Career Learning (owner topic) -> Prayogshala and career projects",
+      "kind": "theme",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "Topic only, no named source. Prayogshala exists but as chapter-scoped practical, experiment and simulation resources in the curriculum; no file read links it to careers. No career project code found. Internships exist only as alumni-posted opportunities (job, internship, apprenticeship, project, freelance) in the Alumni module, shown to students outside Compass, and as one line of static advice in the career report view. 'Experiential' and 'project based' are pedagogy tags that the PAL config maps to NCDG codes, which is tag-level only.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Topic only, no named source. The slide must not claim career projects or Prayogshala as a career feature.",
+      "feature_name": "Prayogshala and career projects",
+      "feature_evidence_in_repo": [
+        "Prayogshala (curriculum lab, no career link; searched config/prayogshala.php and PrayogshalaApiController for 'career': no match): next_lms_erp/routes/api.php:727, next_lms_erp/routes/api.php:747, next_lms_erp/config/prayogshala.php:4, lms_k12/app/course-master/[courseId]/chapters/PrayogshalaLab.tsx",
+        "name 'career projects': no repo evidence. Internships live in the Alumni module, not Compass: next_lms_erp/app/Http/Controllers/api/alumni/AlumniOpportunityApiController.php:41, lms_k12/app/alumni/opportunities/page.tsx:10, lms_k12/app/alumni/student/page.tsx:19; static advice line: next_lms_erp/resources/views/lms/counselling/career_report.blade.php:349",
+        "career scenarios completed, a PAL badge and quest input, not a project feature: next_lms_erp/app/Services/PAL/Gamification/LearnerActivitySource.php:1052, next_lms_erp/config/pal_gamification.php:634",
+        "pedagogy tags mapped to NCDG codes: next_lms_erp/config/pal_v4.php:97, next_lms_erp/config/pal_v4.php:101"
+      ],
+      "evidence_in_repo": [
+        "next_lms_erp/routes/api.php:727",
+        "next_lms_erp/config/pal_v4.php:101"
+      ]
+    }
+  ],
+  "proposed_rows": [
+    {
+      "text": "The O*NET\u00ae Interest Profiler is a self-assessment for exploring work activities and occupations across six interest areas, compatible with Holland's RIASEC structure.",
+      "source": "U.S. Department of Labor, O*NET Interest Profiler, onetcenter.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+        "lms_k12/app/career-counselling/_lib/types.ts",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx",
+        "lms_k12/app/career-counselling/knowing-yourself/_components/riasecMeta.ts"
+      ]
+    },
+    {
+      "text": "The O*NET\u00ae Content Model organizes information about jobs and workers, from interests, abilities and work styles to the skills and knowledge needed.",
+      "source": "O*NET Resource Center, The O*NET Content Model, onetcenter.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+        "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php",
+        "lms_k12/app/career-explorer/_components/EduSideMenu.tsx"
+      ]
+    },
+    {
+      "text": "O*NET\u00ae OnLine, sponsored by the U.S. Department of Labor, is a career exploration and job analysis tool describing the world of work.",
+      "source": "O*NET OnLine, onetonline.org, U.S. Department of Labor",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+        "next_lms_erp/database/neo4j/cai/occupations/lawyer.cypher",
+        "next_lms_erp/database/neo4j/cai/occupations/doctor.cypher",
+        "next_lms_erp/database/neo4j/cai/occupations/fashion_designer.cypher"
+      ]
+    },
+    {
+      "text": "The National Career Development Guidelines are a framework of career development competencies and indicators of mastery, maintained by the National Career Development Association.",
+      "source": "National Career Development Association, NCDG, ncda.org",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+        "next_lms_erp/database/neo4j/frameworks/ncdg.cypher",
+        "next_lms_erp/app/Services/PAL/Framework/FrameworkCatalogService.php",
+        "next_lms_erp/config/pal_v4.php"
+      ]
+    },
+    {
+      "text": "Council of Architecture is a statutory authority whose regulations set minimum standards of architectural education, including admission conditions.",
+      "source": "Council of Architecture, Minimum Standards of Architectural Education Regulations, 2020",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+        "next_lms_erp/database/neo4j/cai/occupations/architect.cypher"
+      ]
+    }
+  ],
+  "no_code_cites": [
+    "Longitudinal career profile (feature name; nearest is PAL Career Quest, outside the Compass sheet)",
+    "Interest intelligence (feature name)",
+    "Strength and aptitude profile (feature name; aptitude is a config tag list only)",
+    "Career environment matching (feature name; matchProfile is a hard-coded sample)",
+    "Confidence and readiness (feature name)",
+    "Career decision support (feature name; the feature exists as Career Intelligence)",
+    "Future-readiness intelligence (feature name)",
+    "Career-Skill Knowledge Graph (feature name; the repo says 'career knowledge graph')",
+    "Prayogshala and career projects (Prayogshala exists as a curriculum lab with no career link; career projects: none)",
+    "Career Development Theory: no named theory (no Super, Savickas)",
+    "Aptitude and Ability: no named aptitude source",
+    "Personality and Work Preferences: no personality instrument or theory implemented ('IPIP Big Five' is only text in an hp_erp sales-catalogue row)",
+    "Career Self-Efficacy: no Bandura or SCCT; no career self-efficacy measure",
+    "Career Decision-Making: no named theory",
+    "Career Adaptability: no repo evidence at all",
+    "Experiential Career Learning: no career project code; internships exist only in the Alumni module, outside Compass"
+  ],
+  "owner_to_confirm": [
+    "NO CODE EVIDENCE, so the slide must not claim them: the ten feature names in no_code_cites, and any theory behind Career Development, Aptitude, Personality, Self-Efficacy, Decision-Making, Adaptability and Experiential Career Learning. Only Interest Assessment (O*NET Interest Profiler, Holland RIASEC), Career Awareness data (O*NET) and Skills and Occupation Mapping (O*NET, named entry-requirement sources) have a named source in the repo.",
+    "Wording on the sheet: part-compass.json:116 says 'Designed from the O*NET Interest Profiler'. The code fetches the Interest Profiler questions and results from O*NET Web Services and passes them through unchanged (types.ts:5; lmsCounsellingController.php:1174 and :1208). 'Uses the O*NET Interest Profiler through O*NET Web Services' is what the code supports. The sheet's other lead, 'Designed from O*NET occupation data', rests on locally stored onet_* tables and the O*NET codes in the career graph.",
+    "O*NET credit and registration: the Web Services terms ask for a link to the O*NET Web Services site near the use of the information and for the site to be registered. Searching the four K12 career folders for O*NET found 6 matches, all code comments (types.ts, KnowingYourselfHub.tsx, career-intelligence api.ts and MentorSuggestions.tsx), so no on-screen credit was found. Registration of the production site was not checked (credential variable names ONET_USERNAME and ONET_PASSWORD exist at .env.example:22; values not read).",
+    "O*NET naming and endorsement: the licence pages require the trademark symbol, O*NET used as an adjective, and say USDOL/ETA has not approved, endorsed or tested modified content. The slide wording should follow that and must not imply O*NET endorses or has assessed Scholar Compass.",
+    "Holland year mismatch: the O*NET Interest Profiler page says Holland, 1985; the IP Manual and the repo text (lmsCounsellingController.php:709) say Holland (1997). The slide names Holland and RIASEC without a year. Holland's own book was not opened.",
+    "O*NET data version: the Content Model page opened lists Career Interests, Abilities and Work Styles under Worker Characteristics and no Work Values, but the code reads work-values tables (lmsCounsellingController.php:478, :713) and the explorer menu has an 'Interests & Work Values' group (EduSideMenu.tsx:17). The O*NET database version loaded into onet_* tables is not recorded in the repo (the licence page names version 31.0 as current). Keep work values off the slide.",
+    "Career Awareness name clash: the owner's topic 'Career Awareness: how students discover occupations and industries' is what the Career Explorer sub-module does. The K12 sub-module named Career Awareness is certainty, ambition, alignment and originality, and its text cites no source. Decide which one the research row belongs to.",
+    "NCDG on Compass: neither part-compass.json nor any Compass screen or service names NCDG. The repo links it only through ncdg.cypher (goals mapped onto the career-graph Occupation, Exam and Degree nodes) and PAL config. Include row 4 only if the owner accepts that link; otherwise drop it. Version note: the code uses the earlier domain names and codes (PS, EDL, CM) and a goal count of 8 (ncdg.cypher:75) while the NCDA pages read now show the 2024 domains and 'eleven goals'; the slide names NCDG and the National Career Development Guidelines only, no version.",
+    "Entry-requirement sources: of the 11 covered careers only Architect (Council of Architecture, opened) and Veterinarian (Veterinary Council of India, first pages read) cite a regulator. The others cite education portals or blogs (careers360, sartha.in, crescent.education, clatnlti.com), so 'named source' is true but 'official source' is not. The veterinary cypher comment calls its document a circular; the file opened is an information bulletin for online counselling, academic year 2026-27. The Council of Architecture file is a gazette notification dated 11 Aug 2020; an architecture degree also needs an aptitude test under regulation 4.",
+    "Interest results do not feed career evidence or the alignment check, and nothing is saved (CareerCounsellingNarrator.php:17-22; sheet owner_to_confirm). The slide must not say the Interest Profiler informs guidance, alignment or recommendations.",
+    "IPIP Big Five: named for the Career Intelligence & Counselling offer (SCH-04) in hp_erp/config/portfolio_seed_data.json:606, a sales-catalogue row with readiness 'In development' and readiness_confirmed false, together with 'KASBA + NCDG competency framework'. No code in next_lms_erp or lms_k12 implements it, and KASBA in the product is a staff and organisation capability model (part-insight.json:284 says not to link it to students). If the owner's Personality and Work Preferences topic comes from that row, the slide must not claim it. The IPIP page was opened and is recorded above, but no row is proposed.",
+    "Internships and real-world exposure: the product has alumni-posted jobs, internships, apprenticeships and projects that students see (Alumni module), but they are not part of Compass and not tied to careers counselling. If the owner wants Experiential Career Learning on the Compass slide, that is a link to build or confirm, not one the code shows.",
+    "Terms in the repo that are outside the owner's list: Gardner's multiple intelligences (gardner.cypher:2, PAL signal pal_architecture.php:830) and MBTI (CounsellingCourses.tsx:17, a school-set card; test licensing is already an open item on the sheet). Not researched and not proposed as rows.",
+    "Words to keep off the slide: the PAL Career pathway tagline uses 'validated' (pal_architecture.php:780); the Career Awareness text asserts links to earnings and satisfaction with no source.",
+    "Not opened: Holland's own book and any publisher page for it; the NCDA Legal Disclaimer page; the full eligibility text of the Veterinary Council bulletin. No page was skipped for a fetch error: all pages above opened."
+  ]
+}

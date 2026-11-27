@@ -23,18 +23,6 @@
   "slug": "core-opener"
  },
  {
-  "kind": "film",
-  "theme": "ink",
-  "title": "Scholar Core",
-  "kicker": "Institute ERP",
-  "ghost": "",
-  "family": "core",
-  "beats": 0,
-  "key": "a3",
-  "n": 203,
-  "slug": "core-film"
- },
- {
   "kind": "tour",
   "theme": "ink",
   "title": "Scholar Core",
@@ -42,8 +30,8 @@
   "ghost": "",
   "family": "core",
   "beats": 15,
-  "key": "a4",
-  "n": 204,
+  "key": "a3",
+  "n": 203,
   "slug": "core-tour"
  },
  {
@@ -54,77 +42,21 @@
   "ghost": "",
   "family": "learn",
   "beats": 0,
-  "key": "a5",
-  "n": 205,
+  "key": "a4",
+  "n": 204,
   "slug": "learn-opener"
  },
  {
-  "kind": "subs",
+  "kind": "tour",
   "theme": "ink",
-  "title": "Scholar Learn",
-  "kicker": "LMS + PAL",
-  "ghost": "1/2",
-  "family": "learn",
-  "subs": [
-   "learn-teach-learn",
-   "learn-exam-assessment",
-   "learn-engagement",
-   "learn-curriculum-planning"
-  ],
-  "beats": 3,
-  "key": "a6",
-  "n": 206,
-  "slug": "learn-subs-1"
- },
- {
-  "kind": "subs",
-  "theme": "ink",
-  "title": "Scholar Learn",
-  "kicker": "LMS + PAL",
-  "ghost": "2/2",
-  "family": "learn",
-  "subs": [
-   "learn-pal-content-model",
-   "learn-pal-knowledge-graph",
-   "learn-pal-engines"
-  ],
-  "beats": 2,
-  "key": "a7",
-  "n": 207,
-  "slug": "learn-subs-2"
- },
- {
-  "kind": "glance",
-  "theme": "paper",
   "title": "Scholar Learn",
   "kicker": "LMS + PAL",
   "ghost": "",
   "family": "learn",
-  "beats": 0,
-  "key": "a8",
-  "n": 208,
-  "slug": "learn-glance"
- },
- {
-  "kind": "gallery",
-  "theme": "paper",
-  "title": "Scholar Learn",
-  "kicker": "LMS + PAL",
-  "ghost": "",
-  "family": "learn",
-  "subs": [
-   "learn-teach-learn",
-   "learn-exam-assessment",
-   "learn-engagement",
-   "learn-curriculum-planning",
-   "learn-pal-content-model",
-   "learn-pal-knowledge-graph",
-   "learn-pal-engines"
-  ],
-  "beats": 0,
-  "key": "a9",
-  "n": 209,
-  "slug": "learn-gallery"
+  "beats": 9,
+  "key": "a5",
+  "n": 205,
+  "slug": "learn-tour"
  },
  {
   "kind": "opener",
@@ -134,75 +66,21 @@
   "ghost": "",
   "family": "ccb",
   "beats": 0,
-  "key": "a10",
-  "n": 210,
+  "key": "a6",
+  "n": 206,
   "slug": "ccb-opener"
  },
  {
-  "kind": "subs",
+  "kind": "tour",
   "theme": "ink",
-  "title": "Scholar CCB",
-  "kicker": "People & Competency",
-  "ghost": "1/2",
-  "family": "ccb",
-  "subs": [
-   "ccb-organization-management",
-   "ccb-task-management",
-   "ccb-talent-management"
-  ],
-  "beats": 2,
-  "key": "a11",
-  "n": 211,
-  "slug": "ccb-subs-1"
- },
- {
-  "kind": "subs",
-  "theme": "ink",
-  "title": "Scholar CCB",
-  "kicker": "People & Competency",
-  "ghost": "2/2",
-  "family": "ccb",
-  "subs": [
-   "ccb-hrit-management",
-   "ccb-capability-intelligence",
-   "ccb-lms"
-  ],
-  "beats": 2,
-  "key": "a12",
-  "n": 212,
-  "slug": "ccb-subs-2"
- },
- {
-  "kind": "glance",
-  "theme": "paper",
   "title": "Scholar CCB",
   "kicker": "People & Competency",
   "ghost": "",
   "family": "ccb",
-  "beats": 0,
-  "key": "a13",
-  "n": 213,
-  "slug": "ccb-glance"
- },
- {
-  "kind": "gallery",
-  "theme": "paper",
-  "title": "Scholar CCB",
-  "kicker": "People & Competency",
-  "ghost": "",
-  "family": "ccb",
-  "subs": [
-   "ccb-organization-management",
-   "ccb-task-management",
-   "ccb-talent-management",
-   "ccb-hrit-management",
-   "ccb-capability-intelligence",
-   "ccb-lms"
-  ],
-  "beats": 0,
-  "key": "a14",
-  "n": 214,
-  "slug": "ccb-gallery"
+  "beats": 8,
+  "key": "a7",
+  "n": 207,
+  "slug": "ccb-tour"
  },
  {
   "kind": "opener",
@@ -212,77 +90,21 @@
   "ghost": "",
   "family": "insight",
   "beats": 0,
-  "key": "a15",
-  "n": 215,
+  "key": "a8",
+  "n": 208,
   "slug": "insight-opener"
  },
  {
-  "kind": "subs",
+  "kind": "tour",
   "theme": "ink",
-  "title": "Scholar Insight",
-  "kicker": "Enterprise Brain",
-  "ghost": "1/2",
-  "family": "insight",
-  "subs": [
-   "insight-overview",
-   "insight-foundation",
-   "insight-intelligence-loop",
-   "insight-analytics"
-  ],
-  "beats": 3,
-  "key": "a16",
-  "n": 216,
-  "slug": "insight-subs-1"
- },
- {
-  "kind": "subs",
-  "theme": "ink",
-  "title": "Scholar Insight",
-  "kicker": "Enterprise Brain",
-  "ghost": "2/2",
-  "family": "insight",
-  "subs": [
-   "insight-knowledge",
-   "insight-automation",
-   "insight-settings"
-  ],
-  "beats": 2,
-  "key": "a17",
-  "n": 217,
-  "slug": "insight-subs-2"
- },
- {
-  "kind": "glance",
-  "theme": "paper",
   "title": "Scholar Insight",
   "kicker": "Enterprise Brain",
   "ghost": "",
   "family": "insight",
-  "beats": 0,
-  "key": "a18",
-  "n": 218,
-  "slug": "insight-glance"
- },
- {
-  "kind": "gallery",
-  "theme": "paper",
-  "title": "Scholar Insight",
-  "kicker": "Enterprise Brain",
-  "ghost": "",
-  "family": "insight",
-  "subs": [
-   "insight-overview",
-   "insight-foundation",
-   "insight-intelligence-loop",
-   "insight-analytics",
-   "insight-knowledge",
-   "insight-automation",
-   "insight-settings"
-  ],
-  "beats": 0,
-  "key": "a19",
-  "n": 219,
-  "slug": "insight-gallery"
+  "beats": 8,
+  "key": "a9",
+  "n": 209,
+  "slug": "insight-tour"
  },
  {
   "kind": "opener",
@@ -292,56 +114,20 @@
   "ghost": "",
   "family": "compass",
   "beats": 0,
-  "key": "a20",
-  "n": 220,
+  "key": "a10",
+  "n": 210,
   "slug": "compass-opener"
  },
  {
-  "kind": "subs",
+  "kind": "tour",
   "theme": "ink",
   "title": "Scholar Compass",
   "kicker": "Career Counseling",
-  "ghost": "1/1",
-  "family": "compass",
-  "subs": [
-   "compass-career-awareness",
-   "compass-career-counseling",
-   "compass-career-explorer",
-   "compass-career-intelligence"
-  ],
-  "beats": 3,
-  "key": "a21",
-  "n": 221,
-  "slug": "compass-subs"
- },
- {
-  "kind": "glance",
-  "theme": "paper",
-  "title": "Scholar Compass",
-  "kicker": "Career Counseling",
   "ghost": "",
   "family": "compass",
-  "beats": 0,
-  "key": "a22",
-  "n": 222,
-  "slug": "compass-glance"
- },
- {
-  "kind": "gallery",
-  "theme": "paper",
-  "title": "Scholar Compass",
-  "kicker": "Career Counseling",
-  "ghost": "",
-  "family": "compass",
-  "subs": [
-   "compass-career-awareness",
-   "compass-career-counseling",
-   "compass-career-explorer",
-   "compass-career-intelligence"
-  ],
-  "beats": 0,
-  "key": "a23",
-  "n": 223,
-  "slug": "compass-gallery"
+  "beats": 6,
+  "key": "a11",
+  "n": 211,
+  "slug": "compass-tour"
  }
 ]

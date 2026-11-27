@@ -966,6 +966,94 @@
     }
    ],
    "tour": {
+    "style": "sketchbook",
+    "labels": {
+     "draft": "Draft preview",
+     "apply": "Apply",
+     "discard": "Discard"
+    },
+    "art": {
+     "summary.photo": [
+      {
+       "id": "core-photo-summary-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/core/core-photo-summary-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "A silver service bell on a dark counter against a warm, softly blurred background."
+      }
+     ],
+     "summary.cut1": [
+      {
+       "id": "core-cartoon-office-folders",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/core/core-cartoon-office-folders.webp",
+       "w": 500,
+       "h": 859,
+       "alt": "Cartoon office worker carrying a stack of folders."
+      }
+     ],
+     "problem.photo": [
+      {
+       "id": "core-photo-problem-registers",
+       "kind": "photo",
+       "src": "/client-presentation/tour/core/core-photo-problem-registers.webp",
+       "w": 1800,
+       "h": 1015,
+       "alt": "Side view of a tall stack of worn, soft-bound registers and notebooks beside a bright window."
+      }
+     ],
+     "problem.cutout": [
+      {
+       "id": "core-cartoon-paper-desk",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/core/core-cartoon-paper-desk.webp",
+       "w": 900,
+       "h": 572,
+       "alt": "Cartoon clerk at a desk with stacks of paper forms and a stamp."
+      }
+     ],
+     "research.banner": [
+      {
+       "id": "core-sketch-sketch-books",
+       "kind": "sketch",
+       "src": "/client-presentation/tour/core/core-sketch-sketch-books.webp",
+       "w": 1800,
+       "h": 166,
+       "alt": "Hand-drawn charcoal sketch of crowded bookshelves with leaning books, navy ink on transparent background."
+      }
+     ],
+     "roles.0": [
+      {
+       "id": "core-cartoon-principal",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/core/core-cartoon-principal.webp",
+       "w": 900,
+       "h": 693,
+       "alt": "Cartoon principal pointing at a bar chart."
+      }
+     ],
+     "roles.3": [
+      {
+       "id": "core-cartoon-teacher",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/core/core-cartoon-teacher.webp",
+       "w": 788,
+       "h": 900,
+       "alt": "Cartoon teacher beside a whiteboard holding a marker."
+      }
+     ],
+     "roles.5": [
+      {
+       "id": "core-cartoon-student",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/core/core-cartoon-student.webp",
+       "w": 713,
+       "h": 849,
+       "alt": "Cartoon student reading on the floor."
+      }
+     ]
+    },
     "summary": {
      "lines": [
       "Your whole school office, in one place.",
@@ -998,11 +1086,6 @@
        "asks": "Is collection keeping pace, and where is money overdue across past cycles?"
       },
       {
-       "id": "core-petty-cash",
-       "name": "Petty Cash",
-       "asks": "Is any claim far above the school's own average, or missing a bill?"
-      },
-      {
        "id": "core-inventory",
        "name": "Inventory",
        "asks": "Did the stock-take record what it found, and which items were not found?"
@@ -1016,11 +1099,6 @@
        "id": "core-library",
        "name": "Library",
        "asks": "Which titles are in high demand, what is overdue, what has never been borrowed?"
-      },
-      {
-       "id": "core-inward-outward",
-       "name": "Inward Outward",
-       "asks": "Which letters have no recorded reply, or sit in a file location not on record?"
       }
      ],
      "close": "When the records are too thin, it raises nothing rather than guessing."
@@ -1417,11 +1495,6 @@
       ]
      }
     ]
-   },
-   "film": {
-    "src": "/client-presentation/film/scholar-core-film.mp4",
-    "poster": "/client-presentation/film/scholar-core-film-poster.jpg",
-    "seconds": 81.67
    }
   },
   {
@@ -1448,7 +1521,7 @@
      "Track mastery"
     ],
     "ai": [
-     "Drafts questions and lesson content for staff to review and approve",
+     "Generates questions by Bloom level, showing options and the correct answer",
      "Suggests concept tags and prerequisite links as drafts, never as facts",
      "Writes short report summaries from recorded figures only",
      "Rules decide each learning step; AI only phrases it",
@@ -1469,7 +1542,7 @@
       "Browse courses by class and category",
       "Open curriculum, chapters, lesson plans and question bank",
       "Upload content or draft presentations for teachers",
-      "Draft questions by Bloom level for staff review",
+      "Generate questions by Bloom level",
       "Review suggested prerequisite links between concepts"
      ],
      "research": "Question drafting designed from Bloom's levels; concept notes carry Webb DOK levels; lesson drafts use NCF and NCERT learning outcomes.",
@@ -1748,7 +1821,332 @@
       "/client-presentation/atlas/lms-pal--pal--content-model.webp"
      ]
     }
-   ]
+   ],
+   "tour": {
+    "style": "sketchbook",
+    "labels": {
+     "draft": "Draft preview",
+     "apply": "Apply",
+     "discard": "Discard"
+    },
+    "art": {
+     "summary.photo": [
+      {
+       "id": "learn-photo-summary-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/learn/learn-photo-summary-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "Calm wooden desk seen from above with an open laptop, a handwritten notebook with colored tabs, a pencil and glasses."
+      }
+     ],
+     "summary.cut1": [
+      {
+       "id": "learn-cartoon-student-reading",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/learn/learn-cartoon-student-reading.webp",
+       "w": 677,
+       "h": 833,
+       "alt": "Cartoon student reading a book."
+      }
+     ],
+     "problem.photo": [
+      {
+       "id": "learn-photo-problem-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/learn/learn-photo-problem-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "Overhead view of a cluttered desk covered in notebooks, loose papers, sticky notes and an open laptop."
+      }
+     ],
+     "problem.cutout": [
+      {
+       "id": "learn-cartoon-teacher-papers",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/learn/learn-cartoon-teacher-papers.webp",
+       "w": 411,
+       "h": 772,
+       "alt": "Cartoon teacher carrying a stack of papers."
+      }
+     ],
+     "research.banner": [
+      {
+       "id": "learn-sketch-sketch-books",
+       "kind": "sketch",
+       "src": "/client-presentation/tour/learn/learn-sketch-sketch-books.webp",
+       "w": 1800,
+       "h": 166,
+       "alt": "Hand-drawn charcoal sketch of crowded bookshelves with leaning books, navy ink on transparent background."
+      }
+     ],
+     "roles.0": [
+      {
+       "id": "learn-cartoon-teacher-explain",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/learn/learn-cartoon-teacher-explain.webp",
+       "w": 770,
+       "h": 617,
+       "alt": "Cartoon teacher pointing at a whiteboard."
+      }
+     ],
+     "roles.1": [
+      {
+       "id": "learn-cartoon-student-desk",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/learn/learn-cartoon-student-desk.webp",
+       "w": 830,
+       "h": 700,
+       "alt": "Cartoon student writing at a desk."
+      }
+     ],
+     "roles.2": [
+      {
+       "id": "learn-cartoon-principal",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/learn/learn-cartoon-principal.webp",
+       "w": 770,
+       "h": 722,
+       "alt": "Cartoon principal pointing at a bar chart."
+      }
+     ]
+    },
+    "summary": {
+     "lines": [
+      "Teaching, assessing and tracking learning, in one place.",
+      "Courses, exams, discussion, curriculum plans and an adaptive learning engine, in one K-12 module.",
+      "One set of records, so teachers need not rebuild the picture by hand each term."
+     ]
+    },
+    "problem": {
+     "label": "An illustration, not your school",
+     "beats": [
+      "It is Sunday evening and you are building next week's lessons from three different folders.",
+      "Last term's question bank is in one file, the exam blueprint in another, the lesson plan in a notebook.",
+      "Marking is on paper, so you chase submissions and compile results by hand.",
+      "Then someone asks who is falling behind, and you start the picture again from scratch."
+     ],
+     "turn": "Scholar Learn keeps content, exams, lesson plans and progress in one place.",
+     "scattered": [
+      "Question files",
+      "Marked papers",
+      "Lesson plans"
+     ],
+     "record": "One learning record"
+    },
+    "intelligence": {
+     "lead": "Scholar Learn reads how the curriculum and the class's work connect, and shows which concept comes first and what practice step is next.",
+     "modules": [
+      {
+       "id": "learn-pal-knowledge-graph",
+       "name": "PAL: Knowledge graph",
+       "asks": "Which concept must be learned before this one?"
+      },
+      {
+       "id": "learn-pal-engines",
+       "name": "PAL: Learning engines",
+       "asks": "What should this student practise next?"
+      },
+      {
+       "id": "learn-exam-assessment",
+       "name": "Exam & Assessment",
+       "asks": "How did each class do in its exams?"
+      },
+      {
+       "id": "learn-curriculum-planning",
+       "name": "Curriculum Planning",
+       "asks": "What was delivered, and what was assessed?"
+      }
+     ],
+     "close": "Rules decide each step. Teachers decide what to do."
+    },
+    "ai": {
+     "lead": "AI assists staff with drafts and wording. Rules, not AI, decide each learning step.",
+     "uses": [
+      {
+       "name": "Question generation",
+       "line": "Generates questions by Bloom level, showing options and the correct answer."
+      },
+      {
+       "name": "Concept links",
+       "line": "Suggests concept tags and prerequisite links, marked as drafts until staff approve."
+      },
+      {
+       "name": "Report summaries",
+       "line": "Writes short report summaries from recorded figures only."
+      },
+      {
+       "name": "Next-step wording",
+       "line": "Rules decide each learning step; AI only phrases it."
+      },
+      {
+       "name": "Form text",
+       "line": "Drafts text in forms such as homework and exam instructions."
+      }
+     ],
+     "guard": "Text in a form waits for Apply. Suggested tags and links stay drafts until staff approve.",
+     "control": "School administrators set AI policies, prompts and guardrails.",
+     "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Homework: Read chapter 4 and solve exercises 1 to 5. Write two sentences about the main idea. Submit by Friday."
+     }
+    },
+    "research": {
+     "lead": "Frameworks it draws on",
+     "items": [
+      {
+       "text": "Bloom's revised taxonomy interrelates knowledge with cognitive processes; Webb's Depth of Knowledge communicates the content complexity of learning expectations and assessment items.",
+       "source": "Anderson, Krathwohl and others, Pearson; Norman Webb, WebbAlign"
+      },
+      {
+       "text": "CASEL's framework, the CASEL Wheel, positions social and emotional competencies within classroom, school, family and community settings.",
+       "source": "CASEL, What Is SEL?, casel.org"
+      },
+      {
+       "text": "The Next Generation Science Standards are K-12 science standards created through a state-led process and based on the Framework for K-12 Science Education.",
+       "source": "Achieve, Next Generation Science Standards, achieve.org"
+      },
+      {
+       "text": "The National Career Development Guidelines are a framework of career development competencies and indicators of mastery, maintained by the National Career Development Association.",
+       "source": "National Career Development Association, NCDG Framework, ncda.org"
+      },
+      {
+       "text": "NCERT publishes the National Curriculum Framework for School Education and, separately, class-wise Learning Outcomes at the Elementary Stage.",
+       "source": "NCERT, NCF for School Education 2023; Learning Outcomes at the Elementary Stage"
+      }
+     ]
+    },
+    "features": {
+     "groups": [
+      {
+       "title": "Teach, plan and assess",
+       "subs": [
+        {
+         "id": "learn-teach-learn",
+         "name": "Teach/Learn",
+         "tagline": "Courses by class, with chapters, lesson plans and question bank.",
+         "shot": "/client-presentation/atlas/lms-pal--teach-learn--course-catalog.webp"
+        },
+        {
+         "id": "learn-curriculum-planning",
+         "name": "Curriculum Planning",
+         "tagline": "Month and period plans, with delivered and assessed outcomes.",
+         "shot": "/client-presentation/atlas/lms-pal--curriculum-planning--curriculam-plan.webp"
+        },
+        {
+         "id": "learn-exam-assessment",
+         "name": "Exam & Assessment",
+         "tagline": "Set, collect and mark work; build papers and see results.",
+         "shot": "/client-presentation/atlas/lms-pal--exam-and-assesment--student-homework.webp"
+        },
+        {
+         "id": "learn-engagement",
+         "name": "Engagement",
+         "tagline": "Doubts and discussion, by subject and chapter.",
+         "shot": "/client-presentation/atlas/lms-pal--engagement--leader-board.webp"
+        }
+       ]
+      },
+      {
+       "title": "Adaptive learning (PAL)",
+       "subs": [
+        {
+         "id": "learn-pal-content-model",
+         "name": "PAL: Content model",
+         "tagline": "Each chapter's content in four types, authored and reviewed.",
+         "shot": "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+        },
+        {
+         "id": "learn-pal-knowledge-graph",
+         "name": "PAL: Knowledge graph",
+         "tagline": "How concepts connect through prerequisites, down to single concepts.",
+         "shot": "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+        },
+        {
+         "id": "learn-pal-engines",
+         "name": "PAL: Learning engines",
+         "tagline": "Rules choose each student's next step; teachers see attainment.",
+         "shot": "/client-presentation/atlas/lms-pal--pal--content-model.webp"
+        }
+       ]
+      }
+     ]
+    },
+    "roles": [
+     {
+      "role": "Teachers",
+      "who": "Subject teachers and class teachers",
+      "benefits": [
+       "Open a class's course, chapters, lesson plans and question bank from one place.",
+       "Set homework, papers and worksheets, and mark them question by question.",
+       "See a class learning map and a mistakes board for each topic."
+      ],
+      "use": "Plan next week's lessons, assign a worksheet, and check the mistakes board before the next class.",
+      "modules": [
+       {
+        "id": "learn-teach-learn",
+        "name": "Teach/Learn"
+       },
+       {
+        "id": "learn-exam-assessment",
+        "name": "Exam & Assessment"
+       },
+       {
+        "id": "learn-pal-knowledge-graph",
+        "name": "PAL: Knowledge graph"
+       }
+      ]
+     },
+     {
+      "role": "Students",
+      "who": "Learners in the school",
+      "benefits": [
+       "Take a chapter diagnostic, then practise the step the learning engine picks.",
+       "Raise a doubt by subject and chapter, and read replies in a thread.",
+       "Submit your own homework and assignments."
+      ],
+      "use": "Take a diagnostic, practise a repair step, post a doubt, and read the teacher's reply.",
+      "modules": [
+       {
+        "id": "learn-exam-assessment",
+        "name": "Exam & Assessment"
+       },
+       {
+        "id": "learn-engagement",
+        "name": "Engagement"
+       },
+       {
+        "id": "learn-pal-engines",
+        "name": "PAL: Learning engines"
+       }
+      ]
+     },
+     {
+      "role": "School leaders",
+      "who": "Principals and administrators",
+      "benefits": [
+       "See the curriculum by subject and month, with NCF goals.",
+       "See exam results across the institute.",
+       "Set AI policies, prompts and guardrails for adaptive learning."
+      ],
+      "use": "Review which outcomes were delivered and assessed this month, then check exam results across classes.",
+      "modules": [
+       {
+        "id": "learn-curriculum-planning",
+        "name": "Curriculum Planning"
+       },
+       {
+        "id": "learn-exam-assessment",
+        "name": "Exam & Assessment"
+       },
+       {
+        "id": "learn-pal-engines",
+        "name": "PAL: Learning engines"
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "key": "ccb",
@@ -2037,7 +2435,262 @@
       "/client-presentation/atlas/people-and-competency--lms--learning-dashboard.webp"
      ]
     }
-   ]
+   ],
+   "tour": {
+    "style": "sketchbook",
+    "labels": {
+     "draft": "SOP draft",
+     "apply": "Save & Publish",
+     "discard": "Regenerate"
+    },
+    "art": {
+     "summary.photo": [
+      {
+       "id": "ccb-photo-summary-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/ccb/ccb-photo-summary-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "A meeting table with a black ring binder, open notebooks, loose papers and plain white mugs."
+      }
+     ],
+     "summary.cut1": [
+      {
+       "id": "ccb-cartoon-hr-team",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/ccb/ccb-cartoon-hr-team.webp",
+       "w": 692,
+       "h": 636,
+       "alt": "Cartoon team standing around a table of papers."
+      }
+     ],
+     "problem.photo": [
+      {
+       "id": "ccb-photo-problem-files",
+       "kind": "photo",
+       "src": "/client-presentation/tour/ccb/ccb-photo-problem-files.webp",
+       "w": 1800,
+       "h": 1013,
+       "alt": "Rows of tall stacks of old paper records, each bundle tied with blue string."
+      }
+     ],
+     "problem.cutout": [
+      {
+       "id": "ccb-cartoon-hr-files",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/ccb/ccb-cartoon-hr-files.webp",
+       "w": 375,
+       "h": 900,
+       "alt": "Cartoon HR officer carrying a stack of folders."
+      }
+     ],
+     "research.banner": [
+      {
+       "id": "ccb-sketch-sketch-books",
+       "kind": "sketch",
+       "src": "/client-presentation/tour/ccb/ccb-sketch-sketch-books.webp",
+       "w": 1800,
+       "h": 166,
+       "alt": "Hand-drawn charcoal sketch of crowded bookshelves with leaning books, navy ink on transparent background."
+      }
+     ],
+     "roles.0": [
+      {
+       "id": "ccb-cartoon-hr-admin",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/ccb/ccb-cartoon-hr-admin.webp",
+       "w": 891,
+       "h": 778,
+       "alt": "Cartoon administrator at a desk with paper forms."
+      }
+     ],
+     "roles.1": [
+      {
+       "id": "ccb-cartoon-staff",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/ccb/ccb-cartoon-staff.webp",
+       "w": 549,
+       "h": 554,
+       "alt": "Cartoon employee learning on a laptop."
+      }
+     ]
+    },
+    "summary": {
+     "lines": [
+      "Staff roles, skills, tasks, reviews and learning, joined up in one place.",
+      "Each role lists the competencies it needs, so development starts from what the role asks for.",
+      "Tasks, leave, payroll and courses sit beside the people they belong to."
+     ]
+    },
+    "problem": {
+     "label": "An illustration, not your school",
+     "beats": [
+      "A department head asks who is ready to teach a new subject next year.",
+      "Skills are in one file, reviews in another, training in a third.",
+      "Leave and tasks live in yet another place, so nobody sees the whole person.",
+      "The conversation about development starts from memory."
+     ],
+     "turn": "Scholar CCB keeps roles, skills, tasks and learning together.",
+     "scattered": [
+      "Staff files",
+      "Review notes",
+      "Training lists"
+     ],
+     "record": "One staff record"
+    },
+    "intelligence": {
+     "lead": "A role-to-competency map compares what each role needs with the ratings on record. An explorer shows which skills each job role requires.",
+     "modules": [
+      {
+       "id": "ccb-talent-management",
+       "name": "Talent Management",
+       "asks": "Which competencies does this role need, and where is this person below?"
+      },
+      {
+       "id": "ccb-capability-intelligence",
+       "name": "Capability Intelligence",
+       "asks": "Which skills does a job role require, and which roles need a skill?"
+      }
+     ],
+     "close": "The map compares. People decide what development follows."
+    },
+    "ai": {
+     "lead": "AI drafts a first version for the author. The author edits it and decides what to keep.",
+     "uses": [
+      {
+       "name": "SOP drafts",
+       "line": "Drafts a department SOP from a short brief, for the author to edit."
+      },
+      {
+       "name": "Quiz questions",
+       "line": "Writes multiple-choice questions from the course's own lessons."
+      }
+     ],
+     "guard": "An SOP is published only when its author presses Save and Publish.",
+     "control": "Questions join the quiz at once, and can be edited.",
+     "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "SOP draft: Leave Approval. 1. Purpose: explain how staff request leave. 2. Scope: all teaching and office staff. 3. Responsibilities: the employee requests, the manager reviews, HR records."
+     }
+    },
+    "research": {
+     "lead": "Frameworks it draws on",
+     "items": [
+      {
+       "text": "Nonaka and Takeuchi's book argues that Japanese companies succeed by creating new knowledge, showing how tacit knowledge becomes explicit knowledge.",
+       "source": "Nonaka and Takeuchi, The Knowledge-Creating Company, Oxford University Press, 1995"
+      },
+      {
+       "text": "O*NET, sponsored by the U.S. Department of Labor, describes occupations; its Content Model organises information about jobs and workers in a structured system.",
+       "source": "O*NET Resource Center, About O*NET and The O*NET Content Model"
+      },
+      {
+       "text": "Singapore's Skills Frameworks outline key skills, job roles and training by sector, and are published on the national Jobs-Skills Portal.",
+       "source": "Jobs-Skills Portal, SWDA (formed from SkillsFuture Singapore), Skills Frameworks"
+      }
+     ]
+    },
+    "features": {
+     "groups": [
+      {
+       "title": "Run the organisation",
+       "subs": [
+        {
+         "id": "ccb-organization-management",
+         "name": "Organization Management",
+         "tagline": "Departments, staff directory, compliance register and disciplinary records.",
+         "shot": "/client-presentation/atlas/people-and-competency--organization-management--organization-profile.webp"
+        },
+        {
+         "id": "ccb-task-management",
+         "name": "Task Management",
+         "tagline": "My tasks, extension requests, delay reports and an audit log.",
+         "shot": "/client-presentation/atlas/people-and-competency--task-management--task-management-dashboard.webp"
+        },
+        {
+         "id": "ccb-hrit-management",
+         "name": "HRIT Management",
+         "tagline": "Attendance, leave requests, payroll and payroll reports.",
+         "shot": "/client-presentation/atlas/people-and-competency--hrit-management--attendance-tracking.webp"
+        }
+       ]
+      },
+      {
+       "title": "Grow capability",
+       "subs": [
+        {
+         "id": "ccb-talent-management",
+         "name": "Talent Management",
+         "tagline": "Hiring, onboarding, reviews and development plans against role needs.",
+         "shot": "/client-presentation/atlas/people-and-competency--talent-management--talent-dashboard.webp"
+        },
+        {
+         "id": "ccb-capability-intelligence",
+         "name": "Capability Intelligence",
+         "tagline": "Competency library, role mapping and a dashboard with five filters.",
+         "shot": "/client-presentation/atlas/people-and-competency--capability-intelligence--capability-library.webp"
+        },
+        {
+         "id": "ccb-lms",
+         "name": "LMS",
+         "tagline": "Course builder, courses mapped to capabilities, and My Learning.",
+         "shot": "/client-presentation/atlas/people-and-competency--lms--learning-dashboard.webp"
+        }
+       ]
+      }
+     ]
+    },
+    "roles": [
+     {
+      "role": "HR and administrators",
+      "who": "Super Admin and HR profiles",
+      "benefits": [
+       "Map competencies to job roles, with the level each role needs.",
+       "Run leave, attendance and payroll, with salary certificates and Form 16.",
+       "Set up departments, compliance records and SOPs."
+      ],
+      "use": "Map a role's competencies, review leave requests, and publish a department SOP.",
+      "modules": [
+       {
+        "id": "ccb-capability-intelligence",
+        "name": "Capability Intelligence"
+       },
+       {
+        "id": "ccb-hrit-management",
+        "name": "HRIT Management"
+       },
+       {
+        "id": "ccb-organization-management",
+        "name": "Organization Management"
+       }
+      ]
+     },
+     {
+      "role": "Every staff member",
+      "who": "Staff signed in to their own pages",
+      "benefits": [
+       "See your own tasks in list or board view.",
+       "Punch in and out, and request leave.",
+       "Take courses in My Learning, and see your own competency profile."
+      ],
+      "use": "Open My Tasks, punch in, request leave, and continue a course in My Learning.",
+      "modules": [
+       {
+        "id": "ccb-task-management",
+        "name": "Task Management"
+       },
+       {
+        "id": "ccb-hrit-management",
+        "name": "HRIT Management"
+       },
+       {
+        "id": "ccb-lms",
+        "name": "LMS"
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "key": "insight",
@@ -2317,7 +2970,300 @@
       "/client-presentation/atlas/enterprise-brain--account-settings--settings.webp"
      ]
     }
-   ]
+   ],
+   "tour": {
+    "style": "sketchbook",
+    "labels": {
+     "draft": "Recommendation draft",
+     "apply": "Approve",
+     "discard": "Reject"
+    },
+    "art": {
+     "summary.photo": [
+      {
+       "id": "insight-photo-summary-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/insight/insight-photo-summary-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "A calm desk with a closed-screen laptop, blank picture frame, black vase, spiral notebook, pen and glasses."
+      }
+     ],
+     "summary.cut1": [
+      {
+       "id": "insight-cartoon-analyst",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/insight/insight-cartoon-analyst.webp",
+       "w": 877,
+       "h": 845,
+       "alt": "Cartoon analyst looking at charts on a laptop."
+      }
+     ],
+     "problem.photo": [
+      {
+       "id": "insight-photo-problem-reports",
+       "kind": "photo",
+       "src": "/client-presentation/tour/insight/insight-photo-problem-reports.webp",
+       "w": 1800,
+       "h": 1201,
+       "alt": "A stack of black ring binders with coloured tabs beside a thick folder of printed documents on an office desk."
+      }
+     ],
+     "problem.cutout": [
+      {
+       "id": "insight-cartoon-principal-reports",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/insight/insight-cartoon-principal-reports.webp",
+       "w": 900,
+       "h": 806,
+       "alt": "Cartoon principal puzzled by three stacks of reports."
+      }
+     ],
+     "roles.0": [
+      {
+       "id": "insight-cartoon-leader-chart",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/insight/insight-cartoon-leader-chart.webp",
+       "w": 848,
+       "h": 797,
+       "alt": "Cartoon leader pointing at a bar chart."
+      }
+     ],
+     "roles.1": [
+      {
+       "id": "insight-cartoon-manager",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/insight/insight-cartoon-manager.webp",
+       "w": 900,
+       "h": 638,
+       "alt": "Cartoon manager at a meeting table with a notebook."
+      }
+     ],
+     "roles.2": [
+      {
+       "id": "insight-cartoon-staff",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/insight/insight-cartoon-staff.webp",
+       "w": 802,
+       "h": 712,
+       "alt": "Cartoon teacher at a desk with a laptop."
+      }
+     ]
+    },
+    "summary": {
+     "lines": [
+      "One view of the school, with the evidence behind every finding.",
+      "Findings from attendance, results, fees and staff records come from fixed rules, and each one shows its working.",
+      "A person decides what happens next, and the outcome is recorded."
+     ]
+    },
+    "problem": {
+     "label": "An illustration, not your school",
+     "beats": [
+      "The principal asks how the term is going, and gets three different answers.",
+      "Attendance is in one report, results in another, fees in a ledger.",
+      "Each person answers from memory, and nobody can say why a class is slipping.",
+      "By the time the pieces are joined, the moment to act has passed."
+     ],
+     "turn": "Scholar Insight puts the findings in one view, with the evidence shown.",
+     "scattered": [
+      "Attendance report",
+      "Results sheet",
+      "Fee ledger"
+     ],
+     "record": "One clear view"
+    },
+    "intelligence": {
+     "lead": "Fixed rules read the school's records and raise findings. Each one answers a plain question, and shows how it got there.",
+     "modules": [
+      {
+       "id": "insight-overview",
+       "name": "Overview",
+       "asks": "Where does attention need to go first?"
+      },
+      {
+       "id": "insight-intelligence-loop",
+       "name": "Intelligence Loop",
+       "asks": "Why was this flagged, and what is the evidence?"
+      },
+      {
+       "id": "insight-knowledge",
+       "name": "Knowledge",
+       "asks": "Which department, staff or class does this touch?"
+      },
+      {
+       "id": "insight-automation",
+       "name": "Automation",
+       "asks": "What was decided, and what happened afterwards?"
+      }
+     ],
+     "close": "Rules find and explain. People decide."
+    },
+    "ai": {
+     "lead": "No AI writes these findings. Fixed rules do, and a person decides what to do with each one.",
+     "uses": [
+      {
+       "name": "Findings",
+       "line": "Come from fixed rules over school records, not generated text."
+      },
+      {
+       "name": "Explanations",
+       "line": "Each finding shows its evidence and the steps that led to it."
+      },
+      {
+       "name": "Confidence",
+       "line": "A recommendation's confidence is computed from its evidence."
+      },
+      {
+       "name": "Likely causes",
+       "line": "Shown only where the rule library has one, else marked not confirmed."
+      },
+      {
+       "name": "Recommendations",
+       "line": "Drafts wait for a person to approve or reject, with a reason."
+      }
+     ],
+     "guard": "Nothing runs by itself: automations only suggest, and a person decides.",
+     "control": "Approvals are recorded with the person and the reason.",
+     "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Recommendation (draft): Review attendance in one class that is below the school's own rate. Owner: class teacher. Evidence: attendance records this term. Status: waiting for a decision."
+     }
+    },
+    "research": {
+     "items": []
+    },
+    "features": {
+     "groups": [
+      {
+       "title": "See the school",
+       "subs": [
+        {
+         "id": "insight-overview",
+         "name": "Overview",
+         "tagline": "Health score across school areas, with its working shown.",
+         "shot": "/client-presentation/atlas/enterprise-brain--overview--organization.webp"
+        },
+        {
+         "id": "insight-analytics",
+         "name": "Analytics",
+         "tagline": "Findings, decisions and outcomes counted, with charts of school data.",
+         "shot": "/client-presentation/atlas/enterprise-brain--analytics--executive-dashboard.webp"
+        },
+        {
+         "id": "insight-foundation",
+         "name": "Foundation",
+         "tagline": "Flags gaps in staff records, such as no department head.",
+         "shot": "/client-presentation/atlas/enterprise-brain--foundation--departments.webp"
+        },
+        {
+         "id": "insight-knowledge",
+         "name": "Knowledge",
+         "tagline": "Walk from department to staff, and class to students.",
+         "shot": "/client-presentation/atlas/enterprise-brain--knowledge--graph-explorer.webp"
+        }
+       ]
+      },
+      {
+       "title": "Decide and act",
+       "subs": [
+        {
+         "id": "insight-intelligence-loop",
+         "name": "Intelligence Loop",
+         "tagline": "Each finding opens to its evidence and reasoning steps.",
+         "shot": "/client-presentation/atlas/enterprise-brain--intelligence-loop--signals.webp"
+        },
+        {
+         "id": "insight-automation",
+         "name": "Automation",
+         "tagline": "Approve or reject recommendations, with a reason recorded.",
+         "shot": "/client-presentation/atlas/enterprise-brain--automation--task-orchestrator.webp"
+        },
+        {
+         "id": "insight-settings",
+         "name": "Account and Settings",
+         "tagline": "Your role, an audit log, and who may change settings.",
+         "shot": "/client-presentation/atlas/enterprise-brain--account-settings--settings.webp"
+        }
+       ]
+      }
+     ]
+    },
+    "roles": [
+     {
+      "role": "Principal and administrators",
+      "who": "Whole-school view and settings",
+      "benefits": [
+       "See every finding, with the evidence and the steps behind it.",
+       "Approve or reject recommendations, and record the outcome.",
+       "Change Insight settings and read the audit log."
+      ],
+      "use": "Open the overview, see where attention is needed first, read why, and decide with a reason recorded.",
+      "modules": [
+       {
+        "id": "insight-overview",
+        "name": "Overview"
+       },
+       {
+        "id": "insight-intelligence-loop",
+        "name": "Intelligence Loop"
+       },
+       {
+        "id": "insight-settings",
+        "name": "Account and Settings"
+       }
+      ]
+     },
+     {
+      "role": "Trustees and department heads",
+      "who": "Managers across the school",
+      "benefits": [
+       "See findings and health scores for the whole school.",
+       "Approve or reject recommendations, with a reason.",
+       "Follow what was decided and what happened."
+      ],
+      "use": "Check the decision feed for your area, then approve or reject a recommendation with a reason.",
+      "modules": [
+       {
+        "id": "insight-overview",
+        "name": "Overview"
+       },
+       {
+        "id": "insight-automation",
+        "name": "Automation"
+       },
+       {
+        "id": "insight-analytics",
+        "name": "Analytics"
+       }
+      ]
+     },
+     {
+      "role": "Teachers and staff",
+      "who": "Every other signed-in staff member",
+      "benefits": [
+       "See findings and the evidence behind them.",
+       "Walk from department to staff, and class to students.",
+       "See what was decided and what happened afterwards."
+      ],
+      "use": "Open a finding, read the evidence and the steps, and see how it was decided.",
+      "modules": [
+       {
+        "id": "insight-overview",
+        "name": "Overview"
+       },
+       {
+        "id": "insight-knowledge",
+        "name": "Knowledge"
+       },
+       {
+        "id": "insight-automation",
+        "name": "Automation"
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "key": "compass",
@@ -2490,7 +3436,226 @@
       "/client-presentation/atlas/career-counseling--career-intelligence--career-intelligence.webp"
      ]
     }
-   ]
+   ],
+   "tour": {
+    "style": "sketchbook",
+    "labels": {
+     "draft": "AI counsellor note"
+    },
+    "art": {
+     "summary.photo": [
+      {
+       "id": "compass-photo-summary-desk",
+       "kind": "photo",
+       "src": "/client-presentation/tour/compass/compass-photo-summary-desk.webp",
+       "w": 1800,
+       "h": 1200,
+       "alt": "Top view of a white desk with a closed silver laptop, two notebooks, a pencil cup and a small succulent."
+      }
+     ],
+     "summary.cut1": [
+      {
+       "id": "compass-cartoon-student-choosing",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/compass/compass-cartoon-student-choosing.webp",
+       "w": 818,
+       "h": 630,
+       "alt": "Cartoon student thinking at a fork in a path."
+      }
+     ],
+     "problem.photo": [
+      {
+       "id": "compass-photo-problem-choices",
+       "kind": "photo",
+       "src": "/client-presentation/tour/compass/compass-photo-problem-choices.webp",
+       "w": 1400,
+       "h": 939,
+       "alt": "A gravel trail forking in two directions through a conifer forest, with a blank wooden signpost beside it."
+      }
+     ],
+     "problem.cutout": [
+      {
+       "id": "compass-cartoon-student-confused",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/compass/compass-cartoon-student-confused.webp",
+       "w": 401,
+       "h": 638,
+       "alt": "Cartoon student with books looking unsure."
+      }
+     ],
+     "research.banner": [
+      {
+       "id": "compass-sketch-sketch-path",
+       "kind": "sketch",
+       "src": "/client-presentation/tour/compass/compass-sketch-sketch-path.webp",
+       "w": 900,
+       "h": 83,
+       "alt": "Hand-drawn sketch of a road winding through hills."
+      }
+     ],
+     "roles.0": [
+      {
+       "id": "compass-cartoon-student-career",
+       "kind": "cartoon",
+       "src": "/client-presentation/tour/compass/compass-cartoon-student-career.webp",
+       "w": 635,
+       "h": 523,
+       "alt": "Cartoon student with a laptop and rising steps."
+      }
+     ]
+    },
+    "summary": {
+     "lines": [
+      "Helps students name a career goal and see what it takes to get there.",
+      "Interests, careers to explore, and a check of the student's subjects against what a covered career needs.",
+      "The student's own answers and subject evidence meet in one plan."
+     ]
+    },
+    "problem": {
+     "label": "An illustration, not your school",
+     "beats": [
+      "It is subject-choice week, and a student says she wants to be an architect.",
+      "Nobody has checked whether her chosen subjects lead there.",
+      "The counsellor starts with a blank page and a guess.",
+      "A year later, a missing subject can no longer be added."
+     ],
+     "turn": "Scholar Compass checks subjects against the career before it is too late.",
+     "scattered": [
+      "Subject choices",
+      "Exam marks",
+      "Career ideas"
+     ],
+     "record": "One career plan"
+    },
+    "intelligence": {
+     "lead": "Rules compare a student's subjects with what a covered career needs. Where the facts are missing, the screen says so.",
+     "modules": [
+      {
+       "id": "compass-career-awareness",
+       "name": "Career Awareness",
+       "asks": "What job does the student expect at 30, and how sure are they?"
+      },
+      {
+       "id": "compass-career-intelligence",
+       "name": "Career Intelligence",
+       "asks": "Do the subjects lead to that career, and what is missing?"
+      },
+      {
+       "id": "compass-career-explorer",
+       "name": "Career Explorer",
+       "asks": "Which occupations match these abilities, interests and skills?"
+      }
+     ],
+     "close": "Rules compare. Where facts are missing, it says insufficient data."
+    },
+    "ai": {
+     "lead": "AI explains results in plain words. The alignment result itself comes from rules, not from AI.",
+     "uses": [
+      {
+       "name": "Alignment explanation",
+       "line": "Explains the rules-based result in a few sentences, from the facts returned."
+      },
+      {
+       "name": "Counsellor note",
+       "line": "Writes a short note from alignment and practice records."
+      },
+      {
+       "name": "Thin evidence",
+       "line": "With no records, a fixed message says the evidence is not enough."
+      },
+      {
+       "name": "No AI set up",
+       "line": "The screen says no AI model is configured."
+      }
+     ],
+     "guard": "Nothing is stored: the explanation is shown, not saved.",
+     "control": "Each school chooses whether to set up an AI model.",
+     "sample": {
+      "label": "Sample note. Illustrative.",
+      "text": "Your subjects cover most of what this career needs. Physics is missing. Practice records show Mathematics is developing, with few attempts so far."
+     }
+    },
+    "research": {
+     "lead": "Sources it uses",
+     "items": [
+      {
+       "text": "The O*NET® Interest Profiler is a self-assessment for exploring work activities and occupations across six interest areas, compatible with Holland's RIASEC structure.",
+       "source": "U.S. Department of Labor, O*NET Interest Profiler, onetcenter.org"
+      },
+      {
+       "text": "O*NET® OnLine, sponsored by the U.S. Department of Labor, is a career exploration and job analysis tool describing the world of work.",
+       "source": "O*NET OnLine, onetonline.org, U.S. Department of Labor"
+      },
+      {
+       "text": "Council of Architecture is a statutory authority whose regulations set minimum standards of architectural education, including admission conditions.",
+       "source": "Council of Architecture, Minimum Standards of Architectural Education Regulations, 2020"
+      }
+     ]
+    },
+    "features": {
+     "groups": [
+      {
+       "title": "Explore a career",
+       "subs": [
+        {
+         "id": "compass-career-awareness",
+         "name": "Career Awareness",
+         "tagline": "Student names the job expected at 30, and how sure.",
+         "shot": "/client-presentation/atlas/career-counseling--career-awareness--career-certainty.webp"
+        },
+        {
+         "id": "compass-career-counseling",
+         "name": "Career Counseling",
+         "tagline": "Counselling courses, past attempts and a 60-question interest profiler.",
+         "shot": "/client-presentation/atlas/career-counseling--career-counseling--interest-profile.webp"
+        },
+        {
+         "id": "compass-career-explorer",
+         "name": "Career Explorer",
+         "tagline": "Browse career clusters, search and filter occupations, open a profile.",
+         "shot": "/client-presentation/atlas/career-counseling--career-explorer--find-occupation.webp"
+        },
+        {
+         "id": "compass-career-intelligence",
+         "name": "Career Intelligence",
+         "tagline": "Checks subjects against a covered career, or says insufficient data.",
+         "shot": "/client-presentation/atlas/career-counseling--career-intelligence--career-intelligence.webp"
+        }
+       ]
+      }
+     ]
+    },
+    "roles": [
+     {
+      "role": "Students",
+      "who": "Students in the school",
+      "benefits": [
+       "Name a career goal, and say how sure you are.",
+       "Try the 60-question interest profiler and read what each area means.",
+       "See whether your subjects lead to a covered career, and what is missing."
+      ],
+      "use": "Name a goal, take the interest profiler, browse occupations, and check the subject plan.",
+      "modules": [
+       {
+        "id": "compass-career-awareness",
+        "name": "Career Awareness"
+       },
+       {
+        "id": "compass-career-counseling",
+        "name": "Career Counseling"
+       },
+       {
+        "id": "compass-career-explorer",
+        "name": "Career Explorer"
+       },
+       {
+        "id": "compass-career-intelligence",
+        "name": "Career Intelligence"
+       }
+      ]
+     }
+    ]
+   }
   }
  ],
  "tech": {

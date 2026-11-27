@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { test } from 'node:test'
 
 import planJson from './generated/atlas-plan.json'
-import { ATLAS, ATLAS_KEYS, ATLAS_PLAN, GALLERY_PER_SLIDE, HUB_KEY, PRODUCT_NAV, atlasByN, atlasSlides, buildAtlasPlan, chunk, filmOf, openerKeyOf } from './atlas'
+import { ATLAS, ATLAS_KEYS, ATLAS_PLAN, GALLERY_PER_SLIDE, HUB_KEY, PRODUCT_NAV, atlasByN, atlasSlides, buildAtlasPlan, chunk, openerKeyOf } from './atlas'
 import { tourBeats } from './tour'
 
 test('chunk splits evenly and never exceeds the maximum', () => {
@@ -31,8 +29,7 @@ test('a product with a tour is its opener and ONE tour slide; every other produc
   for (const p of ATLAS.products.filter((x) => x.subs.length)) {
     const kinds = ATLAS_PLAN.filter((s) => s.family === p.key).map((s) => s.kind)
     assert.equal(kinds[0], 'opener')
-    if (p.tour) { assert.deepEqual(kinds, p.film ? ['opener', 'film', 'tour'] : ['opener', 'tour'], `${p.key} has a tour${p.film ? ' and a film between the opener and the tour' : ''}`); continue }
-    assert.ok(!kinds.includes('film'), `${p.key} has no tour, so no film slide`)
+    if (p.tour) { assert.deepEqual(kinds, ['opener', 'tour'], `${p.key} has a tour`); continue }
     assert.ok(!kinds.includes('tour'), `${p.key} has no tour data, so no tour slide`)
     assert.equal(kinds[kinds.length - 1], 'gallery')
     assert.equal(kinds.filter((k) => k === 'glance').length, 1)
@@ -93,21 +90,6 @@ test('the product rail opens each product at its opener', () => {
     assert.equal(slide?.family, n.key)
     assert.ok(!n.short.startsWith('Scholar'))
   }
-})
-
-test('a film slide plays a real file: the video and its poster exist under public/, and filmOf finds it by the slide key', () => {
-  const films = ATLAS_PLAN.filter((s) => s.kind === 'film')
-  assert.equal(films.length, ATLAS.products.filter((p) => p.tour && p.film).length)
-  for (const s of films) {
-    const film = filmOf(s.key)
-    assert.ok(film, `${s.key}: filmOf`)
-    for (const f of [film!.src, film!.poster]) assert.ok(existsSync(join(process.cwd(), 'public', f)), f)
-    assert.ok(film!.seconds > 5)
-    assert.equal(s.beats, 0)
-    assert.equal(s.slug, `${s.family}-film`)
-  }
-  assert.equal(filmOf(HUB_KEY), null)
-  assert.equal(filmOf('nope'), null)
 })
 
 test('the plan is empty without sheets, and the slides carry notes', () => {

@@ -28,12 +28,39 @@ export interface TourSub {
   shot: string | null
 }
 
+/** Which scene plays a tour: 'ink' is the Core scene (the default), 'sketchbook' the illustrated scene (paper, cut-outs, stop-motion). */
+export type TourStyle = 'ink' | 'sketchbook'
+
+/** One picture of an illustrated tour (docs/client-presentation/assets/tour-art.json): a licensed photo, or a generated cartoon or sketch. */
+export interface TourArtImage {
+  id: string
+  kind: 'photo' | 'cartoon' | 'sketch'
+  src: string
+  w: number
+  h: number
+  alt: string
+}
+
+/** The few words the illustrated scene prints on its own, so no scene has another product's wording built in. */
+export interface TourLabels {
+  draft: string
+  /** The buttons exist only where the product has them: a read-only note (Compass's AI counsellor) has neither, and the card then shows none. Both or neither. */
+  apply?: string
+  discard?: string
+}
+
 export interface AtlasTour {
+  /** Absent means 'ink'. */
+  style?: TourStyle
+  labels?: TourLabels
+  /** Pictures by slot name; only the illustrated scene reads them. */
+  art?: Record<string, TourArtImage[]>
   summary: { lines: string[] }
   problem: { label: string; beats: string[]; turn: string; scattered: string[]; record: string }
   intelligence: { lead: string; modules: { id: string; name: string; asks: string }[]; close: string }
   ai: { lead: string; uses: { name: string; line: string }[]; guard: string; control: string; sample: { label: string; text: string } }
-  research: { items: { text: string; source: string }[] }
+  /** `lead` is the words above the rows; absent means "Designed from". */
+  research: { lead?: string; items: { text: string; source: string }[] }
   features: { groups: { title: string; subs: TourSub[] }[] }
   roles: { role: string; who: string; benefits: string[]; use: string; modules: { id: string; name: string }[] }[]
 }
@@ -43,6 +70,9 @@ export interface TourStep {
   /** 0-based position inside the tab (the group, or the role, being shown). */
   step: number
 }
+
+/** The scene style of a tour. */
+export const tourStyle = (t: AtlasTour): TourStyle => t.style ?? 'ink'
 
 /** The tabs this tour actually shows, in order. Research is left out until it has data. */
 export function tourTabs(t: AtlasTour): TourTab[] {

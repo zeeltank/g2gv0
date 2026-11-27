@@ -1,0 +1,220 @@
+{
+  "family": "compass",
+  "style": "sketchbook",
+  "labels": {
+    "draft": "AI counsellor note"
+  },
+  "art": {
+    "summary.photo": [
+      "compass-photo-summary-desk"
+    ],
+    "summary.cut1": [
+      "compass-cartoon-student-choosing"
+    ],
+    "problem.photo": [
+      "compass-photo-problem-choices"
+    ],
+    "problem.cutout": [
+      "compass-cartoon-student-confused"
+    ],
+    "research.banner": [
+      "compass-sketch-sketch-path"
+    ],
+    "roles.0": [
+      "compass-cartoon-student-career"
+    ]
+  },
+  "summary": {
+    "lines": [
+      "Helps students name a career goal and see what it takes to get there.",
+      "Interests, careers to explore, and a check of the student's subjects against what a covered career needs.",
+      "The student's own answers and subject evidence meet in one plan."
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+      "next_lms_erp/app/CareerIntelligence/CaiCoreService.php"
+    ]
+  },
+  "problem": {
+    "label": "An illustration, not your school",
+    "illustrative": true,
+    "beats": [
+      "It is subject-choice week, and a student says she wants to be an architect.",
+      "Nobody has checked whether her chosen subjects lead there.",
+      "The counsellor starts with a blank page and a guess.",
+      "A year later, a missing subject can no longer be added."
+    ],
+    "turn": "Scholar Compass checks subjects against the career before it is too late.",
+    "scattered": [
+      "Subject choices",
+      "Exam marks",
+      "Career ideas"
+    ],
+    "record": "One career plan",
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-compass.json"
+    ]
+  },
+  "intelligence": {
+    "lead": "Rules compare a student's subjects with what a covered career needs. Where the facts are missing, the screen says so.",
+    "modules": [
+      {
+        "id": "compass-career-awareness",
+        "basis": "Saved student answers",
+        "asks": "What job does the student expect at 30, and how sure are they?"
+      },
+      {
+        "id": "compass-career-intelligence",
+        "basis": "Rules-based alignment check",
+        "asks": "Do the subjects lead to that career, and what is missing?"
+      },
+      {
+        "id": "compass-career-explorer",
+        "basis": "Occupation database with filters and search",
+        "asks": "Which occupations match these abilities, interests and skills?"
+      }
+    ],
+    "close": "Rules compare. Where facts are missing, it says insufficient data.",
+    "evidence": [
+      "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+      "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+      "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php"
+    ]
+  },
+  "ai": {
+    "lead": "AI explains results in plain words. The alignment result itself comes from rules, not from AI.",
+    "uses": [
+      {
+        "name": "Alignment explanation",
+        "line": "Explains the rules-based result in a few sentences, from the facts returned."
+      },
+      {
+        "name": "Counsellor note",
+        "line": "Writes a short note from alignment and practice records."
+      },
+      {
+        "name": "Thin evidence",
+        "line": "With no records, a fixed message says the evidence is not enough."
+      },
+      {
+        "name": "No AI set up",
+        "line": "The screen says no AI model is configured."
+      }
+    ],
+    "guard": "Nothing is stored: the explanation is shown, not saved.",
+    "control": "Each school chooses whether to set up an AI model.",
+    "sample": {
+      "label": "Sample note. Illustrative.",
+      "text": "Your subjects cover most of what this career needs. Physics is missing. Practice records show Mathematics is developing, with few attempts so far."
+    },
+    "evidence": [
+      "next_lms_erp/app/CareerIntelligence/CareerAlignmentNarrator.php",
+      "next_lms_erp/app/CareerIntelligence/CareerCounsellingNarrator.php",
+      "next_lms_erp/app/Domain/AI/Configuration/AiModelClientFactory.php"
+    ]
+  },
+  "research": {
+    "lead": "Sources it uses",
+    "items": [
+      {
+        "text": "The O*NET® Interest Profiler is a self-assessment for exploring work activities and occupations across six interest areas, compatible with Holland's RIASEC structure.",
+        "source": "U.S. Department of Labor, O*NET Interest Profiler, onetcenter.org",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+          "next_lms_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php",
+          "lms_k12/app/career-counselling/_lib/types.ts",
+          "lms_k12/app/career-counselling/knowing-yourself/_components/KnowingYourselfHub.tsx",
+          "lms_k12/app/career-counselling/knowing-yourself/_components/riasecMeta.ts"
+        ]
+      },
+      {
+        "text": "O*NET® OnLine, sponsored by the U.S. Department of Labor, is a career exploration and job analysis tool describing the world of work.",
+        "source": "O*NET OnLine, onetonline.org, U.S. Department of Labor",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+          "next_lms_erp/app/CareerIntelligence/CaiCoreService.php",
+          "next_lms_erp/database/neo4j/cai/occupations/lawyer.cypher",
+          "next_lms_erp/database/neo4j/cai/occupations/doctor.cypher",
+          "next_lms_erp/database/neo4j/cai/occupations/fashion_designer.cypher"
+        ]
+      },
+      {
+        "text": "Council of Architecture is a statutory authority whose regulations set minimum standards of architectural education, including admission conditions.",
+        "source": "Council of Architecture, Minimum Standards of Architectural Education Regulations, 2020",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/compass-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-compass.json",
+          "next_lms_erp/database/neo4j/cai/occupations/architect.cypher"
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/assets/compass-research-sources.json"
+    ]
+  },
+  "features": {
+    "groups": [
+      {
+        "title": "Explore a career",
+        "subs": [
+          {
+            "id": "compass-career-awareness",
+            "tagline": "Student names the job expected at 30, and how sure."
+          },
+          {
+            "id": "compass-career-counseling",
+            "tagline": "Counselling courses, past attempts and a 60-question interest profiler."
+          },
+          {
+            "id": "compass-career-explorer",
+            "tagline": "Browse career clusters, search and filter occupations, open a profile."
+          },
+          {
+            "id": "compass-career-intelligence",
+            "tagline": "Checks subjects against a covered career, or says insufficient data."
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-compass.json"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Students",
+      "who": "Students in the school",
+      "benefits": [
+        "Name a career goal, and say how sure you are.",
+        "Try the 60-question interest profiler and read what each area means.",
+        "See whether your subjects lead to a covered career, and what is missing."
+      ],
+      "use": "Name a goal, take the interest profiler, browse occupations, and check the subject plan.",
+      "modules": [
+        "compass-career-awareness",
+        "compass-career-counseling",
+        "compass-career-explorer",
+        "compass-career-intelligence"
+      ]
+    }
+  ],
+  "owner_to_confirm": [
+    "Evidence pass of 27 Nov 2026 CORRECTED the sheet. Only Students are a provable role: no Compass screen has a role check, no counsellor, teacher, principal or parent logic exists, and there is NO staff screen to view a student's results (the counsellor \"Actions\" and \"Log intervention\" buttons keep local state only, nothing is saved). The sheet's counsellor benefit is therefore NOT claimed. Menu rights per profile are in the database (tblgroupwise_rights): not in source. Confirm who should be shown, or build the counsellor view first.",
+    "Not claimed: \"knowledge graph of careers and skills\" (the career graph has no skill nodes); \"interests\" in the matching (screen copy says it, the code does not use them); the Interest Profiler result is NOT saved (answers sit in the page address; nothing feeds the plan); the route matchProfile returns a hard-coded sample no front end calls; \"Career Awareness\" as the owner's list means it is what Career Explorer does, while the K12 sub-module of that name is certainty, ambition, alignment and originality; the earnings and satisfaction figures on Career Awareness screens are uncited; the word \"validated\" (pal_architecture.php:780). \"Covered\" means 11 careers (CBSE only) for the alignment check; the knowledge ranking covers any occupation in a local O*NET table whose contents were not visible.",
+    "Facts the slides rely on, all read in source: the aspiration (job at 30, certainty 0.3/0.6/0.9, shown as Low/Medium/High) is saved with history; the alignment result is rules (a graph query for stream and essential subjects) and says insufficient data when there is no aspiration, the career is not one of the 11, the subject plan cannot be resolved or the graph has no node; typed free text gives no occupation code and so \"insufficient data\"; a different family job can flip the result to MISALIGNED; subject evidence needs at least 5 exam answers or 2 mastered practice concepts. The AI explanation sends the aspiration title, status, codes, streams, missing subjects and exam names (no name or ID), has no output check and stores nothing; with no model configured the screen says so. Every careerAlignment call, including the plan tab that never shows it, makes a model call with no cache.",
+    "Security findings (not on any slide): the Explorer, Interest Profiler and matchProfile routes have no login check and use the platform's O*NET account; unauthenticated routes expose employer e-mail and phone columns and expert contact numbers; allOccupation sets CORS *; an O*NET username and password are hard-coded in SyncONetOccupationData.php:37 (value withheld here); student_aspirations and evidence_events have no school column. Forward to whoever owns next_lms_erp.",
+    "Research: the owner's career list has no code evidence for any of its ten feature names or for any named theory (Super, Savickas, Bandura, SCCT and the others appear nowhere). What the code supports: the O*NET Interest Profiler (fetched live from O*NET Web Services; the sheet's \"designed from\" is reworded \"uses\"), O*NET occupation data, and named entry-requirement sources (only 2 of the 11 careers cite a regulator; the Council of Architecture row stands for that). NCDG was dropped from the rows: Compass names it nowhere and only a graph seed ties it to career nodes; its version in code (older goal codes) differs from ncda.org. O*NET licence: CC BY 4.0 with the registered mark and no implied endorsement; O*NET Web Services ask for a visible credit link near the data and site registration, and no on-screen credit exists in the four K12 career folders: decide whether the source line is enough and whether to register. Holland's year differs between pages (1985 and 1997).",
+    "Pictures: stock photographs (Pexels, licence read 27 Nov 2026), unDraw cut-outs recoloured to the deck palette, and a public-domain line drawing (CC0) as the research banner; none generated."
+  ],
+  "notes": {
+    "summary": "Let the three lines land one at a time. Ask: when do your students first find out what their chosen career asks of them?",
+    "problem": "Tell it as subject-choice week and one student. Say it is an illustration, not their school.",
+    "intelligence": "The result comes from rules. Eleven careers are covered by the alignment check; a typed-in career gives insufficient data, and the screen says so. The student's answers are saved with history.",
+    "ai": "AI only explains: the alignment result itself comes from rules. The explanation is shown, not saved. If no AI model is set up for the school, the screen says so. Do not say the explanation is checked.",
+    "research": "Say that Compass uses O*NET data and the O*NET Interest Profiler through O*NET Web Services; never say it is designed from or endorsed by them. If asked about career theories (Super, Savickas and others): they are not named in the product.",
+    "features": "One group of four. Let them pick the screen their students would meet first. Do not read the lines.",
+    "roles": "Students use these pages for themselves. There is no counsellor screen to show: do not claim one."
+  }
+}

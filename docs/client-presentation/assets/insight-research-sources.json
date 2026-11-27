@@ -1,0 +1,317 @@
+{
+  "about": "Source list for the Research tab of the Scholar Insight tour. The product sheet (content/atlas/part-insight.json, family research field) is null. The owner pasted the list below on 27 Nov 2026 under the tag EB (Enterprise Brain; the G2G portfolio file hp_erp/config/portfolio_seed_data.json:442-443 uses parent_product EB for the Knowledge and Memory offer). Every external source was opened on 27 Nov 2026 on its publisher or owner site; O*NET and ESCO were also read with a plain command-line request so the licence lines are quoted exactly. Each is described only as far as its page says. No figure is taken from any of them. Internal items are the product's own design concepts: they are NOT research citations, and they may appear on the slide only as 'the product's own model' where the repo defines them. Repo evidence paths are relative to C:\\Users\\MILAN\\Downloads and were read on the same date. Code searched: next_lms_erp (app, config, database, docs, routes), lms_k12 (app, lib, docs, components, packages) and hp_erp (app, config, database, routes, Docs). Headline finding: of the six items, only O*NET and ESCO are external, and no Insight code path reads either one (O*NET data is read by the Career pages and a staff crosswalk; ESCO appears only as a label). Several other items belong to the G2G design or to Scholar CCB's Capability Intelligence menu. See owner_to_confirm.",
+  "supplied_by_owner": [
+    "capability framework",
+    "Department > Role -> KASBA -> Evidence -> Skill objects",
+    "KASBA and taxonomy",
+    "O*NET and ESCO occupational data",
+    "Competency and capability intelligence",
+    "ESO engine and organizational capability analysis"
+  ],
+  "sources": [
+    {
+      "id": "onet",
+      "name": "O*NET (Occupational Information Network), O*NET Resource Center",
+      "kind": "external",
+      "page_title": "O*NET Resource Center (home); About O*NET at O*NET Resource Center; The O*NET Content Model at O*NET Resource Center; O*NET 31.0 Database Content License at O*NET Resource Center; O*NET Resource Center Content License at O*NET Resource Center",
+      "publisher": "O*NET Resource Center (onetcenter.org). The home page footer says the site is sponsored by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA) and developed by the National Center for O*NET Development.",
+      "urls": [
+        "https://www.onetcenter.org/",
+        "https://www.onetcenter.org/overview.html",
+        "https://www.onetcenter.org/content.html",
+        "https://www.onetcenter.org/license_db.html",
+        "https://www.onetcenter.org/license.html"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The About page says 'The O*NET Program is the nation's primary source of occupational information' and that O*NET is 'developed under the sponsorship of the U.S. Department of Labor/Employment and Training Administration (USDOL/ETA) through a grant to the North Carolina Department of Commerce'. The Content Model page says 'The Content Model is the foundation of O*NET. It organizes the most important information about jobs and workers into a clear, structured system', arranged in main areas headed Worker Characteristics, Worker Requirements, Experience Requirements, Occupational Requirements, Occupation-Specific Info and Workforce Characteristics. The home page has a 'What is O*NET?' heading but gives no definition under it. 'The nation' here is the United States; the repo itself calls it 'US reference data' (next_lms_erp/database/neo4j/modules.php:809).",
+      "licence_or_terms": "Database licence page (https://www.onetcenter.org/license_db.html), read as 'O*NET 31.0 Database Content License' on the check date: 'Except as noted below, the content of the O*NET 31.0 Database is licensed under a Creative Commons Attribution 4.0 International License.' Credit line the page gives for verbatim use: 'This page includes information from the O*NET 31.0 Database by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under the CC BY 4.0 license. O*NET(R) is a trademark of USDOL/ETA.' (here (R) stands for the registered-trademark symbol the page prints after O*NET). For edited material the page adds: '[Your name or company] has modified all or some of this information. USDOL/ETA has not approved, endorsed, or tested these modifications.' The Resource Center content licence (https://www.onetcenter.org/license.html) adds: 'The trademark symbol must be properly displayed when referring to O*NET.' ATTRIBUTION IS REQUIRED if any O*NET content or data is reproduced, and the O*NET trademark symbol is required when the name is used. The deck shows no credits, so the row's source line carries the credit; the owner decides whether that is enough.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Insight conforms to it, uses its data, or is endorsed by it.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/neo4j/modules.php:794",
+        "next_lms_erp/database/neo4j/modules.php:809",
+        "next_lms_erp/database/neo4j/modules.php:891",
+        "next_lms_erp/docs/neo4j-table-classification.md:860",
+        "next_lms_erp/app/CareerIntelligence/StaffMentorMatchService.php:10",
+        "next_lms_erp/app/CareerIntelligence/KnowledgeMatchService.php:16",
+        "next_lms_erp/app/CareerIntelligence/CaiCoreService.php:55",
+        "next_lms_erp/.env.example:22",
+        "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx:67",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:17",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php:82",
+        "hp_erp/app/Http/Controllers/lms/counselling/lmsCounsellingController.php:159",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:323",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:695",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:738"
+      ],
+      "repo_note": "WHERE THE REPO USES O*NET: a loaded O*NET reference subgraph (modules.php:809-813, :891) that GraphExplorer.php does not read; the student Career Counselling and Career Intelligence code (KnowledgeMatchService.php:16, CaiCoreService.php:55, lmsCounsellingController.php:159); and the staff mentor crosswalk (StaffMentorMatchService.php:10, mentor-skill-mapping/page.tsx:67). Insight's Graph Explorer reads 'Skill' and 'JobRole' nodes labelled 'occupational taxonomy' with no source named (GraphExplorer.php:82-88). The one statement that this taxonomy is O*NET sourced is a code comment on a Scholar CCB screen (taxonomy-ontology.tsx:17); the load query reads master_skills and s_jobrole (modules.php:824-830)."
+    },
+    {
+      "id": "esco",
+      "name": "ESCO (European Skills, Competences, Qualifications and Occupations), European Commission",
+      "kind": "external",
+      "page_title": "What is ESCO? | European Skills, Competences, Qualifications and Occupations (ESCO); Use ESCO | European Skills, Competences, Qualifications and Occupations (ESCO); Copyright notice - ESCO Skills & Competences | European Skills, Competences, Qualifications and Occupations (ESCO)",
+      "publisher": "European Commission (the page says ESCO is 'a European Commission project, run by Directorate General Employment, Social Affairs and Inclusion (DG EMPL)')",
+      "urls": [
+        "https://esco.ec.europa.eu/en/about-esco/what-esco",
+        "https://esco.ec.europa.eu/en/use-esco/download/privacy-statement",
+        "https://esco.ec.europa.eu/en/copyright-notice-esco-skills-competences"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "'What is ESCO?' says ESCO 'is the European multilingual classification of Skills, Competences and Occupations' and 'works as a dictionary, describing, identifying and classifying professional occupations and skills relevant for the EU labour market and education and training', and that it can be consulted free of charge in an online portal. The copyright notice says DG Employment, Social Affairs and Inclusion developed ESCO with stakeholders, and that 'The ESCO skill hierarchy is partially based on elements of the existing classification of O*Net and the Canadian skill and knowledge glossary' (a statement about ESCO's own build, not about this product).",
+      "licence_or_terms": "Use ESCO page, served at https://esco.ec.europa.eu/en/use-esco/download/privacy-statement (title 'Use ESCO | ...'): 'In accordance with the Commission Decision of 12 December 2011 on the reuse of Commission documents (2011/833/EU), the ESCO classification can be downloaded, used, reproduced and reused for any purpose and by any interested party free of charge.' Conditions on the same page: acknowledgement is required, 'For services, tools and applications integrating totally or partially ESCO: This service uses the ESCO classification of the European Commission' and 'For other documents such as studies, analysis or reports making use of ESCO: This publication uses the ESCO classification of the European Commission'; and 'Any modified or adapted version of ESCO must be clearly indicated as such.' The shorter page https://esco.ec.europa.eu/en/use-esco did not carry this text when read by the fetch tool. The copyright notice page says content owned by the EU on the Europa website is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). ATTRIBUTION IS REQUIRED where a service or publication uses ESCO; whether naming ESCO on a slide counts as use is for the owner to decide. The deck shows no credits.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar Insight conforms to it, uses its data, or is endorsed by it.",
+      "evidence_in_repo": [
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:740",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:695",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:702"
+      ],
+      "repo_note": "THE ONLY HIT IN ALL THREE REPOS is a version label ('esco' => 'v2025', :740) inside a G2G dashboard method whose framework map holds only 'o' (O*NET) and 's' (Singapore) and rejects every other type (:695-696, :702-708), so ESCO can never be returned. No ESCO data, import, table, config or doc exists. This row therefore rests on the owner's list, not on use in the code."
+    },
+    {
+      "id": "sfia",
+      "name": "SFIA (Skills Framework for the Information Age), SFIA Foundation",
+      "kind": "external",
+      "page_title": "About SFIA - English",
+      "publisher": "SFIA Foundation (sfia-online.org)",
+      "urls": [
+        "https://sfia-online.org/en/about-sfia/about-sfia"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "The page says 'SFIA has become the globally accepted common language for the skills and competencies for the digital world', and describes the SFIA Foundation as a not-for-profit organisation that brings together the global community to develop and maintain the SFIA Framework.",
+      "licence_or_terms": "https://sfia-online.org/en/about-sfia/about-sfia: 'SFIA remains free of charge for most non-commercial use' and 'There is a modest licence fee for large organisations using SFIA and for organisations that use SFIA for commercial purposes.' The footer carries a copyright line for the SFIA Foundation and says the SFIA trade mark is protected; its Terms and conditions are a PDF that was not read. Not an open licence. Not used in proposed_rows.",
+      "how_the_slide_uses_it": "NOT PROPOSED FOR THE SLIDE. Cited by G2G code only as 'SFIA-style' levels of responsibility in the competency library, not by any Insight screen. If used, it would state only what SFIA is and would not say the product conforms to it.",
+      "evidence_in_repo": [
+        "hp_erp/app/Http/Controllers/Api/Competency/LibraryController.php:2104",
+        "hp_erp/app/Http/Controllers/user/tbluserController.php:1721",
+        "lms_k12/app/organization-management/employee-directory/components/edit-employee/lor-tab.tsx:48"
+      ]
+    },
+    {
+      "id": "skillsfuture",
+      "name": "SkillsFuture Singapore, Skills Framework (cited in a code comment)",
+      "kind": "external",
+      "page_title": "NOT OPENED",
+      "publisher": "NOT OPENED (expected publisher: SkillsFuture Singapore)",
+      "urls": [
+        "https://www.skillsfuture.gov.sg/skills-framework",
+        "https://jobsandskills.skillsfuture.gov.sg/frameworks/skills-frameworks"
+      ],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "NOT OPENED. The first address returned only the site title to both a command-line request and the fetch tool (the content is script-rendered); the second returned HTTP 403 (Access denied) to both. Nothing is said about this source here, and it is left out of proposed_rows. It still needs a re-check from a browser.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "NOT PROPOSED FOR THE SLIDE (page not opened).",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:17",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:706"
+      ]
+    },
+    {
+      "id": "kasba",
+      "name": "KASBA (knowledge, attitude, skill, behaviour, ability)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL DESIGN CONCEPT, no published source is cited anywhere. The repo expands KASBA as Knowledge, Attitude, Skill, Behaviour, Ability (migration comment: 'KASBA = Knowledge/Attitude/Skill/Behaviour/Ability items beneath a competency'; domain model: 'Knowledge, Attitude, Skill, Behaviour, Ability'). In G2G and the K-12 competency library a competency is 'a NAMED BUNDLE OF KASBA ITEMS' and a skill is one of five dimensions, not a synonym for the competency. In Insight, KASBA Explorer rolls up five facets (knowledge, ability, skill, behaviour, attitude) across each capability, read from five columns of the capability table (BrainController::kasba). The Insight page header reads 'Knowledge, ability, skill, behaviour and attitude, rolled up across this organization's capabilities.' The K-12 terminology review lists the KASBA expansion as an open decision.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. May appear only as 'the product's own model' (each capability lists knowledge, ability, skill, behaviour and attitude items). Never as research; no published source is cited.",
+      "evidence_in_repo": [
+        "next_lms_erp/database/migrations/2026_08_20_101000_create_competency_task_map_tables.php:29",
+        "hp_erp/Docs/phase3/02-domain-model.md:11",
+        "lms_k12/docs/terminology-review.md:198",
+        "lms_k12/docs/terminology-review.md:328",
+        "lms_k12/app/enterprise-brain/knowledge/kasba/page.tsx:46",
+        "lms_k12/lib/brain/navigation.ts:234",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php:466",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainController.php:800",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainController.php:811",
+        "next_lms_erp/app/Brain/Ingestion/FoundationIngestor.php:21",
+        "lms_k12/docs/enterprise-brain/INTEGRATION_AUDIT.md:137",
+        "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/CompetencyDefinitionController.php:15",
+        "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/CompetencyDefinitionController.php:55",
+        "next_lms_erp/app/Services/Competency/ProficiencyService.php:10",
+        "hp_erp/Docs/phase3/10-open-questions.md:279"
+      ]
+    },
+    {
+      "id": "capability-framework",
+      "name": "Capability framework (capabilities and competency frameworks authored by each school)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL DESIGN CONCEPT. In Insight, Foundation brings capabilities in from the school's own skill and competency records and the five KASBA columns come with them (FoundationIngestor.php:17-24); capabilities can be assigned to people or departments (INTEGRATION_AUDIT.md:133-136 lists Person, Department, JobRole and Organization as assignment targets). In the competency product the framework is customer-authored: 'OUR FRAMEWORK IS AUTHORED, NOT INHERITED', and 'the competency framework itself' is listed as 'the product's core value and it must not be guessed for a customer'; the migration says the catalogue is 'AUTHORED BY A CUSTOMER, NOT DERIVED' and that an empty table is the product working correctly. A separate importer lets a customer bring a framework they already hold. No published framework is named as its basis.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. May appear only as 'the product's own model' (capabilities come from the school's own records and can be assigned to people or departments). Never as research.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Brain/Ingestion/FoundationIngestor.php:17",
+        "lms_k12/docs/enterprise-brain/INTEGRATION_AUDIT.md:124",
+        "lms_k12/docs/enterprise-brain/INTEGRATION_AUDIT.md:133",
+        "lms_k12/app/enterprise-brain/capabilities/page.tsx:229",
+        "hp_erp/Docs/phase3/09-deployment-and-onboarding.md:37",
+        "hp_erp/Docs/phase3/09-deployment-and-onboarding.md:169",
+        "hp_erp/app/Http/Controllers/Api/Competency/FrameworkImportController.php:12",
+        "next_lms_erp/database/migrations/2026_08_20_101000_create_competency_task_map_tables.php:20",
+        "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/CompetencyLibraryCrudController.php:42",
+        "next_lms_erp/docs/decisions/2026-09-08-decisions-log-verification-sweep.md:180"
+      ]
+    },
+    {
+      "id": "taxonomy",
+      "name": "Taxonomy (category trees in the competency library; global occupational taxonomy in the graph store)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL, two different things share the word. (1) In the competency library, 'taxonomy' is an editable category and sub-category tree for each library type, with a count behind each node (LibraryController.php:13-17, :1691-1698). (2) In Insight's Graph Explorer the 'Skills' and 'Job roles' entry points read Skill and JobRole nodes labelled 'occupational taxonomy', 'a global occupational taxonomy, not this institute's own data' (GraphExplorer.php:82-88), loaded from the tables master_skills and s_jobrole (modules.php:824-830). No source for that taxonomy is named in the loader or in Insight; only a comment on a Scholar CCB screen calls it 'Singapore SkillsFuture / O*NET sourced' (taxonomy-ontology.tsx:16-19).",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. Not proposed as a row. Do not call Insight's taxonomy O*NET or SkillsFuture sourced on the strength of one code comment.",
+      "evidence_in_repo": [
+        "hp_erp/app/Http/Controllers/Api/Competency/LibraryController.php:13",
+        "hp_erp/app/Http/Controllers/Api/Competency/LibraryController.php:1691",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php:82",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php:87",
+        "next_lms_erp/database/neo4j/modules.php:797",
+        "next_lms_erp/database/neo4j/modules.php:824",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:16"
+      ]
+    },
+    {
+      "id": "competency-capability-intelligence",
+      "name": "Competency and capability intelligence (the product's own analytics and screens)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL. Two places carry this name. (1) Insight: the Brain class CapabilityIntelligence is documented as 'Capability Intelligence - skills, competencies and job-role mapping, one institute at a time', with four rule checks in CapabilitySignalRules (unmapped job roles, certifications and similar). The phrase 'organizational capability analysis' does not appear anywhere in the repos; this class is the nearest match. (2) The K-12 menu People & Competency > Capability Intelligence (Capability Library, Competency Library, Competency Framework, Capability Explorer, Mentor Skill Mapping) is placed in the Scholar CCB family by content/atlas/part-ccb.json (id ccb-capability-intelligence, lines 270-300), and hp_erp/database/signal-imports/2026-11-24/scholarclone-b2c.json:56 says 'Scholar CCB for staff capability'. Those screens are not Insight screens.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. Not proposed as a row; the Insight half is covered by the capability row (the product's own model).",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Brain/Intelligence/CapabilityIntelligence.php:9",
+        "next_lms_erp/app/Brain/Intelligence/CapabilitySignalRules.php:6",
+        "next_lms_erp/app/Services/Integrations/G2GCompetencyGraphClient.php:12",
+        "g2gv0/docs/client-presentation/content/atlas/part-ccb.json:271",
+        "hp_erp/database/signal-imports/2026-11-24/scholarclone-b2c.json:56",
+        "hp_erp/config/portfolio_seed_data.json:443"
+      ]
+    },
+    {
+      "id": "role-chain",
+      "name": "Department > Role -> KASBA -> Evidence -> Skill objects (as one chain)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL, and the chain as written is the G2G (hp_erp) capability design, not an Insight screen. The G2G domain model sets department (hrms_departments) -> job role (s_user_jobrole) -> jobrole_competency_map -> competency (a KASBA bundle) -> competency_kasba_item -> competency_evidence, with 'KASBA item - Skill' as one dimension (02-domain-model.md:81-93, :121-130, :369-374); competency_evidence is described as 'harvested from hpbrain_evidence' and was a planned table. Insight has the pieces: departments, people and capabilities brought in by Foundation, five KASBA columns per capability, and evidence rows tied to each finding (hpbrain_evidence, Reasoner.php:94). It has no screen that walks role to KASBA to evidence as one chain, and the K-12 note of 7 Sep (about the Concept Intelligence panel, a Learn feature) found no shared Evidence store behind the KASBA-style tags, only a shared table. The phrase 'Skill objects' appears only as the label of an agent's output ('Reusable Skill Objects'); G2G also uses ESO for 'Employee Skill Objective'.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. Not proposed as a row. May not be shown as an Insight chain.",
+      "evidence_in_repo": [
+        "hp_erp/Docs/phase3/02-domain-model.md:81",
+        "hp_erp/Docs/phase3/02-domain-model.md:121",
+        "hp_erp/Docs/phase3/02-domain-model.md:369",
+        "hp_erp/Docs/phase3/10-open-questions.md:27",
+        "hp_erp/Docs/phase3/10-open-questions.md:279",
+        "hp_erp/app/Http/Controllers/HRMS/DepartmentManagementController.php:1006",
+        "lms_k12/app/organization_managment/Department/Component/department-job-roles-panel.tsx:6",
+        "next_lms_erp/app/Brain/Intelligence/Reasoner.php:94",
+        "next_lms_erp/docs/decisions/2026-09-07-concept-intelligence-evidence-store.md:27",
+        "hp_erp/database/seeders/AgenticCatalogueSeeder.php:229"
+      ]
+    },
+    {
+      "id": "eso",
+      "name": "ESO (as used in Enterprise Brain: ESO Library, Execution Center, Automation policy)",
+      "kind": "internal",
+      "urls": [],
+      "checked": "2026-11-27",
+      "what_the_pages_say": "INTERNAL DESIGN CONCEPT, no published source. The Insight code defines it: 'an ESO (Executable Standard Operation) is a named, versioned procedure with declared inputs, trust level and escalation path - the thing a decision authorises'; each is 'authored', not generated, 'EVERY ESO SHIPS AT trust_level suggest' and the policy 'requires a named human decision' (AutomationCatalogue.php:12-28). BUT THE REPOS EXPAND THE SAME LETTERS FIVE WAYS: Executable Standard Operation (AutomationCatalogue.php:12); Executable strategic objectives (ScreenRegistry.php:557, navigation.ts:265); Employee Skill Objective (hp_erp migration 2026_09_24_130000:54, AiModuleRegistry.php:78, the task execution model of EsoController.php:17 and routes/api.php:3435); Adaptive Learning Engine (pal_gamification.php:436, migration 2026_09_08_100000:8, the /pal/eso learner flow); Executable Steps + Outcomes (PAL tracker :1362); and Expert System Overview for the AI agents (TeachLearnCatalogueAgentController.php:292). The 'ESO v1 document' that EsoController.php:17 cites is not in any of the three repos.",
+      "licence_or_terms": null,
+      "how_the_slide_uses_it": "Internal. May appear only as 'the product's own model' (a named procedure with a trust level that waits for a named person's decision), after the owner picks one plain name. Never as research. The 'ESO engine' in the K-12 code is the Adaptive Learning Engine, which belongs to Learn.",
+      "evidence_in_repo": [
+        "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php:12",
+        "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php:24",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php:554",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php:557",
+        "lms_k12/lib/brain/navigation.ts:265",
+        "hp_erp/database/migrations/2026_09_24_130000_add_decentralized_ai_stack_modules.php:54",
+        "hp_erp/app/Domain/AI/Configuration/AiModuleRegistry.php:78",
+        "hp_erp/app/Http/Controllers/Api/Competency/EsoController.php:17",
+        "hp_erp/routes/api.php:3435",
+        "hp_erp/config/portfolio_seed_data.json:443",
+        "next_lms_erp/config/pal_gamification.php:436",
+        "next_lms_erp/database/migrations/2026_09_08_100000_add_new_pal_eso_submodule_menu.php:8",
+        "next_lms_erp/docs/PAL_UNIVERSAL_CONTENT_MODEL_TRACKER.md:1362",
+        "next_lms_erp/app/Http/Controllers/AI/TeachLearnCatalogueAgentController.php:292",
+        "lms_k12/docs/terminology-review.md:328"
+      ]
+    }
+  ],
+  "proposed_rows": [
+    {
+      "text": "O*NET is a U.S. Department of Labor-sponsored source of occupational information; its Content Model organises information about jobs and workers.",
+      "source": "O*NET Resource Center, USDOL/ETA; Creative Commons Attribution licence",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/insight-research-sources.json",
+        "next_lms_erp/database/neo4j/modules.php",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx"
+      ]
+    },
+    {
+      "text": "ESCO is the European multilingual classification of skills, competences and occupations, a European Commission project.",
+      "source": "European Commission, ESCO (What is ESCO?), esco.ec.europa.eu",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/insight-research-sources.json",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php"
+      ]
+    },
+    {
+      "text": "In the product's own model, each capability lists knowledge, ability, skill, behaviour and attitude items, known as KASBA.",
+      "source": "The product's own model, not a published source",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/insight-research-sources.json",
+        "lms_k12/app/enterprise-brain/knowledge/kasba/page.tsx",
+        "next_lms_erp/app/Http/Controllers/Brain/BrainController.php",
+        "next_lms_erp/app/Brain/Ingestion/FoundationIngestor.php",
+        "hp_erp/Docs/phase3/02-domain-model.md"
+      ]
+    },
+    {
+      "text": "In the product's own model, capabilities come from the school's own skill and competency records and can be assigned to people or departments.",
+      "source": "The product's own model, not a published source",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/insight-research-sources.json",
+        "next_lms_erp/app/Brain/Ingestion/FoundationIngestor.php",
+        "lms_k12/app/enterprise-brain/capabilities/page.tsx",
+        "lms_k12/docs/enterprise-brain/INTEGRATION_AUDIT.md",
+        "hp_erp/Docs/phase3/09-deployment-and-onboarding.md"
+      ]
+    },
+    {
+      "text": "In the product's own model, an ESO is a named procedure with a trust level; every one waits for a named person's decision.",
+      "source": "The product's own model, not a published source",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/insight-research-sources.json",
+        "next_lms_erp/app/Brain/Intelligence/AutomationCatalogue.php",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php",
+        "lms_k12/lib/brain/navigation.ts"
+      ]
+    }
+  ],
+  "no_code_cites": [
+    "ESCO as a source or data set: no ESCO data, import, table, config or doc in next_lms_erp, lms_k12 or hp_erp. The one hit is an unreachable version label (CompetencyDashboardController.php:740).",
+    "O*NET as the source of Insight's own taxonomy: the only statement is a code comment on a Scholar CCB screen (taxonomy-ontology.tsx:17); the loader reads master_skills and s_jobrole (modules.php:824-830) and the Brain code never names O*NET.",
+    "'Department > Role -> KASBA -> Evidence -> Skill objects' as one chain in Insight: the chain is the G2G design (hp_erp Docs/phase3/02-domain-model.md); 'Skill objects' occurs only as an agent output label (AgenticCatalogueSeeder.php:229).",
+    "'Organizational capability analysis': the phrase appears nowhere; the nearest code is app/Brain/Intelligence/CapabilityIntelligence.php and CapabilitySignalRules.php.",
+    "'ESO v1 document' (cited at hp_erp EsoController.php:17): the document is in none of the three repos."
+  ],
+  "owner_to_confirm": [
+    "WRONG-PRODUCT RISK. Capability framework, Competency Library, Capability Explorer and Mentor Skill Mapping sit in the K-12 menu People & Competency > Capability Intelligence, which part-ccb.json (id ccb-capability-intelligence, :271) places in Scholar CCB, and the CCB sheet already carries a research line on O*NET and SkillsFuture Singapore from the same code comment. Insight's own pieces are Enterprise Brain > Foundation > Capabilities, Knowledge > KASBA Explorer, Graph Explorer and ESO Library, and Automation. Decide whether these items belong on Insight's Research tab or only on CCB's.",
+    "O*NET AND INSIGHT. No Insight code reads O*NET. Graph Explorer's Skills and Job roles entry points read Skill and JobRole nodes (from master_skills and s_jobrole) labelled 'occupational taxonomy' with no source named (GraphExplorer.php:82-88; modules.php:824-830); the O*NET reference subgraph is loaded separately and Graph Explorer does not read it (modules.php:809-813). O*NET data is read by student Career Counselling and Career Intelligence and by the staff mentor crosswalk. The row therefore says only what O*NET is, and does not say Insight draws on it.",
+    "ESCO. Nothing in the repos uses ESCO (see no_code_cites). The row rests on the owner's list alone, as the Core tour did for EMIS and Ed-Fi. Drop it unless you confirm real use. ESCO's own copyright page says its skill hierarchy is partly based on O*NET; that is a fact about ESCO, not about this product.",
+    "ATTRIBUTION. O*NET database content is under CC BY 4.0: credit to USDOL/ETA, a link to the licence, and a note of changes are required, plus the trademark symbol when the name O*NET is used; the page also says USDOL/ETA has not approved, endorsed, or tested modified material. ESCO requires 'This service uses the ESCO classification of the European Commission' (services, tools, applications) or 'This publication uses ...' (reports), and modified versions must be marked. The deck shows no credits. Naming a source is not obviously reuse of its data: decide whether the row's source line is enough or a credit line is added. No row says or implies endorsement.",
+    "O*NET VERSION. The licence page read on the check date names 'O*NET 31.0 Database'. The repo labels its own O*NET data 'v28.0' in a G2G dashboard (CompetencyDashboardController.php:738) and its load date is not stated. Do not name a version on the slide.",
+    "PLACEHOLDER NUMBERS. The G2G dashboard hard-codes an 'External Framework Alignment' percentage with the comment 'Placeholder - needs actual logic for O*NET mapping' (CompetencyDashboardController.php:323 and :464). No conformance to O*NET or any framework exists; never quote it.",
+    "KASBA ORDER. Code expands it Knowledge, Attitude, Skill, Behaviour, Ability (migration :29; hp_erp domain model :11; terminology review :198) while Insight's own page reads 'Knowledge, ability, skill, behaviour and attitude' (kasba/page.tsx:46). The K-12 terminology review lists the KASBA expansion as an open decision (:328). The row follows the Insight page; confirm the plain-language order.",
+    "KASBA DATA. Insight's KASBA Explorer rolls up five columns on the Brain's capability table (BrainController.php:800-811). The competency_kasba_item tables used by the competency screens were a near-empty shell on 8 Sep (decision note, 1 item and 0 ratings), so do not present Insight's KASBA as the 'competency is a bundle of KASBA items' model. The row is worded 'each capability lists'.",
+    "ESO NAME. The repos expand the same letters five ways (see the eso entry). The Insight row follows AutomationCatalogue.php:12 (Executable Standard Operation), while the registry description says 'Executable strategic objectives' (ScreenRegistry.php:557) and the Insight sheet already lists the two spellings as open. Pick one plain name. The 'ESO engine' in the owner's list is, in the K-12 code, the Adaptive Learning Engine (/pal/eso), which is Learn, not Insight; the Insight row covers only the ESO Library and its policy.",
+    "THE CHAIN. 'Department > Role -> KASBA -> Evidence -> Skill objects' is the G2G design (hp_erp Docs/phase3/02-domain-model.md:81-93, :121-130, :369-374), not an Insight screen. Insight has no screen that walks it as one chain, and I did not check whether the competency_evidence table exists or holds rows. 'Skill objects' may be a slip for 'Skill objectives' (G2G's ESO = Employee Skill Objective). Left out of the rows.",
+    "SFIA AND SKILLSFUTURE. SFIA is cited only by G2G as 'SFIA-style' levels of responsibility (LibraryController.php:2104): a style, not conformance, and not an Insight item; its site says it is free for most non-commercial use with a licence fee for commercial organisations. Left out of the rows. SkillsFuture Singapore could not be opened (script-rendered page; 403 on the portal), so it is described nowhere and left out. Re-check it from a browser if the CCB sheet is to keep it.",
+    "LEAD WORDING. Rows 3 to 5 are the product's own model and must not sit under a lead word such as 'designed from' or 'research'. Rows 1 and 2 only say what the source is; a lead word that implies Insight is built on them would not be supported by the code. Choose the lead phrase with that split in mind, or put the two groups under separate small headings."
+  ]
+}

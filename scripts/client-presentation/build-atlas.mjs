@@ -9,6 +9,7 @@
 //        docs/client-presentation/atlas-notes.json (evidence paths and owner-to-confirm notes, for presenter notes and review)
 // Exit 1 on any failure: a missing field, a word limit, a banned pattern (percentages, money, predict, at-risk, NEP, status words), an outside AI
 // company or model name, an evidence path that does not exist, or a screenshot that is named but missing.
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -61,11 +62,53 @@ function checkSheet(where, x, limits) {
 }
 
 // ---- the product tour: seven tabs for a family that has a tour-<family>.json (see lib/client-presentation/tour.ts) ----
+// A tour has a STYLE, which says which scene plays it. 'ink' is the Core scene (the default: a tour that names no style is ink). 'sketchbook' is the
+// illustrated scene (paper, cut-outs, stop-motion). The caps are what each scene's layout can hold; the validator enforces them so a long list cannot
+// overflow a fixed layout.
+const STYLES = { ink: { insights: [1, 8], uses: [1, 6], research: 6 }, sketchbook: { insights: [1, 4], uses: [1, 5], research: 6 } }
+const NO_AI_WORDS = /\bAI\b|machine learning|artificial intelligence/i   // the Intelligence tab is about rules and records, never about AI
+const IMAGE_KINDS = ['photo', 'cartoon', 'sketch']
+// The pictures of the illustrated tours: docs/client-presentation/assets/tour-art.json (id, family, kind, file, size, alt, provenance, sha256).
+// A tour names the pictures it uses by id in its `art` map; every id must exist, belong to the family, have its file on disk with the recorded hash,
+// and carry its provenance (a photo its source page and licence check; a generated image its tool, prompt and terms).
+const artFile = join(root, 'docs/client-presentation/assets/tour-art.json')
+const artRegister = existsSync(artFile) ? JSON.parse(readFileSync(artFile, 'utf8')).images ?? [] : []
+function resolveArt(F, w, spec) {
+  const out = {}
+  for (const [slot, ids] of Object.entries(spec ?? {})) {
+    out[slot] = (Array.isArray(ids) ? ids : [ids]).map((id) => {
+      const im = artRegister.find((x) => x.id === id)
+      if (!im) { fail(`${w}.art.${slot}: unknown image id "${id}" (not in assets/tour-art.json)`); return null }
+      const at = `${w}.art.${slot}[${id}]`
+      if (im.family !== F.key) fail(`${at}: belongs to "${im.family}", not "${F.key}"`)
+      if (!IMAGE_KINDS.includes(im.kind)) fail(`${at}: kind must be one of ${IMAGE_KINDS.join(', ')}`)
+      checkText(`${at}.alt`, im.alt, 24)
+      const path = join(root, 'public/client-presentation/tour', F.key, im.file ?? '')
+      if (!im.file || !existsSync(path)) fail(`${at}: file not found: public/client-presentation/tour/${F.key}/${im.file}`)
+      else if (im.sha256 && createHash('sha256').update(readFileSync(path)).digest('hex') !== im.sha256) fail(`${at}: the file differs from the hash in the register`)
+      else if (!im.sha256) fail(`${at}: no sha256 in the register`)
+      if (!(im.w > 0 && im.h > 0)) fail(`${at}: needs w and h`)
+      // provenance: a downloaded file (every photo, and a licensed cartoon or sketch) records where it came from and the licence line read on the date;
+      // a generated one (origin: "generated") records the tool, the prompt and the provider's terms, and waits for the owner's approval
+      if (im.origin === 'generated') {
+        if (im.kind === 'photo') fail(`${at}: a photo is never generated`)
+        if (!im.tool || !im.prompt || !im.terms) fail(`${at}: a generated image needs tool, prompt and terms`)
+        if (im.owner_approved !== true) warns.push(`${at}: generated image not yet approved by the owner (owner_approved is not true)`)
+      } else if (!im.source_url || !im.licence || !im.licence_checked) fail(`${at}: a downloaded image needs source_url, licence (the exact line) and licence_checked`)
+      return { id, kind: im.kind, src: `/client-presentation/tour/${F.key}/${im.file}`, w: im.w, h: im.h, alt: im.alt }
+    }).filter(Boolean)
+  }
+  return out
+}
+
 function buildTour(F, subs) {
-  const file = join(dir, `tour-${F.key}.json`)
+  const file = join(process.env.ATLAS_TOUR_DIR ?? dir, `tour-${F.key}.json`)   // ATLAS_TOUR_DIR: a scratch folder, so the validator can be tried with corrupted copies (mutation checks)
   if (!existsSync(file)) return null
   const t = JSON.parse(readFileSync(file, 'utf8'))
   const w = `${F.key}.tour`
+  const style = t.style ?? 'ink'
+  if (!STYLES[style]) fail(`${w}.style: must be one of ${Object.keys(STYLES).join(', ')}`)
+  const caps = STYLES[style] ?? STYLES.ink
   const byId = new Map(subs.map((x) => [x.id, x]))
   const need = (where, id) => { if (!byId.has(id)) { fail(`${where}: unknown sub-module id "${id}"`); return null } return byId.get(id) }
   const list = (where, a, min, max) => { if (!Array.isArray(a) || a.length < min || a.length > max) { fail(`${where}: needs ${min} to ${max} items`); return [] } return a }
@@ -79,21 +122,27 @@ function buildTour(F, subs) {
   const scattered = list(`${w}.problem.scattered`, t.problem?.scattered, 3, 3); scattered.forEach((l, i) => checkText(`${w}.problem.scattered[${i}]`, l, 3)); checkText(`${w}.problem.record`, t.problem?.record, 3)
 
   checkText(`${w}.intelligence.lead`, t.intelligence?.lead, 24); checkText(`${w}.intelligence.close`, t.intelligence?.close, 16)
-  const insights = list(`${w}.intelligence.modules`, t.intelligence?.modules, 1, 8).map((m, i) => {
+  const insights = list(`${w}.intelligence.modules`, t.intelligence?.modules, ...caps.insights).map((m, i) => {
     const sub = need(`${w}.intelligence.modules[${i}]`, m.id); checkText(`${w}.intelligence.modules[${i}].asks`, m.asks, 16)
-    // an insight may only be claimed for a module whose own sheet says it has rule-based insights
-    if (sub && !sub.technology.some((x) => /rule-based insights/i.test(x))) fail(`${w}.intelligence.modules[${i}]: ${m.id} has no "rule-based insights" in its sheet`)
+    // a module may only be named here for what its own sheet says it does. Each module states its BASIS: a line that must appear in its sheet's technology
+    // list. Core says nothing and gets "rule-based insights" (its six AI-insights modules); Learn names "Rules and adaptive practice" or "Knowledge graph ...".
+    const basis = String(m.basis ?? 'rule-based insights')
+    if (style !== 'ink' && !m.basis) fail(`${w}.intelligence.modules[${i}]: a ${style} tour must name the basis of each module (a technology line of its sheet)`)
+    if (sub && !sub.technology.some((x) => x.toLowerCase().includes(basis.toLowerCase()))) fail(`${w}.intelligence.modules[${i}]: ${m.id} has no "${basis}" in its sheet`)
     return sub && { id: m.id, name: sub.name, asks: m.asks }
   }).filter(Boolean)
+  for (const [k, v] of [['lead', t.intelligence?.lead], ['close', t.intelligence?.close], ...(t.intelligence?.modules ?? []).map((m, i) => [`modules[${i}].asks`, m.asks])]) if (NO_AI_WORDS.test(String(v ?? ''))) fail(`${w}.intelligence.${k}: the Intelligence tab never says AI or machine learning`)
   checkEvidence(`${w}.intelligence.evidence`, t.intelligence?.evidence, insights.length || 1)
 
   checkText(`${w}.ai.lead`, t.ai?.lead, 24); checkText(`${w}.ai.guard`, t.ai?.guard, 16); checkText(`${w}.ai.control`, t.ai?.control, 12)
-  const uses = list(`${w}.ai.uses`, t.ai?.uses, 1, 6); uses.forEach((u, i) => { checkText(`${w}.ai.uses[${i}].name`, u.name, 4); checkText(`${w}.ai.uses[${i}].line`, u.line, 14) })
+  const uses = list(`${w}.ai.uses`, t.ai?.uses, ...caps.uses); uses.forEach((u, i) => { checkText(`${w}.ai.uses[${i}].name`, u.name, 4); checkText(`${w}.ai.uses[${i}].line`, u.line, 14) })
   checkEvidence(`${w}.ai.evidence`, t.ai?.evidence, 2)
   checkText(`${w}.ai.sample.label`, t.ai?.sample?.label, 6); checkText(`${w}.ai.sample.text`, t.ai?.sample?.text, 32)
   if (!/illustrative/i.test(t.ai?.sample?.label ?? '')) fail(`${w}.ai.sample.label: a sample draft must say it is illustrative`)
 
   // research is optional: the tab stays hidden until there is at least one item, and every item needs a source and an evidence path
+  if (t.research?.lead !== undefined) checkText(`${w}.research.lead`, t.research.lead, 5)
+  if ((t.research?.items ?? []).length > caps.research) fail(`${w}.research.items: a ${style} tour holds at most ${caps.research} rows`)
   const items = (t.research?.items ?? []).map((r, i) => { checkText(`${w}.research.items[${i}].text`, r.text, 24); checkText(`${w}.research.items[${i}].source`, r.source, 12); checkEvidence(`${w}.research.items[${i}].evidence`, r.evidence, 1); return { text: r.text, source: r.source } })
 
   const groups = list(`${w}.features.groups`, t.features?.groups, 1, 6)
@@ -111,28 +160,29 @@ function buildTour(F, subs) {
   if (new Set(placed).size !== placed.length) fail(`${w}.features: a sub-module is in two groups`)
   checkEvidence(`${w}.features.evidence`, t.features?.evidence, 1)
 
-  const roles = list(`${w}.roles`, t.roles, 3, 6).map((r, i) => {
+  const roles = list(`${w}.roles`, t.roles, style === 'sketchbook' ? 1 : 3, 6).map((r, i) => {
     checkText(`${w}.roles[${i}].role`, r.role, 5); checkText(`${w}.roles[${i}].who`, r.who, 8); checkText(`${w}.roles[${i}].use`, r.use, 24)
     list(`${w}.roles[${i}].benefits`, r.benefits, 3, 3).forEach((b, j) => checkText(`${w}.roles[${i}].benefits[${j}]`, b, 18))
     const modules = list(`${w}.roles[${i}].modules`, r.modules, 1, 6).map((id) => { const sub = need(`${w}.roles[${i}].modules`, id); return sub && { id, name: sub.name } }).filter(Boolean)
     return { role: r.role, who: r.who, benefits: r.benefits, use: r.use, modules }
   })
-  // an optional film (a rendered video under public/client-presentation/film) that plays on its own slide between the opener and the tour
-  let film = null
-  if (t.film) {
-    const base = join(root, 'public/client-presentation/film')
-    for (const k of ['file', 'poster']) if (typeof t.film[k] !== 'string' || !existsSync(join(base, t.film[k]))) fail(`${w}.film.${k}: file not found in public/client-presentation/film`)
-    if (!(t.film.seconds > 5 && t.film.seconds < 300)) fail(`${w}.film.seconds: needs a number between 5 and 300`)
-    film = { src: `/client-presentation/film/${t.film.file}`, poster: `/client-presentation/film/${t.film.poster}`, seconds: t.film.seconds }
-  }
+  // the wording the illustrated scene prints on its own (the Core scene has its own words built in): short, same banned-word rules
+  let labels = null
+  if (t.labels) {
+    labels = {}
+    for (const k of ['draft', 'apply', 'discard']) if (t.labels[k] !== undefined) { checkText(`${w}.labels.${k}`, t.labels[k], 3); labels[k] = t.labels[k] }
+    if (!labels.draft) fail(`${w}.labels.draft: the heading of the sample card is missing`)
+    if (!!labels.apply !== !!labels.discard) fail(`${w}.labels: give both apply and discard, or neither (the buttons exist only where the product has them)`)
+  } else if (style === 'sketchbook') fail(`${w}.labels: a sketchbook tour needs labels.draft (and labels.apply + labels.discard where the product has those buttons)`)
+  const art = resolveArt(F, w, t.art)
+  if (style === 'sketchbook' && !Object.keys(art).length) fail(`${w}.art: a sketchbook tour needs pictures (docs/client-presentation/assets/tour-art.json)`)
   const TABS = ['summary', 'problem', 'intelligence', 'ai', 'research', 'features', 'roles']
   for (const tab of TABS) if (typeof t.notes?.[tab] !== 'string' || !t.notes[tab].trim()) fail(`${w}.notes.${tab}: the presenter script for this tab is missing`)
   const notes = { evidence: Object.fromEntries(TABS.map((k) => [k, t[k]?.evidence ?? null])), owner_to_confirm: t.owner_to_confirm ?? [] }
   return {
-    tour: { summary: { lines: sum }, problem: { label: t.problem.label, beats, turn: t.problem.turn, scattered, record: t.problem.record }, intelligence: { lead: t.intelligence.lead, modules: insights, close: t.intelligence.close }, ai: { lead: t.ai.lead, uses, guard: t.ai.guard, control: t.ai.control, sample: { label: t.ai.sample.label, text: t.ai.sample.text } }, research: { items }, features: { groups: outGroups }, roles },
+    tour: { ...(t.style ? { style } : {}), ...(labels ? { labels } : {}), ...(Object.keys(art).length ? { art } : {}), summary: { lines: sum }, problem: { label: t.problem.label, beats, turn: t.problem.turn, scattered, record: t.problem.record }, intelligence: { lead: t.intelligence.lead, modules: insights, close: t.intelligence.close }, ai: { lead: t.ai.lead, uses, guard: t.ai.guard, control: t.ai.control, sample: { label: t.ai.sample.label, text: t.ai.sample.text } }, research: { ...(t.research?.lead ? { lead: t.research.lead } : {}), items }, features: { groups: outGroups }, roles },
     notes,
     presenter: t.notes,
-    film,
   }
 }
 
@@ -182,7 +232,7 @@ for (const F of FAMILIES) {
   else warns.push(`${F.key}: no family sheet`)
   const built = buildTour(F, subs)
   if (built) presenter[F.key] = built.presenter
-  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs, ...(built ? { tour: built.tour } : {}), ...(built?.film ? { film: built.film } : {}) })
+  out.products.push({ key: F.key, product: F.product, k12_module: F.k12, family: family && { summary: family.summary, problem: family.problem, benefit: family.benefit, technology: family.technology, research: family.research?.text ?? null, workflow: family.workflow, ai: family.ai ?? [] }, subs, ...(built ? { tour: built.tour } : {}) })
   notes.products.push({ key: F.key, family_evidence: family?.evidence ?? [], subs: subNotes, ...(built ? { tour: built.notes } : {}) })
 }
 // cross-cutting technology and design basis (tech.json)
@@ -212,7 +262,6 @@ function buildPlan() {
   const plan = [{ kind: 'hub', theme: 'ink', title: 'Choose a product', kicker: 'Products', ghost: '', beats: 0 }]
   for (const p of filled) {
     plan.push({ kind: 'opener', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
-    if (p.tour && p.film) plan.push({ kind: 'film', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
     if (p.tour) { plan.push({ kind: 'tour', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: tourBeats(p.tour) }); continue }
     const groups = chunk(p.subs, 5)
     groups.forEach((g, i) => plan.push({ kind: 'subs', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: `${i + 1}/${groups.length}`, family: p.key, subs: g.map((x) => x.id), beats: g.length - 1 }))

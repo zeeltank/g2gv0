@@ -7,5 +7,41 @@
   "research": "Say what each source is, not what it proves. The left three are public reference sources; the three research areas are what the office, records and AI parts of Scholar Core were read against. Do not say Scholar Core conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
   "features": "One group at a time. Do not read the lines; let them point at the group their desk is in and open that screen.",
   "roles": "Let the client name their own role first, then open it. Every use line is an illustration. For Students, say the school app is where students and families see these things, and show the staff-side screens behind it."
+ },
+ "learn": {
+  "summary": "Let the three lines land one at a time. Ask: where does your teachers' work live today, and how many places is that?",
+  "problem": "Tell it as their Sunday evening, not ours. Pause after 'start the picture again from scratch'. Say it is an illustration, not their school.",
+  "intelligence": "These are questions the school's own records answer, not predictions and not AI. Rules choose the practice step; the teacher decides what to do. If asked how the rules work: a student skips what they already know, a missing prerequisite is repaired first, and earlier work is rechecked after a few days.",
+  "ai": "Say exactly what is true. Text typed into a form waits for Apply and then Save. Suggested concept tags and prerequisite links stay drafts until staff approve or reject them. Do NOT say AI-generated questions wait for approval: they are saved straight away and staff can hold them. Rules, not AI, choose each learning step; AI only phrases it. If asked about control: school administrators set AI policies, prompts and guardrails in the learning-engine administration.",
+  "research": "Say what each source is, not what it proves. Bloom and the NCF/NCERT outcomes shaped the content; CASEL, NGSS and NCDG are used as tag vocabularies for framework views, not as full coverage (NGSS: the science and engineering practices only; CASEL: self-awareness is left unmapped on purpose). Do not say Scholar Learn conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
+  "features": "Two groups. Let them point at the group their work is in, then open that screen. Do not read the lines.",
+  "roles": "Let the client name their own role first, then open it. Every use line is an illustration. School leaders is inferred from the admin tier: confirm before using it. There is no academic-coordinator role and no parent view of Learn."
+ },
+ "ccb": {
+  "summary": "Let the three lines land one at a time. Ask: where do you see a person's role, skills, tasks and training together today?",
+  "problem": "Tell it as a department head asking who is ready for a new subject. Say it is an illustration, not their school.",
+  "intelligence": "A role lists the competencies it needs at a level from one to five; the map compares that with the ratings on record. The explorer is a global occupational taxonomy, not the school's own map. It is rules and a map, not AI.",
+  "ai": "Two AI helps, both need an AI provider set up by the school. An SOP draft is edited by the author and published only when they press Save and Publish. Quiz questions join the quiz straight away and can be edited or deleted: do NOT say they wait for approval.",
+  "research": "Say what each source is, not what it proves. Never say Scholar CCB conforms to, is assessed by, or is endorsed by any of them. No figures are shown. If asked about SECI or the other theories: they are background reading, not named in the product.",
+  "features": "Two groups: run the organisation, then grow capability. Let them point at the group their work is in, then open that screen.",
+  "roles": "HR and administrators set things up; every staff member sees their own pages. Say menu rights are set per school. Every use line is an illustration."
+ },
+ "insight": {
+  "summary": "Let the three lines land one at a time. Ask: who gives you the numbers about your school today, and how many different people is that?",
+  "problem": "Tell it as the principal asking one simple question and getting three answers. Say it is an illustration, not their school.",
+  "intelligence": "These are plain questions the school's own records answer. Rules raise the findings; every finding opens to its evidence and the steps. It is rules, not AI. Do not say it predicts.",
+  "ai": "Say plainly: there is no AI in this module. Fixed rules raise the findings. A recommendation is a draft; a person approves or rejects it with a reason; nothing runs by itself. Do NOT say a named person is required by policy, and do NOT say explanations are checked against evidence: those are not enforced here.",
+  "research": "Hidden for now: the research list for Insight is waiting for the owner. If it is ever shown, say what each source is, never that Scholar Insight conforms to it.",
+  "features": "Two groups: see the school, then decide and act. Let them point at the group their question belongs to, then open that screen.",
+  "roles": "Let the client name their own role first. Who may approve depends on the school's rights: say it is set per school. Every use line is an illustration."
+ },
+ "compass": {
+  "summary": "Let the three lines land one at a time. Ask: when do your students first find out what their chosen career asks of them?",
+  "problem": "Tell it as subject-choice week and one student. Say it is an illustration, not their school.",
+  "intelligence": "The result comes from rules. Eleven careers are covered by the alignment check; a typed-in career gives insufficient data, and the screen says so. The student's answers are saved with history.",
+  "ai": "AI only explains: the alignment result itself comes from rules. The explanation is shown, not saved. If no AI model is set up for the school, the screen says so. Do not say the explanation is checked.",
+  "research": "Say that Compass uses O*NET data and the O*NET Interest Profiler through O*NET Web Services; never say it is designed from or endorsed by them. If asked about career theories (Super, Savickas and others): they are not named in the product.",
+  "features": "One group of four. Let them pick the screen their students would meet first. Do not read the lines.",
+  "roles": "Students use these pages for themselves. There is no counsellor screen to show: do not claim one."
  }
 }
