@@ -83,6 +83,14 @@ describe('signal contact section', () => {
     assert.match(none, /found no contact details/)
     assert.match(none, /Not Available/)   // still shown, never hidden
   })
+  it('says plainly when nothing was searched because the quota or the daily budget was used up', () => {
+    const q = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_searched', searched_at: null, can_search: true, attempt: { at: 'x', outcome: 'quota', searches: 0, failed: 0, found: 0 } } }} onSearch={() => {}} />)
+    assert.match(q, /Nothing was searched: the search provider is refusing searches because its quota is used up/)
+    const b = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_searched', searched_at: null, can_search: true, attempt: { at: 'x', outcome: 'budget', searches: 0, failed: 0, found: 0 } } }} onSearch={() => {}} />)
+    assert.match(b, /daily budget for automatic contact searches is used up\. Press Find contacts/)
+    assert.match(b, /data-testid="find-contacts"/, 'the person can still search')
+  })
+
   it('says why the card is empty: a failed search is a provider problem, an empty one is "nothing published"', () => {
     const failed = renderToStaticMarkup(<ContactSection c={{ ...base, research: { state: 'not_searched', searched_at: null, can_search: true, attempt: { at: 'x', outcome: 'failed', searches: 2, failed: 2, found: 0 } } }} onSearch={() => {}} />)
     assert.match(failed, /could not run: 2 of 2 requests/)

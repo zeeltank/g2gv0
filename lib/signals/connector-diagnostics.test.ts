@@ -13,6 +13,7 @@ import {
   syncRequestedMessage,
   syncRunDisplay,
   syncStageCounts,
+  workerWaitHint,
 } from './connector-diagnostics'
 
 describe('connector diagnostics', () => {
@@ -159,5 +160,28 @@ describe('fetched, analysed and signals are three separate numbers', () => {
   it('zero signals from a finished sync stays zero: fetched and analysed are not turned into signals', () => {
     const counts = syncStageCounts({ status: 'completed', records_fetched: 10, records_processed: 10, records_created: 0 })
     assert.deepEqual([counts?.fetched, counts?.analysed, counts?.signals], [10, 10, 0])
+  })
+})
+
+describe('workerWaitHint', () => {
+  const at = (iso: string) => Date.parse(iso)
+  const queued = { status: 'queued', started_at: '2026-11-27T10:00:00Z' }
+
+  it('stays quiet for the first minute, when a worker may simply be about to start', () => {
+    assert.equal(workerWaitHint(queued, at('2026-11-27T10:00:30Z')), null)
+  })
+
+  it('after a minute says no worker has picked it up and what to check', () => {
+    const hint = workerWaitHint(queued, at('2026-11-27T10:03:10Z'))
+    assert.match(hint ?? '', /Waiting 3 minute\(s\) and no Signals queue worker has picked this up/)
+    assert.match(hint ?? '', /queue:work --queue=signals,default/)
+  })
+
+  it('says nothing for a sync that is running, finished, or has no start time', () => {
+    for (const status of ['running', 'completed', 'failed', 'partial']) {
+      assert.equal(workerWaitHint({ status, started_at: '2026-11-27T10:00:00Z' }, at('2026-11-27T11:00:00Z')), null)
+    }
+    assert.equal(workerWaitHint({ status: 'queued', started_at: null }, at('2026-11-27T11:00:00Z')), null)
+    assert.equal(workerWaitHint({ status: 'queued', started_at: 'not a date' }, at('2026-11-27T11:00:00Z')), null)
   })
 })

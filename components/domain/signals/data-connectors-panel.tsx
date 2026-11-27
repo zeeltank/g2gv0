@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { LaravelContext } from '@/lib/laravel-context'
+import { withTimeout } from '@/lib/with-timeout'
 import { apiErrorText } from '@/lib/api-messages'
 import type { ProductInfo } from '@/services/portfolio/types'
 import {
@@ -61,6 +62,7 @@ import {
   syncRequestedMessage,
   syncRunDisplay,
   syncStageCounts,
+  workerWaitHint,
 } from '@/lib/signals/connector-diagnostics'
 import { ConnectorFormDialog } from './connector-form-dialog'
 import { ConnectorScheduleDialog } from './connector-schedule-dialog'
@@ -69,6 +71,8 @@ import { ConnectorSyncReport } from './connector-sync-report'
 
 export interface DataConnectorsPanelProps {
   context: LaravelContext
+  /** How long to wait for the server before the screen stops waiting (tests use a short one). */
+  requestTimeoutMs?: number
   productKey?: string | null
   productReady?: boolean
   products?: ProductInfo[] | null
@@ -157,13 +161,18 @@ export function DataConnectorsPanel({
   productKey,
   products,
   onSyncCompleted,
+  requestTimeoutMs,
 }: DataConnectorsPanelProps) {
+  const timed = <T,>(request: Promise<T>) => withTimeout(request, requestTimeoutMs)
   const [connectors, setConnectors] = useState<DataConnectorInfo[]>([])
   const [catalog, setCatalog] = useState<DataConnectorsResponse['available']>([])
   const [tablesMigrated, setTablesMigrated] = useState(true)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [busyId, setBusyId] = useState<number | null>(null)
+  // The connectors with a request in flight: one connector's request never locks another's buttons.
+  const [busyIds, setBusyIds] = useState<ReadonlySet<number>>(new Set())
+  const startBusy = (id: number) => setBusyIds((b) => new Set(b).add(id))
+  const endBusy = (id: number) => setBusyIds((b) => { const next = new Set(b); next.delete(id); return next })
   // The connector whose platform sign-in is opening (shown as Connecting, never as Connected).
   const [connectingId, setConnectingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -197,7 +206,7 @@ export function DataConnectorsPanel({
   const load = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true)
     try {
-      const response = await opportunitiesService.listConnectors(context)
+      const response = await timed(opportunitiesService.listConnectors(context))
       setConnectors(response.data || [])
       setCatalog(response.available || [])
       setCanManageSettings(response.can_manage_settings === true)
@@ -261,18 +270,18 @@ export function DataConnectorsPanel({
   }
 
   const handleSyncNow = async (connector: DataConnectorInfo) => {
-    setBusyId(connector.id)
+    startBusy(connector.id)
     setError(null)
     setNotice(null)
     try {
-      const res = await opportunitiesService.syncConnector(context, connector.id, { interactive: true })
+      const res = await timed(opportunitiesService.syncConnector(context, connector.id, { interactive: true }))
       // The server answers 202 "queued": say that, never "synced". The card then follows the sync until it ends.
       setNotice(syncRequestedMessage(res.message, connector.name))
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Connector sync failed.'))
     } finally {
-      setBusyId(null)
+      endBusy(connector.id)
     }
   }
 
@@ -280,7 +289,7 @@ export function DataConnectorsPanel({
     setTestingId(connector.id)
     setError(null)
     try {
-      const result = await opportunitiesService.testConnector(context, connector.id)
+      const result = await timed(opportunitiesService.testConnector(context, connector.id))
       setTestResults((prev) => ({
         ...prev,
         [connector.id]: {
@@ -304,12 +313,12 @@ export function DataConnectorsPanel({
   }
 
   const handleConnect = async (connector: DataConnectorInfo) => {
-    setBusyId(connector.id)
+    startBusy(connector.id)
     setError(null)
     setNotice(null)
     try {
       if (connector.type === 'public_web_page') {
-        await opportunitiesService.connectConnector(context, connector.id)
+        await timed(opportunitiesService.connectConnector(context, connector.id))
         setNotice(`${connector.name} is enabled. Click Sync Now to fetch the page.`)
       } else {
         const provider = catalog.find((entry) => entry.key === connector.type)
@@ -317,7 +326,7 @@ export function DataConnectorsPanel({
           setError(provider.readiness_message || 'This platform is not configured on the server yet. Ask an administrator to complete provider setup.')
           return
         }
-        const res = await opportunitiesService.authorizeConnector(context, connector.id)
+        const res = await timed(opportunitiesService.authorizeConnector(context, connector.id))
         const authUrl = res && 'data' in res && typeof res.data === 'object' && res.data && 'authorization_url' in res.data
           ? (res.data.authorization_url as string)
           : null
@@ -337,7 +346,7 @@ export function DataConnectorsPanel({
       setError(apiErrorText(err, 'Could not connect this provider.'))
       await load(true)
     } finally {
-      setBusyId(null)
+      endBusy(connector.id)
     }
   }
 
@@ -346,32 +355,32 @@ export function DataConnectorsPanel({
       setError('Choose an account first.')
       return
     }
-    setBusyId(connector.id)
+    startBusy(connector.id)
     setError(null)
     setNotice(null)
     try {
-      const res = await opportunitiesService.selectConnectorAccount(context, connector.id, accountId)
+      const res = await timed(opportunitiesService.selectConnectorAccount(context, connector.id, accountId))
       setNotice(`Connected ${res.data.account_name || connector.name}. You can now sync.`)
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not save the selected account.'))
     } finally {
-      setBusyId(null)
+      endBusy(connector.id)
     }
   }
 
   const handleDisconnect = async (connector: DataConnectorInfo) => {
-    setBusyId(connector.id)
+    startBusy(connector.id)
     setError(null)
     try {
-      const res = await opportunitiesService.disconnectConnector(context, connector.id)
+      const res = await timed(opportunitiesService.disconnectConnector(context, connector.id))
       // The server says whether the platform confirmed the revocation; never claimed here.
       setNotice(res.message || `Disconnected ${connector.name}`)
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not disconnect connector.'))
     } finally {
-      setBusyId(null)
+      endBusy(connector.id)
     }
   }
 
@@ -379,16 +388,16 @@ export function DataConnectorsPanel({
     if (typeof window !== 'undefined' && !window.confirm(`Are you sure you want to delete "${connector.name}"?`)) {
       return
     }
-    setBusyId(connector.id)
+    startBusy(connector.id)
     setError(null)
     try {
-      await opportunitiesService.deleteConnector(context, connector.id)
+      await timed(opportunitiesService.deleteConnector(context, connector.id))
       setNotice(`Deleted connector "${connector.name}".`)
       await load(true)
     } catch (err) {
       setError(apiErrorText(err, 'Could not delete connector.'))
     } finally {
-      setBusyId(null)
+      endBusy(connector.id)
     }
   }
 
@@ -648,7 +657,7 @@ export function DataConnectorsPanel({
           {filteredConnectors.map((connector) => {
             const platform = PLATFORM_CONFIG[connector.type] || PLATFORM_CONFIG.public_web_page
             const Icon = platform.icon
-            const isBusy = busyId === connector.id
+            const isBusy = busyIds.has(connector.id)
             const isTesting = testingId === connector.id
             const testResult = testResults[connector.id]
             const historyOpen = Boolean(expandedHistory[connector.id])
@@ -871,7 +880,7 @@ export function DataConnectorsPanel({
                   const run = connector.history[0]
                   const pct = Math.max(2, Math.min(100, run.progress ?? 5))
                   const stage = run.status === 'queued'
-                    ? 'Waiting in the queue for a worker…'
+                    ? (workerWaitHint(run) ?? 'Waiting in the queue for a worker…')
                     : run.records_fetched === 0
                       ? 'Fetching from the platform (channels, videos, Shorts, comments)…'
                       : `Analysing posts: ${run.records_fetched - (run.records_pending ?? 0)} of ${run.records_fetched} handled, ${run.records_pending ?? 0} waiting…`

@@ -32,6 +32,7 @@ import { useAuth } from '@/components/auth/gtg-auth'
 import { getLaravelContext, isLaravelContextReady } from '@/lib/laravel-context'
 import { apiErrorText } from '@/lib/api-messages'
 import { DataConnectorsPanel } from '@/components/domain/signals/data-connectors-panel'
+import { AiSignalConnectors } from '@/components/domain/signals/ai-signal-connectors'
 import { ProductSelector, ProductSetupNotice, useProducts, useSelectedProduct } from '@/components/domain/signals/product-selector'
 import {
   opportunitiesService,
@@ -261,6 +262,10 @@ export function IngestionEngineView() {
         products={products}
         onSyncCompleted={loadSources}
       />
+      {/* Claude, ChatGPT / GPT, DeepSeek and Gemini deliver their own finished signals here: same tab, same styling, separate from the OAuth connectors above. */}
+      <div className="mt-4">
+        <AiSignalConnectors productKey={product || null} onSyncCompleted={loadSources} />
+      </div>
         </div>
       )}
 
