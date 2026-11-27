@@ -1,0 +1,25 @@
+# 16. Illustrated product tours ("sketchbook" style): style bible, pipeline, ledger (26 Nov 2026)
+
+The owner likes the Scholar Core tour (slide 19). He asked for the same type of tour for the other four products, one by one, in a DIFFERENT motion style and with realistic, cartoon and sketch images drawn from each product's problem scenario and modules. Scholar Learn is first. Plan: `.claude/plans/pasted-content-id-fb39-i-want-snoopy-catmull.md`. The Core scene is not touched: a tour opts in with `"style": "sketchbook"` in `content/atlas/tour-<family>.json`.
+
+## What stays the same (so nothing regresses)
+Seven tabs, steps, Shift+digit, deep links, presenter script per tab, slugs, the product rail: all from `lib/client-presentation/tour.ts` and `useBeatTimeline`. The text is checked tour text; no scene types a claim of its own.
+
+## The look (the style bible)
+- **Page:** the deck's paper `#F4F0E6`; card paper `#FFFDF6`; outline and text ink `#0C2A4A`; body `#35495F`; accents blue `#1088F6` / `#0A6AD0` and green `#74CD23` from the deck palette plus ONE marker yellow `#FFD84D` (a background stroke only, never a text colour). Nothing else.
+- **Pictures:** realistic = licensed stock photographs shown as taped paper prints (rectangles, never cut out); cartoon = flat cut-outs, one navy outline weight, plain stylised faces, one cast per tour (one library or one generator style reference); sketch = hand-drawn line art on the page. No gradients inside art, no text inside any image (all words are live text), no logos, crests or trademarks, minors only in positive generic contexts, no children's faces in photographs.
+- **Type:** the deck's fonts (display serif for statements, sans for labels). Text sits on solid paper blocks or on the page, never on a photograph.
+- **Paper chrome:** torn edges (`tornPolygon`), tape, notes, a marker stroke and an index-tab bar are layout shapes around words and pictures, positioned by CSS and moved by the timeline. They are not pictures.
+
+## The motion (clearly unlike the Core tour)
+Core: aurora lights, word-mask rises, counters, typing, a ring of module nodes, Ken-Burns zooms. Sketchbook: stepped eases that run "on twos" (12 pictures a second: `steps(n)`), clip-path wipes like paper being pulled, a marker stroked behind key words, scraps that jitter by hand and then snap into one tidy sheet, cut-outs drifting at different depths, comic-panel entrances. Every wobble is a pure function of a seed and a frame number (`lib/client-presentation/sketch-motion.ts`: `mulberry32`, `jitterTrack`, `tornPolygon`): no `Math.random`, no clock, no rAF, so a state is a time on the timeline and Next, Back, a tab click, `?beat=` and the video renderer show the same picture.
+
+## Image pipeline and ledger
+- Register: `docs/client-presentation/assets/tour-art.json` (`images[]`: id, family, kind photo|cartoon|sketch, file, w, h, alt, sha256, provenance). `build-atlas.mjs` refuses an id that is unknown, belongs to another family, has no file on disk, whose hash differs, a photo without `source_url` + `licence_checked`, or a cartoon/sketch without `tool`, `prompt`, `terms`. A cartoon or sketch not yet `owner_approved` prints a warning.
+- Web files: `public/client-presentation/tour/<family>/<file>` (WebP or PNG, alpha where cut out, light). Masters (full size) stay outside the repo in `D:\client-presentation-assets\tour-masters\<family>\`. The PowerPoint builder converts to PNG at build time.
+- Photos: Pexels only (licence read 26 Nov 2026: free use and modification, no credit required; no identifiable person in a bad light, no implied endorsement, no resale of unaltered copies). Never restyled by an AI tool and never cut out.
+- Cartoon and sketch: **generation was tried and is blocked** (the connected Canva account returned `quota_exceeded` on 26 Nov 2026), so the first set is real, licensed, downloaded files (CC0 or an attribution-free licence), recorded with the exact licence line and URL. Generated art can replace them later; if so it is generated only from text and from generated style references, never from a stock photo, and the provider's output terms are read first (Canva's terms page could not be read here; AI-only images may not be copyrightable; some providers forbid presenting output as human-made).
+- Checks before a file is registered: look at it (faces, text, logos), OCR finds no baked-in text, alpha edges on a contact sheet, reverse-image search for look-alikes, licence page saved with the date.
+
+## Checks (not by me alone)
+`layout-lint.mjs --strict` on every beat; `shoot-tour.mjs --purity` (byte-identical however the timeline is reached); `verify-tour.mjs --family <f>` (7 tabs, Next/Back, Shift+digit, clicks, deep links, presenter script, Research rows); Core stills identical before and after (15 of 16 byte-identical, one differs by 14 pixels of anti-aliasing); mutation cases for the validator; WCAG contrast of text on its block; a person outside the team reading each tab cold; PowerPoint opened on a real machine (not possible here).

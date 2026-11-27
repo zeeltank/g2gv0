@@ -1,0 +1,234 @@
+{
+  "family": "ccb",
+  "style": "sketchbook",
+  "labels": {
+    "draft": "SOP draft",
+    "apply": "Save & Publish",
+    "discard": "Regenerate"
+  },
+  "art": {
+    "summary.photo": [
+      "ccb-photo-summary-desk"
+    ],
+    "summary.cut1": [
+      "ccb-cartoon-hr-team"
+    ],
+    "problem.photo": [
+      "ccb-photo-problem-files"
+    ],
+    "problem.cutout": [
+      "ccb-cartoon-hr-files"
+    ],
+    "research.banner": [
+      "ccb-sketch-sketch-books"
+    ],
+    "roles.0": [
+      "ccb-cartoon-hr-admin"
+    ],
+    "roles.1": [
+      "ccb-cartoon-staff"
+    ]
+  },
+  "summary": {
+    "lines": [
+      "Staff roles, skills, tasks, reviews and learning, joined up in one place.",
+      "Each role lists the competencies it needs, so development starts from what the role asks for.",
+      "Tasks, leave, payroll and courses sit beside the people they belong to."
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-ccb.json",
+      "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/CompetencyRoleMapController.php"
+    ]
+  },
+  "problem": {
+    "label": "An illustration, not your school",
+    "illustrative": true,
+    "beats": [
+      "A department head asks who is ready to teach a new subject next year.",
+      "Skills are in one file, reviews in another, training in a third.",
+      "Leave and tasks live in yet another place, so nobody sees the whole person.",
+      "The conversation about development starts from memory."
+    ],
+    "turn": "Scholar CCB keeps roles, skills, tasks and learning together.",
+    "scattered": [
+      "Staff files",
+      "Review notes",
+      "Training lists"
+    ],
+    "record": "One staff record",
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-ccb.json"
+    ]
+  },
+  "intelligence": {
+    "lead": "A role-to-competency map compares what each role needs with the ratings on record. An explorer shows which skills each job role requires.",
+    "modules": [
+      {
+        "id": "ccb-talent-management",
+        "basis": "Role-to-competency map",
+        "asks": "Which competencies does this role need, and where is this person below?"
+      },
+      {
+        "id": "ccb-capability-intelligence",
+        "basis": "Knowledge graph",
+        "asks": "Which skills does a job role require, and which roles need a skill?"
+      }
+    ],
+    "close": "The map compares. People decide what development follows.",
+    "evidence": [
+      "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/CompetencyRoleMapController.php",
+      "next_lms_erp/app/Http/Controllers/api/TalentManagement/Competency/DevelopmentPlanController.php",
+      "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php"
+    ]
+  },
+  "ai": {
+    "lead": "AI drafts a first version for the author. The author edits it and decides what to keep.",
+    "uses": [
+      {
+        "name": "SOP drafts",
+        "line": "Drafts a department SOP from a short brief, for the author to edit."
+      },
+      {
+        "name": "Quiz questions",
+        "line": "Writes multiple-choice questions from the course's own lessons."
+      }
+    ],
+    "guard": "An SOP is published only when its author presses Save and Publish.",
+    "control": "Questions join the quiz at once, and can be edited.",
+    "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "SOP draft: Leave Approval. 1. Purpose: explain how staff request leave. 2. Scope: all teaching and office staff. 3. Responsibilities: the employee requests, the manager reviews, HR records."
+    },
+    "evidence": [
+      "next_lms_erp/app/Http/Controllers/api/AiSopGenerationController.php",
+      "next_lms_erp/app/Http/Controllers/G2gLms/CourseBuilderController.php",
+      "lms_k12/app/organization_managment/Department/Component/ai-generation-drawer.tsx"
+    ]
+  },
+  "research": {
+    "lead": "Frameworks it draws on",
+    "items": [
+      {
+        "text": "Nonaka and Takeuchi's book argues that Japanese companies succeed by creating new knowledge, showing how tacit knowledge becomes explicit knowledge.",
+        "source": "Nonaka and Takeuchi, The Knowledge-Creating Company, Oxford University Press, 1995",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/ccb-research-sources.json"
+        ]
+      },
+      {
+        "text": "O*NET, sponsored by the U.S. Department of Labor, describes occupations; its Content Model organises information about jobs and workers in a structured system.",
+        "source": "O*NET Resource Center, About O*NET and The O*NET Content Model",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/ccb-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-ccb.json",
+          "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx",
+          "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx",
+          "next_lms_erp/database/migrations/2026_10_27_100000_create_s_users_skills_onet_map_table.php"
+        ]
+      },
+      {
+        "text": "Singapore's Skills Frameworks outline key skills, job roles and training by sector, and are published on the national Jobs-Skills Portal.",
+        "source": "Jobs-Skills Portal, SWDA (formed from SkillsFuture Singapore), Skills Frameworks",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/ccb-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-ccb.json",
+          "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx"
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/assets/ccb-research-sources.json"
+    ]
+  },
+  "features": {
+    "groups": [
+      {
+        "title": "Run the organisation",
+        "subs": [
+          {
+            "id": "ccb-organization-management",
+            "tagline": "Departments, staff directory, compliance register and disciplinary records."
+          },
+          {
+            "id": "ccb-task-management",
+            "tagline": "My tasks, extension requests, delay reports and an audit log."
+          },
+          {
+            "id": "ccb-hrit-management",
+            "tagline": "Attendance, leave requests, payroll and payroll reports."
+          }
+        ]
+      },
+      {
+        "title": "Grow capability",
+        "subs": [
+          {
+            "id": "ccb-talent-management",
+            "tagline": "Hiring, onboarding, reviews and development plans against role needs."
+          },
+          {
+            "id": "ccb-capability-intelligence",
+            "tagline": "Competency library, role mapping and a dashboard with five filters."
+          },
+          {
+            "id": "ccb-lms",
+            "tagline": "Course builder, courses mapped to capabilities, and My Learning."
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-ccb.json"
+    ]
+  },
+  "roles": [
+    {
+      "role": "HR and administrators",
+      "who": "Super Admin and HR profiles",
+      "benefits": [
+        "Map competencies to job roles, with the level each role needs.",
+        "Run leave, attendance and payroll, with salary certificates and Form 16.",
+        "Set up departments, compliance records and SOPs."
+      ],
+      "use": "Map a role's competencies, review leave requests, and publish a department SOP.",
+      "modules": [
+        "ccb-capability-intelligence",
+        "ccb-hrit-management",
+        "ccb-organization-management"
+      ]
+    },
+    {
+      "role": "Every staff member",
+      "who": "Staff signed in to their own pages",
+      "benefits": [
+        "See your own tasks in list or board view.",
+        "Punch in and out, and request leave.",
+        "Take courses in My Learning, and see your own competency profile."
+      ],
+      "use": "Open My Tasks, punch in, request leave, and continue a course in My Learning.",
+      "modules": [
+        "ccb-task-management",
+        "ccb-hrit-management",
+        "ccb-lms"
+      ]
+    }
+  ],
+  "owner_to_confirm": [
+    "Evidence pass of 27 Nov 2026 CORRECTED the sheet and the draft: the AI claim \"draft SOPs ... then edit\" is true, but an SOP is published (status Active, PDF built and uploaded) the moment the author presses Save and Publish, with NO approval step; \"Save Policy\" (draft) never reaches the backend and is lost on reload. AI quiz questions are appended LIVE to the quiz (status 1) with no review step; the author can edit or delete afterwards. The slide says only that. The \"capability link\" of AI-built courses is dropped by the backend although the screen text claims it: not claimed. Both features need an AI provider set up for the school (the quiz route returns an error without one).",
+    "Not claimed because the source does not back it: the task AI sparkle and Learning Recommendations (route missing); \"Build a course from a competency\" (routes missing); a self-service payslip (none exists); \"who is ready for a role\" (a hand-typed label; the computed ranking exists only in the old G2G code); a reverse lookup of courses that build a capability; the Policies and Rules tabs of a department (fixed sample arrays); \"Rules and automation\" on Organization and HRIT (settings stored but nothing reads them). \"Explore skills and job roles as a graph\" is a browse and drill-down list over a GLOBAL occupational taxonomy, the same for every school, not the school's own role map: the slide says \"an explorer\".",
+    "Rights: Task, Talent, Competency and LMS routes need a staff login (students and parents are blocked). Writing competency ratings, the role map and task-to-capability links needs a Super Admin (is_admin 1 or 2). Leave and extension approvals check NO role in the server: any signed-in user in the tenant can decide, the UI shows the buttons only to the owner of the item. Menu rights per profile are in the database (tblgroupwise_rights), not in source. Only two roles are shown (HR and administrators; every staff member) because managers cannot see other people's competency profiles in the code (department head and reporting manager are deliberately excluded) and no manager-specific screen is proved. Confirm.",
+    "Security findings (not on any slide): Organization Management routes lack the staff-only gate, so a student or parent token reaches the disciplinary and compliance lists (tenant filter only); the employee directory has a menu_type parameter that bypasses its own-row filter; KASBA ratings, development plans, task audit logs and leave balances are readable by any staff member in the tenant; the AI SOP route takes created_by and sub_institute_id from the request body (a group-level guard overrides the tenant; created_by can be spoofed). The AI vendor name appears in front-end error strings: keep it off slides.",
+    "Research: the owner's G2G list does NOT match the code: no repo cites SECI, Argyris and Schon, the knowledge-based view, enterprise architecture, TOGAF or NIST AI RMF for CCB; \"organizational learning\", \"decision intelligence\" and \"human-in-the-loop\" are Enterprise Brain (Insight) screens or practices; the capability items of the EB list (KASBA, O*NET) sit in CCB. The three rows shown are: Nonaka and Takeuchi (the OUP book page opened; the page does not say \"SECI\"; no repo cites it, it rests on the owner's list alone), O*NET and the Singapore Skills Frameworks (both from the product sheet's research line, which rests on ONE code comment, taxonomy-ontology.tsx:17). Held back: Argyris and Schon (no publisher page found), Grant 1996 (publisher page blocked). Decide: swap the two lists, or accept these three rows. O*NET data is CC BY 4.0 (attribution and the registered mark required, no implied endorsement): the row names the publisher; the deck shows no credits, so decide whether that is enough. The G2G dashboard shows a hard-coded placeholder alignment figure: never quote it.",
+    "Read in source but not exercised with live data: hiring, onboarding and review cycles (routes and controllers exist), the 1 to 5 staff rating (two stores; the directory rating call fails with a 422), and \"Job Roles Mapped\" on the dashboard (a Brain comment says that join returns zero on real data); the dashboard assessment tiles are fixed at 0; the Tracking page leave balance (12, 7, 0) is hard-coded. Task labels such as \"list or board view\" and \"timeline views\" come from the checked sheet and were not line-checked.",
+    "Pictures: stock photographs (Pexels, licence read 27 Nov 2026), unDraw cut-outs recoloured to the deck palette, and the Degas chalk drawing (Met Open Access, CC0) as the research banner; none generated."
+  ],
+  "notes": {
+    "summary": "Let the three lines land one at a time. Ask: where do you see a person's role, skills, tasks and training together today?",
+    "problem": "Tell it as a department head asking who is ready for a new subject. Say it is an illustration, not their school.",
+    "intelligence": "A role lists the competencies it needs at a level from one to five; the map compares that with the ratings on record. The explorer is a global occupational taxonomy, not the school's own map. It is rules and a map, not AI.",
+    "ai": "Two AI helps, both need an AI provider set up by the school. An SOP draft is edited by the author and published only when they press Save and Publish. Quiz questions join the quiz straight away and can be edited or deleted: do NOT say they wait for approval.",
+    "research": "Say what each source is, not what it proves. Never say Scholar CCB conforms to, is assessed by, or is endorsed by any of them. No figures are shown. If asked about SECI or the other theories: they are background reading, not named in the product.",
+    "features": "Two groups: run the organisation, then grow capability. Let them point at the group their work is in, then open that screen.",
+    "roles": "HR and administrators set things up; every staff member sees their own pages. Say menu rights are set per school. Every use line is an illustration."
+  }
+}

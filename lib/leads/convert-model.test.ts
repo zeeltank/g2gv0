@@ -9,12 +9,17 @@ import { lead } from './fixtures'
 /** The rules behind the Convert Lead pop-up, read without a screen (the screen's own test is convert-lead-dialog.test.tsx). */
 
 const asha = lead({ assignedTo: '2', industry: 'Education' })
-const form = (over: Partial<ConvertForm> = {}): ConvertForm => ({ ...initialConvertForm(asha), ...over })
+/**
+ * The OLD starting point (organization on, opportunity off): most rules below are about what the organization does. The pop-up now starts the NEW way (27 Nov 2026: a person and
+ * an opportunity, no organization; the organization is made when the opportunity is won): that is `fresh`, and it has its own tests.
+ */
+const form = (over: Partial<ConvertForm> = {}): ConvertForm => ({ ...initialConvertForm(asha), createOrganization: true, createOpportunity: false, ...over })
+const fresh = (over: Partial<ConvertForm> = {}): ConvertForm => ({ ...initialConvertForm(asha), ...over })
 
 describe('what the pop-up starts with', () => {
-  it('prefills the organization from the lead\'s company and industry, the owner from the lead, and nothing else', () => {
+  it('starts with a person and an opportunity and NO organization, prefilled from the lead, with the owner from the lead and nothing else', () => {
     const f = initialConvertForm(asha)
-    assert.deepEqual([f.createOrganization, f.organizationName, f.industry, f.assignedTo, f.createOpportunity, f.makePrimary, f.transferTo], [true, 'Hillcrest Academy', 'Education', '2', false, false, null])
+    assert.deepEqual([f.createOrganization, f.createContact, f.createOpportunity, f.organizationName, f.industry, f.assignedTo, f.makePrimary, f.transferTo], [false, true, true, 'Hillcrest Academy', 'Education', '2', false, null])
   })
 
   it('starts with the organization off for a lead with no company', () => {
@@ -32,7 +37,8 @@ describe('what the pop-up starts with', () => {
 describe('what is asked of the person before the request is sent', () => {
   it('keeps today\'s sentences and adds the organization name and the existing organization', () => {
     assert.equal(convertProblem(form()), null)
-    assert.equal(convertProblem(form({ createOrganization: false, createContact: false })), 'Select at least one of Organization or Contact to create.')
+    assert.equal(convertProblem(form({ createOrganization: false, createContact: false })), 'Select at least one of Organization, Contact or Opportunity to create.')
+    assert.equal(convertProblem(form({ createOrganization: false, createContact: false, createOpportunity: true })), null, 'an opportunity alone is enough')
     assert.equal(convertProblem(form({ organizationName: '  ' })), 'Organization name is required.')
     assert.equal(convertProblem(form({ useExistingOrganization: true })), 'Choose which existing organization to use.')
     assert.equal(convertProblem(form({ useExistingOrganization: true, existingOrganizationId: '12' })), null)
@@ -117,5 +123,26 @@ describe('what the page says after a conversion', () => {
   it('keeps the notice about a missing person first and says what moved after it, without listing what was created', () => {
     const answer = { message: 'Lead converted.', data: { organizationId: '5', notice: 'No contact was created: the lead names no person.', transferred: { comments: 1, emails: 0, documents: 0, events: 0 } } }
     assert.equal(conversionMessage(answer, { transferTo: 'organization' }), 'No contact was created: the lead names no person. Moved 1 comment to the organization.')
+  })
+})
+
+describe('the new lifecycle: a lead becomes an opportunity with no organization', () => {
+  it('sends no organization and no organization fields, with the person and the opportunity on', () => {
+    const payload = convertPayload(fresh(), asha)
+    assert.deepEqual([payload.createOrganization, payload.createContact, payload.createOpportunity], [false, true, true])
+    for (const key of ['organizationName', 'industry', 'existingOrganizationId', 'makePrimary', 'contactRole']) assert.ok(!(key in payload), `no ${key}`)
+    assert.equal(payload.opportunity?.name, 'Hillcrest Academy - Asha Menon', 'the opportunity is still named after the company the lead names')
+  })
+
+  it('is valid as it starts, and when only the opportunity is kept', () => {
+    assert.equal(convertProblem(fresh()), null)
+    assert.equal(convertProblem(fresh({ createContact: false })), null)
+    assert.equal(convertProblem(fresh({ createContact: false, createOpportunity: false })), 'Select at least one of Organization, Contact or Opportunity to create.')
+  })
+
+  it('offers the person and the opportunity to move related records to, never an organization that will not exist', () => {
+    assert.deepEqual(transferOptions(fresh(), asha), ['contact', 'opportunity'])
+    assert.equal(effectiveTransfer(fresh(), asha), 'contact')
+    assert.equal(companyWillExist(fresh()), false)
   })
 })

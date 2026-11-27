@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { ATLAS } from './atlas'
-import { firstBeatOfTab, stepsOfTab, tabForCode, tabOfBeat, tourBeats, tourSteps, tourTabs, type AtlasTour } from './tour'
+import { firstBeatOfTab, stepsOfTab, tabForCode, tabOfBeat, tourBeats, tourSteps, tourStyle, tourTabs, type AtlasTour } from './tour'
 
 const sub = (id: string) => ({ id, name: id, tagline: 't', shot: null })
 function sample(research = 0): AtlasTour {
@@ -97,7 +97,8 @@ test('Core: an insight is claimed only for a module whose own sheet lists rule-b
     const sheet = core!.subs.find((s) => s.id === m.id)
     assert.ok(sheet?.technology.some((t) => /rule-based insights/i.test(t)), m.id)
   }
-  assert.equal(core!.tour!.intelligence.modules.length, 6)
+  // the illustrated (sketchbook) design shows at most four modules on the map; the original ink tour showed six
+  assert.equal(core!.tour!.intelligence.modules.length, 4)
   const text = JSON.stringify(core!.tour!.intelligence)
   assert.ok(!/\bAI\b|predict|forecast/i.test(text), 'the intelligence tab says rules and insights, never AI or prediction')
 })
@@ -123,6 +124,19 @@ test('Core: every role points at real modules, has three benefits, and the situa
   assert.match(core!.tour!.problem.label, /illustrative/i)
 })
 
-test('no product other than Core has a tour yet (the other four keep their spotlights)', () => {
-  assert.deepEqual(ATLAS.products.filter((p) => p.tour).map((p) => p.key), ['core'])
+test('every tour, whichever product it belongs to, obeys the same rules; a product with no tour keeps its spotlights', () => {
+  for (const p of ATLAS.products.filter((x) => x.tour)) {
+    const t = p.tour!
+    assert.ok(['ink', 'sketchbook'].includes(tourStyle(t)), `${p.key}: style`)
+    assert.equal(t.roles.every((r) => r.benefits.length === 3), true, `${p.key}: three benefits per role`)
+    assert.deepEqual(t.features.groups.flatMap((g) => g.subs).map((s) => s.id).sort(), p.subs.map((s) => s.id).sort(), `${p.key}: every module in exactly one group`)
+    assert.ok(t.intelligence.modules.length >= 1 && !/\bAI\b|machine learning|predict/i.test(JSON.stringify(t.intelligence)), `${p.key}: Intelligence never says AI or predict`)
+    if (tourStyle(t) === 'sketchbook') {
+      assert.ok(t.labels?.draft && !!t.labels.apply === !!t.labels.discard, `${p.key}: a sketchbook tour carries its own labels (apply and discard together, or neither)`)
+      assert.ok(Object.values(t.art ?? {}).flat().length > 0, `${p.key}: a sketchbook tour has pictures`)
+      for (const im of Object.values(t.art ?? {}).flat()) assert.ok(im.src.startsWith(`/client-presentation/tour/${p.key}/`) && im.alt.length > 0, im.id)
+      assert.ok(t.intelligence.modules.length <= 4 && t.ai.uses.length <= 5, `${p.key}: within the caps of the illustrated layout`)
+    }
+  }
+  assert.ok(ATLAS.products.some((p) => p.key === 'core' && p.tour), 'Core keeps its tour')
 })

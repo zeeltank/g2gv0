@@ -1,0 +1,268 @@
+{
+  "about": "Source list for the Research tab of the Scholar CCB tour (People and Competency). The owner pasted a seven-item list for CCB ('G2G'). The product sheet (content/atlas/part-ccb.json, family research field, line 14, and the Capability Intelligence item, line 291) separately says: 'Capability Explorer designed from O*NET and SkillsFuture Singapore occupational reference data, per its source notes.' Each source below was opened on 27 Nov 2026 on its publisher or owner site and described only as far as that page says. No figure is taken from any of them. Pages that could not be opened are marked in page_status and are NOT in proposed_rows (they sit in held_back). Repo evidence paths are relative to C:\\Users\\MILAN\\Downloads and were checked on the same date. Code and docs searched: next_lms_erp (app, config, docs, database, routes), lms_k12 (app, lib, components, docs, AUDIT, packages) and hp_erp (app, config, database, Docs); g2gv0 only for the product sheets. Headline result: of the owner's seven items, none is cited by name in any repo as a framework for CCB; four have no repo evidence of any kind, and the other three appear only as screen or section names or as practices belonging to Insight, Enterprise Brain, Fees, CRM or Simulation Learning, not to CCB screens.",
+  "supplied_by_owner": [
+    "SECI Model of Knowledge Creation (Nonaka and Takeuchi)",
+    "Organizational Learning (Argyris and Schon)",
+    "Knowledge-Based View of the Firm",
+    "Decision Intelligence (data-to-decision frameworks)",
+    "Enterprise Architecture (business capability and information architecture)",
+    "Knowledge Graphs and Semantic Technologies",
+    "Human-in-the-Loop AI and AI Governance"
+  ],
+  "sources": [
+    {
+      "id": "nonaka-takeuchi",
+      "name": "Nonaka and Takeuchi, The Knowledge-Creating Company (the SECI model's origin book; see the SECI note)",
+      "kind": "external",
+      "page_title": "The Knowledge-Creating Company: How Japanese Companies Create the Dynamics of Innovation | Oxford Academic; and, for the 1991 article, the Harvard Business Review page 'The Knowledge-Creating Company'",
+      "publisher": "Oxford University Press (book); Harvard Business Review (article)",
+      "urls": [
+        "https://academic.oup.com/book/52097",
+        "https://hbr.org/2007/07/the-knowledge-creating-company"
+      ],
+      "checked": "2026-11-27",
+      "page_status": "Opened: the Oxford Academic book page (global.oup.com returned an empty response, so the Oxford Academic page was used) and the HBR page. NOT opened: the Organization Science 1994 article on pubsonline.informs.org (HTTP 403 to WebFetch).",
+      "what_the_pages_say": "The Oxford Academic page lists the book by Ikujiro Nonaka and Hirotaka Takeuchi, Oxford University Press, published 18 May 1995, print ISBN 9780195092691. Its abstract says Japanese firms are successful 'precisely because they are innovative', that they create new knowledge and use it to produce products and technologies, and that the book shows, through company case studies, how they convert tacit knowledge into explicit knowledge. The HBR page, headed 'The Knowledge-Creating Company' by Ikujiro Nonaka and shown under the July-August 2007 issue, says successful companies create new knowledge, spread it through the organization and embody it in new technologies and products. Limit: neither page uses the letters SECI or the word spiral.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "no repo cites it"
+      ]
+    },
+    {
+      "id": "argyris-schon",
+      "name": "Argyris and Schon, Organizational Learning (1978) and Organizational Learning II (1996)",
+      "kind": "external",
+      "page_title": "Organizational learning (library catalogue record, Open Library data record OL4565877M)",
+      "publisher": "Addison-Wesley (Reading, Massachusetts), per the catalogue record",
+      "urls": [
+        "https://openlibrary.org/books/OL4565877M.json"
+      ],
+      "checked": "2026-11-27",
+      "page_status": "NO PUBLISHER PAGE FOUND. Searched for a Pearson, Addison-Wesley or Wiley listing: none (the books are old Addison-Wesley titles). WorldCat and the Texas A&M catalogue returned 403, the Library of Congress catalogue page is script-only, the Open Library web page sits behind a human-verification gate, and the Google Books API refused (HTTP 429). Only the Open Library JSON data record was opened. It is a catalogue record, not the publisher, so this source is held back from proposed_rows.",
+      "what_the_pages_say": "The catalogue record lists 'Organizational learning' by Chris Argyris and Donald A. Schon, Addison-Wesley, Reading, Mass., 1978, 344 pages, ISBN 0201001748. The same record also carries ISBN 0201629836 (the 1996 Organizational Learning II) and its description text, which says that book expands and updates the authors' first book and addresses four questions, including why an organization is a learning venue and whether real-world organizations can learn. The record merges the two editions, so the description belongs to the 1996 book.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "no repo cites it"
+      ],
+      "related_wording_not_a_citation": [
+        "lms_k12/components/intelligence/module/contract.ts:257",
+        "lms_k12/components/intelligence/module/contracts/talent.ts:73",
+        "lms_k12/components/intelligence/module/contracts/capability.ts:70",
+        "lms_k12/components/intelligence/module/contracts/task-management.ts:72",
+        "lms_k12/app/fees/intelligence/_components/fees-intelligence-screen.tsx:74",
+        "lms_k12/app/fees/intelligence/_components/fees-intelligence-screen.tsx:1576"
+      ],
+      "related_wording_note": "Every Insight module screen carries a section titled 'Organizational learning' ('What earlier decisions in this module actually achieved, carried forward so the next decision is better informed', contract.ts:257-259). The talent, capability and task-management module contracts keep it. It is a panel name on the Insight (Enterprise Brain) screens, not a CCB screen, and no file names Argyris, Schon or double-loop learning."
+    },
+    {
+      "id": "grant-1996",
+      "name": "Robert M. Grant, Toward a knowledge-based theory of the firm (Strategic Management Journal, 1996)",
+      "kind": "external",
+      "page_title": "Toward a knowledge-based theory of the firm (Wiley Online Library; DOI 10.1002/smj.4250171110)",
+      "publisher": "Wiley (Strategic Management Journal)",
+      "urls": [
+        "https://onlinelibrary.wiley.com/doi/10.1002/smj.4250171110",
+        "https://api.crossref.org/works/10.1002/smj.4250171110"
+      ],
+      "checked": "2026-11-27",
+      "page_status": "WILEY PAGE NOT OPENED: HTTP 403 (Cloudflare 'Just a moment' challenge) to WebFetch and to curl, on the doi.org, /doi/, /doi/abs/ and /abstract variants. What was opened is the Crossref DOI record (api.crossref.org), the DOI registry entry that Wiley deposited, with the abstract. Because the Wiley page itself is not opened, this source is held back from proposed_rows.",
+      "what_the_pages_say": "Crossref record: 'Toward a knowledge-based theory of the firm', Robert M. Grant, Strategic Management Journal, volume 17, issue S2, pages 109-122, December 1996 (online 20 May 2014), publisher Wiley. The abstract conceptualizes the firm as an institution for integrating knowledge, says the main contribution is exploring the coordination mechanisms through which firms integrate their members' specialist knowledge, and views knowledge as residing within the individual, with the organization's primary role being knowledge application rather than knowledge creation.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "no repo cites it"
+      ],
+      "related_wording_not_a_citation": [
+        "lms_k12/lib/brain/navigation.ts:211"
+      ],
+      "related_wording_note": "navigation.ts:211 is only a menu label, 'Organizational Knowledge' (for the Mental Models screen in Enterprise Brain). It does not cite the knowledge-based view."
+    },
+    {
+      "id": "onet",
+      "name": "O*NET (U.S. Department of Labor occupational information program), including the O*NET Content Model",
+      "kind": "external",
+      "page_title": "About O*NET at O*NET Resource Center; The O*NET Content Model at O*NET Resource Center; O*NET OnLine",
+      "publisher": "O*NET Resource Center (onetcenter.org), crediting the U.S. Department of Labor, Employment and Training Administration; O*NET OnLine, developed by the National Center for O*NET Development",
+      "urls": [
+        "https://www.onetcenter.org/overview.html",
+        "https://www.onetcenter.org/content.html",
+        "https://www.onetonline.org/"
+      ],
+      "checked": "2026-11-27",
+      "page_status": "Opened. On the product sheet (part-ccb.json:14 and :291) but NOT in the owner's seven-item list.",
+      "what_the_pages_say": "The overview page calls the O*NET Program the nation's primary source of occupational information, developed under the sponsorship of the U.S. Department of Labor, Employment and Training Administration, through a grant to the North Carolina Department of Commerce; each occupation profile describes worker attributes and job characteristics, and the database is publicly available at no cost. The Content Model page says 'The Content Model is the foundation of O*NET' and that it 'organizes the most important information about jobs and workers into a clear, structured system', grouped under worker, job and market headings. O*NET OnLine describes itself as a career exploration and job analysis tool.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:17",
+        "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx:16",
+        "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx:67",
+        "next_lms_erp/database/migrations/2026_10_27_100000_create_s_users_skills_onet_map_table.php:9",
+        "next_lms_erp/docs/module-intelligence-coverage.md:870",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:706"
+      ]
+    },
+    {
+      "id": "skillsfuture-skills-framework",
+      "name": "Skills Frameworks, Jobs-Skills Portal, SWDA (Singapore; SWDA was formed from SkillsFuture Singapore and Workforce Singapore)",
+      "kind": "external",
+      "page_title": "Sector Information | Jobs-Skills Portal - SWDA; Individuals Homepage (swda.gov.sg); 0505 Factsheet on SWDA (Ministry of Manpower)",
+      "publisher": "Jobs-Skills Portal of SWDA, Government of Singapore (footer '© 2026 Government of Singapore'); the SWDA name is explained by the Ministry of Manpower, Singapore",
+      "urls": [
+        "https://jobsandskills.swda.gov.sg/frameworks/sector-information",
+        "https://www.swda.gov.sg/",
+        "https://mom.gov.sg/newsroom/press-releases/2026/0505-factsheet-on-swda"
+      ],
+      "checked": "2026-11-27",
+      "page_status": "Opened with curl. skillsfuture.gov.sg/skills-framework is a script-only page (the fetch tool saw only the words 'SkillsFuture Singapore'), the old jobsandskills.skillsfuture.gov.sg address redirects to jobsandskills.swda.gov.sg, and www.ssg.gov.sg redirects to www.swda.gov.sg. On the product sheet but NOT in the owner's seven-item list.",
+      "what_the_pages_say": "The portal page says 'Explore the skills frameworks for 38 sectors, outlining key trends, roles, and capabilities to guide workforce development' (page last updated 27 Nov 2026) and describes Skills Frameworks as outlining key skills, job roles and training to build specialised expertise, enhance business performance and support employment. The SWDA home page offers 'Skills Frameworks' as an overview of in-demand skills with detailed career pathways and job roles. The Ministry of Manpower factsheet says the Skills and Workforce Development Agency (SWDA) is a new statutory board formed through the merger of SkillsFuture Singapore (SSG) and Workforce Singapore (WSG); the page gives the Bill's first reading as 8 April 2026 and no establishment date.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:17",
+        "hp_erp/app/Http/Controllers/Api/CompetencyDashboard/CompetencyDashboardController.php:706"
+      ]
+    },
+    {
+      "id": "own-knowledge-graph-docs",
+      "name": "The platform's own knowledge-graph documents (Neo4j graph; not a published framework)",
+      "kind": "internal",
+      "page_title": "Neo4j & Knowledge Graphs Across the Platform (next_lms_erp/docs/neo4j-knowledge-graph-platform-overview.pdf); Knowledge Graph in K-12 - Simple Explainer",
+      "publisher": "The company's own repos",
+      "urls": [],
+      "checked": "2026-11-27",
+      "page_status": "Read in the repos, not on the web.",
+      "what_the_pages_say": "The overview PDF says a knowledge graph 'is a data model' and 'Neo4j is one way to store a knowledge graph', and that what makes it a knowledge graph is that its relationships mean something domain-specific. The simple explainer says the company uses a product called Neo4j for connections between records. Neither names a W3C or other external standard. The August 2026 architecture audit says there is no formal ontology artifact, only a Neo4j table-to-node mapping. Limit: the overview PDF still describes the skill-ontology viewer as a third-party iframe, which taxonomy-ontology.tsx:6-14 says has been replaced by this LMS's own graph.",
+      "how_the_slide_uses_it": "States only what the source is. It does not say Scholar CCB conforms to it or is endorsed by it.",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:4",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:6",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php:82",
+        "next_lms_erp/docs/AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:26",
+        "next_lms_erp/docs/AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:27",
+        "next_lms_erp/docs/AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:358",
+        "lms_k12/docs/reports/K12_KG_Simple_Explainer_2026-10-12.md:9",
+        "g2gv0/docs/client-presentation/content/atlas/part-ccb.json:11"
+      ]
+    }
+  ],
+  "items_without_a_named_source": [
+    {
+      "owner_item": "Decision Intelligence (data-to-decision frameworks)",
+      "result": "no single source named by the owner; none invented",
+      "repo_finding": "The repo has a SCREEN called Decision Intelligence, not a cited framework. It is in Enterprise Brain > Analytics (description: 'Patterns across decisions, risks and outcomes'). The Insight sheet lists it and says its tables are filled only by the demo seeder.",
+      "evidence_in_repo": [
+        "lms_k12/lib/brain/navigation.ts:203",
+        "lms_k12/app/enterprise-brain/analytics/decision-intelligence/page.tsx:6",
+        "next_lms_erp/app/Brain/Screens/ScreenRegistry.php:347",
+        "next_lms_erp/database/seeders/BrainDemoDataSeeder.php:11",
+        "g2gv0/docs/client-presentation/content/atlas/part-insight.json:202",
+        "g2gv0/docs/client-presentation/content/atlas/part-insight.json:233"
+      ]
+    },
+    {
+      "owner_item": "Enterprise Architecture (business capability and information architecture)",
+      "result": "no single source named by the owner; none invented",
+      "repo_finding": "No repo cites TOGAF, Zachman, ArchiMate, a business capability model or 'enterprise architecture'. The only hit for 'information architecture' is an unrelated menu-structure remark in hp_erp/Docs/phase3/01-inventory.md:305.",
+      "evidence_in_repo": [
+        "no repo cites it"
+      ]
+    },
+    {
+      "owner_item": "Knowledge Graphs and Semantic Technologies",
+      "result": "no single source named; the repo builds a Neo4j property graph and cites no W3C or other standard",
+      "repo_finding": "Knowledge graph: implemented (Neo4j; Capability Explorer is the CCB screen that reads it, and the CCB sheet tags it 'Knowledge graph'). Semantic technologies: no RDF, OWL, SPARQL, SKOS, JSON-LD for the graph or W3C citation anywhere in the three repos (the only JSON-LD hits are the Signals date reader in hp_erp, unrelated). The August 2026 audit says there is no formal ontology artifact. W3C pages were therefore NOT opened or listed, because listing them would imply a standard the product does not use.",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx:4",
+        "next_lms_erp/app/Brain/Intelligence/GraphExplorer.php:82",
+        "next_lms_erp/docs/AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:358",
+        "g2gv0/docs/client-presentation/content/atlas/part-ccb.json:299"
+      ]
+    },
+    {
+      "owner_item": "Human-in-the-Loop AI and AI Governance",
+      "result": "no single source named; NIST AI Risk Management Framework and the EU AI Act were NOT opened or listed",
+      "repo_finding": "No file in next_lms_erp or lms_k12 cites NIST or the EU AI Act. The only named regulation anywhere is the EU AI Act in the Simulation Learning research notes (hp_erp/Docs/simulation-learning/_evidence/research-notes.md:36), which is not CCB. The words appear as practices, not citations: Enterprise Brain 'AI Governance' tab ('Decision approval trail'), a teacher and fees SOP catalogue section 'AI operations and human-in-the-loop governance', the PAL counsellor-release setting, content-approval comments, and the CRM outreach approval queue. The one CCB-side human-confirmation practice is Mentor Skill Mapping: a suggested O*NET link saves only when HR presses Confirm.",
+      "evidence_in_repo": [
+        "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx:17",
+        "next_lms_erp/database/migrations/2026_10_27_100000_create_s_users_skills_onet_map_table.php:13",
+        "lms_k12/lib/process/sop-catalog.ts:532",
+        "lms_k12/lib/process/fees-catalog.ts:362",
+        "lms_k12/lib/roadmap/registry.ts:27",
+        "lms_k12/docs/placeholder-build-plan-status.md:307",
+        "lms_k12/app/_components/ai-stack/exam-assessment-agent-control-card.tsx:949",
+        "next_lms_erp/app/Services/PAL/Content/ContentMetadataService.php:207",
+        "next_lms_erp/config/pal_architecture.php:795",
+        "hp_erp/app/Http/Controllers/Api/Crm/CrmOutreachApprovalController.php:15",
+        "hp_erp/Docs/simulation-learning/_evidence/research-notes.md:36"
+      ]
+    }
+  ],
+  "proposed_rows": [
+    {
+      "text": "Nonaka and Takeuchi's book argues that Japanese companies succeed by creating new knowledge, showing how tacit knowledge becomes explicit knowledge.",
+      "source": "Nonaka and Takeuchi, The Knowledge-Creating Company, Oxford University Press, 1995",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/ccb-research-sources.json"
+      ]
+    },
+    {
+      "text": "O*NET, sponsored by the U.S. Department of Labor, describes occupations; its Content Model organises information about jobs and workers in a structured system.",
+      "source": "O*NET Resource Center, About O*NET and The O*NET Content Model",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/ccb-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-ccb.json",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx",
+        "lms_k12/app/capability-intelligence/mentor-skill-mapping/page.tsx",
+        "next_lms_erp/database/migrations/2026_10_27_100000_create_s_users_skills_onet_map_table.php"
+      ]
+    },
+    {
+      "text": "Singapore's Skills Frameworks outline key skills, job roles and training by sector, and are published on the national Jobs-Skills Portal.",
+      "source": "Jobs-Skills Portal, SWDA (formed from SkillsFuture Singapore), Skills Frameworks",
+      "evidence": [
+        "g2gv0/docs/client-presentation/assets/ccb-research-sources.json",
+        "g2gv0/docs/client-presentation/content/atlas/part-ccb.json",
+        "lms_k12/app/capability-intelligence/capability-explorer/components/taxonomy-ontology.tsx"
+      ]
+    }
+  ],
+  "held_back": [
+    {
+      "id": "grant-1996",
+      "reason": "Wiley page returned HTTP 403; only the Crossref DOI record was opened. If the owner accepts a DOI-registry record as the page, the row could read as below.",
+      "ready_row": {
+        "text": "Grant's 1996 article conceptualizes the firm as an institution for integrating knowledge, and explores how firms coordinate their members' specialist knowledge.",
+        "source": "Robert M. Grant, Strategic Management Journal, 1996, Wiley",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/ccb-research-sources.json"
+        ]
+      }
+    },
+    {
+      "id": "argyris-schon",
+      "reason": "No publisher page exists online that could be found; only a catalogue record was opened, and it merges the 1978 and 1996 books. The owner should say which book is meant before a row is written."
+    }
+  ],
+  "no_code_cites": [
+    "SECI Model of Knowledge Creation (Nonaka and Takeuchi): no repo cites it (no SECI, Nonaka, Takeuchi or tacit-knowledge wording in next_lms_erp, lms_k12 or hp_erp)",
+    "Organizational Learning (Argyris and Schon): no repo cites the authors; the phrase 'Organizational learning' is only a panel title on Insight module screens",
+    "Knowledge-Based View of the Firm: no repo cites it",
+    "Enterprise Architecture (business capability and information architecture): no repo cites it",
+    "Decision Intelligence as a framework: no repo cites one; the phrase is a screen name in Enterprise Brain",
+    "Human-in-the-Loop AI and AI Governance as a named framework or standard: no repo cites one for CCB (NIST AI RMF cited nowhere; EU AI Act only in Simulation Learning notes)",
+    "Knowledge Graphs and Semantic Technologies as W3C or other standards: no repo cites one (only a Neo4j graph is built)"
+  ],
+  "owner_to_confirm": [
+    "Four of the seven items have no repo evidence of any kind: SECI, Argyris and Schon, the knowledge-based view, and Enterprise Architecture. 'Frameworks it draws on' for these rests on your list alone, the same position as the EMIS rows on the Core tab. Confirm before a client reads it as a claim about how CCB was designed.",
+    "Most of the list looks like the platform's AI layer, not CCB. next_lms_erp/docs/AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:7-8 lays out the chain 'Conversational AI > Ontology/KG > Signal > Evidence > Case > Agent > Explain > Recommend > Human Decision > Workflow > Action > Outcome > Learning'; Decision Intelligence, knowledge graph, human decision and organizational learning map onto it. In the repo, Decision Intelligence is an Enterprise Brain Analytics screen (part-insight.json:202), 'Organizational learning' is a panel on Insight module screens (contract.ts:257; the talent, capability and task contracts keep it), and human-in-the-loop is Enterprise Brain governance, Fees, PAL and CRM. Decide whether these belong on the Insight or Core Research tab instead of CCB.",
+    "SECI: the Oxford Academic and HBR pages do not use the name SECI. The name appears in Nonaka, Toyama and Konno, 'SECI, Ba and Leadership: a Unified Model of Dynamic Knowledge Creation', Long Range Planning, vol. 33, 2000 (confirmed only as a Crossref record; the Elsevier page returned 403). The proposed row therefore says knowledge creation and tacit-to-explicit, not 'SECI'. Say if you want the name SECI on the slide.",
+    "Nonaka and Takeuchi: the HBR page is by Nonaka alone and shows the July-August 2007 issue (the page does not show the original 1991 date); the Organization Science 1994 article page returned 403. The row cites the 1995 book.",
+    "Argyris and Schon: no publisher page found, so no row. Two books exist (1978 Organizational Learning: A Theory of Action Perspective; 1996 Organizational Learning II). Say which one you mean.",
+    "Grant 1996: Wiley blocked both tools, so the source is held back, with a ready row if you accept the DOI registry record.",
+    "O*NET and SkillsFuture Singapore are on the product sheet but not in your list. Their credit rests on one code comment (taxonomy-ontology.tsx:17, 'Singapore SkillsFuture / O*NET sourced'). next_lms_erp GraphExplorer.php:82-88 calls the Skill and JobRole nodes a 'global occupational taxonomy' without naming either. The O*NET table work (mentor crosswalk) is real code; no file loads or cites SkillsFuture data apart from the G2G dashboard's type switch in hp_erp. Confirm the graph really was loaded from both before the slide says so.",
+    "SkillsFuture Singapore naming: on 27 Nov 2026 its old addresses redirect to the Jobs-Skills Portal of SWDA, and the Ministry of Manpower says SWDA was formed by merging SkillsFuture Singapore and Workforce Singapore. The row names SWDA with SkillsFuture Singapore in brackets; confirm the credit wording. The page does not state an establishment date.",
+    "Do not show any alignment figure for O*NET or SkillsFuture. The G2G dashboard hard-codes a placeholder value for 'external framework' alignment with a code comment saying the O*NET mapping logic does not exist (hp_erp CompetencyDashboardController.php:323 and :464).",
+    "Knowledge graphs and semantic technologies: the repo builds a Neo4j property graph and cites no standard; its own audit (AI_ARCHITECTURE_IMPLEMENTATION_ANALYSIS.md:358, dated 2026-08-20, may be dated) says no formal ontology exists. W3C RDF or OWL pages were not opened because they would imply a standard the product does not use. If you want a source on this item, say which.",
+    "AI governance: no single source named. No repo cites NIST AI RMF; the EU AI Act appears only in the Simulation Learning research notes (research-notes.md:36). Say which, if any, you want on the CCB tab; none is invented here.",
+    "Decision Intelligence and Enterprise Architecture: you named no source, so none is listed.",
+    "The company's own Neo4j overview PDF still describes the skill-ontology viewer as an embedded third-party page, which the current code says was replaced (taxonomy-ontology.tsx:6-14). Do not quote the PDF on that point."
+  ]
+}

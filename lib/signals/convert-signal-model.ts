@@ -3,10 +3,13 @@ import type { SignalConvertBody } from '@/services/signal-review/signal-funnel-s
 /**
  * The choices of a signal's "Convert to opportunity" pop-up (S20), and the rules that turn them into the request. It is the Convert Lead pop-up's own set of
  * choices (an organization, a person, an opportunity, an owner) with two differences: the person is OPTIONAL (a signal names a company, not someone), and the
- * organization and the opportunity are always made. Pure, so a test reads it without a screen.
+ * opportunity is always made while the organization is NOT, by default (27 Nov 2026, owner: only a customer that converts becomes an Organization: it is made automatically when the
+ * opportunity is won; the person can still attach an existing organization or make one now). Pure, so a test reads it without a screen.
  */
 
 export interface SignalConvertForm {
+  /** Make or attach an organization NOW. Off by default: the organization is made when the opportunity is won. */
+  withOrganization: boolean
   useExistingOrganization: boolean
   organizationName: string
   industry: string
@@ -45,7 +48,7 @@ const text = (value: unknown): string => (typeof value === 'string' ? value.trim
 
 export function initialSignalConvertForm(signal: Source, defaultStage = ''): SignalConvertForm {
   return {
-    useExistingOrganization: false, organizationName: text(signal.company_name), industry: text(signal.industry), existingOrganizationId: '', existingOrganizationName: '',
+    withOrganization: false, useExistingOrganization: false, organizationName: text(signal.company_name), industry: text(signal.industry), existingOrganizationId: '', existingOrganizationName: '',
     addPerson: false, linkExisting: false, existingContactId: '', firstName: '', lastName: '', email: '', phone: '', title: '',
     makePrimary: false, contactRole: '',
     opportunityName: null, amount: '', currency: '', closeDate: '', stage: defaultStage, assignedTo: '',
@@ -66,15 +69,17 @@ export function signalOpportunityNameOf(form: SignalConvertForm, signal: Source)
   return form.opportunityName ?? defaultSignalOpportunityName(form, signal)
 }
 
-/** Will the person be at a company? (They always are: the organization is always made or chosen.) */
-export const personHasCompany = (form: SignalConvertForm): boolean => form.addPerson && (form.useExistingOrganization ? form.existingOrganizationId !== '' : form.organizationName.trim() !== '')
+/** Will the person be at a company? Only when an organization is made or chosen now: without one the person has no company until the opportunity is won. */
+export const personHasCompany = (form: SignalConvertForm): boolean => form.addPerson && form.withOrganization && (form.useExistingOrganization ? form.existingOrganizationId !== '' : form.organizationName.trim() !== '')
 
 /** The first thing to correct before anything is sent, as a sentence; null when the choices can be sent. */
 export function signalConvertProblem(form: SignalConvertForm): string | null {
-  if (form.useExistingOrganization) {
-    if (form.existingOrganizationId === '') return 'Choose which existing organization to use.'
-  } else if (form.organizationName.trim() === '') {
-    return 'Name the organization, or use an existing one.'
+  if (form.withOrganization) {
+    if (form.useExistingOrganization) {
+      if (form.existingOrganizationId === '') return 'Choose which existing organization to use.'
+    } else if (form.organizationName.trim() === '') {
+      return 'Name the organization, or use an existing one.'
+    }
   }
   if (form.addPerson) {
     if (form.linkExisting && form.existingContactId === '') return 'Choose which existing Contact to attach to.'
@@ -88,10 +93,10 @@ export function signalConvertProblem(form: SignalConvertForm): string | null {
 
 /** What is sent. Only what the person chose: a person only when "Add a person" is on, the amount only when typed, an existing organization instead of a name. */
 export function signalConvertPayload(form: SignalConvertForm, signal: Source): SignalConvertBody {
-  const body: SignalConvertBody = {}
-  if (form.useExistingOrganization) {
+  const body: SignalConvertBody = { createOrganization: form.withOrganization }
+  if (form.withOrganization && form.useExistingOrganization) {
     body.existingOrganizationId = Number(form.existingOrganizationId)
-  } else {
+  } else if (form.withOrganization) {
     body.organizationName = form.organizationName.trim()
     if (form.industry.trim() !== '') body.industry = form.industry.trim()
   }
@@ -106,8 +111,9 @@ export function signalConvertPayload(form: SignalConvertForm, signal: Source): S
       if (form.title.trim() !== '') person.title = form.title.trim()
       body.person = person
     }
-    if (form.makePrimary) body.makePrimary = true
-    if (form.contactRole !== '') body.contactRole = form.contactRole
+    // A star and a role are a person's place at a company: with no organization yet there is none to give.
+    if (form.withOrganization && form.makePrimary) body.makePrimary = true
+    if (form.withOrganization && form.contactRole !== '') body.contactRole = form.contactRole
   }
   const opportunity: NonNullable<SignalConvertBody['opportunity']> = { name: signalOpportunityNameOf(form, signal) }
   if (form.amount.trim() !== '') opportunity.amount = Number(form.amount)

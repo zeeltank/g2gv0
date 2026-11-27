@@ -44,9 +44,9 @@ describe('the /partners address', () => {
 })
 
 describe('the Signals tabs and the services after the removal', () => {
-  it('lists three tabs, none of them for partners, and the first reads Market Signals under the same key', () => {
-    assert.deepEqual(SIGNALS_TABS.map((t) => [t.key, t.label]), [['opportunities', 'Market Signals'], ['ingestion', 'Ingestion Engine'], ['portfolio', 'Product Portfolio']])
-    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio'])
+  it('lists four tabs, none of them for partners, and the first reads Market Signals under the same key', () => {
+    assert.deepEqual(SIGNALS_TABS.map((t) => [t.key, t.label]), [['opportunities', 'Market Signals'], ['ingestion', 'Ingestion Engine'], ['portfolio', 'Product Portfolio'], ['outreach', 'Outreach']])
+    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio', '/signals/outreach'])
   })
 
   it('treats /partners as no screen of Sales & Marketing: the address only redirects', () => {

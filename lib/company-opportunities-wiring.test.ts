@@ -55,8 +55,8 @@ describe('Product Details & ICP link', () => {
 })
 
 describe('Routes and navigation', () => {
-  it('keeps the three routes', () => {
-    for (const r of ['signals', 'ingestion', 'portfolio']) assert.ok(existsSync(join(root, `app/${r}/page.tsx`)), r)
+  it('keeps the routes of the four tabs', () => {
+    for (const r of ['signals', 'ingestion', 'portfolio', 'signals/outreach']) assert.ok(existsSync(join(root, `app/${r}/page.tsx`)), r)
   })
 
   it('/signals renders Company opportunities (so /signals?product=... keeps working)', () => {
@@ -68,7 +68,7 @@ describe('Routes and navigation', () => {
   // reading the department-local signals-hub.tsx. Sales & Marketing merge, Phase 5 retired
   // that file (it destructured `department` and never used it - the same unscoped feed on
   // every department's page); its tabs already have their own real top-level routes,
-  // covered by "keeps the three routes" above, and this file's actual per-department signals
+  // covered by "keeps the routes of the four tabs" above, and this file's actual per-department signals
   // now come from DepartmentSignalsPanel, outside this test's scope.
 
   // CHANGED ON PURPOSE (S15 P1-A, 13 Nov 2026): the screen now offers "All products" for READING (the Signal Review's abilities moved here), so the old pin
@@ -157,9 +157,9 @@ describe('One list and the research-date selector', () => {
 })
 
 describe('Premium workspace and honest forms', () => {
-  it('wraps all three module pages in the scoped premium theme', () => {
-    // the Product Portfolio tab's page is app/signals/portfolio (app/portfolio/page.tsx only redirects to it, since 24 Nov 2026)
-    for (const page of ['signals', 'ingestion', 'signals/portfolio']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
+  it('wraps all four module pages in the scoped premium theme', () => {
+    // the Product Portfolio tab's page is app/signals/portfolio (app/portfolio/page.tsx only redirects to it, since 24 Nov 2026); the Outreach tab's is app/signals/outreach (27 Nov 2026)
+    for (const page of ['signals', 'ingestion', 'signals/portfolio', 'signals/outreach']) assert.match(read(`app/${page}/page.tsx`), /<PremiumPage>/, page)
   })
 
   it('keeps the theme scoped to light mode and the signals modules, and respects reduced motion', () => {

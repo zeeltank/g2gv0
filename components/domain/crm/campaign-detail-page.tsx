@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { CustomFieldsSection } from '@/domain/organization/edit-employee/custom-fields-section'
 import { getLaravelContext } from '@/lib/laravel-context'
 import { describePlatformError } from '@/lib/platform/client'
+import { outreachHref } from '@/lib/signals/outreach-model'
 import { saveCustomFieldValues } from '@/lib/platform/custom-field-values'
 import { crmService } from '@/services/crm'
 import type { Campaign, CrmAuditEntry, CrmPicklistValue } from '@/types/crm'
@@ -188,7 +189,7 @@ export function CampaignDetailPage({ campaign, onSaved, onBack, picklists }: Pro
               <Button variant="outline" size="sm" onClick={() => router.push('/gtm/playbooks')}>
                 Open Playbooks
               </Button>
-              <Button variant="outline" size="sm" onClick={() => router.push('/gtm/outreach')}>
+              <Button variant="outline" size="sm" onClick={() => router.push(outreachHref('messages'))}>
                 Outreach Queue
               </Button>
             </div>

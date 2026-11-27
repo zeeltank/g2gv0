@@ -15,7 +15,8 @@ const tree = (): NavModule[] => [{
     { id: '10', label: 'Reports', accessLink: '/reports', children: [] },
     {
       id: '489', label: 'Signals', accessLink: null,
-      children: SIGNALS_TABS.filter((t) => t.href !== '/signals').map((t, i) => ({ id: String(490 + i), label: t.label, accessLink: t.href, children: [] })),
+      // The Signals group of the menu holds the rows of the first three tabs. The Outreach tab's row (`/gtm/outreach`) is in the Marketing folder, so it is not part of this fixture.
+      children: SIGNALS_TABS.filter((t) => t.href !== '/signals' && t.key !== 'outreach').map((t, i) => ({ id: String(490 + i), label: t.label, accessLink: t.href, children: [] })),
     },
   ],
 }]
@@ -36,16 +37,16 @@ describe('Signals sidebar', () => {
     assert.equal(input[0].children[1].children.length, 2)
   })
 
-  it('shows all three app sections whether or not the server menu includes their rows', () => {
-    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
-    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
+  it('shows all four app sections whether or not the server menu includes their rows', () => {
+    assert.deepEqual(visibleSignalsTabs(null).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'])
+    assert.deepEqual(visibleSignalsTabs(['/signals']).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'])
     const none = [{ id: '1', label: 'Reports', short: 'R', accessLink: '/reports', children: [] }] as NavModule[]
     assert.equal(collapseSignalsNav(none).tabs, null)
   })
 
-  it('the three tabs go to the existing routes (nothing is a placeholder), and the first one is called Market Signals', () => {
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.label), ['Market Signals', 'Ingestion Engine', 'Product Portfolio'])
+  it('the four tabs go to the existing routes (nothing is a placeholder), and the first one is called Market Signals', () => {
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'])
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.label), ['Market Signals', 'Ingestion Engine', 'Product Portfolio', 'Outreach'])
     assert.equal(SIGNALS_TABS[0].key, 'opportunities', 'the key behind the renamed tab did not change')
     // REWRITTEN ON PURPOSE (slice 15, P3-A, 14 Nov 2026): the Product Portfolio is a product page with its own sidebar entry, not a Signals page (owner, 13 Nov: no Signals tab buttons
     // on it), so its page is drawn OUTSIDE the Signals frame. The Ingestion Engine tab keeps the frame, as strictly as before.
@@ -58,14 +59,18 @@ describe('Signals sidebar', () => {
     assert.match(read('components/domain/signals/signals-page-content.tsx'), /<SignalsFrame active="opportunities">/)
   })
 
-  it('keeps the three tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
+  it('keeps the four tabs on screen when the Product Portfolio TAB is opened inside Market Signals; the Product Portfolio MODULE (the sidebar entry) shows none', () => {
     // Owner, 23 Nov 2026: "in Market Signals when I click the Product Portfolio tab the other tabs vanish: I want the tabs there for fast switching, but not in the Product Portfolio module."
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio'], 'the tab goes to a route inside Signals')
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'], 'while the menu row it stands for is still /portfolio')
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.route), ['/signals', '/ingestion', '/signals/portfolio', '/signals/outreach'], 'the tab goes to a route inside Signals')
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'], 'while the menu row it stands for is still /portfolio (and, for Outreach, /gtm/outreach)')
     assert.match(read('components/domain/signals/signals-header.tsx'), /href=\{t\.route\}/, 'the header links each tab to its route')
     const tabPage = read('app/signals/portfolio/page.tsx')
     assert.match(tabPage, /<SignalsFrame active="portfolio">/, 'the tab page draws the Signals frame with the Product Portfolio tab active')
     assert.match(tabPage, /<PortfolioList canManage=\{canManage\} embedded \/>/, 'and the same list, embedded')
+    // The Outreach tab (27 Nov 2026): the list page hands the Messages view to the page, the company page draws one company, and both sit in the frame with Outreach lit.
+    assert.match(read('app/signals/outreach/page.tsx'), /<SignalsFrame active="outreach">[\s\S]*<OutreachPage messages=\{<MessagesPanel \/>\} \/>/, 'the Outreach list page draws the Outreach page with the Messages panel')
+    assert.match(read('app/signals/outreach/[id]/page.tsx'), /<SignalsFrame active="outreach">[\s\S]*<OutreachCompanyPage id=\{id\} \/>/, 'and the company page draws one company')
+    assert.match(read('components/domain/signals/signals-header.tsx'), /sm:grid-cols-4/, 'the header has a column for each of the four tabs')
     assert.doesNotMatch(read('app/portfolio/page.tsx'), /import[^\n]*SignalsFrame|<SignalsFrame|<PortfolioList[^>]*embedded/, 'the module page has no Signals tabs and is not embedded')
   })
 

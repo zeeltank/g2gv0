@@ -125,7 +125,6 @@ export const CRM_OPPORTUNITIES_ACCESS_LINK = '/module/crm/sales/opportunities'
 export const CRM_QUOTES_ACCESS_LINK = '/module/crm/sales/quotes'
 export const CRM_PRODUCTS_ACCESS_LINK = '/module/crm/sales/products'
 export const CRM_SERVICES_ACCESS_LINK = '/module/crm/sales/services'
-export const CRM_SMS_NOTIFIER_ACCESS_LINK = '/module/crm/sales/sms-notifier'
 
 // Order-to-cash phase (Sales Orders/Invoices) - same
 // fresh-menu-insert reasoning as the rest of "Sales" above; every lookup

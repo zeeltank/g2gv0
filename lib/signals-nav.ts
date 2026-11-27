@@ -1,10 +1,10 @@
 import type { ActiveNav, NavModule, NavNode } from '@/lib/gtg-navigation'
 
 /**
- * The three screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
+ * The four screens of Signals. They are tabs on the Signals screen, so the sidebar lists only the Signals / Market Signals entry.
  * Each one keeps its own route (deep links and bookmarks still work); only the sidebar's child rows are folded away, in code, never in the database.
- * The first tab is called Market Signals too (owner, 26 Nov 2026: it was "Company Opportunities"); its key stays `opportunities`. A fourth tab, the partner registry, was removed the same day;
- * its old address /partners is a redirect page to /signals (app/partners/page.tsx).
+ * The first tab is called Market Signals too (owner, 26 Nov 2026: it was "Company Opportunities"); its key stays `opportunities`. A tab for the partner registry was removed the same day;
+ * its old address /partners is a redirect page to /signals (app/partners/page.tsx). The fourth tab, Outreach (owner, 27 Nov 2026), comes after Product Portfolio.
  */
 export const SIGNALS_TABS = [
   { key: 'opportunities', label: 'Market Signals', href: '/signals', route: '/signals', hint: 'Generate and review signals' },
@@ -12,13 +12,24 @@ export const SIGNALS_TABS = [
   // `href` is the menu row's access link (what the sidebar fold and the rights know it by); `route` is where the tab goes. The Product Portfolio tab opens the list INSIDE
   // Market Signals, under the three tabs, so a person can switch between them quickly (owner, 23 Nov 2026). The Product Portfolio sidebar entry opens /portfolio, which has no tabs.
   { key: 'portfolio', label: 'Product Portfolio', href: '/portfolio', route: '/signals/portfolio', hint: 'Products, sub-products and ICPs' },
+  // The Outreach tab's `href` is the EXISTING `/gtm/outreach` menu row, kept as the tab's rights row (everyone who had Outreach keeps it and no new row is needed). Unlike the three rows
+  // above, that row does not live in the Signals group of the menu: it sits in the Marketing folder, among rows that have nothing to do with Signals, so it is NOT folded into the Signals
+  // entry by `collapseSignalsNav` (see `GROUP_TABS`). The sidebar hides it with the other three Outreach rows (`foldOutreachNav`), and `route` is where the tab goes.
+  { key: 'outreach', label: 'Outreach', href: '/gtm/outreach', route: '/signals/outreach', hint: 'Find, write to and move contacts' },
 ] as const
 
 export type SignalsTabKey = (typeof SIGNALS_TABS)[number]['key']
 
-const TAB_PATHS: ReadonlySet<string> = new Set(SIGNALS_TABS.map((t) => t.href))
+/**
+ * The tabs whose menu rows are children of the Signals group, which `collapseSignalsNav` folds into the Signals entry. The Outreach tab is not one of them: its row is in the
+ * Marketing folder, so counting it here would make that folder behave like the Signals group (it would take over the highlight of every Signals address) and would fold any row
+ * that happens to be labelled "Outreach" into Market Signals.
+ */
+const GROUP_TABS = SIGNALS_TABS.filter((t) => t.key !== 'outreach')
+
+const TAB_PATHS: ReadonlySet<string> = new Set(GROUP_TABS.map((t) => t.href))
 const TAB_LABELS: ReadonlyMap<string, string> = new Map(
-  SIGNALS_TABS.map((t) => [t.label.toLowerCase(), t.href]),
+  GROUP_TABS.map((t) => [t.label.toLowerCase(), t.href]),
 )
 
 const EXTRA_FOLDED_PATHS: ReadonlySet<string> = new Set([
@@ -229,6 +240,33 @@ function foldMergedAdminScreens(modules: NavModule[]): ProductsFold {
   }
 }
 
+/*
+ * OUTREACH, OUTREACH APPROVALS AND THE TWO SMS NOTIFIERS WERE MERGED INTO THE OUTREACH TAB OF MARKET SIGNALS (27 Nov 2026; owner decision). The four menu ROWS stay in the database
+ * with status 1, for the same reason as the rows above: a Role & Permissions save deletes the rights of every row that is not status 1, so a person who holds a row keeps holding
+ * it. `/gtm/outreach` is now the Outreach tab's rights row, and the two SMS rows still gate the SMS log, WhatsApp and saved views. The sidebar does not DRAW them, here, in code:
+ * the tab is reached from Market Signals, so a second entry would be a twin of it. Each address is a redirect page into the tab and keeps resolving to itself for a person whose menu
+ * held the row (so a link built from it still lands on the page that redirects).
+ *   - This fold claims no owner: the pages redirect, so there is nothing under the sidebar to highlight. `/gtm/outreach` is also the tab's `href`, and Market Signals owns it through the
+ *     tabs loop of `collapseSignalsNav`, the same as /ingestion and /portfolio; the other three addresses have no owner.
+ *   - Each row is found by its access_link (capitals and a trailing slash do not matter), a leaf only: a row with children is never touched.
+ */
+const OUTREACH_PATHS = [
+  '/gtm/outreach',
+  '/module/crm/marketing/outreach-approvals',
+  '/module/crm/sales/sms-notifier',
+  '/module/crm/support/sms-notifier',
+] as const
+
+const isOutreachNode = (n: NavNode): boolean => n.children.length === 0 && (OUTREACH_PATHS as readonly string[]).includes(linkOf(n))
+
+/** See the comment above `OUTREACH_PATHS`. Pure: the tree is not changed in place, and a branch that holds none of the rows comes back as the same objects. */
+function foldOutreachNav(modules: NavModule[]): ProductsFold {
+  const retired = OUTREACH_PATHS.filter((path) => locate(modules, (n) => n.children.length === 0 && linkOf(n) === path))
+  if (retired.length === 0) return { modules, owners: {}, retired: [] }
+
+  return { modules: mapNodes(modules, (node) => (isOutreachNode(node) ? null : node)), owners: {}, retired }
+}
+
 const isSignalInboxNode = (n: NavNode): boolean => {
   const label = n.label.trim().toLowerCase()
   const link = (n.accessLink ?? '').trim().toLowerCase()
@@ -368,11 +406,13 @@ export function collapseSignalsNav(modules: NavModule[]): CollapsedSignalsNav {
   const automationRules = foldAutomationRulesNav(people.modules)
   // Master Fields and Agent Run History are not drawn either (26 Nov 2026): Field settings and the Run Log hold what they were for.
   const merged = foldMergedAdminScreens(automationRules.modules)
+  // Outreach, Outreach Approvals and the two SMS Notifiers are not drawn either (27 Nov 2026): the Outreach tab of Market Signals holds what they were for.
+  const outreach = foldOutreachNav(merged.modules)
   return {
-    modules: merged.modules,
+    modules: outreach.modules,
     tabs: uniqueFound.length === 0 ? null : uniqueFound,
-    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners },
-    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired],
+    owners: { ...owners, ...products.owners, ...people.owners, ...automationRules.owners, ...merged.owners, ...outreach.owners },
+    retired: [...products.retired, ...people.retired, ...automationRules.retired, ...merged.retired, ...outreach.retired],
   }
 }
 

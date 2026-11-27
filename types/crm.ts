@@ -851,58 +851,6 @@ export interface CampaignTarget {
 
 export type CampaignTargetEvent = 'sent' | 'opened' | 'replied' | 'meeting_booked' | 'opted_out' | 'converted'
 
-// ── Outreach Approvals ────────────────────────────────────────────────────
-
-export type OutreachApprovalStatus = 'pending' | 'approved' | 'rejected' | 'sent'
-
-export interface OutreachApproval {
-  id: string
-  campaignId: string
-  campaignName: string | null
-  targetRowId: string | null
-  targetType: 'lead' | 'contact' | 'organization' | null
-  targetId: string | null
-  targetName: string | null
-  subject: string | null
-  body: string | null
-  channel: string
-  status: OutreachApprovalStatus
-  requestedBy: string | null
-  requestedByName: string | null
-  reviewedBy: string | null
-  reviewedByName: string | null
-  reviewedAt: string | null
-  rejectionReason: string | null
-  sentAt: string | null
-  createdAt: string | null
-  updatedAt: string | null
-}
-
-export interface OutreachApprovalListResponse {
-  status: number
-  message: string
-  data: {
-    items: OutreachApproval[]
-    pagination: CrmPagination
-  }
-}
-
-export interface OutreachApprovalResponse {
-  status: number
-  message: string
-  data: OutreachApproval
-}
-
-export interface OutreachApprovalPayload {
-  campaignId: string
-  targetType: 'lead' | 'contact' | 'organization'
-  targetId: string
-  subject: string
-  body: string
-  channel?: string
-  targetRowId?: string
-}
-
 export interface CampaignTargetsResponse {
   status: number
   message: string

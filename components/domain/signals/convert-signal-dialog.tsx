@@ -124,9 +124,9 @@ export function ConvertSignalDialog({ isOpen, onClose, onConverted, signal, serv
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
           <OrganizationCard
             context={context}
-            required
-            create
-            onCreate={() => undefined}
+            create={form.withOrganization}
+            onCreate={(on) => set({ withOrganization: on })}
+            note={!form.withOrganization && <p className="mt-0.5 text-xs text-muted-foreground">No organization is made now. It is created automatically when the opportunity is won. Switch this on to attach an organization that already exists, or to make one now.</p>}
             useExisting={form.useExistingOrganization}
             onUseExisting={(on) => set({ useExistingOrganization: on })}
             existingId={form.existingOrganizationId}

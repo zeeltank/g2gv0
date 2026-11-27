@@ -1,11 +1,5 @@
 {
   "family": "core",
-  "film": {
-    "file": "scholar-core-film.mp4",
-    "poster": "scholar-core-film-poster.jpg",
-    "seconds": 81.67,
-    "note": "docs/client-presentation/15-core-film.md. Plays on its own slide between the Core opener and the tour. Silent: every word on it is checked tour text."
-  },
   "summary": {
     "lines": [
       "Your whole school office, in one place.",
@@ -42,27 +36,23 @@
     "modules": [
       {
         "id": "core-fees",
-        "asks": "Is collection keeping pace, and where is money overdue across past cycles?"
-      },
-      {
-        "id": "core-petty-cash",
-        "asks": "Is any claim far above the school's own average, or missing a bill?"
+        "asks": "Is collection keeping pace, and where is money overdue across past cycles?",
+        "basis": "rule-based insights"
       },
       {
         "id": "core-inventory",
-        "asks": "Did the stock-take record what it found, and which items were not found?"
+        "asks": "Did the stock-take record what it found, and which items were not found?",
+        "basis": "rule-based insights"
       },
       {
         "id": "core-transport",
-        "asks": "Which vehicles are over their seats, which run under half full, which stop is busiest?"
+        "asks": "Which vehicles are over their seats, which run under half full, which stop is busiest?",
+        "basis": "rule-based insights"
       },
       {
         "id": "core-library",
-        "asks": "Which titles are in high demand, what is overdue, what has never been borrowed?"
-      },
-      {
-        "id": "core-inward-outward",
-        "asks": "Which letters have no recorded reply, or sit in a file location not on record?"
+        "asks": "Which titles are in high demand, what is overdue, what has never been borrowed?",
+        "basis": "rule-based insights"
       }
     ],
     "close": "When the records are too thin, it raises nothing rather than guessing.",
@@ -116,35 +106,52 @@
       {
         "text": "How an education system collects, joins, keeps and shares its data so people can plan and decide from it.",
         "source": "UNESCO, Education Management Information Systems (EMIS) framework",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json"
+        ]
       },
       {
         "text": "A UNESCO diagnostic that shows where an education data system is strong, where it can improve, and the path to better.",
         "source": "UNESCO, EMIS Progress Assessment Tool for Transformation (EMIS-PATT)",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json"
+        ]
       },
       {
         "text": "A community-built standard for education data, so records keep the same meaning when different systems exchange them.",
         "source": "Ed-Fi Alliance, Ed-Fi Data Standard",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json"
+        ]
       },
       {
         "text": "The office's work from first enquiry to confirmed admission, then fees, attendance, exams and transport, read as one chain of steps.",
         "source": "Research area: School Operations and Process Excellence",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"
+        ]
       },
       {
         "text": "One set of records that serves every desk, so staff stop re-entering the same details.",
         "source": "Research area: Interoperability and Information Architecture",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-core-family.json"
+        ]
       },
       {
         "text": "AI drafts the wording while a person decides: nothing is written to a field until someone presses Apply.",
         "source": "Research area: AI-Native School Administration",
-        "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json", "lms_k12/components/ai/AiFieldAssistant.tsx"]
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/core-research-sources.json",
+          "lms_k12/components/ai/AiFieldAssistant.tsx"
+        ]
       }
     ],
-    "evidence": ["g2gv0/docs/client-presentation/assets/core-research-sources.json"]
+    "evidence": [
+      "g2gv0/docs/client-presentation/assets/core-research-sources.json"
+    ]
   },
   "features": {
     "groups": [
@@ -386,7 +393,8 @@
     "Fees insight rules include overdue cycles and collection by class and by fee head; Transport rules include seats over capacity and riders with no enrolment this year. The slide names only the questions, no numbers.",
     "Library: issuing a book is not built in the new Book Resources screen (see the Library sheet), so the tour says catalogue, barcodes, returns and shelf checks only.",
     "Inventory: stock balance is not fully reconciled (see the Inventory sheet), so the tour does not promise live stock levels.",
-    "Research tab: filled on 26 Nov 2026 from the owner's pasted list (UNESCO EMIS framework; UNESCO EMIS-PATT; Ed-Fi Alliance education data standard; and three areas: School Operations and Process Excellence, Interoperability and Information Architecture, AI-Native School Administration). Three things to confirm: (1) the paste lost which source belongs to which area and what 'ERP' heads, so the slide lists sources and areas side by side without pairing them; (2) the owner gave only the names of the three areas, so each area's one line is wording already checked in this tour, not a document; (3) no code or doc in the four repositories cites EMIS, EMIS-PATT or Ed-Fi, so 'Designed from' rests on the owner's list: say if it should read 'Read against' instead. Any percentage still fails the checker; no figure is shown (see assets/core-research-sources.json)."
+    "Research tab: filled on 26 Nov 2026 from the owner's pasted list (UNESCO EMIS framework; UNESCO EMIS-PATT; Ed-Fi Alliance education data standard; and three areas: School Operations and Process Excellence, Interoperability and Information Architecture, AI-Native School Administration). Three things to confirm: (1) the paste lost which source belongs to which area and what 'ERP' heads, so the slide lists sources and areas side by side without pairing them; (2) the owner gave only the names of the three areas, so each area's one line is wording already checked in this tour, not a document; (3) no code or doc in the four repositories cites EMIS, EMIS-PATT or Ed-Fi, so 'Designed from' rests on the owner's list: say if it should read 'Read against' instead. Any percentage still fails the checker; no figure is shown (see assets/core-research-sources.json).",
+    "ILLUSTRATED VERSION of the Core tour (27 Nov 2026, at the owner's request: the same design as the other four products). The text, claims, evidence and presenter notes are the checked Core text, unchanged, with ONE exception: the illustrated Intelligence step holds four modules, so it shows Fees, Inventory, Transport and Library; the original (ink) Core tour showed six (it also has Petty cash and Inward-outward; kept in content/atlas/_drafts/tour-core.ink.json). Pictures are PROVISIONAL: the free generation allowance ran out on 27 Nov, so only the figures that fit Core were taken from those already generated that day (a person carrying folders, a clerk at a desk of paper, a leader at a chart for the Principal role, a teacher at a whiteboard, a student reading); the Admission, Accounts and Operations roles show no figure because none of the available ones fits them. Core-specific figures (prompts in D:/client-presentation-assets/tour-masters/core-slots.json) are to be generated once the allowance resets (00:00 UTC) and swapped in by changing the art map: a data-only change."
   ],
   "notes": {
     "summary": "Let the three lines land one at a time. Ask: which of these desks in your school is the busiest on a Monday morning?",
@@ -396,5 +404,37 @@
     "research": "Say what each source is, not what it proves. The left three are public reference sources; the three research areas are what the office, records and AI parts of Scholar Core were read against. Do not say Scholar Core conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
     "features": "One group at a time. Do not read the lines; let them point at the group their desk is in and open that screen.",
     "roles": "Let the client name their own role first, then open it. Every use line is an illustration. For Students, say the school app is where students and families see these things, and show the staff-side screens behind it."
+  },
+  "style": "sketchbook",
+  "labels": {
+    "draft": "Draft preview",
+    "apply": "Apply",
+    "discard": "Discard"
+  },
+  "art": {
+    "summary.photo": [
+      "core-photo-summary-desk"
+    ],
+    "summary.cut1": [
+      "core-cartoon-office-folders"
+    ],
+    "problem.photo": [
+      "core-photo-problem-registers"
+    ],
+    "problem.cutout": [
+      "core-cartoon-paper-desk"
+    ],
+    "research.banner": [
+      "core-sketch-sketch-books"
+    ],
+    "roles.0": [
+      "core-cartoon-principal"
+    ],
+    "roles.3": [
+      "core-cartoon-teacher"
+    ],
+    "roles.5": [
+      "core-cartoon-student"
+    ]
   }
 }

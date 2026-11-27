@@ -9,19 +9,29 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PageTabs, TabPanel } from '@/components/shared/scaffolds/page-tabs'
+import { useUrlTab } from '@/components/shared/scaffolds/use-url-tab'
 import {
   OUTREACH_STATUSES, gtmService, outreachService,
   type GtmAccount, type GtmContact, type OutreachAttempt, type OutreachEventType, type OutreachMessage, type OutreachReadiness, type Suppression,
 } from '@/services/gtm/gtm'
-import { GtmPageHeader, errMsg, fmtDate, useGtmReady } from './gtm-shared'
+import { errMsg, fmtDate, useGtmCanWrite, useGtmReady } from '@/components/domain/gtm/gtm-shared'
 import { attemptNote, gateRefusalMessage, isCheckable, messageProductId, messageSignature } from '@/lib/outreach/model'
-import { OutreachChecks, type GateRefusal } from './outreach-checks'
+import { MESSAGE_SECTION_IDS, MESSAGE_SECTION_PARAM, type MessageSection } from '@/lib/signals/outreach-model'
+import { OutreachChecks, type GateRefusal } from '@/components/domain/gtm/outreach-checks'
+import { SmsLogSection } from './messages-sms-log'
 
 const TEXTAREA = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
 const SELECT = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
 const label = (s: string) => s.replace(/_/g, ' ')
-const SUPPRESSIONS_TAB = '__suppressions'
 const EDITABLE = ['draft', 'rejected', 'pending_approval', 'approved', 'failed']
+
+const SECTION_PREFIX = 'outreach-messages'
+const SECTIONS: ReadonlyArray<{ id: MessageSection; label: string }> = [
+  { id: 'queue', label: 'Message queue' },
+  { id: 'suppressions', label: 'Do not contact list' },
+  { id: 'sms', label: 'SMS log' },
+]
 
 /** A datetime-local value (browser time) as 'YYYY-MM-DD HH:mm:ss' in UTC, the way the rest of GTM reads server dates. */
 function toServerTime(local: string): string | undefined {
@@ -32,13 +42,32 @@ function toServerTime(local: string): string | undefined {
 }
 
 /**
- * Outreach. Every email passes through four separate steps - written, submitted, approved by a
- * person, sent - and the server re-checks everything at send time. The panel at the top says
- * plainly whether sending is possible and, if not, exactly why. Editing the text of an approved
- * message withdraws its approval and send time.
+ * The Messages view of the Outreach tab (Market Signals): what used to be the GTM Outreach screen, moved here with the same behaviour, and given two more sections. It has no page
+ * header of its own because it sits under the Outreach tabs. The section is kept in `?section=` (the Outreach tab itself uses `?view=`), so a link opens the same section:
+ *   Message queue        - every email passes through four separate steps (written, submitted, approved by a person, sent) and the server re-checks everything at send time.
+ *                          The panel at the top says plainly whether sending is possible and, if not, exactly why. Editing the text of an approved message withdraws its approval and send time.
+ *   Do not contact list  - the suppression list: addresses and domains that must never be emailed.
+ *   SMS log              - a read-only list of the text messages other screens sent. Nothing can be sent from here.
+ * Only the open section is built, so a section loads its data when it is opened.
  */
-export function OutreachView() {
+export function MessagesPanel() {
+  const [section, setSection] = useUrlTab(MESSAGE_SECTION_IDS, MESSAGE_SECTION_PARAM)
+
+  return (
+    <div className="space-y-4">
+      <p className="max-w-3xl text-sm text-muted-foreground">Emails to your contacts. Nothing is sent without a person approving that exact text, and every email carries a one-click unsubscribe link.</p>
+      <PageTabs tabs={SECTIONS} active={section} onChange={setSection} label="Message sections" idPrefix={SECTION_PREFIX} />
+      <TabPanel id="queue" active={section} idPrefix={SECTION_PREFIX}><MessageQueue /></TabPanel>
+      <TabPanel id="suppressions" active={section} idPrefix={SECTION_PREFIX}><SuppressionsTab /></TabPanel>
+      <TabPanel id="sms" active={section} idPrefix={SECTION_PREFIX}><SmsLogSection /></TabPanel>
+    </div>
+  )
+}
+
+function MessageQueue() {
   const ready = useGtmReady()
+  // Only Administrators can change GTM data (Executives read), so only they are offered the button that starts a draft. The server enforces it as well.
+  const canWrite = useGtmCanWrite()
   const [status, setStatus] = useState('')
   const [items, setItems] = useState<OutreachMessage[] | null>(null)
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -47,11 +76,10 @@ export function OutreachView() {
   const [openId, setOpenId] = useState<number | null>(null)
   const [probing, setProbing] = useState(false)
   const [creating, setCreating] = useState(false)
-  const onSuppressions = status === SUPPRESSIONS_TAB
 
   const load = useCallback(async () => {
     try {
-      const [l, r] = await Promise.all([outreachService.list(status === SUPPRESSIONS_TAB ? '' : status), outreachService.readiness()])
+      const [l, r] = await Promise.all([outreachService.list(status), outreachService.readiness()])
       setItems(l.data.items)
       setCounts(l.data.counts)
       setReadiness((prev) => ({ ...r.data, smtp: prev?.smtp ?? null }))
@@ -77,13 +105,7 @@ export function OutreachView() {
   const open = items?.find((m) => m.id === openId) ?? null
 
   return (
-    <div className="p-6">
-      <GtmPageHeader
-        title="Outreach"
-        description="Emails to your contacts. Nothing is sent without a person approving that exact text, and every email carries a one-click unsubscribe link."
-        actions={<Button onClick={() => setCreating(true)}><Plus className="mr-1 size-4" />New message</Button>}
-      />
-
+    <div>
       {readiness && (
         <div className={`mb-4 rounded-lg border p-3 text-sm ${readiness.can_send ? 'border-border' : 'border-amber-300 bg-amber-50/50'}`}>
           <div className="flex flex-wrap items-center gap-2">
@@ -108,15 +130,19 @@ export function OutreachView() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
-        {['', ...OUTREACH_STATUSES, SUPPRESSIONS_TAB].map((s) => (
-          <button key={s || 'all'} onClick={() => setStatus(s)} className={`-mb-px border-b-2 px-3 py-2 text-sm ${status === s ? 'border-primary font-medium text-primary' : 'border-transparent text-muted-foreground'}`}>
-            {s === SUPPRESSIONS_TAB ? 'Suppression list' : s ? label(s) : 'All'}{s && s !== SUPPRESSIONS_TAB && counts[s] ? ` (${counts[s]})` : ''}
-          </button>
-        ))}
+      {/* The statuses filter the queue. They are drawn as chips so they do not read as a second row of sections under the section tabs. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Show messages that are">
+          {['', ...OUTREACH_STATUSES].map((s) => (
+            <button key={s || 'all'} type="button" aria-pressed={status === s} onClick={() => setStatus(s)} className={`rounded-full border px-3 py-1 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${status === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'}`}>
+              {s ? label(s) : 'All'}{s && counts[s] ? ` (${counts[s]})` : ''}
+            </button>
+          ))}
+        </div>
+        {canWrite && <Button onClick={() => setCreating(true)}><Plus className="mr-1 size-4" />New message</Button>}
       </div>
 
-      {onSuppressions ? <SuppressionsTab /> : error ? <ErrorState title="Could not load outreach" description={error} retry={load} /> : !items ? <Skeleton className="h-40" /> : items.length === 0 ? (
+      {error ? <ErrorState title="Could not load outreach" description={error} retry={load} /> : !items ? <Skeleton className="h-40" /> : items.length === 0 ? (
         <EmptyState title="No messages" description="Write a message, or run the Outreach Agent on an account and save its draft, then submit it for approval." />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
@@ -182,7 +208,7 @@ function SuppressionsTab() {
     <div>
       <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Addresses and domains that must never be emailed. Unsubscribes, hard bounces and complaints are added automatically and cannot be removed; only entries added by hand can.</p>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select className={SELECT} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as 'email' | 'domain' })}><option value="email">Email address</option><option value="domain">Domain</option></select>
+        <select className={SELECT} aria-label="Type of entry" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as 'email' | 'domain' })}><option value="email">Email address</option><option value="domain">Domain</option></select>
         <Input className="w-64" placeholder={form.kind === 'email' ? 'name@example.com' : 'example.com'} value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} />
         <Input className="w-56" placeholder="Note (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
         <Button disabled={busy || !form.value.trim()} onClick={() => act(() => outreachService.addSuppression({ kind: form.kind, value: form.value.trim(), note: form.note.trim() || undefined }), () => setForm({ ...form, value: '', note: '' }))}>Add</Button>

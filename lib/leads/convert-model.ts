@@ -31,12 +31,17 @@ export interface ConvertForm {
 
 export const TRANSFER_LABEL: Record<ConvertTransferTarget, string> = { organization: 'Organization', contact: 'Person', opportunity: 'Opportunity' }
 
+/**
+ * Where a conversion starts (27 Nov 2026, owner: product > signal > outreach > lead > opportunity > quote, and only a customer that converts becomes an Organization): a person and an
+ * opportunity, NO organization. The Organization is made automatically when the opportunity is won; the switch stays for a lead that belongs to a company that already exists
+ * (or one to be made now).
+ */
 export function initialConvertForm(lead: Lead, defaultStage = ''): ConvertForm {
   return {
-    createOrganization: !!lead.company, useExistingOrganization: false, organizationName: lead.company ?? '', industry: lead.industry ?? '',
+    createOrganization: false, useExistingOrganization: false, organizationName: lead.company ?? '', industry: lead.industry ?? '',
     existingOrganizationId: '', existingOrganizationName: '',
     createContact: true, linkExisting: false, existingContactId: '', makePrimary: false, contactRole: '',
-    createOpportunity: false, opportunityName: null, amount: '', currency: '', closeDate: '', stage: defaultStage,
+    createOpportunity: true, opportunityName: null, amount: '', currency: '', closeDate: '', stage: defaultStage,
     assignedTo: lead.assignedTo ?? '', transferTo: null,
   }
 }
@@ -97,7 +102,7 @@ export function effectiveTransfer(form: ConvertForm, lead: Lead): ConvertTransfe
 
 /** The first thing to fix before the request is sent, in words; null when it can be sent. The sentences of the first version are kept as they were. */
 export function convertProblem(form: ConvertForm): string | null {
-  if (!form.createOrganization && !form.createContact) return 'Select at least one of Organization or Contact to create.'
+  if (!form.createOrganization && !form.createContact && !form.createOpportunity) return 'Select at least one of Organization, Contact or Opportunity to create.'
   if (form.createOrganization && !form.useExistingOrganization && form.organizationName.trim() === '') return 'Organization name is required.'
   if (form.createOrganization && form.useExistingOrganization && form.existingOrganizationId === '') return 'Choose which existing organization to use.'
   if (form.createContact && form.linkExisting && form.existingContactId === '') return 'Choose which existing Contact to attach to.'

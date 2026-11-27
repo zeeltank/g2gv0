@@ -47,14 +47,18 @@ for (const p of atlas.products) for (const sub of p.subs) {
   await sharp(src).jpeg({ quality: 88 }).toFile(dst); atlasImg.set(sub.id, { path: dst })
 }
 const imgOfSub = (sub) => atlasImg.get(sub.id) ?? null
+// the pictures of the illustrated tours (assets/tour-art.json): the web uses WebP, PowerPoint does not read it, so each becomes a PNG (cut-outs keep their alpha) or a JPEG (photographs)
+const tourArt = new Map()
+for (const p of atlas.products) for (const im of Object.values(p.tour?.art ?? {}).flat()) {
+  if (tourArt.has(im.id)) continue
+  const src = join(root, 'public', im.src.replace(/^\//, '')); if (!existsSync(src)) continue
+  const dst = join(imgDir, `tour-${im.id}.${im.kind === 'photo' ? 'jpg' : 'png'}`)
+  if (im.kind === 'photo') await sharp(src).jpeg({ quality: 88 }).toFile(dst); else await sharp(src).png().toFile(dst)
+  tourArt.set(im.id, { path: dst, w: im.w, h: im.h })
+}
 const atlasPlan = JSON.parse(readFileSync(join(root, 'lib/client-presentation/generated/atlas-plan.json'), 'utf8'))
 const atlasVideoDir = arg('atlas-video', 'D:/client-presentation-assets/atlas-video-v2')   // v2: rendered after the render page got its palette and base styles (the first set has dark text on a dark ground)
 const { list: atlasList, firstOf: atlasFirstOf, tourFirst: atlasTourFirst } = atlasOrder(atlas, atlasPlan)
-// The Scholar Core film (film-studio, docs/client-presentation/15-core-film.md) is a slide of the plan (kind 'film', slug core-film), so atlasOrder already puts
-// it after the Core opener as a video slide: it plays atlas-core-film.mp4 from the video folder (the full-quality render; the web deck uses a smaller copy).
-for (const slug of atlasPlan.filter((s) => s.kind === 'film').map((s) => s.slug)) {
-  for (const f of [`atlas-${slug}.mp4`, `atlas-${slug}-poster.jpg`]) if (!existsSync(join(atlasVideoDir, f))) console.log(`warning: ${f} is missing from ${atlasVideoDir}: the film slide will show a title instead of the film`)
-}
 
 const S = (n) => deck.slides.find((s) => s.n === n)
 const L = (s, role) => s.lines.filter((l) => l.role === role)
@@ -152,7 +156,7 @@ function make(slidesToBuild) {
       const prods = L(s, 'product').map((l) => ({ ...(([a, b]) => ({ name: a, desc: b }))(split(l.text)) }))
       const by = (n) => prods.find((p) => p.name === n); const to = { 'Scholar Core': 7, 'Scholar Learn': 8, 'Scholar CCB': 10, 'Scholar Insight': 11, 'Scholar Compass': 12 }
       const one = by('Scholar One'); rect(sl, 150, 204, 900, 60, { fill: { color: C.ink }, line: { type: 'none' } })
-      text(sl, `${one.name}   ${one.desc}`, 170, 204, 600, 60, { valign: 'middle', fontFace: HEAD, fontSize: 15, color: 'FFFFFF' });
+      text(sl, `${one.name}   ${one.desc}`, 170, 204, 860, 60, { valign: 'middle', fontFace: HEAD, fontSize: 15, color: 'FFFFFF' });   // as wide as its banner: one line (a real-font check found it wrapping to two)
       const tile = (n, x, y, w, h, fill, border) => { const p = by(n); rect(sl, x, y, w, h, { fill: { color: fill }, line: { color: border, width: 1.25 } })
         sl.addText(p.name, { x: P(x + 40), y: P(y + 18), w: P(w - 80), h: P(70), margin: 0, fontFace: HEAD, fontSize: 24, color: 'FFFFFF', hyperlink: { slide: at(to[n]), tooltip: `Open ${n}` }, isTextBox: true })
         text(sl, p.desc, x + 40, y + 92, w - 80, 50, { fontSize: 13, color: C.soft }) }
@@ -167,7 +171,7 @@ function make(slidesToBuild) {
         const col = k < 3 ? k : k - 3; const row = k < 3 ? 0 : 1; const x = k < 3 ? 140 + col * 560 : 420 + col * 560; const y = 270 + row * 340
         const poster = join(clipsDir, `${id}-h-hidden-poster.jpg`)
         if (existsSync(poster)) sl.addImage({ path: poster, x: P(x), y: P(y), w: P(520), h: P(292.5), altText: `${nm}: explainer clip`, hyperlink: { slide: at(target), tooltip: `Open ${nm}` } })
-        text(sl, `${nm}   ${desc}`, x, y + 300, 520, 34, { fontSize: 12, bold: true, color: C.onInk })
+        text(sl, `${nm}   ${desc}`, x, y + 300, 540, 34, { fontSize: 10.5, bold: true, color: C.onInk })   // one line under its poster (a real-font check found the longest caption wrapping)
       })
       text(sl, T(s, 'note'), 140, 975, 1100, 36, { fontSize: PT(26), color: C.soft })
     }); notes(sl, s, 'Click a picture to open that product slide; the clip plays there. In the web deck each product plays on this slide.') },
@@ -274,7 +278,7 @@ function make(slidesToBuild) {
     text(sl, T(s, 'brand').toUpperCase(), 140, 500, 600, 40, { bold: true, color: '7FB6FF', fontSize: 14, charSpacing: 8 }); head(sl, T(s, 'headline'), 140, 560, 760, 330, 44)
     L(s6, 'product').forEach((l, i) => { const [n, d] = split(l.text); const y = 120 + i * 132; line(sl, 1000, y, 1780, y, { line: { color: '3A5878', width: 1 } }); head(sl, n, 1000, y + 14, 520, 60, 40); text(sl, d, 1000, y + 76, 520, 40, { fontSize: 12, color: C.soft }) })
   }); notes(sl, s, `Also: ${S(6).say}`) }
-  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir, { at, firstOf: atlasFirstOf, endN: 15, tourFirst: atlasTourFirst, presenter: atlasPresenter })
+  const AB = atlasBuilders({ add, text, head, rect, line, C, HEAD, pptx, PT }, atlas, atlasNotes, imgOfSub, atlasVideoDir, { at, firstOf: atlasFirstOf, endN: 15, tourFirst: atlasTourFirst, presenter: atlasPresenter, art: tourArt })
   const atlasFn = (n) => {
     const it = atlasList.find((x) => x.n === n); if (!it) return null
     if (it.kind === 'video') return AB.video(n, it.slug, it.title, it.family)
