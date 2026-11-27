@@ -27,7 +27,7 @@ import { ProductSalesKit } from './product-sales-kit'
 import { useSalesKit } from './product-sales-kit-data'
 import { ProductSetupSteps } from './product-setup-steps'
 import { RemoveRecordDialog, type RemoveTarget } from './remove-record-dialog'
-import { ProductSignalsTab, SubProductsTab, type SubProductsData } from './product-sub-products'
+import { ProductSignalsTab, SubProductsTab, type ArchivedSubProducts, type SubProductsData } from './product-sub-products'
 import { HistoryTab } from './sub-product-tabs'
 
 const PER_PAGE = 20
@@ -48,6 +48,11 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   const [master, setMaster] = useState<MasterFacts | null>(null)
   const [masterChecked, setMasterChecked] = useState(false)
   const [archivedCount, setArchivedCount] = useState(0)
+  // The archived Sub-products are NOT in `subs`: the Sub-products tab and the Signals & ICP tab list the active ones, as the Portfolio list and the header do. They are read only when opened.
+  const [archivedSubs, setArchivedSubs] = useState<SubProductsData | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archivedBusy, setArchivedBusy] = useState(false)
+  const [archivedError, setArchivedError] = useState('')
   const [subs, setSubs] = useState<SubProductsData | null>(null)
   const [subsError, setSubsError] = useState('')
   const [subsBusy, setSubsBusy] = useState(false)
@@ -126,14 +131,16 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     setSubsError('')
     try {
       const [res, archived, record] = await Promise.all([
-        productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'all' }),
-        // The list shows archived Sub-products too (so one can be restored from here), but the count in the header and on the tab is the ACTIVE ones, like the Portfolio list's.
+        // Only the ACTIVE Sub-products (owner, 27 Nov 2026): the tab listed the archived ones too, so Sub-products that had been deleted still looked alive, 22 of them against the 6 in the Portfolio list.
+        productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'active' }),
+        // The archived ones are counted by a second read and opened on request.
         productRecordService.list({ productId: masterId, page: 1, per: 1, status: 'archived' }).catch(() => null),
         // The total is a nicety: the page works without it.
         productRecordService.get(masterId).then((r) => r.data).catch(() => null),
       ])
       setSubs({ rows: res.data, paging: res.meta, can: res.meta.can })
       setArchivedCount(archived ? archived.meta.total : 0)
+      setArchivedSubs(null)
       setTotals(record?.priceTotals ?? [])
     } catch (cause) {
       setSubsError(cause instanceof Error ? cause.message : 'The sub-products could not be loaded.')
@@ -142,6 +149,22 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
     }
   }, [masterId])
   useEffect(() => { queueMicrotask(() => { void loadSubs(1) }) }, [loadSubs])
+
+  // The archived Sub-products, read only while they are open (and again after a change that made the list re-read).
+  const loadArchived = useCallback(async (page: number) => {
+    if (masterId === undefined) return
+    setArchivedBusy(true)
+    setArchivedError('')
+    try {
+      const res = await productRecordService.list({ productId: masterId, page, per: PER_PAGE, status: 'archived' })
+      setArchivedSubs({ rows: res.data, paging: res.meta, can: res.meta.can })
+    } catch (cause) {
+      setArchivedError(cause instanceof Error ? cause.message : 'The archived sub-products could not be loaded.')
+    } finally {
+      setArchivedBusy(false)
+    }
+  }, [masterId])
+  useEffect(() => { if (showArchived && archivedSubs === null && !archivedBusy) queueMicrotask(() => { void loadArchived(1) }) }, [showArchived, archivedSubs, archivedBusy, loadArchived])
 
   // The Product's own history (its name, its status, what was archived or restored): the same list the Sub-product page shows, read with the Product's own record id.
   const loadHistory = useCallback(async (page: number) => {
@@ -210,7 +233,8 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
   // Only an administrator edits a Product's own details, and only one this organisation created (a built-in Product is shared and read only).
   const canEditProduct = product !== null && isAdmin && Boolean(product.custom) && !master?.shared && master?.status !== 'archived'
   // One number for the header and the tab: the ACTIVE Sub-products, like the Portfolio list's (the Sub-products tab also lists the archived ones, so they can be restored).
-  const activeCount = subs ? Math.max(0, subs.paging.total - archivedCount) : (product?.offers.length ?? 0)
+  const activeCount = subs ? subs.paging.total : (product?.offers.length ?? 0)
+  const archivedPart: ArchivedSubProducts = { count: archivedCount, open: showArchived, data: archivedSubs, loading: archivedBusy, error: archivedError, onToggle: () => setShowArchived((open) => !open), onPage: (p) => void loadArchived(p) }
   // A Product that exists only in the Portfolio has no setup steps, no customer summary and no signals of its own: its page is its Sub-products.
   const tabIds = productTabIds({ full: product !== null, kit: kitTab })
   const activeTab = activeProductTab(tab, tabIds)
@@ -272,7 +296,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
         </TabPanel>
       )}
       <TabPanel id="sub-products" active={activeTab} idPrefix="product-page">
-        <SubProductsTab data={subs} totals={totals} error={subsError} loading={subsBusy} canAdd={canAdd} onAdd={() => setDrawer('create-sub-product')} onPage={(p) => void loadSubs(p)} />
+        <SubProductsTab data={subs} totals={totals} error={subsError} loading={subsBusy} canAdd={canAdd} onAdd={() => setDrawer('create-sub-product')} onPage={(p) => void loadSubs(p)} archived={archivedPart} />
       </TabPanel>
       {product && (
         <TabPanel id="signals" active={activeTab} idPrefix="product-page">

@@ -65,6 +65,8 @@ export interface World {
   lastPage?: number
   /** How many archived Sub-products the Product has (the answer of the read with status 'archived'). */
   archivedCount?: number
+  /** The archived Sub-products the read with status 'archived' lists (default: the archived ones among `listRows`). */
+  archivedRows?: PmListRow[]
   /** The Products of the Portfolio (default: the fixture's). */
   everything?: ReturnType<typeof everything>
   listFails?: boolean
@@ -123,9 +125,11 @@ export async function installWorld(k: Kit, world: World = {}): Promise<Calls> {
       calls.list.push(params)
       if (world.listFails) throw new ApiError('List unavailable', 500)
       const rows = world.listRows ?? (world.listRow === null ? [] : [world.listRow ?? listRow({ id: record?.id ?? 11 })])
-      // the archived Sub-products are counted by a second read (status 'archived'): it carries only the count
-      const archivedRead = params.status === 'archived'
-      return { status: 1, data: archivedRead ? [] : rows, meta: { available: true, total: archivedRead ? (world.archivedCount ?? 0) : rows.length, page: Number(params.page ?? 1), perPage: 20, lastPage: world.lastPage ?? 1, can: { createProduct: true, createSubProduct: true, editSubProduct: true, viewSell: world.viewSell ?? true, confirmMatches: true } } }
+      // like the server: `active` (the default) leaves the archived rows out, `archived` lists them, `all` lists everything
+      const wanted = params.status === 'archived' || params.status === 'all' ? params.status : 'active'
+      const archivedRows = world.archivedRows ?? rows.filter((r) => r.status === 'archived')
+      const data = wanted === 'archived' ? archivedRows : wanted === 'all' ? rows : rows.filter((r) => r.status !== 'archived')
+      return { status: 1, data, meta: { available: true, total: wanted === 'archived' ? (world.archivedCount ?? archivedRows.length) : data.length, page: Number(params.page ?? 1), perPage: 20, lastPage: world.lastPage ?? 1, can: { createProduct: true, createSubProduct: true, editSubProduct: true, viewSell: world.viewSell ?? true, confirmMatches: true } } }
     },
     usage: async (id: number | string) => {
       calls.usage.push(id)

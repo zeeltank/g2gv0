@@ -56,11 +56,46 @@ describe('a Product page', () => {
     assert.ok(nothing.k.bodyText().includes('Product not found'), 'a key that is neither in Signals nor in the Portfolio is still not found')
   })
 
-  it('says one number for the Sub-products in the header and on the tab: the ACTIVE ones, with the archived ones named apart (the tab also lists them so they can be restored)', async () => {
+  it('says one number for the Sub-products in the header and on the tab: the ACTIVE ones, with the archived ones named apart', async () => {
     // Owner's screenshot: the header said "1 sub-product" while the tab said 6: the tab counted the archived ones too.
-    const { k } = await openProduct({ listRows: [listRow(), listRow({ id: 12, name: 'Admissions' }), listRow({ id: 13, name: 'Old thing', status: 'archived' })], archivedCount: 2 })
-    assert.ok(k.bodyText().includes('1 sub-product · 2 archived'), `the header says 1 active and 2 archived: ${k.bodyText().slice(0, 300)}`)
-    assert.ok(tabLabels(k).some((t) => /^Sub-products\s*1$/.test(t)), `the tab counts the active Sub-products only: ${tabLabels(k).join(' | ')}`)
+    const { k } = await openProduct({ listRows: [listRow(), listRow({ id: 12, name: 'Admissions' }), listRow({ id: 13, name: 'Old thing', status: 'archived' })] })
+    assert.ok(k.bodyText().includes('2 sub-products · 1 archived'), `the header says 2 active and 1 archived: ${k.bodyText().slice(0, 300)}`)
+    assert.ok(tabLabels(k).some((t) => /^Sub-products\s*2$/.test(t)), `the tab counts the active Sub-products only: ${tabLabels(k).join(' | ')}`)
+  })
+
+  it('lists only the ACTIVE Sub-products on the Sub-products tab and the Signals & ICP tab, and opens the archived ones only when asked (owner, 27 Nov 2026: 22 listed against 6)', async () => {
+    // db3: ScholarClone has 6 active and 16 archived Sub-products (7 portfolio entries and 9 catalogue items, deleted but kept as archived); the tabs listed all 22.
+    const archived = Array.from({ length: 16 }, (_, i) => listRow({ id: 100 + i, name: `Deleted thing ${i + 1}`, status: 'archived' }))
+    const active = [listRow(), ...Array.from({ length: 5 }, (_, i) => listRow({ id: 20 + i, name: `Live thing ${i + 1}` }))]
+    const { k, calls } = await openProduct({ listRows: [...active, ...archived], archivedCount: 16 })
+    await openTab(k, 'Sub-products')
+    let text = k.bodyText()
+    assert.ok(text.includes('6 sub-products'), `the tab says 6: ${text.slice(0, 300)}`)
+    assert.ok(!text.includes('Deleted thing'), 'no archived Sub-product is in the list')
+    assert.ok(text.includes('Live thing 3'), 'the active ones are')
+    assert.equal(calls.list.filter((c) => c.status === 'all').length, 0, 'nothing asks for "all" any more')
+    assert.ok(k.withText('Show 16 archived'), 'a button offers the 16 archived ones')
+    await openTab(k, 'Signals & ICP')
+    assert.ok(!k.bodyText().includes('Deleted thing'), 'the Signals & ICP tab lists only the active Sub-products too')
+    assert.ok(k.bodyText().includes('Live thing 2'))
+    await openTab(k, 'Sub-products')
+    await press(k, 'Show 16 archived')
+    await k.tick(40)
+    text = k.bodyText()
+    assert.ok(text.includes('Deleted thing 1') && text.includes('Deleted thing 16'), 'asked for, the archived ones are listed')
+    assert.ok(k.withText('Hide archived'), 'and the button now hides them again')
+    assert.ok(calls.list.some((c) => c.status === 'archived' && c.productId === 1 && Number(c.per) > 1), 'read with status archived')
+    await press(k, 'Hide archived')
+    await k.tick(20)
+    assert.ok(!k.bodyText().includes('Deleted thing 1'), 'hidden again')
+    await disposeAll()
+  })
+
+  it('has no archived button when nothing is archived', async () => {
+    const { k } = await openProduct({ listRows: [listRow(), listRow({ id: 12, name: 'Admissions' })], archivedCount: 0 })
+    await openTab(k, 'Sub-products')
+    assert.ok(!k.bodyText().includes('archived'), `nothing about archived: ${k.bodyText().slice(0, 200)}`)
+    await disposeAll()
   })
 
   it('has a History tab that lists every change of the Product, read with the Product\'s own record id, and says what is kept when there is none', async () => {
