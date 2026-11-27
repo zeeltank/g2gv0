@@ -28,7 +28,7 @@
       "Track mastery"
     ],
     "ai": [
-      "Drafts questions and lesson content for staff to review and approve",
+      "Generates questions by Bloom level, showing options and the correct answer",
       "Suggests concept tags and prerequisite links as drafts, never as facts",
       "Writes short report summaries from recorded figures only",
       "Rules decide each learning step; AI only phrases it",
@@ -63,7 +63,7 @@
         "Browse courses by class and category",
         "Open curriculum, chapters, lesson plans and question bank",
         "Upload content or draft presentations for teachers",
-        "Draft questions by Bloom level for staff review",
+        "Generate questions by Bloom level",
         "Review suggested prerequisite links between concepts"
       ],
       "research": {

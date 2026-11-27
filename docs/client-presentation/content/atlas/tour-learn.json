@@ -1,0 +1,303 @@
+{
+  "family": "learn",
+  "style": "sketchbook",
+  "labels": {
+    "draft": "Draft preview",
+    "apply": "Apply",
+    "discard": "Discard"
+  },
+  "art": {
+    "summary.photo": [
+      "learn-photo-summary-desk"
+    ],
+    "summary.cut1": [
+      "learn-cartoon-student-reading"
+    ],
+    "problem.photo": [
+      "learn-photo-problem-desk"
+    ],
+    "problem.cutout": [
+      "learn-cartoon-teacher-papers"
+    ],
+    "research.banner": [
+      "learn-sketch-sketch-books"
+    ],
+    "roles.0": [
+      "learn-cartoon-teacher-explain"
+    ],
+    "roles.1": [
+      "learn-cartoon-student-desk"
+    ],
+    "roles.2": [
+      "learn-cartoon-principal"
+    ]
+  },
+  "summary": {
+    "lines": [
+      "Teaching, assessing and tracking learning, in one place.",
+      "Courses, exams, discussion, curriculum plans and an adaptive learning engine, in one K-12 module.",
+      "One set of records, so teachers need not rebuild the picture by hand each term."
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-learn.json"
+    ]
+  },
+  "problem": {
+    "label": "An illustration, not your school",
+    "illustrative": true,
+    "beats": [
+      "It is Sunday evening and you are building next week's lessons from three different folders.",
+      "Last term's question bank is in one file, the exam blueprint in another, the lesson plan in a notebook.",
+      "Marking is on paper, so you chase submissions and compile results by hand.",
+      "Then someone asks who is falling behind, and you start the picture again from scratch."
+    ],
+    "turn": "Scholar Learn keeps content, exams, lesson plans and progress in one place.",
+    "scattered": [
+      "Question files",
+      "Marked papers",
+      "Lesson plans"
+    ],
+    "record": "One learning record",
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-learn.json"
+    ]
+  },
+  "intelligence": {
+    "lead": "Scholar Learn reads how the curriculum and the class's work connect, and shows which concept comes first and what practice step is next.",
+    "modules": [
+      {
+        "id": "learn-pal-knowledge-graph",
+        "basis": "Knowledge graph of concepts and prerequisites",
+        "asks": "Which concept must be learned before this one?"
+      },
+      {
+        "id": "learn-pal-engines",
+        "basis": "Rules and adaptive practice",
+        "asks": "What should this student practise next?"
+      },
+      {
+        "id": "learn-exam-assessment",
+        "basis": "Rules and adaptive practice",
+        "asks": "How did each class do in its exams?"
+      },
+      {
+        "id": "learn-curriculum-planning",
+        "basis": "Rules and automation",
+        "asks": "What was delivered, and what was assessed?"
+      }
+    ],
+    "close": "Rules decide each step. Teachers decide what to do.",
+    "evidence": [
+      "next_lms_erp/app/Services/PAL/Coherence/CurriculumGraphBuilder.php",
+      "next_lms_erp/app/Services/Eso/EsoPolicyService.php",
+      "next_lms_erp/app/Http/Controllers/api/lms/LmsResultDashboardApiController.php",
+      "lms_k12/app/lms/curriculum-planning/OutcomesTab.tsx",
+      "next_lms_erp/docs/adr/ADR-002-PAL-Rule-Precedence.md"
+    ]
+  },
+  "ai": {
+    "lead": "AI assists staff with drafts and wording. Rules, not AI, decide each learning step.",
+    "uses": [
+      {
+        "name": "Question generation",
+        "line": "Generates questions by Bloom level, showing options and the correct answer."
+      },
+      {
+        "name": "Concept links",
+        "line": "Suggests concept tags and prerequisite links, marked as drafts until staff approve."
+      },
+      {
+        "name": "Report summaries",
+        "line": "Writes short report summaries from recorded figures only."
+      },
+      {
+        "name": "Next-step wording",
+        "line": "Rules decide each learning step; AI only phrases it."
+      },
+      {
+        "name": "Form text",
+        "line": "Drafts text in forms such as homework and exam instructions."
+      }
+    ],
+    "guard": "Text in a form waits for Apply. Suggested tags and links stay drafts until staff approve.",
+    "control": "School administrators set AI policies, prompts and guardrails.",
+    "sample": {
+      "label": "Sample draft. Illustrative.",
+      "text": "Homework: Read chapter 4 and solve exercises 1 to 5. Write two sentences about the main idea. Submit by Friday."
+    },
+    "evidence": [
+      "lms_k12/components/ai/AiFieldAssistant.tsx",
+      "lms_k12/app/pal/new/content-model/authoring/page.tsx",
+      "next_lms_erp/app/Services/Eso/EsoPolicyService.php",
+      "next_lms_erp/app/Http/Controllers/api/PAL/AttainmentReportController.php",
+      "lms_k12/app/pal/new/administration/page.tsx"
+    ]
+  },
+  "research": {
+    "lead": "Frameworks it draws on",
+    "items": [
+      {
+        "text": "Bloom's revised taxonomy interrelates knowledge with cognitive processes; Webb's Depth of Knowledge communicates the content complexity of learning expectations and assessment items.",
+        "source": "Anderson, Krathwohl and others, Pearson; Norman Webb, WebbAlign",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+          "g2gv0/docs/client-presentation/content/atlas/part-learn.json",
+          "next_lms_erp/config/lms_content_boards.php",
+          "next_lms_erp/config/pal_content_model.php",
+          "next_lms_erp/docs/content-design-system/vocabulary.md"
+        ]
+      },
+      {
+        "text": "CASEL's framework, the CASEL Wheel, positions social and emotional competencies within classroom, school, family and community settings.",
+        "source": "CASEL, What Is SEL?, casel.org",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+          "next_lms_erp/database/neo4j/frameworks/casel.cypher",
+          "next_lms_erp/config/pal_h5p.php"
+        ]
+      },
+      {
+        "text": "The Next Generation Science Standards are K-12 science standards created through a state-led process and based on the Framework for K-12 Science Education.",
+        "source": "Achieve, Next Generation Science Standards, achieve.org",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+          "next_lms_erp/database/neo4j/frameworks/ngss.cypher",
+          "next_lms_erp/config/pal_h5p.php"
+        ]
+      },
+      {
+        "text": "The National Career Development Guidelines are a framework of career development competencies and indicators of mastery, maintained by the National Career Development Association.",
+        "source": "National Career Development Association, NCDG Framework, ncda.org",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+          "next_lms_erp/database/neo4j/frameworks/ncdg.cypher",
+          "next_lms_erp/config/pal_h5p.php"
+        ]
+      },
+      {
+        "text": "NCERT publishes the National Curriculum Framework for School Education and, separately, class-wise Learning Outcomes at the Elementary Stage.",
+        "source": "NCERT, NCF for School Education 2023; Learning Outcomes at the Elementary Stage",
+        "evidence": [
+          "g2gv0/docs/client-presentation/assets/learn-research-sources.json",
+          "next_lms_erp/config/lms_content_boards.php",
+          "next_lms_erp/app/Services/LessonIntelligence/MicroPlannerService.php"
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/assets/learn-research-sources.json"
+    ]
+  },
+  "features": {
+    "groups": [
+      {
+        "title": "Teach, plan and assess",
+        "subs": [
+          {
+            "id": "learn-teach-learn",
+            "tagline": "Courses by class, with chapters, lesson plans and question bank."
+          },
+          {
+            "id": "learn-curriculum-planning",
+            "tagline": "Month and period plans, with delivered and assessed outcomes."
+          },
+          {
+            "id": "learn-exam-assessment",
+            "tagline": "Set, collect and mark work; build papers and see results."
+          },
+          {
+            "id": "learn-engagement",
+            "tagline": "Doubts and discussion, by subject and chapter."
+          }
+        ]
+      },
+      {
+        "title": "Adaptive learning (PAL)",
+        "subs": [
+          {
+            "id": "learn-pal-content-model",
+            "tagline": "Each chapter's content in four types, authored and reviewed."
+          },
+          {
+            "id": "learn-pal-knowledge-graph",
+            "tagline": "How concepts connect through prerequisites, down to single concepts."
+          },
+          {
+            "id": "learn-pal-engines",
+            "tagline": "Rules choose each student's next step; teachers see attainment."
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      "g2gv0/docs/client-presentation/content/atlas/part-learn.json"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Teachers",
+      "who": "Subject teachers and class teachers",
+      "benefits": [
+        "Open a class's course, chapters, lesson plans and question bank from one place.",
+        "Set homework, papers and worksheets, and mark them question by question.",
+        "See a class learning map and a mistakes board for each topic."
+      ],
+      "use": "Plan next week's lessons, assign a worksheet, and check the mistakes board before the next class.",
+      "modules": [
+        "learn-teach-learn",
+        "learn-exam-assessment",
+        "learn-pal-knowledge-graph"
+      ]
+    },
+    {
+      "role": "Students",
+      "who": "Learners in the school",
+      "benefits": [
+        "Take a chapter diagnostic, then practise the step the learning engine picks.",
+        "Raise a doubt by subject and chapter, and read replies in a thread.",
+        "Submit your own homework and assignments."
+      ],
+      "use": "Take a diagnostic, practise a repair step, post a doubt, and read the teacher's reply.",
+      "modules": [
+        "learn-exam-assessment",
+        "learn-engagement",
+        "learn-pal-engines"
+      ]
+    },
+    {
+      "role": "School leaders",
+      "who": "Principals and administrators",
+      "benefits": [
+        "See the curriculum by subject and month, with NCF goals.",
+        "See exam results across the institute.",
+        "Set AI policies, prompts and guardrails for adaptive learning."
+      ],
+      "use": "Review which outcomes were delivered and assessed this month, then check exam results across classes.",
+      "modules": [
+        "learn-curriculum-planning",
+        "learn-exam-assessment",
+        "learn-pal-engines"
+      ]
+    }
+  ],
+  "owner_to_confirm": [
+    "Evidence pass of 26 Nov 2026 (read-only agent, source tables in 00-PROGRESS.md round 11) CORRECTED the first draft. The old sheet line 'drafts questions and lesson content for staff to review and approve' is NOT true: AI-generated questions are saved live (status 1) with a Hold button, and the content drawer stores AI output visible at once. Real draft-then-approve exists only for content-model tags (only approved ones are served), prerequisite links (approved or rejected), exam sheets (only Approved publish) and branching scenarios; text in a form waits for Apply and then Save. The tour says only that.",
+    "Roles: Teacher and Student are read in source. 'School leaders' (principals and administrators) rests on the admin tier of the PAL API (whole institute, writes PAL administration): inferred, confirm. There is NO academic coordinator or head-of-department role in the LMS or PAL code, so none is shown. A parent has no Learn screen (staff-only middleware blocks parents).",
+    "Menu rights per profile live in the database (tblgroupwise_rights), not in source: confirm which profiles see each Learn screen in the demo school.",
+    "Intelligence is rules and a knowledge graph, never AI. Rules are read in source (skip at mastery 0.80 or more, a prerequisite under 0.75 blocks, recheck after 2, 7, 30, 60, 180 days). The slide says 'rules decide each step', not 'show why' (no source for that). The engine's graph gate is off by default: it reads SQL prerequisite rows.",
+    "'See a class learning map and a mistakes board' is a sheet claim from round 5 (teacher-insights page): it was not re-read in this pass.",
+    "Found while verifying (not on any slide): Portfolio and Virtual Classroom call routes that do not exist and fall back to demo data; the Export PDF button has no handler; the question-bank review route, the lesson-intelligence routes and homework assign run with no middleware and trust sub_institute_id from the request body (next_lms_erp routes/api.php lines 251-255, 688-709, 299-313): a security question for the owner.",
+    "Research: from Learn's own checked line (Bloom, Webb DOK, CASEL, NGSS, NCDG, NCF, NCERT); each source opened on the web (assets/learn-research-sources.json).",
+    "Pictures: three Pexels photographs (licence read 26 Nov 2026). Cartoon and sketch art not yet chosen: generation is blocked (Canva credit quota), licensed downloads are the fallback.",
+    "Pictures: two Pexels photographs (licence read 26 Nov 2026), five GENERATED cartoon cut-outs (free Cloudflare Workers AI, FLUX.1 schnell, Apache-2.0 model; prompt, tool and terms recorded in assets/tour-art.json; terms unverified; owner approval pending: each is flagged owner_approved false until the owner has looked at it), and one public-domain chalk drawing (Degas, Bookshelves, Met Open Access CC0). The five unDraw cut-outs used on 26 Nov were replaced for one consistent look across the five products and because unDraw's licence bars automated download; their masters stay in tour-masters/learn/cc0."
+  ],
+  "notes": {
+    "summary": "Let the three lines land one at a time. Ask: where does your teachers' work live today, and how many places is that?",
+    "problem": "Tell it as their Sunday evening, not ours. Pause after 'start the picture again from scratch'. Say it is an illustration, not their school.",
+    "intelligence": "These are questions the school's own records answer, not predictions and not AI. Rules choose the practice step; the teacher decides what to do. If asked how the rules work: a student skips what they already know, a missing prerequisite is repaired first, and earlier work is rechecked after a few days.",
+    "ai": "Say exactly what is true. Text typed into a form waits for Apply and then Save. Suggested concept tags and prerequisite links stay drafts until staff approve or reject them. Do NOT say AI-generated questions wait for approval: they are saved straight away and staff can hold them. Rules, not AI, choose each learning step; AI only phrases it. If asked about control: school administrators set AI policies, prompts and guardrails in the learning-engine administration.",
+    "research": "Say what each source is, not what it proves. Bloom and the NCF/NCERT outcomes shaped the content; CASEL, NGSS and NCDG are used as tag vocabularies for framework views, not as full coverage (NGSS: the science and engineering practices only; CASEL: self-awareness is left unmapped on purpose). Do not say Scholar Learn conforms to, is assessed by, or is endorsed by any of them. No figures are shown; if asked for numbers, say none are claimed.",
+    "features": "Two groups. Let them point at the group their work is in, then open that screen. Do not read the lines.",
+    "roles": "Let the client name their own role first, then open it. Every use line is an illustration. School leaders is inferred from the admin tier: confirm before using it. There is no academic-coordinator role and no parent view of Learn."
+  }
+}

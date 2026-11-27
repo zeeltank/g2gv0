@@ -67,6 +67,16 @@ const analyse = () => {
     const x = inter(a, b); if (!x) continue
     if (x.area > 60 && x.w > 6 && x.h > 6) flag(fails, 'text-over-text', `"${a.txt}" x "${b.txt}" (${Math.round(x.w)}x${Math.round(x.h)}px)`, [a, b])
   }
+  // 1b. a cut-out picture covering text. The pictures of an illustrated tour (.sk-cut: a cartoon figure, a recoloured drawing) stand on the page, never over words;
+  // a picture is not text, so rule 1 cannot see it. The test uses the picture's own box, transparent corners included, so a figure that only looks clear still fails.
+  for (const pic of scene.querySelectorAll('.sk-cut')) {
+    if (!visible(pic)) continue
+    const pr = st(pic.getBoundingClientRect())
+    for (const t of items) {
+      const x = inter(t, pr)
+      if (x && x.area > 120 && !pic.contains(t.el)) flag(fails, 'picture-over-text', `a cut-out covers "${t.txt}" (${Math.round(x.w)}x${Math.round(x.h)}px)`, [pr, t])
+    }
+  }
   // 2. text crossing a box edge (box = element with a border or a visible background, 60 px or larger), where the text is not inside the box
   const boxEls = [...scene.querySelectorAll('*')].filter((e) => {
     if (e.closest('.cp-sr, .cp-ui, svg, .cl-root') || e.classList.contains('cp-scene') || !visible(e)) return false
@@ -98,7 +108,7 @@ const analyse = () => {
   }
   // 5. near-miss alignment: left edges 2 to 10 px apart between text blocks that are close in height and not rotated
   // (the product rail and the module pills of a product tour are badge-like controls whose positions follow their text widths: like .cp-badge, they are not content that should line up with a heading word)
-  const blocks = items.filter((t) => !t.rot && t.w > 60 && !t.el.closest('.cp-badge, .cp-credit, .cp-shot, .at-prodrail, .tr-mods, svg'))
+  const blocks = items.filter((t) => !t.rot && t.w > 60 && !t.el.closest('.cp-badge, .cp-credit, .cp-shot, .at-prodrail, .tr-mods, .sk-mods, .sk-mark, .sk-tabin, .sk-rbin, .sk-gchips, .at-top, svg'))   // .sk-tabin .sk-rbin .sk-gchips: the index tabs, the role list and the group chips are navigation whose left edges follow their text widths   // .sk-mark: a marked run inside a sentence, whose left edge is where the wrapped text happens to put it
   const seen = new Set()
   for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
     const a = blocks[i]; const b = blocks[j]; const d = Math.abs(a.x - b.x)

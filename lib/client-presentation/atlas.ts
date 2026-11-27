@@ -38,13 +38,6 @@ export interface AtlasFamily {
   ai: string[]
 }
 
-/** A rendered film of the product (public/client-presentation/film): plays on its own slide between the opener and the tour. */
-export interface AtlasFilm {
-  src: string
-  poster: string
-  seconds: number
-}
-
 export interface AtlasProduct {
   key: string
   product: string
@@ -53,8 +46,6 @@ export interface AtlasProduct {
   subs: AtlasSub[]
   /** The seven-tab product tour. A product that has one shows opener + tour instead of spotlights, how-it-works and screens (lib/client-presentation/tour.ts). */
   tour?: AtlasTour | null
-  /** The film that plays after the opener of a product with a tour. */
-  film?: AtlasFilm | null
 }
 
 export interface Atlas {
@@ -64,7 +55,7 @@ export interface Atlas {
 
 export const ATLAS = atlasJson as unknown as Atlas
 
-export type AtlasKind = 'hub' | 'opener' | 'subs' | 'glance' | 'gallery' | 'film' | 'tour'
+export type AtlasKind = 'hub' | 'opener' | 'subs' | 'glance' | 'gallery' | 'tour'
 
 export interface AtlasSlide {
   key: string
@@ -117,7 +108,6 @@ export function buildAtlasPlan(a: Atlas = ATLAS): AtlasSlide[] {
   const plan: Omit<AtlasSlide, 'key' | 'n' | 'slug'>[] = [{ kind: 'hub', theme: 'ink', title: 'Choose a product', kicker: 'Products', ghost: '', beats: 0 }]
   for (const p of filled) {
     plan.push({ kind: 'opener', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
-    if (p.tour && p.film) plan.push({ kind: 'film', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: 0 })
     if (p.tour) {
       plan.push({ kind: 'tour', theme: 'ink', title: p.product, kicker: p.k12_module, ghost: '', family: p.key, beats: tourBeats(p.tour) })
       continue
@@ -142,12 +132,6 @@ export const tourOf = (key: string): AtlasTour | null => {
   return slide?.kind === 'tour' ? (ATLAS.products.find((p) => p.key === slide.family)?.tour ?? null) : null
 }
 
-/** The film of the scene with this key, or null when the scene is not a film slide. */
-export const filmOf = (key: string): AtlasFilm | null => {
-  const slide = ATLAS_PLAN.find((s) => s.key === key)
-  return slide?.kind === 'film' ? (ATLAS.products.find((p) => p.key === slide.family)?.film ?? null) : null
-}
-
 export const productOf = (key: string): AtlasProduct | undefined => ATLAS.products.find((p) => p.key === key)
 export const HUB_KEY: string = ATLAS_PLAN[0]?.key ?? ''
 /** The scene key that opens a product. */
@@ -167,7 +151,6 @@ export function atlasSlides(plan: AtlasSlide[] = ATLAS_PLAN, a: Atlas = ATLAS): 
       : s.kind === 'opener' ? `${s.title}, ${s.kicker}: what it is, the problem it removes, the technology behind it and what could become easier.`
       : s.kind === 'subs' ? `${s.title}, ${s.kicker}: ${names}. One press of Next opens each sub-module: what it is, the problem it removes, its features, the technology behind it and what could become easier.`
       : s.kind === 'glance' ? `${s.title}: how the work flows through the product, what it runs on, and where AI and intelligence help.`
-      : s.kind === 'film' ? `${s.title}: a short silent film of the product. It starts by itself; Next skips to the tour.`
       : s.kind === 'tour' ? `${s.title}, ${s.kicker}: a tour in tabs. Next moves through them, a click opens one, and Shift with a number jumps to a tab.`
       : `${s.title}: screens from the working product, edited for this presentation. Personal details are removed.`
     return { n: s.n, id: `atlas-${s.key}`, section: 'Product Atlas', lines: [{ role: 'headline', text: s.title, kind: 'concept' }], say, ask: '', transition: '', limits: [], slots: [] }

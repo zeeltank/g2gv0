@@ -134,7 +134,9 @@ export function ConvertLeadDialog({ isOpen, onClose, onConverted, lead }: Props)
             context={context}
             create={form.createOrganization}
             onCreate={(on) => set({ createOrganization: on })}
-            note={!lead.company && <p className="mt-0.5 text-xs text-muted-foreground">This lead has no company name. Type one, or use an existing organization.</p>}
+            note={form.createOrganization
+              ? !lead.company && <p className="mt-0.5 text-xs text-muted-foreground">This lead has no company name. Type one, or use an existing organization.</p>
+              : <p className="mt-0.5 text-xs text-muted-foreground">No organization is made now. It is created automatically when the opportunity is won. Switch this on to attach the lead to an organization that already exists, or to make one now.</p>}
             useExisting={form.useExistingOrganization}
             onUseExisting={(on) => set({ useExistingOrganization: on })}
             existingId={form.existingOrganizationId}

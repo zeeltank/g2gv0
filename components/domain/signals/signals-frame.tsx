@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import type { SignalsTabKey } from '@/lib/signals-nav'
 import { SignalsHeader } from '@/components/domain/signals/signals-header'
 
-/** The one frame of every Signals screen: the shared header with its three tabs, then that screen's own content, on one aligned column. */
+/** The one frame of every Signals screen: the shared header with its four tabs, then that screen's own content, on one aligned column. */
 export function SignalsFrame({ active, children }: { active?: SignalsTabKey | string; children: ReactNode }) {
   return (
     <div className="@container w-full space-y-5 p-4 @xl:p-6">

@@ -1,22 +1,12 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { outreachHref } from '@/lib/signals/outreach-model'
 
-import { ProtectedLayout } from '@/components/auth/protected-layout'
-import { GtgAppShell } from '@/components/shell/gtg-app-shell'
-import { OutreachView } from '@/components/domain/gtm/outreach-view'
-import { PremiumPage } from '@/components/domain/signals/premium-page'
-import { SignalsFrame } from '@/components/domain/signals/signals-frame'
-
-export default function GtmOutreachPage() {
-  return (
-    <ProtectedLayout>
-      <GtgAppShell>
-        {/* Outreach is the fourth tab of the Signals header, so it is drawn under the same header and tabs as the other three. */}
-        <PremiumPage>
-          <SignalsFrame active="outreach">
-            <OutreachView />
-          </SignalsFrame>
-        </PremiumPage>
-      </GtgAppShell>
-    </ProtectedLayout>
-  )
+/**
+ * The GTM Outreach screen became the Messages view of the Outreach tab of Market Signals (27 Nov 2026; owner decision): the same queue, checks, approvals and suppression list, now beside
+ * the companies and people a message is written to. This address only sends a visitor on. A temporary (307) redirect that stays for ever: a bookmark, a saved link or an agent message
+ * carries it. The menu row behind it (`/gtm/outreach`) stays in the database with status 1 and is now the Outreach tab's rights row, so everyone who had Outreach keeps it; the sidebar
+ * does not draw it (lib/signals-nav.ts).
+ */
+export default function GtmOutreachRedirect(): never {
+  redirect(outreachHref('messages'))
 }

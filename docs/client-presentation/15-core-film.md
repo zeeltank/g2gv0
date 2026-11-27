@@ -1,3 +1,5 @@
+> **Removed from the decks on 26 Nov 2026 at the owner's request (he did not like it).** It no longer plays in the web deck or the PowerPoint, and its `film` plan kind, scene and web copy are deleted. The source below (`film-studio/`) stays in git only as a record.
+
 # 15. The Scholar Core film (26 Nov 2026)
 
 An 82-second silent product film for Scholar Core, built as ONE continuous 3D world that a camera travels through: a real school-office desk, a wall of the 25 real K12 screens, the six modules that ask questions of the school's records, an AI draft that waits for a person, and six role stages. 1920x1080, 30 fps, no audio (captions only). All words are the checked text of the Scholar Core tour (`lib/client-presentation/generated/atlas.json`, `tour`), so nothing is typed twice and nothing is claimed that the tour does not say.

@@ -17,9 +17,6 @@ import type { LinkedProject } from '@/components/domain/crm/crm-projects-tab'
 import type { OrganizationCrossModuleLinks } from '@/components/domain/crm/crm-cross-links-tab'
 import type {
   CampaignTargetEvent,
-  OutreachApprovalListResponse,
-  OutreachApprovalPayload,
-  OutreachApprovalResponse,
   CampaignListQuery,
   CrmAddCommentResponse,
   CrmAuditEntry,
@@ -1364,27 +1361,8 @@ export const crmService = {
       event, ...baseParams(context),
     }),
 
-  // ── Phase 1 Automation: outreach approvals ───────────────────────────
-  getOutreachApprovals: (context: LaravelContext, status?: string, page = 1) =>
-    apiClient.get<OutreachApprovalListResponse>('/crm/outreach-approvals', {
-      ...baseParams(context),
-      ...(status ? { status } : {}),
-      page: String(page),
-    }),
-
-  createOutreachApproval: (context: LaravelContext, payload: OutreachApprovalPayload) =>
-    apiClient.post<OutreachApprovalResponse>('/crm/outreach-approvals', { ...payload, ...baseParams(context) }),
-
-  approveOutreach: (context: LaravelContext, id: string) =>
-    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/approve`, baseParams(context)),
-
-  rejectOutreach: (context: LaravelContext, id: string, rejectionReason: string) =>
-    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/reject`, {
-      rejection_reason: rejectionReason, ...baseParams(context),
-    }),
-
-  markOutreachSent: (context: LaravelContext, id: string) =>
-    apiClient.post<OutreachApprovalResponse>(`/crm/outreach-approvals/${id}/mark-sent`, baseParams(context)),
+  // The outreach approvals calls (list, create, approve, reject, mark sent) were removed on 27 Nov 2026 with the Outreach Approvals screen, the only code that used them: the queue was
+  // a ledger that nothing sent from, and no screen created its rows. Messages are now written, approved and sent in the Outreach tab of Market Signals (GTM outreachService).
 
   // ── Phase 2: Signal Inbox ────────────────────────────────────────────────
 

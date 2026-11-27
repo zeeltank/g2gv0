@@ -82,15 +82,20 @@ describe('Convert to opportunity', () => {
     const dialog = s.k.one('[role="dialog"]')!
     assert.ok(dialog.textContent?.includes('Add a person (optional)'))
     assert.ok(dialog.textContent?.includes('The signal suggests: The principal'), 'the stakeholder text is only a suggestion')
+    assert.equal((s.k.one('[name="convert-opp-name"]') as HTMLInputElement).value, 'Greenfield School - Opens a new campus')
+    // The new lifecycle (27 Nov 2026): no organization now, it is made when the opportunity is won. A switch brings it back, prefilled from the signal's company.
+    assert.equal((s.k.one('#convert-org') as HTMLInputElement).checked, false, 'the organization is off to begin with')
+    assert.equal(s.k.one('[name="convert-org-name"]'), null, 'no organization fields while it is off')
+    assert.ok(dialog.textContent?.includes('No organization is made now. It is created automatically when the opportunity is won.'))
+    assert.equal(s.k.one('#convert-opportunity'), null, 'the opportunity is always made: no switch')
+    await s.k.click(s.k.one('#convert-org')!)
+    await s.k.tick(40)
     assert.equal((s.k.one('[name="convert-org-name"]') as HTMLInputElement).value, 'Greenfield School')
     assert.equal((s.k.one('[name="convert-org-industry"]') as HTMLSelectElement).value, 'Education')
-    assert.equal((s.k.one('[name="convert-opp-name"]') as HTMLInputElement).value, 'Greenfield School - Opens a new campus')
-    assert.equal(s.k.one('#convert-org'), null, 'the organization is always made or chosen: no switch')
-    assert.equal(s.k.one('#convert-opportunity'), null, 'and so is the opportunity')
     assert.equal(s.k.one('[data-new-person]'), null, 'no person fields until a person is added')
   })
 
-  it('sends the organization and the opportunity alone when no person is added, then shows the opportunity, its link and "Opportunity created"', async () => {
+  it('sends the opportunity alone, with no organization, when no person is added, then shows the opportunity, its link and "Opportunity created"', async () => {
     const funnel = fakeFunnel()
     const s = await open(SIGNAL, funnel)
     await s.k.click(s.k.withText('Convert to opportunity')!)
@@ -102,7 +107,7 @@ describe('Convert to opportunity', () => {
     assert.equal(funnel.converted.length, 1)
     assert.deepEqual(funnel.converted[0], {
       id: 7,
-      body: { organizationName: 'Greenfield School', industry: 'Education', opportunity: { name: 'Greenfield School - Opens a new campus', stage: 'Prospecting' } },
+      body: { createOrganization: false, opportunity: { name: 'Greenfield School - Opens a new campus', stage: 'Prospecting' } },
     })
     assert.ok(s.k.bodyText().includes('Opportunity created'))
     assert.equal(s.link('Open opportunity')?.getAttribute('href'), '/module/crm/sales/opportunities/9')
@@ -143,5 +148,23 @@ describe('Convert to opportunity', () => {
 
     assert.equal(s.k.one('[role="dialog"] [role="alert"]')?.textContent, 'Choose a company from the list.')
     assert.ok(s.k.one('[role="dialog"]'), 'the pop-up stays open so it can be corrected')
+  })
+})
+
+describe('Convert to opportunity: an organization is still possible, by choice', () => {
+  afterEach(async () => { await disposeAll() })
+
+  it('makes the organization now when the switch is on, and sends its name and industry', async () => {
+    const funnel = fakeFunnel()
+    const s = await open(SIGNAL, funnel)
+    await s.k.click(s.k.withText('Convert to opportunity')!)
+    await s.k.tick(80)
+    await s.k.click(s.k.one('#convert-org')!)
+    await s.k.tick(40)
+
+    await s.k.click(s.k.withText('Convert')!)
+    await s.k.tick(60)
+
+    assert.deepEqual(funnel.converted[0].body, { createOrganization: true, organizationName: 'Greenfield School', industry: 'Education', opportunity: { name: 'Greenfield School - Opens a new campus', stage: 'Prospecting' } })
   })
 })

@@ -8,8 +8,9 @@ import { BUSY_TEXT, CLAIMS_FORBIDDEN_TEXT, FORBIDDEN_TEXT, NETWORK_TEXT, NO_CLAI
 import { gateCalls, screenKit, server, type Call, type Server } from './screen-kit'
 
 /**
- * The GTM Outreach screen as a person meets it: the real list, the real message dialog, the real service clients, only the network replaced. The send,
- * approve and cancel controls in these tests are the screen's OWN, pressed only to see what the Checks section does with their answers.
+ * The Messages view of the Outreach tab (Market Signals) as a person meets it, which is the GTM Outreach screen moved there on 27 Nov 2026: the real list, the real message dialog, the
+ * real service clients, only the network replaced. The send, approve and cancel controls in these tests are the screen's OWN, pressed only to see what the Checks section does with their
+ * answers. What the move added (the sections, the Do not contact list, the SMS log) is tested in lib/outreach/messages-sections.test.tsx.
  */
 
 const deferred = <T,>() => {
@@ -20,8 +21,8 @@ const deferred = <T,>() => {
 
 async function open(srv: Server = {}, opts: { openRow?: boolean } = {}) {
   const screen = await screenKit({ respond: server(srv) })
-  const { OutreachView } = await import('../../components/domain/gtm/outreach-view')
-  await screen.mount(screen.k.h(OutreachView, {}), 80)
+  const { MessagesPanel } = await import('../../components/domain/signals/outreach/messages-panel')
+  await screen.mount(screen.k.h(MessagesPanel, {}), 80)
   const { k } = screen
   ;(k.w as unknown as { confirm: () => boolean }).confirm = () => true
   const press = async (el: Element | null | undefined) => { assert.ok(el, 'the control exists'); await k.click(el); await k.tick(40) }

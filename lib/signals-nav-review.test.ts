@@ -7,7 +7,7 @@ import { collapseSignalsNav, SIGNALS_TABS, visibleSignalsTabs } from './signals-
 /**
  * The Signal Review row (menu 506) is retired as a screen (merged into Market Signals, 13 Nov 2026) but stays in the database with status 1, because a
  * Role & Permissions save deletes the rights of every row that is not status 1. So the sidebar must never draw it, whatever a person's rights, and a visit to its
- * old address must highlight Market Signals. Written beside lib/signals-screen.test.ts, which pins the three tabs and stays as it is.
+ * old address must highlight Market Signals. Written beside lib/signals-screen.test.ts, which pins the four tabs and stays as it is.
  */
 
 const leaf = (id: number, label: string, accessLink: string | null): NavNode => ({ id: String(id), label, accessLink, children: [] })
@@ -47,14 +47,14 @@ describe('the sidebar never shows Signal Review', () => {
     assert.deepEqual(withRow.owners, without.owners)
   })
 
-  it('leaves Market Signals a flat link to /signals with no children, and the three tabs as they are', () => {
+  it('leaves Market Signals a flat link to /signals with no children, and the four tabs as they are', () => {
     const result = collapseSignalsNav([crm([signalsBranch(), REVIEW()])])
     const marketSignals = result.modules[0].children.find((c) => c.id === '489')!
     assert.equal(marketSignals.accessLink, '/signals')
     assert.deepEqual(marketSignals.children, [])
-    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
-    assert.deepEqual(visibleSignalsTabs(result.tabs).map((t) => t.href), ['/signals', '/ingestion', '/portfolio'])
-    for (const href of ['/signals', '/ingestion', '/portfolio', '/signals/portfolio']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
+    assert.deepEqual(SIGNALS_TABS.map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'])
+    assert.deepEqual(visibleSignalsTabs(result.tabs).map((t) => t.href), ['/signals', '/ingestion', '/portfolio', '/gtm/outreach'])
+    for (const href of ['/signals', '/ingestion', '/portfolio', '/signals/portfolio', '/gtm/outreach', '/signals/outreach']) assert.deepEqual(result.owners[href], { moduleId: '199', menuId: '489', submenuId: '489' }, href)
   })
 
   it('drops it wherever it is nested, under either address or by its name, and keeps its neighbours', () => {

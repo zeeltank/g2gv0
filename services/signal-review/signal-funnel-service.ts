@@ -3,6 +3,8 @@ import type { SignalConvertResponse } from './signal-types'
 
 /** What "Convert to opportunity" sends (hp_erp S20): the same choices as the Convert Lead pop-up, with the person optional. Every field is optional. */
 export interface SignalConvertBody {
+  /** `false` makes the opportunity with NO organization: the customer's Organization is made when it is won (27 Nov 2026). Left out, the server makes one as it always did. */
+  createOrganization?: boolean
   organizationName?: string
   industry?: string
   existingOrganizationId?: number

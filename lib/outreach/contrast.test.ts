@@ -39,7 +39,7 @@ const lines = (file: string) => readFileSync(file, 'utf8').split(/\r?\n/)
 const mine = [root('components/domain/gtm/outreach-checks.tsx'), root('components/domain/gtm/outreach-claims.tsx'), root('lib/outreach/tones.ts')]
 
 /** The file this track only added to: only the lines that use a new part are scanned (the rest were there before and are not this track's to judge). */
-const edited = { file: root('components/domain/gtm/outreach-view.tsx'), marker: /\bOutreachChecks\b|GateRefusal|gateRefusalMessage|attemptNote|data-gate-blocked|\brefusals?\b|isCheckable|messageSignature|messageProductId/ }
+const edited = { file: root('components/domain/signals/outreach/messages-panel.tsx'), marker: /\bOutreachChecks\b|GateRefusal|gateRefusalMessage|attemptNote|data-gate-blocked|\brefusals?\b|isCheckable|messageSignature|messageProductId/ }
 
 function scan(file: string, marker: RegExp | null, offends: (line: string) => boolean): string[] {
   const found: string[] = []
@@ -56,7 +56,7 @@ const STATUS_TINT = (line: string) => /\b(?:bg|border)-(?:success|warning|destru
 
 describe('the new components keep to those looks (a scan, because the bug was a class string)', () => {
   it('the scan really reads what it is meant to (the marker finds lines in the edited file, and the new files are not empty)', () => {
-    assert.ok(scan(edited.file, edited.marker, () => true).length >= 5, 'the marker finds the lines this track added to outreach-view.tsx')
+    assert.ok(scan(edited.file, edited.marker, () => true).length >= 5, 'the marker finds the lines this track added to messages-panel.tsx')
     for (const file of mine) assert.ok(lines(file).length > 20, `${path.basename(file)} is read`)
   })
 
