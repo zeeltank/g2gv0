@@ -18,7 +18,6 @@ import type { PmHistoryRow, PmPaging, PmPriceTotal } from '@/services/product-ma
 import type { PmMeta } from '@/services/product-master/types'
 import { PremiumHeader } from '@/components/domain/signals/premium-page'
 import { useProducts } from '@/components/domain/signals/product-selector'
-import { SubProductIcpBadge } from './icp-status-badge'
 import { ProductEditDialog } from './product-edit-dialog'
 import { ArchivedChip, SharedChip } from './portfolio-chips'
 import { ProductFormDrawer } from './product-form-drawer'
@@ -223,7 +222,7 @@ export function ProductDetailView({ context, productKey }: { context: LaravelCon
       {back}
       <PremiumHeader
         title={title}
-        badge={<span className="flex flex-wrap items-center gap-2">{product && <SubProductIcpBadge product={product} />}{master?.shared && <SharedChip />}{master?.status === 'archived' && <ArchivedChip />}</span>}
+        badge={<span className="flex flex-wrap items-center gap-2">{master?.shared && <SharedChip />}{master?.status === 'archived' && <ArchivedChip />}</span>}
         description={description}
         actions={
           <>
