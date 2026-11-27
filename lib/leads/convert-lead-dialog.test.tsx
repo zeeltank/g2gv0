@@ -33,6 +33,12 @@ interface Setup {
   lead?: Lead
   answer?: unknown
   hasRealName?: boolean
+  /**
+   * The pop-up now starts the NEW way (27 Nov 2026: a person and an opportunity, no organization). Most of this file is about what the organization and the plain conversion
+   * do, so by default it switches the old starting state on through the real switches (organization on when the lead has a company, opportunity off). `legacy: false` is the
+   * pop-up as a person first meets it.
+   */
+  legacy?: boolean
 }
 
 async function open(setup: Setup = {}) {
@@ -56,6 +62,11 @@ async function open(setup: Setup = {}) {
   await screen.mount(screen.k.h(ConvertLeadDialog, { isOpen: true, onClose: () => { closed += 1 }, onConverted: (m: string) => { converted.push(m) }, lead: theLead }), 120)
   const { k } = screen
   const doc = k.w.document
+  if (setup.legacy !== false) {
+    if (theLead.company) { await k.click(k.one('#convert-org')!); await k.tick(40) }
+    await k.click(k.one('#convert-opportunity')!)
+    await k.tick(40)
+  }
 
   /** The control a label names (the app's Field ties the two with a generated id). */
   const control = (text: string) => {
@@ -111,11 +122,13 @@ describe('the Convert Lead pop-up: structure', () => {
     s.restore()
   })
 
-  it('says so when the lead has no company, and then starts with the organization off', async () => {
+  it('says so when the lead has no company and the organization is switched on, and starts with the organization off', async () => {
     const s = await open({ lead: lead({ assignedTo: '2', company: null }) })
-    assert.ok(s.k.bodyText().includes('This lead has no company name'))
     assert.equal((s.k.one('#convert-org') as HTMLInputElement).checked, false)
     assert.equal(s.k.one('[data-details="organization"]'), null)
+    assert.ok(!s.k.bodyText().includes('This lead has no company name'), 'nothing to say about a company that is not being made')
+    await s.flip('convert-org')
+    assert.ok(s.k.bodyText().includes('This lead has no company name'))
     s.restore()
   })
 
@@ -217,13 +230,27 @@ describe('the Convert Lead pop-up: the person', () => {
     s.restore()
   })
 
-  it('refuses a conversion that makes neither an organization nor a person, in the words it always used', async () => {
-    const s = await open()
+  it('refuses a conversion that makes nothing at all, and says the opportunity counts too', async () => {
+    const s = await open()   // organization on, opportunity off (the old start)
     await s.flip('convert-org')
     await s.flip('convert-contact')
     await s.convert()
     assert.equal(s.posts().length, 0)
-    assert.equal(s.error(), 'Select at least one of Organization or Contact to create.')
+    assert.equal(s.error(), 'Select at least one of Organization, Contact or Opportunity to create.')
+    s.restore()
+  })
+
+  it('accepts an opportunity on its own: no organization and no person is needed', async () => {
+    const s = await open()
+    await s.flip('convert-org')
+    await s.flip('convert-contact')
+    await s.flip('convert-opportunity')
+    await s.convert()
+    assert.equal(s.posts().length, 1)
+    assert.equal(s.error(), null)
+    assert.equal(s.sent().createOrganization, false)
+    assert.equal(s.sent().createContact, false)
+    assert.equal(s.sent().createOpportunity, true)
     s.restore()
   })
 
@@ -418,5 +445,43 @@ describe('the Convert Lead pop-up: accessibility and the phone width', () => {
     const grids = lines.filter((l) => l.includes('grid-cols-2'))
     assert.ok(grids.length > 0 && grids.every((l) => l.includes('sm:grid-cols-2') && l.includes('grid-cols-1')), 'one column on a phone')
     assert.equal(lines.filter((l) => /\bml-\[3\.25rem\]/.test(l)).every((l) => l.includes('sm:ml-[3.25rem]')), true, 'the indent is only from a tablet up')
+  })
+})
+
+describe('the Convert Lead pop-up: the new lifecycle (a person and an opportunity, no organization)', () => {
+  afterEach(async () => { await disposeAll() })
+
+  it('starts with the person and the opportunity on and the organization off, and says the organization is made when the opportunity is won', async () => {
+    const s = await open({ legacy: false })
+    assert.equal((s.k.one('#convert-org') as HTMLInputElement).checked, false)
+    assert.equal((s.k.one('#convert-contact') as HTMLInputElement).checked, true)
+    assert.equal((s.k.one('#convert-opportunity') as HTMLInputElement).checked, true)
+    assert.equal(s.k.one('[data-details="organization"]'), null, 'no organization fields while it is off')
+    assert.ok(s.k.one('[data-details="opportunity"]'), 'the opportunity fields are there')
+    assert.ok(s.k.bodyText().includes('No organization is made now. It is created automatically when the opportunity is won.'))
+    s.restore()
+  })
+
+  it('sends a conversion with no organization and no organization fields, and the opportunity named after the company and the lead', async () => {
+    const s = await open({ legacy: false })
+    await s.convert()
+    assert.equal(s.posts().length, 1)
+    const sent = s.sent()
+    assert.equal(sent.createOrganization, false)
+    assert.equal(sent.createContact, true)
+    assert.equal(sent.createOpportunity, true)
+    for (const key of ['organizationName', 'industry', 'existingOrganizationId']) assert.ok(!(key in sent), `no ${key}`)
+    assert.equal((sent.opportunity as { name: string }).name, 'Hillcrest Academy - Asha Menon')
+    s.restore()
+  })
+
+  it('still lets a person attach the lead to an organization that exists, by switching it on', async () => {
+    const s = await open({ legacy: false })
+    await s.flip('convert-org')
+    assert.ok(s.k.one('[data-details="organization"]'))
+    assert.ok(!s.k.bodyText().includes('No organization is made now'), 'the note goes once the organization is on')
+    await s.convert()
+    assert.equal(s.sent().createOrganization, true)
+    s.restore()
   })
 })

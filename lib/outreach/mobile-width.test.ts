@@ -66,7 +66,7 @@ describe('the Checks section at a phone width', () => {
   })
 
   it('sits inside the message dialog, which scrolls on its own and is as wide as the screen allows', () => {
-    const view = read('components/domain/gtm/outreach-view.tsx')
+    const view = read('components/domain/signals/outreach/messages-panel.tsx')
     const content = lines(view).find((l) => l.includes('<DialogContent className="max-h-[88vh]'))
     assert.match(content ?? '', /\boverflow-y-auto\b/)
     assert.match(content ?? '', /\bmax-w-2xl\b/)

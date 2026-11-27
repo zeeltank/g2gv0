@@ -164,7 +164,8 @@ export const COVERAGE_REGISTRY: readonly CoverageRow[] = [
   row('crm', 'S3', 'Organisations', `${CRM}/marketing/organizations`),
   row('crm', 'S4', 'Contacts', `${CRM}/marketing/contacts`),
   row('crm', 'S5', 'Campaigns (CRM)', `${CRM}/marketing/campaigns`),
-  row('crm', 'S6', 'Outreach approvals', `${CRM}/marketing/outreach-approvals`),
+  // S6: the Outreach Approvals screen was retired into the Messages view of the Outreach tab of Market Signals (27 Nov 2026); the old address is only a redirect, so the row points at the tab.
+  row('crm', 'S6', 'Outreach approvals', '/signals/outreach'),
   row('crm', 'S7', 'Quotes', `${CRM}/sales/quotes`),
   row('crm', 'S8', 'Products and services', `${CRM}/sales/products`),
   row('crm', 'S9', 'Price books', `${CRM}/sales/price-books`),

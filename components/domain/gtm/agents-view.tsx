@@ -332,7 +332,7 @@ function SaveDraft({ analysisId }: { analysisId: number }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <Button size="sm" disabled={state.busy || state.done !== null} onClick={save}>{state.busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : null}Save as draft{state.done !== null ? 'd' : ''}</Button>
-      {state.done !== null && <span className="text-xs text-green-700">Saved {state.done} draft(s). Review and submit them for approval under Outreach.</span>}
+      {state.done !== null && <span className="text-xs text-green-700">Saved {state.done} draft(s). Review and submit them for approval in Outreach, under Market Signals.</span>}
       {state.error && <span className="text-xs text-destructive">{state.error}</span>}
       <span className="text-xs text-muted-foreground">Nothing is sent: a person must approve each message first.</span>
     </div>

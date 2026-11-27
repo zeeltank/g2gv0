@@ -2,7 +2,6 @@ import { createLazyComponent, type ContentRoute } from './use-content-map-utils'
 
 // Phase 1-4 Automation CRM screens
 const SignalInboxListView = createLazyComponent(() => import('@/domain/crm/signal-inbox-list-view').then((m) => ({ default: m.SignalInboxListView })))
-const OutreachApprovalListView = createLazyComponent(() => import('@/domain/crm/outreach-approval-list-view').then((m) => ({ default: m.OutreachApprovalListView })))
 const AgentRunListView = createLazyComponent(() => import('@/domain/crm/agent-run-list-view').then((m) => ({ default: m.AgentRunListView })))
 const ConsentListView = createLazyComponent(() => import('@/domain/crm/consent-list-view').then((m) => ({ default: m.ConsentListView })))
 
@@ -13,7 +12,6 @@ const CampaignListView = createLazyComponent(() => import('@/domain/crm/campaign
 // Sales phase. Each of these is a real, working list view screen.
 const OpportunityListView = createLazyComponent(() => import('@/domain/crm/opportunity-list-view').then((m) => ({ default: m.OpportunityListView })))
 const QuoteListView = createLazyComponent(() => import('@/domain/crm/quote-list-view').then((m) => ({ default: m.QuoteListView })))
-const SmsLogListView = createLazyComponent(() => import('@/domain/crm/sms-log-list-view').then((m) => ({ default: m.SmsLogListView })))
 const SalesOrderListView = createLazyComponent(() => import('@/domain/crm/sales-order-list-view').then((m) => ({ default: m.SalesOrderListView })))
 const InvoiceListView = createLazyComponent(() => import('@/domain/crm/invoice-list-view').then((m) => ({ default: m.InvoiceListView })))
 
@@ -37,7 +35,6 @@ const MarketSignalsView = createLazyComponent(() => import('@/domain/crm/market-
 const CommandCenterView = createLazyComponent(() => import('@/domain/gtm/command-center-view').then((m) => ({ default: m.CommandCenterView })))
 const PlaybooksView = createLazyComponent(() => import('@/domain/gtm/playbooks-view').then((m) => ({ default: m.PlaybooksView })))
 const CampaignsView = createLazyComponent(() => import('@/domain/gtm/campaigns-view').then((m) => ({ default: m.CampaignsView })))
-const OutreachView = createLazyComponent(() => import('@/domain/gtm/outreach-view').then((m) => ({ default: m.OutreachView })))
 const CustomersView = createLazyComponent(() => import('@/domain/gtm/customers-view').then((m) => ({ default: m.CustomersView })))
 const AgentsView = createLazyComponent(() => import('@/domain/gtm/agents-view').then((m) => ({ default: m.AgentsView })))
 const MonitoringView = createLazyComponent(() => import('@/domain/gtm/monitoring-view').then((m) => ({ default: m.MonitoringView })))
@@ -68,9 +65,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/campaigns', component: CampaignsView },
   { accessLink: '/module/crm/marketing/campaigns', component: CampaignListView },
 
-  // 8. Outreach & Approvals Queue
-  { accessLink: '/gtm/outreach', component: OutreachView },
-  { accessLink: '/module/crm/marketing/outreach-approvals', component: OutreachApprovalListView },
+  // 8. Outreach and the Outreach Approvals queue were merged into the Messages view of the Outreach tab of Market Signals (27 Nov 2026). The two old addresses are redirect pages under
+  // app/gtm/outreach and app/module/crm/marketing/outreach-approvals, so nothing is mapped here.
 
   // 9. Lead Qualification
   { accessLink: '/module/crm/marketing/leads', component: LeadListView },
@@ -100,8 +96,8 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/gtm/customers', component: CustomersView },
   { accessLink: '/module/crm/customers', component: CustomersView },
 
-  // 22. SMS Notification Logs
-  { accessLink: '/module/crm/sales/sms-notifier', component: SmsLogListView },
+  // 22. SMS Notifier is the SMS log section of the Messages view of the Outreach tab (27 Nov 2026). Both old addresses (Sales and Support) are redirect pages under
+  // app/module/crm/{sales,support}/sms-notifier, so nothing is mapped here.
 
   // 23. Autonomous AI Agents Hub
   { accessLink: '/gtm/agents', component: AgentsView },
@@ -134,5 +130,4 @@ export const CRM_CONTENT: ContentRoute[] = [
   { accessLink: '/module/crm/support/service-contracts', component: ServiceContractListView },
   { accessLink: '/module/crm/support/email-templates', component: EmailTemplateListView },
   { accessLink: '/module/crm/support/organizations', component: OrganizationListView },
-  { accessLink: '/module/crm/support/sms-notifier', component: SmsLogListView },
 ]

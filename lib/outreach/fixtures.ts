@@ -83,3 +83,21 @@ export const REFUSAL_TEXT = 'The outreach checks stopped this message. No banned
 export function attempt(over: Record<string, unknown> = {}) {
   return { id: 1, message_id: 11, attempt: 1, outcome: 'refused', code: 'gate_blocked', detail: REFUSAL_TEXT, scheduled: 1, actor_id: null, created_at: '2026-11-04 10:00:00', ...over }
 }
+
+/** A row of GET /api/gtm/suppressions. */
+export function suppression(over: Record<string, unknown> = {}) {
+  return { id: 5, kind: 'domain', value: 'example.org', reason: 'unsubscribe', note: null, created_by: null, created_at: '2026-11-02 09:00:00', ...over }
+}
+
+export function suppressionsAnswer(items: unknown[] = [suppression(), suppression({ id: 6, kind: 'email', value: 'blocked@example.net', reason: 'manual', note: 'asked us to stop' })]) {
+  return { status: 1, data: { items, total: items.length, reasons: ['manual', 'unsubscribe', 'bounce', 'complaint'] } }
+}
+
+/** A row of GET /api/crm/sms-log, in the camelCase the CRM API writes (types/crm.ts CrmSmsLogEntry). */
+export function smsEntry(over: Record<string, unknown> = {}) {
+  return { id: '71', toNumber: '+91 98765 43210', message: 'Your demo is booked for Monday at 11 am.', status: 'sent', errorReason: null, relatedType: 'lead', relatedId: '41', sentBy: null, createdAt: '2026-11-03 10:15:00', ...over }
+}
+
+export function smsLogAnswer(items: unknown[] = [smsEntry(), smsEntry({ id: '72', toNumber: '+91 91234 56789', message: 'Reminder: your invoice is due.', status: 'failed', errorReason: 'No SMS gateway configured for this tenant.' })], total?: number) {
+  return { status: 1, message: 'SMS log.', data: { items, pagination: { current_page: 1, last_page: Math.max(1, Math.ceil((total ?? items.length) / 20)), per_page: 20, total: total ?? items.length } } }
+}

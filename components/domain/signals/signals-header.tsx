@@ -6,7 +6,7 @@ import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
 import { visibleSignalsTabs, type SignalsTabKey } from '@/lib/signals-nav'
 
 /**
- * The top of every Signals screen: the title, one line of guidance, and the three Signals screens as tabs. Each tab is a link to that screen's own
+ * The top of every Signals screen: the title, one line of guidance, and the four Signals screens as tabs. Each tab is a link to that screen's own
  * route, so deep links keep working and nothing is duplicated in the sidebar. The tabs stay visible even when a deployment's sidebar menu data is incomplete.
  */
 export function SignalsHeader({ active, className = '' }: { active?: SignalsTabKey | string; className?: string }) {
@@ -20,7 +20,7 @@ export function SignalsHeader({ active, className = '' }: { active?: SignalsTabK
         <p className="text-sm text-muted-foreground">Find, review and act on buying signals for each of your products.</p>
       </div>
       <nav aria-label="Signals sections">
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {tabs.map((t) => (
             <li key={t.key}>
               <Link
